@@ -249,17 +249,41 @@ tbody td{padding:10px 12px;color:var(--text);vertical-align:middle;}
 
     <!-- PASO 2: Login con Google -->
     <div class="login-step" id="login-step-2">
-      <div class="setup-hint" style="margin-bottom:18px;text-align:center;">
-        ✅ Client ID configurado.<br>Ahora inicia sesión con tu cuenta Google.
+
+      <!-- Client ID editable inline -->
+      <div style="margin-bottom:18px;text-align:left;">
+        <label class="client-id-label" style="display:flex;align-items:center;justify-content:space-between;">
+          <span>Google Client ID</span>
+          <button onclick="toggleEditClientId()" id="btn-edit-toggle"
+            style="background:transparent;border:none;color:var(--accent);font-size:.75rem;cursor:pointer;font-family:var(--font-body);font-weight:600;text-decoration:underline;">
+            ✏️ Editar
+          </button>
+        </label>
+
+        <!-- Vista solo lectura -->
+        <div id="clientid-readonly" style="background:var(--card2);border:1px solid var(--border);border-radius:9px;padding:10px 14px;font-size:.76rem;color:var(--muted);font-family:monospace;word-break:break-all;text-align:left;margin-bottom:4px;">
+        </div>
+
+        <!-- Vista edición (oculta por defecto) -->
+        <div id="clientid-edit-wrap" style="display:none;">
+          <input class="client-id-input" type="text" id="login-client-id-2"
+            placeholder="xxxxxxx.apps.googleusercontent.com"
+            style="margin-bottom:8px;">
+          <div style="display:flex;gap:8px;">
+            <button class="btn-setup" style="flex:1;padding:9px;" onclick="saveClientIdInline()">✓ Guardar</button>
+            <button onclick="toggleEditClientId()"
+              style="flex:0 0 auto;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:9px;padding:9px 14px;cursor:pointer;font-family:var(--font-body);font-size:.84rem;">
+              Cancelar
+            </button>
+          </div>
+        </div>
       </div>
+
       <button class="btn-google" onclick="signIn()">
         <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
         Entrar con Google
       </button>
-      <button class="btn-change-id" onclick="goToStep1()">
-        🔧 Cambiar Client ID
-      </button>
-      <div class="login-note">🔒 Solo se accede a una carpeta privada en tu Drive.<br>Ningún dato sale de tu cuenta de Google.</div>
+      <div class="login-note" style="margin-top:14px;">🔒 Solo se accede a una carpeta privada en tu Drive.<br>Ningún dato sale de tu cuenta de Google.</div>
     </div>
   </div>
 </div>
@@ -1604,6 +1628,11 @@ function setupClientId(){
 function goToStep2(){
   document.getElementById('login-step-1').classList.remove('active');
   document.getElementById('login-step-2').classList.add('active');
+  // Show current Client ID in readonly view
+  const ro=document.getElementById('clientid-readonly');
+  if(ro) ro.textContent=CLIENT_ID||'(no configurado)';
+  const inp=document.getElementById('login-client-id-2');
+  if(inp) inp.value=CLIENT_ID||'';
 }
 function goToStep1(){
   document.getElementById('login-step-2').classList.remove('active');
@@ -1611,6 +1640,37 @@ function goToStep1(){
   document.getElementById('login-client-id').value=CLIENT_ID||'';
 }
 function skipToLogin(){ goToStep2(); }
+
+function toggleEditClientId(){
+  const wrap=document.getElementById('clientid-edit-wrap');
+  const ro=document.getElementById('clientid-readonly');
+  const btn=document.getElementById('btn-edit-toggle');
+  const isEditing=wrap.style.display!=='none';
+  wrap.style.display=isEditing?'none':'block';
+  ro.style.display=isEditing?'block':'none';
+  btn.textContent=isEditing?'✏️ Editar':'✕ Cancelar';
+  if(!isEditing){
+    const inp=document.getElementById('login-client-id-2');
+    inp.value=CLIENT_ID||'';
+    inp.focus();
+    inp.select();
+  }
+}
+
+function saveClientIdInline(){
+  const val=document.getElementById('login-client-id-2').value.trim();
+  if(!val||!val.includes('.apps.googleusercontent.com')){
+    alert('Client ID no válido.\nDebe terminar en .apps.googleusercontent.com');
+    return;
+  }
+  CLIENT_ID=val;
+  localStorage.setItem('gp_client_id',val);
+  document.getElementById('clientid-readonly').textContent=val;
+  // Close edit mode
+  document.getElementById('clientid-edit-wrap').style.display='none';
+  document.getElementById('clientid-readonly').style.display='block';
+  document.getElementById('btn-edit-toggle').textContent='✏️ Editar';
+}
 
 // ═══════════════════════════════════════════
 // INIT
