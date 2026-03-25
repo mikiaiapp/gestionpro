@@ -3,8 +3,19 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'self' https:;
+  script-src 'self' 'unsafe-inline' https://accounts.google.com https://apis.google.com https://fonts.googleapis.com https://cdnjs.cloudflare.com;
+  style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+  font-src 'self' https://fonts.gstatic.com;
+  connect-src 'self' https://accounts.google.com https://www.googleapis.com https://oauth2.googleapis.com https://api.anthropic.com;
+  frame-src https://accounts.google.com;
+  img-src 'self' data: https:;
+">
 <title>GestiónPro — Control de Proyectos</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<!-- Google Sign-In: loaded eagerly -->
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
 /* ═══════════════════════════════════════════
    TEMA: BEIGE/ARENA CÁLIDO
@@ -839,17 +850,49 @@ function setLoginLoading(loading){
   }
 }
 
-function loadGoogleScripts(cb){
-  if(window.google&&window.google.accounts){cb();return;}
-  const s=document.createElement('script');
-  s.src='https://accounts.google.com/gsi/client';
-  s.onload=()=>{
-    // Small delay to ensure GSI is fully initialized
-    setTimeout(cb, 100);
-  };
-  s.onerror=()=>{
+function waitForGoogle(cb, attempts){
+  attempts = attempts || 0;
+  if(window.google && window.google.accounts && window.google.accounts.oauth2){
+    cb(); return;
+  }
+  if(attempts > 60){ // 6 seconds
     setLoginLoading(false);
-    setLoginError('No se pudo cargar Google Sign-In. Comprueba tu conexión a internet e inténtalo de nuevo.');
+    // Check if the script element exists and what state it's in
+    const existingScript = document.querySelector('script[src*="accounts.google.com/gsi"]');
+    const scriptState = existingScript ? 'script tag exists' : 'no script tag found';
+    setLoginError(
+      'Google Sign-In no se pudo cargar (' + scriptState + ').<br><br>' +
+      '<strong>Soluciones:</strong><br>' +
+      '1. Abre la consola del navegador (F12 → Console) y busca errores en rojo relacionados con "gsi" o "accounts.google.com"<br>' +
+      '2. Desactiva bloqueadores de anuncios (uBlock, AdBlock) para esta página<br>' +
+      '3. Prueba en modo incógnito (Ctrl+Shift+N)<br>' +
+      '4. Prueba en otro navegador (Chrome recomendado)<br><br>' +
+      '<button onclick="retryLoadGSI()" style="background:var(--accent);color:#fff;border:none;border-radius:6px;padding:8px 16px;cursor:pointer;font-family:var(--font-body);font-size:.84rem;">Reintentar carga</button>'
+    );
+    return;
+  }
+  setTimeout(() => waitForGoogle(cb, attempts + 1), 100);
+}
+
+function retryLoadGSI(){
+  setLoginError('');
+  setLoginLoading(true);
+  // Remove existing script tag and reload
+  const old = document.querySelector('script[src*="accounts.google.com/gsi"]');
+  if(old) old.remove();
+  delete window.google;
+  const s = document.createElement('script');
+  s.src = 'https://accounts.google.com/gsi/client?t=' + Date.now();
+  s.onload = () => {
+    setLoginLoading(false);
+    setLoginError('Script de Google cargado. Pulsa "Entrar con Google" de nuevo.');
+  };
+  s.onerror = (e) => {
+    setLoginLoading(false);
+    setLoginError(
+      'El script de Google sigue sin cargar. El navegador o la red están bloqueando accounts.google.com.<br><br>' +
+      'Prueba en modo incógnito o en otro navegador.'
+    );
   };
   document.head.appendChild(s);
 }
@@ -861,34 +904,43 @@ function signIn(){
     return;
   }
   setLoginLoading(true);
-  loadGoogleScripts(()=>{
+  waitForGoogle(()=>{
     try{
-      const client=google.accounts.oauth2.initTokenClient({
-        client_id:CLIENT_ID,
-        scope:SCOPES,
-        callback:(resp)=>{
+      const client = google.accounts.oauth2.initTokenClient({
+        client_id: CLIENT_ID,
+        scope: SCOPES,
+        callback: (resp) => {
           setLoginLoading(false);
           if(resp.error){
-            let msg='Error de autenticación: <strong>'+resp.error+'</strong>';
-            if(resp.error==='access_denied') msg='Acceso denegado. Asegúrate de que tu cuenta está en la lista de testers en Google Cloud Console (<a href="https://console.cloud.google.com" target="_blank">console.cloud.google.com</a> → APIs → Pantalla de consentimiento → Usuarios de prueba).';
-            if(resp.error==='invalid_client') msg='Client ID no válido. Revisa que el Client ID sea correcto y que la URL de la app esté en los orígenes autorizados en Google Cloud Console.';
-            if(resp.error==='popup_closed_by_user') msg='Ventana cerrada. Pulsa de nuevo "Entrar con Google" para continuar.';
-            if(resp.error==='popup_blocked_by_browser') msg='El navegador bloqueó la ventana emergente. Permite las ventanas emergentes para esta página e inténtalo de nuevo.';
+            let msg = 'Error: <strong>' + resp.error + '</strong>';
+            if(resp.error === 'access_denied')
+              msg = 'Acceso denegado. Tu cuenta debe estar en la lista de "Usuarios de prueba" en Google Cloud Console.<br>' +
+                    '<a href="https://console.cloud.google.com" target="_blank" style="color:var(--accent)">Ir a Google Cloud Console →</a><br><br>' +
+                    'Ruta: APIs y servicios → Pantalla de consentimiento → Usuarios de prueba → + Add users';
+            else if(resp.error === 'invalid_client')
+              msg = 'Client ID no válido o URL no autorizada.<br><br>' +
+                    'Verifica en Google Cloud Console que:<br>' +
+                    '1. El Client ID es correcto<br>' +
+                    '2. <strong>https://mikiaiapp.github.io</strong> está en "Orígenes de JavaScript autorizados"';
+            else if(resp.error === 'popup_closed_by_user')
+              msg = 'Ventana cerrada. Vuelve a pulsar "Entrar con Google".';
+            else if(resp.error === 'popup_blocked_by_browser')
+              msg = 'El navegador bloqueó la ventana emergente.<br>Busca el icono de popup bloqueado en la barra de direcciones y permite las ventanas emergentes para esta página.';
             setLoginError(msg);
             return;
           }
-          accessToken=resp.access_token;
+          accessToken = resp.access_token;
           fetchUserInfo();
         },
-        error_callback:(err)=>{
+        error_callback: (err) => {
           setLoginLoading(false);
-          setLoginError('Error al iniciar sesión: '+(err.message||err.type||JSON.stringify(err)));
+          setLoginError('Error al iniciar sesión: ' + (err.message || err.type || JSON.stringify(err)));
         }
       });
       client.requestAccessToken({prompt:'select_account'});
-    }catch(e){
+    } catch(e){
       setLoginLoading(false);
-      setLoginError('Error al inicializar Google Sign-In: '+e.message+'. Comprueba que el Client ID es correcto.');
+      setLoginError('Error al inicializar Google Sign-In: ' + e.message);
     }
   });
 }
