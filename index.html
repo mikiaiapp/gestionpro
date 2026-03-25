@@ -200,6 +200,32 @@ tbody td{padding:9px 12px;color:var(--text);vertical-align:middle;}
 .ai-status{background:rgba(91,127,166,.08);border:1px solid rgba(91,127,166,.2);border-radius:8px;padding:10px 14px;font-size:.8rem;color:var(--accent);margin-bottom:14px;display:flex;align-items:center;gap:8px;}
 .ai-status .spin{width:14px;height:14px;border:2px solid rgba(91,127,166,.3);border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite;flex-shrink:0;}
 
+/* ── AMOUNT INPUTS ── */
+input[inputmode="decimal"]{font-variant-numeric:tabular-nums;}
+input[inputmode="decimal"]:focus{border-color:var(--accent);}
+
+/* ── CLIP ICON ── */
+.clip-icon{display:inline-block;font-size:.85rem;opacity:.25;cursor:default;transition:opacity .15s;}
+.clip-icon.has-doc{opacity:1;cursor:pointer;color:var(--accent);}
+.clip-icon.has-doc:hover{opacity:.75;}
+
+/* ── IVA LINES TABLE ── */
+.iva-lines{width:100%;border-collapse:collapse;margin-bottom:8px;}
+.iva-lines th{font-size:.68rem;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);padding:4px 8px;text-align:left;font-weight:600;}
+.iva-lines td{padding:3px 4px;vertical-align:middle;}
+.iva-lines input,.iva-lines select{padding:6px 8px;font-size:.84rem;width:100%;}
+.iva-lines .del-iva{background:none;border:none;cursor:pointer;color:var(--muted2);font-size:.9rem;padding:4px 6px;}
+.iva-lines .del-iva:hover{color:var(--red);}
+.iva-totals{font-size:.82rem;color:var(--muted);text-align:right;padding:4px 8px;background:var(--card2);border-radius:6px;margin-bottom:8px;}
+.iva-totals strong{color:var(--text);}
+
+/* ── HISTORIAL DESPLEGABLE ── */
+.hist-row{background:rgba(91,127,166,.04);}
+.hist-row td{padding:0!important;}
+.hist-inner{padding:10px 16px;border-top:1px dashed var(--border);}
+.hist-inner table{font-size:.78rem;}
+.hist-inner thead th{font-size:.64rem;}
+
 /* ── FISCAL MAINTENANCE ── */
 .fiscal-table{width:100%;border-collapse:collapse;font-size:.86rem;}
 .fiscal-table th{background:var(--card2);padding:8px 12px;text-align:left;font-size:.7rem;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);font-weight:700;}
@@ -213,6 +239,113 @@ tbody td{padding:9px 12px;color:var(--text);vertical-align:middle;}
 .add-fiscal-row{display:flex;gap:8px;align-items:center;margin-top:10px;}
 .add-fiscal-row input{flex:0 0 100px;background:var(--card2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-body);font-size:.88rem;padding:7px 11px;outline:none;}
 .add-fiscal-row input:focus{border-color:var(--accent);}
+
+/* ════════════════════════════════════════════
+   RESPONSIVE — TABLET (≤900px) & MÓVIL (≤600px)
+════════════════════════════════════════════ */
+
+/* ── HAMBURGER BUTTON ── */
+#menu-toggle{
+  display:none;position:fixed;top:10px;left:12px;z-index:300;
+  background:var(--card);border:1px solid var(--border);border-radius:8px;
+  padding:8px 10px;cursor:pointer;font-size:1.1rem;line-height:1;
+  box-shadow:var(--shadow);color:var(--text);
+}
+#sidebar-overlay{
+  display:none;position:fixed;inset:0;background:rgba(44,36,22,.45);
+  z-index:149;backdrop-filter:blur(2px);
+}
+
+/* ── TABLET (≤900px) ── */
+@media(max-width:900px){
+  #menu-toggle{display:flex;}
+  #sidebar{
+    position:fixed;top:0;left:0;height:100vh;z-index:150;
+    transform:translateX(-100%);transition:transform .25s ease;
+    box-shadow:4px 0 24px rgba(44,36,22,.18);
+  }
+  #sidebar.open{transform:translateX(0);}
+  #sidebar-overlay.open{display:block;}
+  #main{padding:16px 16px 28px;padding-top:56px;}
+  #topbar{left:0;border-left:none;padding-left:56px;}
+  .stats-row{grid-template-columns:repeat(2,1fr);}
+  .stats-row.cols5{grid-template-columns:repeat(3,1fr);}
+  .form-grid.cols4{grid-template-columns:repeat(2,1fr);}
+  .form-grid{grid-template-columns:repeat(2,1fr);}
+  .pdf-import-wrap{grid-template-columns:1fr;height:auto;}
+  .pdf-viewer{height:260px;}
+}
+
+/* ── MÓVIL (≤600px) ── */
+@media(max-width:600px){
+  #main{padding:12px 10px 28px;padding-top:52px;}
+  #topbar{padding:8px 12px 8px 52px;}
+  #topbar .user-name{display:none;}
+  h1{font-size:1.2rem;}
+  .page-desc{font-size:.8rem;margin-bottom:14px;}
+
+  /* Stats: 1 columna en móvil pequeño, 2 en el resto */
+  .stats-row{grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px;}
+  .stats-row.cols3{grid-template-columns:repeat(2,1fr);}
+  .stats-row.cols5{grid-template-columns:repeat(2,1fr);}
+  .stat-card{padding:12px 12px;}
+  .stat-card .value{font-size:1.1rem;}
+  .stat-card .label{font-size:.6rem;}
+
+  /* Forms: 1 columna */
+  .form-grid,.form-grid.cols2,.form-grid.cols4,.form-grid.cols5{
+    grid-template-columns:1fr!important;
+  }
+  .form-group[style*="grid-column:span"]{grid-column:1!important;}
+
+  /* Section boxes */
+  .section-box{padding:14px 12px;margin-bottom:12px;}
+  .section-box h2{font-size:.88rem;}
+
+  /* Buttons */
+  .btn{padding:8px 14px;font-size:.82rem;}
+  .btn-group{gap:6px;}
+  .btn-sm{padding:5px 10px;font-size:.73rem;}
+  .btn-xs{padding:3px 7px;font-size:.69rem;}
+
+  /* Tables: scroll horizontal + compact */
+  .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -4px;}
+  table{font-size:.75rem;min-width:480px;}
+  thead th{padding:7px 8px;font-size:.6rem;}
+  tbody td{padding:7px 8px;}
+
+  /* Filter bar: wrap */
+  .filter-bar{gap:6px;}
+  .filter-bar .form-group{min-width:100px;}
+  .filter-bar select,.filter-bar input{font-size:.78rem;padding:6px 8px;}
+
+  /* Tabs */
+  .tab{padding:6px 12px;font-size:.78rem;}
+
+  /* Modal */
+  .modal{padding:18px 14px;max-height:95vh;}
+  .modal.modal-wide{max-width:98vw;}
+  .pdf-import-wrap{grid-template-columns:1fr;height:auto;}
+  .pdf-viewer{height:220px;}
+
+  /* IVA lines table */
+  .iva-lines{font-size:.78rem;}
+  .iva-lines input,.iva-lines select{padding:5px 6px;font-size:.78rem;}
+
+  /* Login */
+  .login-box{padding:28px 20px;}
+  .login-box h1{font-size:1.5rem;}
+
+  /* Topbar compact */
+  #topbar{gap:6px;}
+  .sync-status span{display:none;}
+}
+
+/* ── MUY PEQUEÑO (≤380px) ── */
+@media(max-width:380px){
+  .stats-row{grid-template-columns:1fr;}
+  table{min-width:400px;}
+}
 </style>
 </head>
 <body>
@@ -284,6 +417,10 @@ tbody td{padding:9px 12px;color:var(--text);vertical-align:middle;}
   <button class="btn-signout" onclick="signOut()">Cerrar sesión</button>
 </div>
 
+<!-- ══════════ HAMBURGER + OVERLAY ══════════ -->
+<button id="menu-toggle" onclick="toggleSidebar()" aria-label="Menú">&#9776;</button>
+<div id="sidebar-overlay" onclick="closeSidebar()"></div>
+
 <!-- ══════════ APP SHELL ══════════ -->
 <div id="app-shell">
 <aside id="sidebar">
@@ -322,11 +459,18 @@ tbody td{padding:9px 12px;color:var(--text);vertical-align:middle;}
     <div class="form-grid">
       <div class="form-group" style="grid-column:span 2"><label>Nombre del Proyecto</label><input type="text" id="proj-nombre" placeholder="Ej: Instalación Eléctrica Nave A"></div>
       <div class="form-group"><label>Cliente</label><input type="text" id="proj-cliente" placeholder="Nombre del cliente"></div>
-      <div class="form-group"><label>Valor de Venta (€)</label><input type="number" id="proj-venta" placeholder="0.00" step="0.01" oninput="calcMargenForm()"></div>
-      <div class="form-group"><label>Coste Previsto (€)</label><input type="number" id="proj-coste" placeholder="0.00" step="0.01" oninput="calcMargenForm()"></div>
+      <div class="form-group"><label>Valor de Venta (€)</label><input type="text" inputmode="decimal" id="proj-venta" placeholder="0.00" step="0.01" oninput="calcMargenForm()"></div>
+      <div class="form-group"><label>Coste Previsto (€)</label><input type="text" inputmode="decimal" id="proj-coste" placeholder="0.00" step="0.01" oninput="calcMargenForm()"></div>
       <div class="form-group"><label>Margen Previsto</label><input type="text" id="proj-margen-prev" readonly class="computed" placeholder="—"></div>
     </div>
     <div class="btn-group">
+    </div>
+    <div class="form-grid cols4" style="margin-top:4px;margin-bottom:0">
+      <div class="form-group"><label>Adjuntar PDF (presupuesto)</label>
+        <input type="file" id="proj-pdf-file" accept=".pdf" style="padding:6px;background:var(--card2);border:1px solid var(--border);border-radius:8px;font-size:.82rem;">
+      </div>
+    </div>
+    <div class="btn-group" style="margin-top:12px;">
       <button class="btn btn-primary" onclick="addProyecto()">✓ Guardar Proyecto</button>
       <button class="btn btn-warn" onclick="openPdfImport('proyecto')">📄 Importar desde PDF</button>
     </div>
@@ -344,7 +488,7 @@ tbody td{padding:9px 12px;color:var(--text);vertical-align:middle;}
       <button class="btn btn-ghost" onclick="document.getElementById('proj-filter-estado').value='todos';renderProyectos()">Mostrar todos</button>
     </div>
     <div class="table-wrap"><table><thead><tr>
-      <th>Estado</th><th>Proyecto</th><th>Cliente</th>
+      <th></th><th>Estado</th><th>Proyecto</th><th>Cliente</th>
       <th>Venta Prev.</th><th>Venta Real</th><th>Coste Prev.</th><th>Coste Real</th>
       <th>Margen Prev.</th><th>Margen Real</th><th>M.Real %</th><th>Acciones</th>
     </tr></thead>
@@ -371,11 +515,18 @@ tbody td{padding:9px 12px;color:var(--text);vertical-align:middle;}
       <div class="form-group"><label>Fecha</label><input type="date" id="v-fecha"></div>
       <div class="form-group"><label>Cliente</label><select id="v-cliente"><option value="">— Seleccionar —</option></select></div>
       <div class="form-group"><label>Proyecto</label><select id="v-proyecto"><option value="">— Proyecto (opc.) —</option></select></div>
-      <div class="form-group"><label>Base Imponible (€)</label><input type="number" id="v-base" placeholder="0.00" step="0.01" oninput="calcVenta()"></div>
+      <div class="form-group"><label>Base Imponible (€)</label><input type="text" inputmode="decimal" id="v-base" placeholder="0.00" step="0.01" oninput="calcVenta()"></div>
       <div class="form-group"><label>IVA (21%)</label><input type="text" id="v-iva" readonly class="computed"></div>
       <div class="form-group"><label>Total Factura</label><input type="text" id="v-total" readonly class="computed"></div>
     </div>
     <div class="btn-group">
+    </div>
+    <div class="form-grid cols4" style="margin-top:4px;margin-bottom:0">
+      <div class="form-group"><label>Adjuntar PDF</label>
+        <input type="file" id="v-pdf-file" accept=".pdf" style="padding:6px;background:var(--card2);border:1px solid var(--border);border-radius:8px;font-size:.82rem;">
+      </div>
+    </div>
+    <div class="btn-group" style="margin-top:12px;">
       <button class="btn btn-primary" onclick="addVenta()">✓ Guardar Factura</button>
       <button class="btn btn-warn" onclick="openPdfImport('venta')">📄 Importar desde PDF</button>
     </div>
@@ -416,12 +567,24 @@ tbody td{padding:9px 12px;color:var(--text);vertical-align:middle;}
       <div class="form-group"><label>Fecha</label><input type="date" id="c-fecha"></div>
       <div class="form-group"><label>Tipo de Gasto</label><select id="c-tipo" onchange="onCosteTipoChange()"><option value="general">Gasto General</option><option value="proyecto">Proyecto</option></select></div>
       <div class="form-group" id="c-proyecto-group" style="display:none"><label>Proyecto</label><select id="c-proyecto"><option value="">— Seleccionar —</option></select></div>
-      <div class="form-group"><label>Base Imponible (€)</label><input type="number" id="c-base" placeholder="0.00" step="0.01" oninput="calcCoste()"></div>
-      <div class="form-group" id="c-iva-group"><label>Tipo IVA</label><select id="c-iva-tipo" onchange="calcCoste()"></select></div>
-      <div class="form-group"><label>Cuota IVA (€)</label><input type="text" id="c-iva" readonly class="computed"></div>
+    </div>
+    <!-- IVA Lines -->
+    <div id="c-iva-section">
+      <div style="font-size:.78rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;">Líneas de IVA</div>
+      <table class="iva-lines" id="c-iva-lines">
+        <thead><tr><th style="width:35%">Base Imponible (€)</th><th style="width:22%">Tipo IVA</th><th style="width:25%">Cuota IVA (€)</th><th style="width:10%"></th></tr></thead>
+        <tbody id="c-iva-tbody"></tbody>
+      </table>
+      <button class="btn btn-ghost btn-sm" onclick="addIvaLine()" style="margin-bottom:10px;">+ Añadir línea de IVA</button>
+      <div class="iva-totals" id="c-iva-totals"></div>
+    </div>
+    <div class="form-grid cols4" style="margin-top:4px;">
       <div class="form-group" id="c-irpf-group"><label>Retención IRPF</label><select id="c-irpf-tipo" onchange="calcCoste()"></select></div>
       <div class="form-group"><label>Retención (€)</label><input type="text" id="c-irpf" readonly class="computed-red"></div>
       <div class="form-group"><label>Total Factura (€)</label><input type="text" id="c-total" readonly class="computed"></div>
+      <div class="form-group"><label>Adjuntar PDF</label>
+        <input type="file" id="c-pdf-file" accept=".pdf" style="padding:6px;background:var(--card2);border:1px solid var(--border);border-radius:8px;font-size:.82rem;">
+      </div>
     </div>
     <div class="btn-group">
       <button class="btn btn-primary" onclick="addCoste()">✓ Guardar Factura</button>
@@ -439,7 +602,7 @@ tbody td{padding:9px 12px;color:var(--text);vertical-align:middle;}
       <button class="btn btn-success" onclick="exportarCostes('excel')">⬇️ Excel</button>
       <button class="btn btn-success" onclick="exportarCostes('pdf')">🖨️ PDF</button>
     </div>
-    <div class="table-wrap"><table><thead><tr><th>Serie</th><th>Nº</th><th>Proveedor</th><th>Nº Prov.</th><th>Fecha</th><th>Tipo</th><th>Proyecto</th><th>Base</th><th>IVA%</th><th>Cuota IVA</th><th>IRPF%</th><th>Retención</th><th>Total</th><th>Pagado</th><th>Pend.</th><th>Estado</th><th>Acc.</th></tr></thead>
+    <div class="table-wrap"><table><thead><tr><th></th><th>Serie</th><th>Nº</th><th>Proveedor</th><th>Nº Prov.</th><th>Fecha</th><th>Tipo</th><th>Proyecto</th><th>Base</th><th>IVA%</th><th>Cuota IVA</th><th>IRPF%</th><th>Retención</th><th>Total</th><th>Pagado</th><th>Pend.</th><th>Estado</th><th>Acc.</th></tr></thead>
     <tbody id="tbody-costes"></tbody></table>
     <div id="costes-empty" class="empty-state" style="display:none"><div class="icon">📥</div><p>No hay facturas recibidas.</p></div></div>
   </div>
@@ -459,7 +622,7 @@ tbody td{padding:9px 12px;color:var(--text);vertical-align:middle;}
       <div class="form-group" style="grid-column:span 2"><label>Factura Emitida</label><select id="co-factura" onchange="onCobroFacturaChange()"><option value="">— Seleccionar —</option></select></div>
       <div class="form-group"><label>Pendiente</label><input type="text" id="co-pendiente-disp" readonly class="computed"></div>
       <div class="form-group"><label>Fecha Cobro</label><input type="date" id="co-fecha"></div>
-      <div class="form-group"><label>Importe (€)</label><input type="number" id="co-importe" placeholder="0.00" step="0.01"></div>
+      <div class="form-group"><label>Importe (€)</label><input type="text" inputmode="decimal" id="co-importe" placeholder="0.00" step="0.01"></div>
       <div class="form-group"><label>Forma de Pago</label><select id="co-forma"><option>Transferencia</option><option>Cheque</option><option>Efectivo</option><option>Pagaré</option><option>Otro</option></select></div>
     </div>
     <button class="btn btn-primary" onclick="submitCobro()">✓ Registrar Cobro</button>
@@ -491,7 +654,7 @@ tbody td{padding:9px 12px;color:var(--text);vertical-align:middle;}
       <div class="form-group" style="grid-column:span 2"><label>Factura Recibida</label><select id="pa-factura" onchange="onPagoFacturaChange()"><option value="">— Seleccionar —</option></select></div>
       <div class="form-group"><label>Pendiente</label><input type="text" id="pa-pendiente-disp" readonly class="computed"></div>
       <div class="form-group"><label>Fecha Pago</label><input type="date" id="pa-fecha"></div>
-      <div class="form-group"><label>Importe (€)</label><input type="number" id="pa-importe" placeholder="0.00" step="0.01"></div>
+      <div class="form-group"><label>Importe (€)</label><input type="text" inputmode="decimal" id="pa-importe" placeholder="0.00" step="0.01"></div>
       <div class="form-group"><label>Forma de Pago</label><select id="pa-forma"><option>Transferencia</option><option>Cheque</option><option>Efectivo</option><option>Pagaré</option><option>Otro</option></select></div>
     </div>
     <button class="btn btn-primary" onclick="submitPago()">✓ Registrar Pago</button>
@@ -625,8 +788,8 @@ tbody td{padding:9px 12px;color:var(--text);vertical-align:middle;}
     <div class="form-grid cols2">
       <div class="form-group" style="grid-column:span 2"><label>Nombre</label><input type="text" id="ep-nombre"></div>
       <div class="form-group" style="grid-column:span 2"><label>Cliente</label><input type="text" id="ep-cliente"></div>
-      <div class="form-group"><label>Venta (€)</label><input type="number" id="ep-venta" oninput="calcMargenEdit()"></div>
-      <div class="form-group"><label>Coste Previsto (€)</label><input type="number" id="ep-coste" oninput="calcMargenEdit()"></div>
+      <div class="form-group"><label>Venta (€)</label><input type="text" inputmode="decimal" id="ep-venta" oninput="calcMargenEdit()"></div>
+      <div class="form-group"><label>Coste Previsto (€)</label><input type="text" inputmode="decimal" id="ep-coste" oninput="calcMargenEdit()"></div>
       <div class="form-group" style="grid-column:span 2"><label>Margen</label><input type="text" id="ep-margen-prev" readonly class="computed"></div>
     </div>
     <div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal('modal-edit-proj')">Cancelar</button><button class="btn btn-primary" onclick="saveEditProyecto()">✓ Guardar</button></div>
@@ -640,7 +803,7 @@ tbody td{padding:9px 12px;color:var(--text);vertical-align:middle;}
       <div class="form-group"><label>Fecha</label><input type="date" id="ev-fecha"></div>
       <div class="form-group"><label>Cliente</label><select id="ev-cliente"></select></div>
       <div class="form-group"><label>Proyecto</label><select id="ev-proyecto"></select></div>
-      <div class="form-group"><label>Base Imponible (€)</label><input type="number" id="ev-base" oninput="calcVentaEdit()"></div>
+      <div class="form-group"><label>Base Imponible (€)</label><input type="text" inputmode="decimal" id="ev-base" oninput="calcVentaEdit()"></div>
       <div class="form-group"><label>IVA</label><input type="text" id="ev-iva" readonly class="computed"></div>
       <div class="form-group"><label>Total</label><input type="text" id="ev-total" readonly class="computed"></div>
     </div>
@@ -657,7 +820,7 @@ tbody td{padding:9px 12px;color:var(--text);vertical-align:middle;}
       <div class="form-group"><label>Fecha</label><input type="date" id="ec-fecha"></div>
       <div class="form-group"><label>Tipo</label><select id="ec-tipo" onchange="onEcTipoChange()"><option value="general">Gasto General</option><option value="proyecto">Proyecto</option></select></div>
       <div class="form-group" id="ec-proy-group" style="display:none"><label>Proyecto</label><select id="ec-proyecto"></select></div>
-      <div class="form-group"><label>Base Imponible (€)</label><input type="number" id="ec-base" oninput="calcCosteEdit()"></div>
+      <div class="form-group"><label>Base Imponible (€)</label><input type="text" inputmode="decimal" id="ec-base" oninput="calcCosteEdit()"></div>
       <div class="form-group"><label>Tipo IVA</label><select id="ec-iva-tipo" onchange="calcCosteEdit()"></select></div>
       <div class="form-group"><label>Cuota IVA</label><input type="text" id="ec-iva" readonly class="computed"></div>
       <div class="form-group"><label>Retención IRPF</label><select id="ec-irpf-tipo" onchange="calcCosteEdit()"></select></div>
@@ -678,7 +841,7 @@ tbody td{padding:9px 12px;color:var(--text);vertical-align:middle;}
     <div class="form-grid cols2">
       <div class="form-group"><label>Pendiente</label><input type="text" id="qc-pendiente" readonly class="computed"></div>
       <div class="form-group"><label>Fecha Cobro</label><input type="date" id="qc-fecha"></div>
-      <div class="form-group"><label>Importe (€)</label><input type="number" id="qc-importe" placeholder="0.00" step="0.01"></div>
+      <div class="form-group"><label>Importe (€)</label><input type="text" inputmode="decimal" id="qc-importe" placeholder="0.00" step="0.01"></div>
       <div class="form-group"><label>Forma de Pago</label><select id="qc-forma"><option>Transferencia</option><option>Cheque</option><option>Efectivo</option><option>Pagaré</option><option>Otro</option></select></div>
     </div>
     <div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal('modal-quick-cobro')">Cancelar</button><button class="btn btn-primary" onclick="saveQuickCobro()">✓ Registrar Cobro</button></div>
@@ -695,7 +858,7 @@ tbody td{padding:9px 12px;color:var(--text);vertical-align:middle;}
     <div class="form-grid cols2">
       <div class="form-group"><label>Pendiente</label><input type="text" id="qp-pendiente" readonly class="computed"></div>
       <div class="form-group"><label>Fecha Pago</label><input type="date" id="qp-fecha"></div>
-      <div class="form-group"><label>Importe (€)</label><input type="number" id="qp-importe" placeholder="0.00" step="0.01"></div>
+      <div class="form-group"><label>Importe (€)</label><input type="text" inputmode="decimal" id="qp-importe" placeholder="0.00" step="0.01"></div>
       <div class="form-group"><label>Forma de Pago</label><select id="qp-forma"><option>Transferencia</option><option>Cheque</option><option>Efectivo</option><option>Pagaré</option><option>Otro</option></select></div>
     </div>
     <div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal('modal-quick-pago')">Cancelar</button><button class="btn btn-primary" onclick="saveQuickPago()">✓ Registrar Pago</button></div>
@@ -761,6 +924,7 @@ tbody td{padding:9px 12px;color:var(--text);vertical-align:middle;}
 const DRIVE_FOLDER  = 'GestiónPro';
 const DRIVE_FILE    = 'datos.json';
 const BACKUP_FOLDER = 'backups';
+const ATTACH_FOLDER  = 'adjuntos';
 const MAX_BACKUPS   = 5;
 const SCOPES        = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email';
 let CLIENT_ID      = localStorage.getItem('gp_client_id') || '';
@@ -792,18 +956,13 @@ const fmtPct=v=>N(v,1)+' %';
 // fnum: parse number from input (handles both . and , as decimal separator)
 const fnum=v=>{
   if(v===null||v===undefined||v==='')return 0;
-  const s=String(v).trim().replace(/€/g,'').replace(/\s/g,'');
-  // If has both . and ,: European format (1.234,56) or US (1,234.56)
-  const lastDot=s.lastIndexOf('.');
-  const lastComma=s.lastIndexOf(',');
-  let clean=s;
-  if(lastComma>lastDot){// European: 1.234,56
-    clean=s.replace(/\./g,'').replace(',','.');
-  } else if(lastDot>lastComma){// US or plain: 1,234.56
-    clean=s.replace(/,/g,'');
-  }
-  return parseFloat(clean)||0;
+  let s=String(v).trim().replace(/[€\s%]/g,'');
+  const ld=s.lastIndexOf('.'),lc=s.lastIndexOf(',');
+  if(lc>ld)s=s.replace(/\./g,'').replace(',','.');
+  else if(ld>lc)s=s.replace(/,/g,'');
+  return parseFloat(s)||0;
 };
+const fmtInput=v=>parseFloat(v||0).toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2});
 function genId(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
 function todayStr(){return new Date().toISOString().slice(0,10);}
 function getD(k){return DB[k]||[];}
@@ -822,12 +981,22 @@ function showPage(id,el){
   document.querySelectorAll('nav a').forEach(a=>a.classList.remove('active'));
   document.getElementById('page-'+id).classList.add('active');
   if(el)el.classList.add('active');
+  closeSidebar(); // auto-close on mobile
   if(id==='ventas'){populateVentaDropdowns();renderVentas();}
   if(id==='costes'){populateCosteDropdowns();renderCostes();}
   if(id==='cobros'){populateCobroDropdown();renderCobros();}
   if(id==='pagos'){populatePagoDropdown();renderPagos();}
   if(id==='resumen'){populateResSelector();renderResumen();renderResListado();}
   if(id==='ajustes'){loadAjustesStatus();renderFiscalTags();}
+}
+
+function toggleSidebar(){
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebar-overlay').classList.toggle('open');
+}
+function closeSidebar(){
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebar-overlay').classList.remove('open');
 }
 
 function setSyncStatus(state,msg){
@@ -1157,6 +1326,71 @@ async function restoreFromBackup(fileId,name){
   }catch(e){hideSyncOverlay();toast('Error al restaurar.','error');}
 }
 
+
+// ─── ATTACHMENT (PDF) FUNCTIONS ──────────────────────────────────────────
+let attachFolderId = null;
+
+async function getOrCreateAttachFolder(){
+  if(attachFolderId) return attachFolderId;
+  const q=encodeURIComponent(`name='${ATTACH_FOLDER}' and '${folderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`);
+  const r=await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)`,{headers:driveH()});
+  const d=await r.json();
+  if(d.files&&d.files.length){attachFolderId=d.files[0].id;return attachFolderId;}
+  const cr=await fetch('https://www.googleapis.com/drive/v3/files',{
+    method:'POST',headers:driveH(),
+    body:JSON.stringify({name:ATTACH_FOLDER,mimeType:'application/vnd.google-apps.folder',parents:[folderId]})
+  });
+  attachFolderId=(await cr.json()).id;
+  return attachFolderId;
+}
+
+async function uploadAttachment(base64,filename,mimeType){
+  // Returns Drive file id
+  const afId=await getOrCreateAttachFolder();
+  const meta={name:filename,parents:[afId]};
+  const boundary='gp_attach_boundary';
+  const body=[
+    '--'+boundary,
+    'Content-Type: application/json',
+    '',
+    JSON.stringify(meta),
+    '--'+boundary,
+    'Content-Type: '+mimeType,
+    'Content-Transfer-Encoding: base64',
+    '',
+    base64,
+    '--'+boundary+'--'
+  ].join('\r\n');
+  const r=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{
+    method:'POST',
+    headers:{Authorization:'Bearer '+accessToken,'Content-Type':'multipart/related; boundary='+boundary},
+    body
+  });
+  const d=await r.json();
+  return d.id||null;
+}
+
+async function deleteAttachment(driveFileId){
+  if(!driveFileId||!accessToken) return;
+  await fetch(`https://www.googleapis.com/drive/v3/files/${driveFileId}`,{
+    method:'DELETE',headers:{Authorization:'Bearer '+accessToken}
+  });
+}
+
+function getAttachUrl(driveFileId){
+  return `https://drive.google.com/file/d/${driveFileId}/view`;
+}
+
+// Read a file input as base64
+function readFileAsBase64(file){
+  return new Promise((res,rej)=>{
+    const r=new FileReader();
+    r.onload=e=>res({base64:e.target.result.split(',')[1],mimeType:file.type,name:file.name});
+    r.onerror=rej;
+    r.readAsDataURL(file);
+  });
+}
+
 async function initDriveData(){
   showSyncOverlay('Conectando con Google Drive...');
   try{
@@ -1359,7 +1593,7 @@ function calcMargenEdit(){
   el.value=`${fmt(m)}  (${fmtPct(pct)})`;
   el.style.color=m>=0?'var(--green)':'var(--red)';
 }
-function addProyecto(data){
+async function addProyecto(data){
   const d=data||{};
   const nombre=(d.nombre||document.getElementById('proj-nombre').value).trim();
   const cliente=(d.cliente||document.getElementById('proj-cliente').value).trim();
@@ -1368,10 +1602,25 @@ function addProyecto(data){
   if(!nombre){toast('El nombre es obligatorio.','error');return;}
   if(!cliente){toast('El cliente es obligatorio.','error');return;}
   if(venta<=0){toast('La venta debe ser mayor que 0.','error');return;}
+  // Handle PDF attachment
+  let pdfDriveId=data?.pdfDriveId||null;
+  let pdfName=data?.pdfName||null;
+  const pdfFile=!data&&document.getElementById('proj-pdf-file')?.files[0];
+  if(pdfFile){
+    try{
+      toast('Subiendo PDF adjunto...');
+      const{base64,mimeType,name}=await readFileAsBase64(pdfFile);
+      pdfDriveId=await uploadAttachment(base64,name,mimeType);
+      pdfName=name;
+    }catch(e){toast('Error al subir PDF: '+e.message,'error');}
+  }
   const p=getD('proyectos');
-  p.push({id:genId(),nombre,cliente,venta,coste,fecha:new Date().toISOString()});
+  p.push({id:genId(),nombre,cliente,venta,coste,fecha:new Date().toISOString(),pdfDriveId,pdfName});
   setD('proyectos',p);
-  if(!data)['proj-nombre','proj-cliente','proj-venta','proj-coste','proj-margen-prev'].forEach(id=>document.getElementById(id).value='');
+  if(!data){
+    ['proj-nombre','proj-cliente','proj-venta','proj-coste','proj-margen-prev'].forEach(id=>document.getElementById(id).value='');
+    if(document.getElementById('proj-pdf-file'))document.getElementById('proj-pdf-file').value='';
+  }
   renderProyectos();toast('Proyecto guardado.');
 }
 function deleteProyecto(id){
@@ -1424,7 +1673,11 @@ function renderProyectos(){
     const toggleBtn=cerrado
       ?'<button class="btn btn-success btn-xs" onclick="toggleProyectoEstado(\''+p.id+'\')">&#x1F513; Reabrir</button>'
       :'<button class="btn btn-warn btn-xs" onclick="toggleProyectoEstado(\''+p.id+'\')">&#x1F512; Cerrar</button>';
+    const clipP=p.pdfDriveId
+      ?`<a href="${getAttachUrl(p.pdfDriveId)}" target="_blank" class="clip-icon has-doc" title="${p.pdfName||'Ver PDF'}">&#x1F4CE;</a>`
+      :'<span class="clip-icon" title="Sin adjunto">&#x1F4CE;</span>';
     return`<tr>
+      <td style="width:24px">${clipP}</td>
       <td>${estadoBadge}</td>
       <td><strong>${p.nombre}</strong></td>
       <td>${p.cliente}</td>
@@ -1490,7 +1743,7 @@ function calcVentaEdit(){
   document.getElementById('ev-iva').value=v.serie==='A'?fmt(iva):'Sin IVA';
   document.getElementById('ev-total').value=fmt(base+iva);
 }
-function addVenta(data){
+async function addVenta(data){
   const d=data||{};
   const serie=d.serie||document.getElementById('v-serie').value;
   const numero=d.numero||document.getElementById('v-num').value;
@@ -1504,11 +1757,27 @@ function addVenta(data){
   if(getD('ventas').find(v=>v.numero===numero)){toast('Ya existe esa factura.','error');return;}
   if(proyectoId&&isProyectoCerrado(proyectoId)){toast('⚠️ El proyecto está cerrado. Reabre el proyecto para imputar facturas.','error');return;}
   const iva=serie==='A'?base*0.21:0;
+  // Handle PDF attachment
+  let pdfDriveId=data?.pdfDriveId||null;
+  let pdfName=data?.pdfName||null;
+  const pdfFile=!data&&document.getElementById('v-pdf-file')?.files[0];
+  if(pdfFile){
+    try{
+      toast('Subiendo PDF adjunto...');
+      const{base64,mimeType,name}=await readFileAsBase64(pdfFile);
+      pdfDriveId=await uploadAttachment(base64,name,mimeType);
+      pdfName=name;
+    }catch(e){toast('Error al subir PDF: '+e.message,'error');}
+  }
   const ventas=getD('ventas');
-  ventas.push({id:genId(),serie,numero,fecha,cliente,proyectoId,base,iva,total:base+iva});
+  ventas.push({id:genId(),serie,numero,fecha,cliente,proyectoId,base,iva,total:base+iva,pdfDriveId,pdfName});
   setD('ventas',ventas);
-  if(!data){['v-base','v-iva','v-total','v-fecha'].forEach(id=>document.getElementById(id).value='');onVentaSerieChange();}
-  renderVentas();toast(`Factura ${numero} guardada.`);
+  if(!data){
+    ['v-base','v-iva','v-total','v-fecha'].forEach(id=>document.getElementById(id).value='');
+    if(document.getElementById('v-pdf-file'))document.getElementById('v-pdf-file').value='';
+    onVentaSerieChange();
+  }
+  renderVentas();toast('Factura '+numero+' guardada.');
 }
 function deleteVenta(id){
   if(!confirm('¿Eliminar factura y sus cobros?'))return;
@@ -1572,14 +1841,21 @@ function renderVentas(){
     const proy=proyectos.find(p=>p.id===v.proyectoId);
     const est=pend<=0?'<span class="badge badge-green">Cobrado</span>':cobrado>0?'<span class="badge badge-yellow">Parcial</span>':'<span class="badge badge-orange">Pendiente</span>';
     const cobBtn=pend>0?`<button class="btn btn-success btn-xs" title="Registrar cobro" onclick="openQuickCobro('${v.id}')">&#x1F4B0;</button>`:'';
-    return`<tr>
+    const clipV=v.pdfDriveId
+      ?`<a href="${getAttachUrl(v.pdfDriveId)}" target="_blank" class="clip-icon has-doc" title="${v.pdfName||'Ver PDF'}">&#x1F4CE;</a>`
+      :'<span class="clip-icon" title="Sin adjunto">&#x1F4CE;</span>';
+    return`<tr style="cursor:pointer" onclick="toggleVentaHist('${v.id}',this)">
+      <td style="width:24px">${clipV}</td>
       <td><span class="badge ${v.serie==='A'?'badge-blue':'badge-purple'}">${v.serie}</span></td>
       <td><strong>${v.numero}</strong></td><td>${v.fecha}</td><td>${v.cliente}</td>
       <td>${proy?proy.nombre:'—'}</td><td>${fmt(v.base)}</td>
       <td>${v.serie==='A'?fmt(v.iva):'—'}</td><td><strong>${fmt(v.total)}</strong></td>
       <td class="mp">${fmt(cobrado)}</td><td class="${pend>0?'mn':''}">${fmt(pend)}</td>
       <td>${est}</td>
-      <td style="white-space:nowrap">${cobBtn} <button class="btn btn-ghost btn-xs" onclick="editVenta('${v.id}')">&#x270F;&#xFE0F;</button> <button class="btn btn-danger btn-xs" onclick="deleteVenta('${v.id}')">&#x1F5D1;&#xFE0F;</button></td>
+      <td style="white-space:nowrap" onclick="event.stopPropagation()">${cobBtn} <button class="btn btn-ghost btn-xs" onclick="editVenta('${v.id}')">&#x270F;&#xFE0F;</button> <button class="btn btn-danger btn-xs" onclick="deleteVenta('${v.id}')">&#x1F5D1;&#xFE0F;</button></td>
+    </tr>
+    <tr id="hist-venta-${v.id}" class="hist-row" style="display:none">
+      <td colspan="13"><div class="hist-inner" id="hist-venta-inner-${v.id}"></div></td>
     </tr>`;
   }).join('');
 }
@@ -1592,13 +1868,72 @@ function nextCosteNum(serie){
   const nums=getD('costes').filter(c=>c.serie===serie).map(c=>parseInt(c.numero.split('-')[1]||0));
   return`${serie}-${String((nums.length?Math.max(...nums):0)+1).padStart(3,'0')}`;
 }
+
+// ─── IVA LINES (multiple IVA bases on a single invoice) ─────────────────
+let ivaLines = []; // [{base, ivaPct, cuota}]
+
+function initIvaLines(lines){
+  ivaLines = lines && lines.length ? lines : [{base:0, ivaPct: DB.defaultIvaPct||21, cuota:0}];
+  renderIvaLines();
+}
+
+function addIvaLine(){
+  ivaLines.push({base:0, ivaPct: DB.defaultIvaPct||21, cuota:0});
+  renderIvaLines();
+}
+
+function removeIvaLine(i){
+  if(ivaLines.length<=1) return;
+  ivaLines.splice(i,1);
+  renderIvaLines();
+  calcCoste();
+}
+
+function updateIvaLine(i, field, val){
+  if(field==='base') ivaLines[i].base=fnum(val);
+  if(field==='ivaPct') ivaLines[i].ivaPct=fnum(val);
+  ivaLines[i].cuota=ivaLines[i].base * ivaLines[i].ivaPct/100;
+  renderIvaLines();
+  calcCoste();
+}
+
+function renderIvaLines(){
+  const tbody=document.getElementById('c-iva-tbody');
+  if(!tbody) return;
+  const ivaTypes=(DB.tiposIva||[0,4,10,21]);
+  tbody.innerHTML=ivaLines.map((line,i)=>`
+    <tr>
+      <td><input type="text" inputmode="decimal" value="${fmtInput(line.base)}"
+        onblur="updateIvaLine(${i},'base',this.value)" style="padding:6px 8px;font-size:.84rem;width:100%;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--text);"></td>
+      <td><select onchange="updateIvaLine(${i},'ivaPct',this.value)" style="padding:6px 8px;font-size:.84rem;width:100%;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--text);">
+        ${ivaTypes.map(t=>`<option value="${t}" ${t===line.ivaPct?'selected':''}>${t}%</option>`).join('')}
+      </select></td>
+      <td><input type="text" value="${fmtInput(line.cuota)}" readonly style="padding:6px 8px;font-size:.84rem;width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--green);font-weight:600;"></td>
+      <td><button class="del-iva" onclick="removeIvaLine(${i})" title="Eliminar línea">&#x2715;</button></td>
+    </tr>`).join('');
+  // Update totals display
+  const totalBase=ivaLines.reduce((s,l)=>s+l.base,0);
+  const totalCuota=ivaLines.reduce((s,l)=>s+l.cuota,0);
+  const tot=document.getElementById('c-iva-totals');
+  if(tot) tot.innerHTML=`Base total: <strong>${fmt(totalBase)}</strong> &nbsp;|&nbsp; Cuota IVA total: <strong>${fmt(totalCuota)}</strong>`;
+}
+
+function getIvaTotals(){
+  return {
+    base: ivaLines.reduce((s,l)=>s+l.base,0),
+    cuotaIva: ivaLines.reduce((s,l)=>s+l.cuota,0),
+    lines: ivaLines.map(l=>({...l}))
+  };
+}
+
 function onCosteSerieChange(){
   const serie=document.getElementById('c-serie').value;
   document.getElementById('c-num').value=nextCosteNum(serie);
-  const ivaGroup=document.getElementById('c-iva-group');
+  const ivaSection=document.getElementById('c-iva-section');
   const irpfGroup=document.getElementById('c-irpf-group');
-  if(ivaGroup)ivaGroup.style.display=serie==='A'?'flex':'none';
+  if(ivaSection)ivaSection.style.display=serie==='A'?'block':'none';
   if(irpfGroup)irpfGroup.style.display=serie==='A'?'flex':'none';
+  if(serie==='A'&&!ivaLines.length) initIvaLines([]);
   calcCoste();
 }
 function onCosteTipoChange(){document.getElementById('c-proyecto-group').style.display=document.getElementById('c-tipo').value==='proyecto'?'flex':'none';}
@@ -1610,21 +1945,20 @@ function populateCosteDropdowns(){
 }
 function calcCoste(){
   const serie=document.getElementById('c-serie').value;
-  const base=fnum(document.getElementById('c-base').value);
+  const irpfPct=fnum(document.getElementById('c-irpf-tipo')?.value||0);
   if(serie==='B'){
-    document.getElementById('c-iva').value='Sin IVA';
-    document.getElementById('c-irpf').value='Sin retención';
-    document.getElementById('c-total').value=base?fmt(base):'';
+    // Serie B: single base, no IVA
+    const base=fnum((document.getElementById('c-iva-tbody')?.querySelector('input')||{value:0}).value);
+    const tot=getIvaTotals();
+    const retencion=tot.base*irpfPct/100;
+    document.getElementById('c-irpf').value=irpfPct>0?fmt(retencion):'—';
+    document.getElementById('c-total').value=tot.base?fmt(tot.base-retencion):'';
     return;
   }
-  const ivaPct=fnum(document.getElementById('c-iva-tipo').value);
-  const irpfPct=fnum(document.getElementById('c-irpf-tipo').value);
-  const cuotaIva=base*ivaPct/100;
-  const retencion=base*irpfPct/100;
-  const total=base+cuotaIva-retencion;
-  document.getElementById('c-iva').value=fmt(cuotaIva);
+  const tot=getIvaTotals();
+  const retencion=tot.base*irpfPct/100;
   document.getElementById('c-irpf').value=irpfPct>0?fmt(retencion):'—';
-  document.getElementById('c-total').value=base?fmt(total):'';
+  document.getElementById('c-total').value=tot.base?fmt(tot.base+tot.cuotaIva-retencion):'';
 }
 function calcCosteEdit(){
   const id=document.getElementById('ec-id').value;
@@ -1754,19 +2088,29 @@ function renderCostes(){
     const proy=proyectos.find(p=>p.id===c.proyectoId);
     const est=pend<=0?'<span class="badge badge-green">Pagado</span>':pagado>0?'<span class="badge badge-yellow">Parcial</span>':'<span class="badge badge-orange">Pendiente</span>';
     const pagBtn=pend>0?`<button class="btn btn-warn btn-xs" title="Registrar pago" onclick="openQuickPago('${c.id}')">&#x1F4B8;</button>`:'';
-    return`<tr>
+    const ivaDetail=c.ivaLines&&c.ivaLines.length>1
+      ?c.ivaLines.map(l=>`${fmtPct(l.ivaPct).replace(' %','%')}`).join('+')
+      :(c.ivaPct||0)+'%';
+    const clipC=c.pdfDriveId
+      ?`<a href="${getAttachUrl(c.pdfDriveId)}" target="_blank" class="clip-icon has-doc" title="${c.pdfName||'Ver PDF'}">&#x1F4CE;</a>`
+      :'<span class="clip-icon" title="Sin adjunto">&#x1F4CE;</span>';
+    return`<tr style="cursor:pointer" onclick="toggleCosteHist('${c.id}',this)">
+      <td style="width:24px">${clipC}</td>
       <td><span class="badge ${c.serie==='A'?'badge-blue':'badge-purple'}">${c.serie}</span></td>
       <td>${c.numero}</td><td>${c.proveedor}</td><td>${c.numfact||'—'}</td><td>${c.fecha}</td>
       <td><span class="badge ${c.tipo==='proyecto'?'badge-purple':'badge-blue'}">${c.tipo==='proyecto'?'Proy.':'Gral.'}</span></td>
       <td>${proy?proy.nombre:'—'}</td><td>${fmt(c.base)}</td>
-      <td>${c.serie==='A'?(c.ivaPct||0)+'%':'—'}</td>
+      <td>${c.serie==='A'?ivaDetail:'—'}</td>
       <td>${c.serie==='A'?fmt(c.cuotaIva||0):'—'}</td>
       <td>${(c.irpfPct||0)>0?c.irpfPct+'%':'—'}</td>
       <td>${(c.irpfPct||0)>0?fmt(c.retencion||0):'—'}</td>
       <td><strong>${fmt(c.total)}</strong></td>
       <td class="mp">${fmt(pagado)}</td><td class="${pend>0?'mn':''}">${fmt(pend)}</td>
       <td>${est}</td>
-      <td style="white-space:nowrap">${pagBtn} <button class="btn btn-ghost btn-xs" onclick="editCoste('${c.id}')">&#x270F;&#xFE0F;</button> <button class="btn btn-danger btn-xs" onclick="deleteCoste('${c.id}')">&#x1F5D1;&#xFE0F;</button></td>
+      <td style="white-space:nowrap" onclick="event.stopPropagation()">${pagBtn} <button class="btn btn-ghost btn-xs" onclick="editCoste('${c.id}')">&#x270F;&#xFE0F;</button> <button class="btn btn-danger btn-xs" onclick="deleteCoste('${c.id}')">&#x1F5D1;&#xFE0F;</button></td>
+    </tr>
+    <tr id="hist-coste-${c.id}" class="hist-row" style="display:none">
+      <td colspan="17"><div class="hist-inner" id="hist-coste-inner-${c.id}"></div></td>
     </tr>`;
   }).join('');
 }
@@ -1842,6 +2186,62 @@ function saveQuickCobro(){
     toast('Cobro registrado.');
   }
 }
+
+// ─── EXPANDABLE HISTORY ROWS ─────────────────────────────────────────────
+function toggleVentaHist(ventaId, row){
+  const histRow=document.getElementById('hist-venta-'+ventaId);
+  if(!histRow)return;
+  const isOpen=histRow.style.display!=='none';
+  // Close all open history rows first
+  document.querySelectorAll('.hist-row').forEach(r=>r.style.display='none');
+  document.querySelectorAll('tbody tr[style*="cursor:pointer"]').forEach(r=>r.style.background='');
+  if(isOpen)return;
+  // Open this one
+  histRow.style.display='';
+  row.style.background='rgba(91,127,166,.07)';
+  const inner=document.getElementById('hist-venta-inner-'+ventaId);
+  const cobros=getD('cobros').filter(c=>c.ventaId===ventaId);
+  const v=getD('ventas').find(x=>x.id===ventaId);
+  if(!cobros.length){
+    inner.innerHTML='<p style="color:var(--muted);font-size:.82rem;padding:4px 0;">Sin cobros registrados para esta factura.</p>';
+    return;
+  }
+  inner.innerHTML=`<div style="font-size:.76rem;font-weight:600;color:var(--muted);margin-bottom:6px;">Historial de cobros — ${v.numero}</div>
+    <table><thead><tr><th>Fecha</th><th>Importe</th><th>Forma de pago</th><th></th></tr></thead>
+    <tbody>${cobros.map(c=>`<tr>
+      <td>${c.fecha}</td>
+      <td class="mp"><strong>${fmt(c.importe)}</strong></td>
+      <td>${c.forma}</td>
+      <td><button class="btn btn-danger btn-xs" onclick="deleteCobro('${c.id}');event.stopPropagation()">&#x1F5D1;&#xFE0F;</button></td>
+    </tr>`).join('')}</tbody></table>`;
+}
+
+function toggleCosteHist(costeId, row){
+  const histRow=document.getElementById('hist-coste-'+costeId);
+  if(!histRow)return;
+  const isOpen=histRow.style.display!=='none';
+  document.querySelectorAll('.hist-row').forEach(r=>r.style.display='none');
+  document.querySelectorAll('tbody tr[style*="cursor:pointer"]').forEach(r=>r.style.background='');
+  if(isOpen)return;
+  histRow.style.display='';
+  row.style.background='rgba(91,127,166,.07)';
+  const inner=document.getElementById('hist-coste-inner-'+costeId);
+  const pagos=getD('pagos').filter(p=>p.costeId===costeId);
+  const c=getD('costes').find(x=>x.id===costeId);
+  if(!pagos.length){
+    inner.innerHTML='<p style="color:var(--muted);font-size:.82rem;padding:4px 0;">Sin pagos registrados para esta factura.</p>';
+    return;
+  }
+  inner.innerHTML=`<div style="font-size:.76rem;font-weight:600;color:var(--muted);margin-bottom:6px;">Historial de pagos — ${c.numero} (${c.proveedor})</div>
+    <table><thead><tr><th>Fecha</th><th>Importe</th><th>Forma de pago</th><th></th></tr></thead>
+    <tbody>${pagos.map(p=>`<tr>
+      <td>${p.fecha}</td>
+      <td class="mp"><strong>${fmt(p.importe)}</strong></td>
+      <td>${p.forma}</td>
+      <td><button class="btn btn-danger btn-xs" onclick="deletePago('${p.id}');event.stopPropagation()">&#x1F5D1;&#xFE0F;</button></td>
+    </tr>`).join('')}</tbody></table>`;
+}
+
 function renderCobros(){
   const serie=document.getElementById('co-filter-serie').value;
   const ventas=getD('ventas');const cobros=getD('cobros');
@@ -2068,7 +2468,7 @@ function renderResListado(){
   const totPV=rows.reduce((s,r)=>s+r.p.venta,0);
   const totPC=rows.reduce((s,r)=>s+r.p.coste,0);
   cont.innerHTML=`<div class="table-wrap"><table>
-    <thead><tr><th>Estado</th><th>Proyecto</th><th>Cliente</th><th>Venta Prev.</th><th>Margen Prev.</th><th>M.P%</th><th>Facturado</th><th>Costes</th><th>Margen Real</th><th>M.R%</th></tr></thead>
+    <thead><tr><th></th><th>Estado</th><th>Proyecto</th><th>Cliente</th><th>Venta Prev.</th><th>Margen Prev.</th><th>M.P%</th><th>Facturado</th><th>Costes</th><th>Margen Real</th><th>M.R%</th></tr></thead>
     <tbody>${rows.map(r=>{
       const cerrado=(r.p.estado||'abierto')==='cerrado';
       const estBadge=cerrado?'<span class="badge badge-red">Cerrado</span>':'<span class="badge badge-green">Abierto</span>';
@@ -2126,35 +2526,43 @@ function onPdfSelected(){
 }
 
 async function extractTextFromPdf(base64){
-  // Use PDF.js to extract text client-side
   return new Promise((resolve)=>{
+    function doParse(){
+      const pdfjsLib=window['pdfjs-dist/build/pdf'];
+      if(!pdfjsLib){resolve('');return;}
+      pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      try{
+        const binary=atob(base64);
+        const bytes=new Uint8Array(binary.length);
+        for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
+        pdfjsLib.getDocument({data:bytes}).promise.then(pdf=>{
+          const pageNums=[];
+          for(let i=1;i<=Math.min(pdf.numPages,6);i++) pageNums.push(i);
+          Promise.all(pageNums.map(i=>pdf.getPage(i).then(p=>p.getTextContent().then(c=>c.items.map(s=>s.str).join(' '))))).then(txts=>{
+            resolve(txts.join('\n').trim());
+          }).catch(()=>resolve(''));
+        }).catch(()=>resolve(''));
+      }catch(e){resolve('');}
+    }
     try{
+      if(window['pdfjs-dist/build/pdf']){doParse();return;}
+      const existing=document.querySelector('script[src*="pdf.min.js"]');
+      if(existing){
+        let tries=0;
+        const wait=setInterval(()=>{
+          if(window['pdfjs-dist/build/pdf']){clearInterval(wait);doParse();}
+          else if(++tries>30){clearInterval(wait);resolve('');}
+        },200);
+        return;
+      }
       const script=document.createElement('script');
       script.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-      script.onload=async()=>{
-        try{
-          const pdfjsLib=window['pdfjs-dist/build/pdf'];
-          pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-          const binary=atob(base64);
-          const bytes=new Uint8Array(binary.length);
-          for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
-          const pdf=await pdfjsLib.getDocument({data:bytes}).promise;
-          let text='';
-          for(let i=1;i<=Math.min(pdf.numPages,5);i++){
-            const page=await pdf.getPage(i);
-            const content=await page.getTextContent();
-            text+=content.items.map(s=>s.str).join(' ')+'\n';
-          }
-          resolve(text.trim());
-        }catch(e){resolve('');}
-      };
+      script.onload=()=>doParse();
       script.onerror=()=>resolve('');
-      if(!document.querySelector('script[src*="pdf.min.js"]'))document.head.appendChild(script);
-      else resolve('');
+      document.head.appendChild(script);
     }catch(e){resolve('');}
   });
 }
-
 // Local PDF data extractor (no API key needed)
 function parseNumFromText(s){
   if(!s)return 0;
@@ -2272,8 +2680,8 @@ function renderPdfForm(type,data){
     html=`
       <div class="form-group"><label>Nombre del Proyecto</label><input type="text" id="pdf-f-nombre" value="${esc(data.nombre||'')}"></div>
       <div class="form-group"><label>Cliente</label><input type="text" id="pdf-f-cliente" value="${esc(data.cliente||'')}"></div>
-      <div class="form-group"><label>Valor de Venta (€)</label><input type="number" id="pdf-f-venta" value="${data.venta||''}" step="0.01"></div>
-      <div class="form-group"><label>Coste Previsto (€)</label><input type="number" id="pdf-f-coste" value="${data.coste||0}" step="0.01"></div>`;
+      <div class="form-group"><label>Valor de Venta (€)</label><input type="text" inputmode="decimal" id="pdf-f-venta" value="${data.venta||''}" step="0.01"></div>
+      <div class="form-group"><label>Coste Previsto (€)</label><input type="text" inputmode="decimal" id="pdf-f-coste" value="${data.coste||0}" step="0.01"></div>`;
   } else if(type==='venta'){
     const provOpts=clientes.map(c=>`<option value="${c}" ${c===data.cliente?'selected':''}>${c}</option>`).join('');
     const projOpts=proyectos.map(p=>`<option value="${p.id}">${p.nombre}</option>`).join('');
@@ -2283,7 +2691,7 @@ function renderPdfForm(type,data){
       <div class="form-group"><label>Fecha</label><input type="date" id="pdf-f-fecha" value="${data.fecha||todayStr()}"></div>
       <div class="form-group"><label>Cliente</label><select id="pdf-f-cliente"><option value="">— Seleccionar —</option>${provOpts}</select></div>
       <div class="form-group"><label>Proyecto (opc.)</label><select id="pdf-f-proyecto"><option value="">—</option>${projOpts}</select></div>
-      <div class="form-group"><label>Base Imponible (€)</label><input type="number" id="pdf-f-base" value="${data.base||''}" step="0.01"></div>`;
+      <div class="form-group"><label>Base Imponible (€)</label><input type="text" inputmode="decimal" id="pdf-f-base" value="${data.base||''}" step="0.01"></div>`;
   } else {
     const projOpts=proyectos.map(p=>`<option value="${p.id}">${p.nombre}</option>`).join('');
     html=`
@@ -2293,7 +2701,7 @@ function renderPdfForm(type,data){
       <div class="form-group"><label>Fecha</label><input type="date" id="pdf-f-fecha" value="${data.fecha||todayStr()}"></div>
       <div class="form-group"><label>Tipo de Gasto</label><select id="pdf-f-tipo"><option value="general">General</option><option value="proyecto">Proyecto</option></select></div>
       <div class="form-group"><label>Proyecto</label><select id="pdf-f-proyecto"><option value="">—</option>${projOpts}</select></div>
-      <div class="form-group"><label>Base Imponible (€)</label><input type="number" id="pdf-f-base" value="${data.base||''}" step="0.01"></div>
+      <div class="form-group"><label>Base Imponible (€)</label><input type="text" inputmode="decimal" id="pdf-f-base" value="${data.base||''}" step="0.01"></div>
       <div class="form-group"><label>Tipo IVA</label><select id="pdf-f-ivaPct">${ivaTypes}</select></div>
       <div class="form-group"><label>Retención IRPF</label><select id="pdf-f-irpfPct">${irpfTypes}</select></div>`;
   }
@@ -2304,15 +2712,45 @@ function renderPdfForm(type,data){
 
 function esc(s){return String(s||'').replace(/&/g,'\u0026amp;').replace(/"/g,'\u0026quot;').replace(/</g,'\u0026lt;').replace(/>/g,'\u0026gt;');}
 
+function addPdfIvaLine(){
+  const tbody=document.getElementById('pdf-iva-tbody');
+  if(!tbody)return;
+  const defIva=DB.defaultIvaPct||21;
+  const ivaOpts=(DB.tiposIva||[0,4,10,21]).map(t=>`<option value="${t}" ${t===defIva?'selected':''}>${t}%</option>`).join('');
+  const tr=document.createElement('tr');
+  tr.innerHTML=`<td><input type="text" inputmode="decimal" value="0,00" style="padding:6px 8px;width:100%;background:var(--card2);border:1px solid var(--border);border-radius:6px;font-size:.84rem;color:var(--text);"></td>
+    <td><select style="padding:6px 8px;width:100%;background:var(--card2);border:1px solid var(--border);border-radius:6px;font-size:.84rem;color:var(--text);">${ivaOpts}</select></td>
+    <td><input type="text" value="0,00" readonly style="padding:6px 8px;width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:.84rem;color:var(--green);font-weight:600;"></td>
+    <td><button type="button" onclick="this.closest('tr').remove()" style="background:none;border:none;cursor:pointer;color:var(--muted2);">&#x2715;</button></td>`;
+  tbody.appendChild(tr);
+}
+
 function confirmPdfImport(){
   const type=document.getElementById('pdf-import-type').value;
   const g=id=>{const el=document.getElementById(id);return el?el.value:'';}
   if(type==='proyecto'){
-    addProyecto({nombre:g('pdf-f-nombre'),cliente:g('pdf-f-cliente'),venta:g('pdf-f-venta'),coste:g('pdf-f-coste')});
+    addProyecto({nombre:g('pdf-f-nombre'),cliente:g('pdf-f-cliente'),venta:fnum(g('pdf-f-venta')),coste:fnum(g('pdf-f-coste')),pdfDriveId:pdfExtracted._driveId||null,pdfName:pdfExtracted._pdfName||null});
   } else if(type==='venta'){
-    addVenta({serie:g('pdf-f-serie'),numero:g('pdf-f-numero'),fecha:g('pdf-f-fecha'),cliente:g('pdf-f-cliente'),proyectoId:g('pdf-f-proyecto'),base:g('pdf-f-base')});
+    addVenta({serie:g('pdf-f-serie'),numero:g('pdf-f-numero'),fecha:g('pdf-f-fecha'),cliente:g('pdf-f-cliente'),proyectoId:g('pdf-f-proyecto'),base:fnum(g('pdf-f-base')),pdfDriveId:pdfExtracted._driveId||null,pdfName:pdfExtracted._pdfName||null});
   } else {
-    addCoste({serie:g('pdf-f-serie'),proveedor:g('pdf-f-proveedor'),numfact:g('pdf-f-numfact'),fecha:g('pdf-f-fecha'),tipo:g('pdf-f-tipo'),proyectoId:g('pdf-f-proyecto'),base:g('pdf-f-base'),ivaPct:g('pdf-f-ivaPct'),irpfPct:g('pdf-f-irpfPct'),numero:nextCosteNum(g('pdf-f-serie'))});
+    // Collect IVA lines from the PDF import form
+    const ivaLines=[];
+    document.querySelectorAll('#pdf-iva-tbody tr').forEach(row=>{
+      const inputs=row.querySelectorAll('input,select');
+      if(inputs.length>=2){
+        const base=fnum(inputs[0].value);
+        const ivaPct=fnum(inputs[1].value);
+        if(base>0) ivaLines.push({base,ivaPct,cuota:base*ivaPct/100});
+      }
+    });
+    const totalBase=ivaLines.reduce((s,l)=>s+l.base,0);
+    const totalCuota=ivaLines.reduce((s,l)=>s+l.cuota,0);
+    addCoste({serie:g('pdf-f-serie'),proveedor:g('pdf-f-proveedor'),numfact:g('pdf-f-numfact'),
+      fecha:g('pdf-f-fecha'),tipo:g('pdf-f-tipo'),proyectoId:g('pdf-f-proyecto'),
+      base:totalBase,cuotaIva:totalCuota,ivaPct:totalBase>0?Math.round(totalCuota/totalBase*100):21,
+      irpfPct:fnum(g('pdf-f-irpfPct')),
+      ivaLines,numero:nextCosteNum(g('pdf-f-serie')),
+      pdfDriveId:pdfExtracted._driveId||null,pdfName:pdfExtracted._pdfName||null});
   }
   closeModal('modal-pdf-import');
 }
