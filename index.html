@@ -815,37 +815,101 @@ function setSyncStatus(state,msg){
 // ═══════════════════════════════════════════
 // GOOGLE AUTH
 // ═══════════════════════════════════════════
+function setLoginError(msg){
+  let el=document.getElementById('login-error-msg');
+  if(!el){
+    el=document.createElement('div');
+    el.id='login-error-msg';
+    el.style.cssText='margin-top:12px;background:rgba(192,57,43,.1);border:1px solid rgba(192,57,43,.3);border-radius:8px;padding:10px 14px;font-size:.8rem;color:#c0392b;text-align:left;line-height:1.5;';
+    document.getElementById('login-step-2').appendChild(el);
+  }
+  el.style.display=msg?'block':'none';
+  el.innerHTML=msg||'';
+}
+
+function setLoginLoading(loading){
+  const btn=document.querySelector('.btn-google');
+  if(!btn)return;
+  if(loading){
+    btn.disabled=true;
+    btn.innerHTML='<div style="width:18px;height:18px;border:2px solid #ccc;border-top-color:#333;border-radius:50%;animation:spin .7s linear infinite;"></div> Conectando con Google...';
+  } else {
+    btn.disabled=false;
+    btn.innerHTML='<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width:22px"> Entrar con Google';
+  }
+}
+
 function loadGoogleScripts(cb){
   if(window.google&&window.google.accounts){cb();return;}
-  const s=document.createElement('script');s.src='https://accounts.google.com/gsi/client';
-  s.onload=cb;s.onerror=()=>toast('Error cargando Google Sign-In.','error');
+  const s=document.createElement('script');
+  s.src='https://accounts.google.com/gsi/client';
+  s.onload=()=>{
+    // Small delay to ensure GSI is fully initialized
+    setTimeout(cb, 100);
+  };
+  s.onerror=()=>{
+    setLoginLoading(false);
+    setLoginError('No se pudo cargar Google Sign-In. Comprueba tu conexión a internet e inténtalo de nuevo.');
+  };
   document.head.appendChild(s);
 }
 
 function signIn(){
-  if(!CLIENT_ID){toast('Configura el Client ID primero.','error');return;}
+  setLoginError('');
+  if(!CLIENT_ID){
+    setLoginError('Introduce primero el Client ID de Google. Pulsa "Editar" para configurarlo.');
+    return;
+  }
+  setLoginLoading(true);
   loadGoogleScripts(()=>{
-    const client=google.accounts.oauth2.initTokenClient({
-      client_id:CLIENT_ID, scope:SCOPES,
-      callback:(resp)=>{
-        if(resp.error){toast('Error de autenticación: '+resp.error,'error');return;}
-        accessToken=resp.access_token;
-        fetchUserInfo();
-      }
-    });
-    client.requestAccessToken();
+    try{
+      const client=google.accounts.oauth2.initTokenClient({
+        client_id:CLIENT_ID,
+        scope:SCOPES,
+        callback:(resp)=>{
+          setLoginLoading(false);
+          if(resp.error){
+            let msg='Error de autenticación: <strong>'+resp.error+'</strong>';
+            if(resp.error==='access_denied') msg='Acceso denegado. Asegúrate de que tu cuenta está en la lista de testers en Google Cloud Console (<a href="https://console.cloud.google.com" target="_blank">console.cloud.google.com</a> → APIs → Pantalla de consentimiento → Usuarios de prueba).';
+            if(resp.error==='invalid_client') msg='Client ID no válido. Revisa que el Client ID sea correcto y que la URL de la app esté en los orígenes autorizados en Google Cloud Console.';
+            if(resp.error==='popup_closed_by_user') msg='Ventana cerrada. Pulsa de nuevo "Entrar con Google" para continuar.';
+            if(resp.error==='popup_blocked_by_browser') msg='El navegador bloqueó la ventana emergente. Permite las ventanas emergentes para esta página e inténtalo de nuevo.';
+            setLoginError(msg);
+            return;
+          }
+          accessToken=resp.access_token;
+          fetchUserInfo();
+        },
+        error_callback:(err)=>{
+          setLoginLoading(false);
+          setLoginError('Error al iniciar sesión: '+(err.message||err.type||JSON.stringify(err)));
+        }
+      });
+      client.requestAccessToken({prompt:'select_account'});
+    }catch(e){
+      setLoginLoading(false);
+      setLoginError('Error al inicializar Google Sign-In: '+e.message+'. Comprueba que el Client ID es correcto.');
+    }
   });
 }
 
 function fetchUserInfo(){
   fetch('https://www.googleapis.com/oauth2/v2/userinfo',{headers:{Authorization:'Bearer '+accessToken}})
-    .then(r=>r.json()).then(u=>{
-      document.getElementById('user-name').textContent=u.name||u.email;
-      if(u.picture)document.getElementById('user-avatar').src=u.picture;
+    .then(r=>{
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      return r.json();
+    })
+    .then(u=>{
+      document.getElementById('user-name').textContent=u.name||u.email||'Usuario';
+      if(u.picture) document.getElementById('user-avatar').src=u.picture;
       document.getElementById('login-screen').style.display='none';
       document.getElementById('topbar').classList.add('show');
       document.getElementById('app-shell').classList.add('show');
       initDriveData();
+    })
+    .catch(e=>{
+      setLoginLoading(false);
+      setLoginError('Error al obtener datos de usuario: '+e.message);
     });
 }
 
@@ -990,7 +1054,7 @@ async function showRestoreModal(){
         <div style="font-weight:600;font-size:.86rem;">${f.name}</div>
         <div style="font-size:.76rem;color:var(--muted);">${new Date(f.createdTime).toLocaleString('es-ES')}</div>
       </div>
-      <button class="btn btn-warn btn-sm" onclick="restoreFromBackup('${f.id}','${f.name}')">🔄 Restaurar</button>
+      <button class="btn btn-warn btn-sm" onclick="restoreFromBackup('${f.id}','${f.name}')">Restaurar</button>
     </div>`).join('');
 }
 
@@ -1025,7 +1089,7 @@ async function initDriveData(){
     hideSyncOverlay();
     renderAll();
     setSyncStatus('ok','Conectado');
-    toast('Datos cargados ✓');
+    toast('Datos cargados [OK]');
     // Auto backup (transparent, after a short delay)
     setTimeout(()=>createAutoBackup(),3000);
   }catch(e){
@@ -1098,7 +1162,7 @@ function toggleEditClientId(){
   const isEditing=wrap.style.display!=='none';
   wrap.style.display=isEditing?'none':'block';
   ro.style.display=isEditing?'block':'none';
-  btn.textContent=isEditing?'✏️ Editar':'✕ Cancelar';
+  btn.textContent=isEditing?'[e] Editar':'[sym] Cancelar';
   if(!isEditing){
     const inp=document.getElementById('login-client-id-2');
     if(inp){inp.value=CLIENT_ID||'';inp.focus();inp.select();}
@@ -1119,7 +1183,7 @@ function saveClientIdInline(){
   document.getElementById('clientid-readonly').textContent=val;
   document.getElementById('clientid-edit-wrap').style.display='none';
   document.getElementById('clientid-readonly').style.display='block';
-  document.getElementById('btn-edit-toggle').textContent='✏️ Editar';
+  document.getElementById('btn-edit-toggle').textContent='[e] Editar';
   toast('Client ID actualizado.');
 }
 
@@ -1158,15 +1222,15 @@ function renderFiscalTags(){
   ivaDiv.innerHTML=ivaTypes.map(t=>{
     const isDefault=t===defIva;
     return`<span class="fiscal-tag${isDefault?' is-default':''}">
-      ${t}% <span class="star" style="color:${isDefault?'var(--accent)':'var(--muted2)'};" title="Establecer como defecto" onclick="setDefaultIva(${t})">★</span>
-      ${t!==0?`<span class="remove" onclick="removeIva(${t})">×</span>`:''}
+      ${t}% <span class="star" style="color:${isDefault?'var(--accent)':'var(--muted2)'};" title="Establecer como defecto" onclick="setDefaultIva(${t})">*</span>
+      ${t!==0?`<span class="remove" onclick="removeIva(${t})">x</span>`:''}
     </span>`;
   }).join('');
   irpfDiv.innerHTML=irpfTypes.map(t=>{
     const isDefault=t===defIrpf;
     return`<span class="fiscal-tag${isDefault?' is-default':''}">
-      ${t===0?'Sin ret.':t+'%'} <span class="star" style="color:${isDefault?'var(--accent)':'var(--muted2)'};" title="Establecer como defecto" onclick="setDefaultIrpf(${t})">★</span>
-      ${t!==0?`<span class="remove" onclick="removeIrpf(${t})">×</span>`:''}
+      ${t===0?'Sin ret.':t+'%'} <span class="star" style="color:${isDefault?'var(--accent)':'var(--muted2)'};" title="Establecer como defecto" onclick="setDefaultIrpf(${t})">*</span>
+      ${t!==0?`<span class="remove" onclick="removeIrpf(${t})">x</span>`:''}
     </span>`;
   }).join('');
 }
@@ -1277,10 +1341,10 @@ function renderProyectos(){
     const mp=p.venta-p.coste;const mppct=p.venta>0?(mp/p.venta*100):0;
     const mr=ventasReal-costesReal;const mrpct=ventasReal>0?(mr/ventasReal*100):0;
     const cerrado=(p.estado||'abierto')==='cerrado';
-    const estadoBadge=cerrado?'<span class="badge badge-red">🔒 Cerrado</span>':'<span class="badge badge-green">🟢 Abierto</span>';
+    const estadoBadge=cerrado?'<span class="badge badge-red">Cerrado</span>':'<span class="badge badge-green">Abierto</span>';
     const toggleBtn=cerrado
-      ?`<button class="btn btn-success btn-xs" title="Reabrir proyecto" onclick="toggleProyectoEstado('${p.id}')">🔓 Reabrir</button>`
-      :`<button class="btn btn-warn btn-xs" title="Cerrar proyecto" onclick="toggleProyectoEstado('${p.id}')">🔒 Cerrar</button>`;
+      ?'<button class="btn btn-success btn-xs" onclick="toggleProyectoEstado(\''+p.id+'\')">Reabrir</button>'
+      :'<button class="btn btn-warn btn-xs" onclick="toggleProyectoEstado(\''+p.id+'\')">Cerrar</button>';
     return`<tr>
       <td>${estadoBadge}</td>
       <td><strong>${p.nombre}</strong></td>
@@ -1291,8 +1355,8 @@ function renderProyectos(){
       <td class="${mr>=0?'mp':'mn'}">${fmt(mr)}</td>
       <td class="${mr>=0?'mp':'mn'}">${fmtPct(mrpct)}</td>
       <td style="white-space:nowrap">${toggleBtn}
-        <button class="btn btn-ghost btn-xs" onclick="editProyecto('${p.id}')">✏️</button>
-        <button class="btn btn-danger btn-xs" onclick="deleteProyecto('${p.id}')">🗑</button>
+        <button class="btn btn-ghost btn-xs" onclick="editProyecto('${p.id}')">[e]</button>
+        <button class="btn btn-danger btn-xs" onclick="deleteProyecto('${p.id}')">[x]</button>
       </td></tr>`;
   }).join('');
 }
@@ -1359,7 +1423,7 @@ function addVenta(data){
   if(!cliente){toast('Selecciona un cliente.','error');return;}
   if(base<=0){toast('La base debe ser mayor que 0.','error');return;}
   if(getD('ventas').find(v=>v.numero===numero)){toast('Ya existe esa factura.','error');return;}
-  if(proyectoId&&isProyectoCerrado(proyectoId)){toast('⛔ El proyecto está cerrado. Reabre el proyecto para imputar facturas.','error');return;}
+  if(proyectoId&&isProyectoCerrado(proyectoId)){toast('[!] El proyecto está cerrado. Reabre el proyecto para imputar facturas.','error');return;}
   const iva=serie==='A'?base*0.21:0;
   const ventas=getD('ventas');
   ventas.push({id:genId(),serie,numero,fecha,cliente,proyectoId,base,iva,total:base+iva});
@@ -1428,7 +1492,7 @@ function renderVentas(){
     const cobrado=getCobradoVenta(v.id);const pend=v.total-cobrado;
     const proy=proyectos.find(p=>p.id===v.proyectoId);
     const est=pend<=0?'<span class="badge badge-green">Cobrado</span>':cobrado>0?'<span class="badge badge-yellow">Parcial</span>':'<span class="badge badge-orange">Pendiente</span>';
-    const cobBtn=pend>0?`<button class="btn btn-success btn-xs" title="Registrar cobro" onclick="openQuickCobro('${v.id}')">💰</button>`:'';
+    const cobBtn=pend>0?`<button class="btn btn-success btn-xs" title="Registrar cobro" onclick="openQuickCobro('${v.id}')">[+C]</button>`:'';
     return`<tr>
       <td><span class="badge ${v.serie==='A'?'badge-blue':'badge-purple'}">${v.serie}</span></td>
       <td><strong>${v.numero}</strong></td><td>${v.fecha}</td><td>${v.cliente}</td>
@@ -1436,7 +1500,7 @@ function renderVentas(){
       <td>${v.serie==='A'?fmt(v.iva):'—'}</td><td><strong>${fmt(v.total)}</strong></td>
       <td class="mp">${fmt(cobrado)}</td><td class="${pend>0?'mn':''}">${fmt(pend)}</td>
       <td>${est}</td>
-      <td style="white-space:nowrap">${cobBtn} <button class="btn btn-ghost btn-xs" onclick="editVenta('${v.id}')">✏️</button> <button class="btn btn-danger btn-xs" onclick="deleteVenta('${v.id}')">🗑</button></td>
+      <td style="white-space:nowrap">${cobBtn} <button class="btn btn-ghost btn-xs" onclick="editVenta('${v.id}')">[e]</button> <button class="btn btn-danger btn-xs" onclick="deleteVenta('${v.id}')">[x]</button></td>
     </tr>`;
   }).join('');
 }
@@ -1519,7 +1583,7 @@ function addCoste(data){
   if(!fecha){toast('La fecha es obligatoria.','error');return;}
   if(base<=0){toast('La base debe ser mayor que 0.','error');return;}
   if(tipo==='proyecto'&&!proyectoId){toast('Selecciona un proyecto.','error');return;}
-  if(proyectoId&&isProyectoCerrado(proyectoId)){toast('⛔ El proyecto está cerrado. Reabre el proyecto para imputar facturas.','error');return;}
+  if(proyectoId&&isProyectoCerrado(proyectoId)){toast('[!] El proyecto está cerrado. Reabre el proyecto para imputar facturas.','error');return;}
   const cuotaIva=base*ivaPct/100;
   const retencion=base*irpfPct/100;
   const total=base+cuotaIva-retencion;
@@ -1610,7 +1674,7 @@ function renderCostes(){
     const pagado=getPagadoCoste(c.id);const pend=c.total-pagado;
     const proy=proyectos.find(p=>p.id===c.proyectoId);
     const est=pend<=0?'<span class="badge badge-green">Pagado</span>':pagado>0?'<span class="badge badge-yellow">Parcial</span>':'<span class="badge badge-orange">Pendiente</span>';
-    const pagBtn=pend>0?`<button class="btn btn-warn btn-xs" title="Registrar pago" onclick="openQuickPago('${c.id}')">💸</button>`:'';
+    const pagBtn=pend>0?`<button class="btn btn-warn btn-xs" title="Registrar pago" onclick="openQuickPago('${c.id}')">[+P]</button>`:'';
     return`<tr>
       <td><span class="badge ${c.serie==='A'?'badge-blue':'badge-purple'}">${c.serie}</span></td>
       <td>${c.numero}</td><td>${c.proveedor}</td><td>${c.numfact||'—'}</td><td>${c.fecha}</td>
@@ -1623,7 +1687,7 @@ function renderCostes(){
       <td><strong>${fmt(c.total)}</strong></td>
       <td class="mp">${fmt(pagado)}</td><td class="${pend>0?'mn':''}">${fmt(pend)}</td>
       <td>${est}</td>
-      <td style="white-space:nowrap">${pagBtn} <button class="btn btn-ghost btn-xs" onclick="editCoste('${c.id}')">✏️</button> <button class="btn btn-danger btn-xs" onclick="deleteCoste('${c.id}')">🗑</button></td>
+      <td style="white-space:nowrap">${pagBtn} <button class="btn btn-ghost btn-xs" onclick="editCoste('${c.id}')">[e]</button> <button class="btn btn-danger btn-xs" onclick="deleteCoste('${c.id}')">[x]</button></td>
     </tr>`;
   }).join('');
 }
@@ -1730,7 +1794,7 @@ function renderCobros(){
     const v=ventas.find(x=>x.id===c.ventaId)||{numero:'?',cliente:'?'};
     return`<tr><td>${c.fecha}</td><td>${v.numero}</td><td>${v.cliente}</td>
     <td class="mp"><strong>${fmt(c.importe)}</strong></td><td>${c.forma}</td>
-    <td><button class="btn btn-danger btn-xs" onclick="deleteCobro('${c.id}')">🗑</button></td></tr>`;
+    <td><button class="btn btn-danger btn-xs" onclick="deleteCobro('${c.id}')">[x]</button></td></tr>`;
   }).join('');
 }
 
@@ -1837,7 +1901,7 @@ function renderPagos(){
     const c=costes.find(x=>x.id===p.costeId)||{numero:'?',proveedor:'?'};
     return`<tr><td>${p.fecha}</td><td>${c.numero}</td><td>${c.proveedor}</td>
     <td class="mp"><strong>${fmt(p.importe)}</strong></td><td>${p.forma}</td>
-    <td><button class="btn btn-danger btn-xs" onclick="deletePago('${p.id}')">🗑</button></td></tr>`;
+    <td><button class="btn btn-danger btn-xs" onclick="deletePago('${p.id}')">[x]</button></td></tr>`;
   }).join('');
 }
 
@@ -1859,13 +1923,13 @@ function populateResSelector(){
   const sel=document.getElementById('res-selector');
   sel.innerHTML='<option value="">— Seleccionar —</option>'+getD('proyectos').map(p=>{
     const cerrado=(p.estado||'abierto')==='cerrado';
-    return`<option value="${p.id}">${cerrado?'🔒 ':''} ${p.nombre} — ${p.cliente}</option>`;
+    return`<option value="${p.id}">${cerrado?'':''} ${p.nombre} — ${p.cliente}</option>`;
   }).join('');
 }
 function renderResumen(){
   const id=document.getElementById('res-selector').value;
   const cont=document.getElementById('res-content');
-  if(!id){cont.innerHTML='<div class="empty-state"><div class="icon">📊</div><p>Selecciona un proyecto.</p></div>';return;}
+  if(!id){cont.innerHTML='<div class="empty-state"><div class="icon">[icon]</div><p>Selecciona un proyecto.</p></div>';return;}
   const p=getD('proyectos').find(x=>x.id===id);if(!p)return;
   const ventas=getD('ventas').filter(v=>v.proyectoId===id);
   const costes=getD('costes').filter(c=>c.proyectoId===id);
@@ -1882,7 +1946,7 @@ function renderResumen(){
       <div class="stat-card"><div class="label">Coste Previsto</div><div class="value yellow">${fmt(p.coste)}</div></div>
       <div class="stat-card"><div class="label">Margen Previsto</div><div class="value ${mp>=0?'green':'red'}">${fmt(mp)} <small>(${fmtPct(mppct)})</small></div></div>
     </div>
-    <div class="res-block"><h4>📤 Facturas Emitidas</h4>
+    <div class="res-block"><h4>[icon] Facturas Emitidas</h4>
       ${ventas.length?`<div class="table-wrap"><table><thead><tr><th>Nº</th><th>Serie</th><th>Fecha</th><th>Total</th><th>Cobrado</th><th>Pendiente</th></tr></thead><tbody>
       ${ventas.map(v=>{const cob=getCobradoVenta(v.id);const pend=v.total-cob;
         return`<tr><td>${v.numero}</td><td><span class="badge ${v.serie==='A'?'badge-blue':'badge-purple'}">${v.serie}</span></td>
@@ -1890,7 +1954,7 @@ function renderResumen(){
       <tr style="font-weight:700;border-top:2px solid var(--border)"><td colspan="3">TOTAL</td><td>${fmt(totalVenta)}</td><td class="mp">${fmt(totalCobrado)}</td><td class="${totalVenta-totalCobrado>0?'mn':''}">${fmt(totalVenta-totalCobrado)}</td></tr>
       </tbody></table></div>`:'<p style="color:var(--muted);font-size:.85rem">Sin facturas emitidas.</p>'}
     </div>
-    <div class="res-block"><h4>📥 Facturas Recibidas</h4>
+    <div class="res-block"><h4>[icon] Facturas Recibidas</h4>
       ${costes.length?`<div class="table-wrap"><table><thead><tr><th>Nº</th><th>Serie</th><th>Proveedor</th><th>Fecha</th><th>Base</th><th>IVA</th><th>IRPF</th><th>Total</th><th>Pagado</th><th>Pendiente</th></tr></thead><tbody>
       ${costes.map(c=>{const pag=getPagadoCoste(c.id);const pend=c.total-pag;
         return`<tr><td>${c.numero}</td><td><span class="badge ${c.serie==='A'?'badge-blue':'badge-purple'}">${c.serie}</span></td>
@@ -1912,7 +1976,7 @@ function renderResListado(){
   const allP=getD('proyectos');
   const proyectos=filtroEstado==='todos'?allP:allP.filter(p=>(p.estado||'abierto')===filtroEstado);
   const cont=document.getElementById('res-listado-content');
-  if(!proyectos.length){cont.innerHTML='<div class="empty-state"><div class="icon">📋</div><p>Sin proyectos.</p></div>';return;}
+  if(!proyectos.length){cont.innerHTML='<div class="empty-state"><div class="icon">[icon]</div><p>Sin proyectos.</p></div>';return;}
   const rows=proyectos.map(p=>{
     const tv=getD('ventas').filter(v=>v.proyectoId===p.id).reduce((s,v)=>s+v.total,0);
     const tc=getD('costes').filter(c=>c.proyectoId===p.id).reduce((s,c)=>s+c.total,0);
@@ -1928,7 +1992,7 @@ function renderResListado(){
     <thead><tr><th>Estado</th><th>Proyecto</th><th>Cliente</th><th>Venta Prev.</th><th>Margen Prev.</th><th>M.P%</th><th>Facturado</th><th>Costes</th><th>Margen Real</th><th>M.R%</th></tr></thead>
     <tbody>${rows.map(r=>{
       const cerrado=(r.p.estado||'abierto')==='cerrado';
-      const estBadge=cerrado?'<span class="badge badge-red">🔒 Cerrado</span>':'<span class="badge badge-green">🟢 Abierto</span>';
+      const estBadge=cerrado?'<span class="badge badge-red">Cerrado</span>':'<span class="badge badge-green">Abierto</span>';
       return`<tr><td>${estBadge}</td><td><strong>${r.p.nombre}</strong></td><td>${r.p.cliente}</td>
       <td>${fmt(r.p.venta)}</td><td class="${r.mp>=0?'mp':'mn'}">${fmt(r.mp)}</td><td class="${r.mp>=0?'mp':'mn'}">${fmtPct(r.mppct)}</td>
       <td>${fmt(r.tv)}</td><td>${fmt(r.tc)}</td>
@@ -1955,10 +2019,10 @@ function openPdfImport(type){
   pdfExtracted={};
   document.getElementById('pdf-import-type').value=type;
   const titles={proyecto:'Importar Presupuesto (PDF → Proyecto)',venta:'Importar Factura Emitida (PDF)',coste:'Importar Factura Recibida (PDF)'};
-  document.getElementById('pdf-modal-title').textContent='📄 '+titles[type];
+  document.getElementById('pdf-modal-title').textContent='[PDF] '+titles[type];
   document.getElementById('pdf-placeholder').style.display='flex';
   document.getElementById('pdf-iframe').style.display='none';
-  document.getElementById('pdf-form-content').innerHTML='<div class="empty-state" style="padding:24px 10px;"><div class="icon" style="font-size:1.5rem;">⬅️</div><p>Sube un PDF para extraer los datos automáticamente.</p></div>';
+  document.getElementById('pdf-form-content').innerHTML='<div class="empty-state" style="padding:24px 10px;"><div class="icon" style="font-size:1.5rem;">[sym]️</div><p>Sube un PDF para extraer los datos automáticamente.</p></div>';
   document.getElementById('ai-status-bar').style.display='none';
   document.getElementById('pdf-import-confirm').style.display='none';
   document.getElementById('pdf-file-input').value='';
@@ -2000,8 +2064,7 @@ async function extractTextFromPdf(base64){
           for(let i=1;i<=Math.min(pdf.numPages,5);i++){
             const page=await pdf.getPage(i);
             const content=await page.getTextContent();
-            text+=content.items.map(s=>s.str).join(' ')+'
-';
+            text+=content.items.map(s=>s.str).join(' ')+'\n';
           }
           resolve(text.trim());
         }catch(e){resolve('');}
@@ -2086,7 +2149,7 @@ ${pdfText.slice(0,3000)}`
     // Show extracted text in a collapsible
     const panel=document.getElementById('pdf-form-content');
     const existingForm=panel.innerHTML;
-    panel.innerHTML=existingForm+`<details style="margin-top:12px;"><summary style="cursor:pointer;font-size:.78rem;color:var(--muted);font-weight:600;">📄 Ver texto extraído del PDF</summary><pre style="font-size:.72rem;color:var(--muted);background:var(--card2);padding:10px;border-radius:8px;overflow:auto;max-height:200px;margin-top:8px;white-space:pre-wrap;">${pdfText.slice(0,2000)}</pre></details>`;
+    panel.innerHTML=existingForm+`<details style="margin-top:12px;"><summary style="cursor:pointer;font-size:.78rem;color:var(--muted);font-weight:600;">[PDF] Ver texto extraído del PDF</summary><pre style="font-size:.72rem;color:var(--muted);background:var(--card2);padding:10px;border-radius:8px;overflow:auto;max-height:200px;margin-top:8px;white-space:pre-wrap;">${pdfText.slice(0,2000)}</pre></details>`;
   }
 }
 
@@ -2131,7 +2194,7 @@ function renderPdfForm(type,data){
   document.getElementById('pdf-import-confirm').style.display='inline-flex';
 }
 
-function esc(s){return String(s||'').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
+function esc(s){return String(s||'').replace(/&/g,'\u0026amp;').replace(/"/g,'\u0026quot;').replace(/</g,'\u0026lt;').replace(/>/g,'\u0026gt;');}
 
 function confirmPdfImport(){
   const type=document.getElementById('pdf-import-type').value;
@@ -2253,10 +2316,10 @@ function toggleDriveConfig(){
 function loadAjustesStatus(){
   const saved=localStorage.getItem('gp_client_id')||'';
   const btn=document.getElementById('btn-current-id');
-  if(saved){btn.style.display='inline-flex';btn.textContent='✓ '+saved.slice(0,32)+'...';}
+  if(saved){btn.style.display='inline-flex';btn.textContent='[OK] '+saved.slice(0,32)+'...';}
   document.getElementById('cfg-client-id').value=saved;
   const status=document.getElementById('drive-status');
-  if(folderId&&fileId){status.innerHTML=`<span style="color:var(--green)">✓ Conectado</span>`;}
+  if(folderId&&fileId){status.innerHTML=`<span style="color:var(--green)">[OK] Conectado</span>`;}
   else{status.innerHTML=`<span style="color:var(--muted)">No conectado.</span>`;}
 }
 
