@@ -346,6 +346,53 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
   .stats-row{grid-template-columns:1fr;}
   table{min-width:400px;}
 }
+
+/* ── MOBILE TABLE → CARD LAYOUT ── */
+@media(max-width:600px){
+  /* Tables become stacked cards */
+  .table-wrap{overflow-x:visible;margin:0;}
+  .mobile-cards table,
+  .mobile-cards thead,
+  .mobile-cards tbody,
+  .mobile-cards th,
+  .mobile-cards td,
+  .mobile-cards tr{display:block;}
+  .mobile-cards thead tr{display:none;}
+  .mobile-cards tbody tr{
+    background:var(--card);border:1px solid var(--border);
+    border-radius:10px;margin-bottom:8px;padding:10px 12px;
+    position:relative;cursor:pointer;
+  }
+  .mobile-cards tbody tr:hover{background:var(--card);}
+  .mobile-cards tbody td{
+    padding:2px 0;border:none;font-size:.82rem;
+    display:flex;align-items:baseline;gap:6px;
+  }
+  .mobile-cards tbody td[data-label]:before{
+    content:attr(data-label);
+    font-size:.68rem;font-weight:600;color:var(--muted2);
+    text-transform:uppercase;letter-spacing:.3px;
+    min-width:80px;flex-shrink:0;
+  }
+  .mobile-cards tbody td:empty{display:none;}
+  .mobile-cards tbody td.td-actions{
+    display:flex;gap:6px;margin-top:6px;padding-top:6px;
+    border-top:1px solid var(--border);justify-content:flex-end;
+  }
+  .mobile-cards tbody td.td-actions:before{display:none;}
+  /* Landscape: back to normal table */
+  @media(orientation:landscape){
+    .mobile-cards table,
+    .mobile-cards thead,
+    .mobile-cards tbody,
+    .mobile-cards th,
+    .mobile-cards td,
+    .mobile-cards tr{display:revert;}
+    .mobile-cards thead tr{display:revert;}
+    .table-wrap{overflow-x:auto;}
+    .mobile-cards tbody td:before{display:none;}
+  }
+}
 </style>
 </head>
 <body>
@@ -459,6 +506,7 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
     <div class="form-grid">
       <div class="form-group" style="grid-column:span 2"><label>Nombre del Proyecto</label><input type="text" id="proj-nombre" placeholder="Ej: Instalación Eléctrica Nave A"></div>
       <div class="form-group"><label>Cliente</label><input type="text" id="proj-cliente" placeholder="Nombre del cliente"></div>
+      <div class="form-group"><label>NIF / CIF Cliente</label><input type="text" id="proj-nif" placeholder="B12345678"></div>
       <div class="form-group"><label>Valor de Venta (€)</label><input type="text" inputmode="decimal" id="proj-venta" placeholder="0.00" step="0.01" oninput="calcMargenForm()"></div>
       <div class="form-group"><label>Coste Previsto (€)</label><input type="text" inputmode="decimal" id="proj-coste" placeholder="0.00" step="0.01" oninput="calcMargenForm()"></div>
       <div class="form-group"><label>Margen Previsto</label><input type="text" id="proj-margen-prev" readonly class="computed" placeholder="—"></div>
@@ -488,7 +536,7 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
       <button class="btn btn-ghost" onclick="document.getElementById('proj-filter-estado').value='todos';renderProyectos()">Mostrar todos</button>
     </div>
     <div class="table-wrap"><table><thead><tr>
-      <th></th><th>Estado</th><th>Proyecto</th><th>Cliente</th>
+      <th></th><th>Estado</th><th>Proyecto</th><th>Cliente</th><th>NIF</th>
       <th>Venta Prev.</th><th>Venta Real</th><th>Coste Prev.</th><th>Coste Real</th>
       <th>Margen Prev.</th><th>Margen Real</th><th>M.Real %</th><th>Acciones</th>
     </tr></thead>
@@ -563,6 +611,7 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
       <div class="form-group"><label>Serie</label><select id="c-serie" onchange="onCosteSerieChange()"><option value="A">Serie A (IVA)</option><option value="B">Serie B (sin IVA)</option></select></div>
       <div class="form-group"><label>Nº Interno</label><input type="text" id="c-num" readonly></div>
       <div class="form-group"><label>Proveedor</label><input type="text" id="c-proveedor" placeholder="Nombre proveedor"></div>
+      <div class="form-group"><label>NIF / CIF Proveedor</label><input type="text" id="c-nif" placeholder="B12345678"></div>
       <div class="form-group"><label>Nº Fact. Proveedor</label><input type="text" id="c-numfact" placeholder="Nº fact. prov."></div>
       <div class="form-group"><label>Fecha</label><input type="date" id="c-fecha"></div>
       <div class="form-group"><label>Tipo de Gasto</label><select id="c-tipo" onchange="onCosteTipoChange()"><option value="general">Gasto General</option><option value="proyecto">Proyecto</option></select></div>
@@ -602,7 +651,7 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
       <button class="btn btn-success" onclick="exportarCostes('excel')">⬇️ Excel</button>
       <button class="btn btn-success" onclick="exportarCostes('pdf')">🖨️ PDF</button>
     </div>
-    <div class="table-wrap"><table><thead><tr><th></th><th>Serie</th><th>Nº</th><th>Proveedor</th><th>Nº Prov.</th><th>Fecha</th><th>Tipo</th><th>Proyecto</th><th>Base</th><th>IVA%</th><th>Cuota IVA</th><th>IRPF%</th><th>Retención</th><th>Total</th><th>Pagado</th><th>Pend.</th><th>Estado</th><th>Acc.</th></tr></thead>
+    <div class="table-wrap mobile-cards"><table><thead><tr><th></th><th>Serie</th><th>Nº</th><th>Proveedor</th><th>NIF</th><th>Nº Prov.</th><th>Fecha</th><th>Tipo</th><th>Proyecto</th><th>Base</th><th>IVA%</th><th>Cuota IVA</th><th>IRPF%</th><th>Retención</th><th>Total</th><th>Pagado</th><th>Pend.</th><th>Estado</th><th>Acc.</th></tr></thead>
     <tbody id="tbody-costes"></tbody></table>
     <div id="costes-empty" class="empty-state" style="display:none"><div class="icon">📥</div><p>No hay facturas recibidas.</p></div></div>
   </div>
@@ -633,10 +682,12 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
       <div class="form-group"><label>Serie</label><select id="co-filter-serie" onchange="renderCobros()"><option value="">Todas</option><option value="A">A</option><option value="B">B</option></select></div>
       <div class="form-group"><label>Estado</label><select id="co-filter-estado" onchange="renderCobros()"><option value="todos">Todas</option><option value="pendiente" selected>Con pendiente</option><option value="cobrado">Totalmente cobradas</option></select></div>
     </div>
-    <div class="table-wrap"><table><thead><tr><th>Factura</th><th>Serie</th><th>Fecha</th><th>Cliente</th><th>Total</th><th>Cobrado</th><th>Pendiente</th><th>Estado</th></tr></thead><tbody id="tbody-cobros-pend"></tbody></table></div>
-    <h2 style="margin-top:22px;">🧾 Historial de Cobros</h2>
-    <div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Factura</th><th>Cliente</th><th>Importe</th><th>Forma</th><th>Acc.</th></tr></thead><tbody id="tbody-cobros-hist"></tbody></table>
-    <div id="cobros-empty" class="empty-state" style="display:none"><div class="icon">💰</div><p>Sin cobros registrados.</p></div></div>
+    <div class="table-wrap mobile-cards"><table><thead><tr><th>Factura</th><th>Serie</th><th>Fecha</th><th>Cliente</th><th>Total</th><th>Cobrado</th><th>Pendiente</th><th>Estado</th></tr></thead><tbody id="tbody-cobros-pend"></tbody></table></div>
+    <div id="cobros-hist-panel" style="display:none;margin-top:16px;border-top:2px dashed var(--border);padding-top:14px;">
+      <h2 id="cobros-hist-title" style="margin-bottom:12px;color:var(--accent);">Cobros de la factura</h2>
+      <div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Importe</th><th>Forma de pago</th><th>Acc.</th></tr></thead><tbody id="tbody-cobros-hist"></tbody></table>
+      <div id="cobros-empty" class="empty-state" style="display:none"><div class="icon">💰</div><p>Sin cobros para esta factura.</p></div>
+    </div></div>
   </div>
 </div>
 
@@ -666,10 +717,12 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
       <div class="form-group"><label>Tipo</label><select id="pa-filter-tipo" onchange="renderPagos()"><option value="">Todos</option><option value="general">General</option><option value="proyecto">Proyecto</option></select></div>
       <div class="form-group"><label>Estado</label><select id="pa-filter-estado" onchange="renderPagos()"><option value="todos">Todas</option><option value="pendiente" selected>Con pendiente</option><option value="pagado">Totalmente pagadas</option></select></div>
     </div>
-    <div class="table-wrap"><table><thead><tr><th>Nº</th><th>Serie</th><th>Proveedor</th><th>Fecha</th><th>Tipo</th><th>Total</th><th>Pagado</th><th>Pendiente</th><th>Estado</th></tr></thead><tbody id="tbody-pagos-pend"></tbody></table></div>
-    <h2 style="margin-top:22px;">📄 Historial de Pagos</h2>
-    <div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Factura</th><th>Proveedor</th><th>Importe</th><th>Forma</th><th>Acc.</th></tr></thead><tbody id="tbody-pagos-hist"></tbody></table>
-    <div id="pagos-empty" class="empty-state" style="display:none"><div class="icon">💸</div><p>Sin pagos registrados.</p></div></div>
+    <div class="table-wrap mobile-cards"><table><thead><tr><th>Nº</th><th>Serie</th><th>Proveedor</th><th>Fecha</th><th>Tipo</th><th>Total</th><th>Pagado</th><th>Pendiente</th><th>Estado</th></tr></thead><tbody id="tbody-pagos-pend"></tbody></table></div>
+    <div id="pagos-hist-panel" style="display:none;margin-top:16px;border-top:2px dashed var(--border);padding-top:14px;">
+      <h2 id="pagos-hist-title" style="margin-bottom:12px;color:var(--accent);">Pagos de la factura</h2>
+      <div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Importe</th><th>Forma de pago</th><th>Acc.</th></tr></thead><tbody id="tbody-pagos-hist"></tbody></table>
+      <div id="pagos-empty" class="empty-state" style="display:none"><div class="icon">💸</div><p>Sin pagos para esta factura.</p></div>
+    </div></div>
   </div>
 </div>
 
@@ -788,6 +841,7 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
     <div class="form-grid cols2">
       <div class="form-group" style="grid-column:span 2"><label>Nombre</label><input type="text" id="ep-nombre"></div>
       <div class="form-group" style="grid-column:span 2"><label>Cliente</label><input type="text" id="ep-cliente"></div>
+      <div class="form-group" style="grid-column:span 2"><label>NIF / CIF Cliente</label><input type="text" id="ep-nif" placeholder="B12345678"></div>
       <div class="form-group"><label>Venta (€)</label><input type="text" inputmode="decimal" id="ep-venta" oninput="calcMargenEdit()"></div>
       <div class="form-group"><label>Coste Previsto (€)</label><input type="text" inputmode="decimal" id="ep-coste" oninput="calcMargenEdit()"></div>
       <div class="form-group" style="grid-column:span 2"><label>Margen</label><input type="text" id="ep-margen-prev" readonly class="computed"></div>
@@ -816,6 +870,7 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
   <div class="modal"><h3>✏️ Editar Factura Recibida</h3><input type="hidden" id="ec-id">
     <div class="form-grid cols2">
       <div class="form-group"><label>Proveedor</label><input type="text" id="ec-proveedor"></div>
+      <div class="form-group"><label>NIF / CIF</label><input type="text" id="ec-nif" placeholder="B12345678"></div>
       <div class="form-group"><label>Nº Fact. Proveedor</label><input type="text" id="ec-numfact"></div>
       <div class="form-group"><label>Fecha</label><input type="date" id="ec-fecha"></div>
       <div class="form-group"><label>Tipo</label><select id="ec-tipo" onchange="onEcTipoChange()"><option value="general">Gasto General</option><option value="proyecto">Proyecto</option></select></div>
@@ -950,9 +1005,12 @@ let DB = {
 // ═══════════════════════════════════════════
 // UTILS
 // ═══════════════════════════════════════════
-const N=(v,d=2)=>parseFloat(v||0).toLocaleString('es-ES',{minimumFractionDigits:d,maximumFractionDigits:d});
-const fmt=v=>N(v)+' €';
-const fmtPct=v=>N(v,1)+' %';
+// Formatters — forced es-ES locale for consistent . thousands , decimals
+const _fmtES = new Intl.NumberFormat('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2});
+const _fmtES1= new Intl.NumberFormat('es-ES',{minimumFractionDigits:1,maximumFractionDigits:1});
+const N=(v,d=2)=>d===1?_fmtES1.format(parseFloat(v)||0):_fmtES.format(parseFloat(v)||0);
+const fmt=v=>N(v)+' €';
+const fmtPct=v=>N(v,1)+' %';
 // fnum: parse number from input (handles both . and , as decimal separator)
 const fnum=v=>{
   if(v===null||v===undefined||v==='')return 0;
@@ -962,7 +1020,7 @@ const fnum=v=>{
   else if(ld>lc)s=s.replace(/,/g,'');
   return parseFloat(s)||0;
 };
-const fmtInput=v=>parseFloat(v||0).toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtInput=v=>_fmtES.format(parseFloat(v)||0);
 function genId(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
 function todayStr(){return new Date().toISOString().slice(0,10);}
 function getD(k){return DB[k]||[];}
@@ -1597,6 +1655,7 @@ async function addProyecto(data){
   const d=data||{};
   const nombre=(d.nombre||document.getElementById('proj-nombre').value).trim();
   const cliente=(d.cliente||document.getElementById('proj-cliente').value).trim();
+  const nif=(d.nif||document.getElementById('proj-nif')?.value||'').trim();
   const venta=fnum(d.venta||document.getElementById('proj-venta').value);
   const coste=fnum(d.coste||document.getElementById('proj-coste').value);
   if(!nombre){toast('El nombre es obligatorio.','error');return;}
@@ -1615,10 +1674,10 @@ async function addProyecto(data){
     }catch(e){toast('Error al subir PDF: '+e.message,'error');}
   }
   const p=getD('proyectos');
-  p.push({id:genId(),nombre,cliente,venta,coste,fecha:new Date().toISOString(),pdfDriveId,pdfName});
+  p.push({id:genId(),nombre,cliente,nif,venta,coste,fecha:new Date().toISOString(),pdfDriveId,pdfName});
   setD('proyectos',p);
   if(!data){
-    ['proj-nombre','proj-cliente','proj-venta','proj-coste','proj-margen-prev'].forEach(id=>document.getElementById(id).value='');
+    ['proj-nombre','proj-cliente','proj-nif','proj-venta','proj-coste','proj-margen-prev'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
     if(document.getElementById('proj-pdf-file'))document.getElementById('proj-pdf-file').value='';
   }
   renderProyectos();toast('Proyecto guardado.');
@@ -1633,18 +1692,20 @@ function editProyecto(id){
   document.getElementById('ep-id').value=id;
   document.getElementById('ep-nombre').value=p.nombre;
   document.getElementById('ep-cliente').value=p.cliente;
-  document.getElementById('ep-venta').value=p.venta;
-  document.getElementById('ep-coste').value=p.coste;
+  document.getElementById('ep-nif').value=p.nif||'';
+  document.getElementById('ep-venta').value=fmtInput(p.venta);
+  document.getElementById('ep-coste').value=fmtInput(p.coste);
   calcMargenEdit();openModal('modal-edit-proj');
 }
 function saveEditProyecto(){
   const id=document.getElementById('ep-id').value;
   const nombre=document.getElementById('ep-nombre').value.trim();
   const cliente=document.getElementById('ep-cliente').value.trim();
+  const nif=document.getElementById('ep-nif')?.value.trim()||'';
   const venta=fnum(document.getElementById('ep-venta').value);
   const coste=fnum(document.getElementById('ep-coste').value);
   if(!nombre||!cliente){toast('Nombre y cliente son obligatorios.','error');return;}
-  setD('proyectos',getD('proyectos').map(p=>p.id===id?{...p,nombre,cliente,venta,coste}:p));
+  setD('proyectos',getD('proyectos').map(p=>p.id===id?{...p,nombre,cliente,nif,venta,coste}:p));
   closeModal('modal-edit-proj');renderProyectos();toast('Proyecto actualizado.');
 }
 function renderProyectos(){
@@ -1681,6 +1742,7 @@ function renderProyectos(){
       <td>${estadoBadge}</td>
       <td><strong>${p.nombre}</strong></td>
       <td>${p.cliente}</td>
+      <td style="color:var(--muted);font-size:.8rem">${p.nif||'—'}</td>
       <td>${fmt(p.venta)}</td><td class="mp">${fmt(ventasReal)}</td>
       <td>${fmt(p.coste)}</td><td class="mp">${fmt(costesReal)}</td>
       <td class="${mp>=0?'mp':'mn'}">${fmt(mp)} <small>(${fmtPct(mppct)})</small></td>
@@ -1792,7 +1854,7 @@ function editVenta(id){
   document.getElementById('ev-fecha').value=v.fecha;
   document.getElementById('ev-cliente').value=v.cliente;
   document.getElementById('ev-proyecto').value=v.proyectoId||'';
-  document.getElementById('ev-base').value=v.base;
+  document.getElementById('ev-base').value=fmtInput(v.base);
   document.getElementById('ev-iva').value=v.serie==='A'?fmt(v.iva):'Sin IVA';
   document.getElementById('ev-total').value=fmt(v.total);
   openModal('modal-edit-venta');
@@ -1985,6 +2047,7 @@ function addCoste(data){
   const serie=d.serie||document.getElementById('c-serie').value;
   const numero=d.numero||document.getElementById('c-num').value;
   const proveedor=(d.proveedor||document.getElementById('c-proveedor').value).trim();
+  const nifProv=(d.nif||document.getElementById('c-nif')?.value||'').trim();
   const numfact=(d.numfact||document.getElementById('c-numfact').value).trim();
   const fecha=d.fecha||document.getElementById('c-fecha').value;
   const tipo=d.tipo||document.getElementById('c-tipo').value;
@@ -2022,12 +2085,13 @@ function editCoste(id){
   populateCosteDropdowns();
   document.getElementById('ec-id').value=id;
   document.getElementById('ec-proveedor').value=c.proveedor;
+  document.getElementById('ec-nif').value=c.nif||'';
   document.getElementById('ec-numfact').value=c.numfact||'';
   document.getElementById('ec-fecha').value=c.fecha;
   document.getElementById('ec-tipo').value=c.tipo;
   document.getElementById('ec-proy-group').style.display=c.tipo==='proyecto'?'flex':'none';
   document.getElementById('ec-proyecto').value=c.proyectoId||'';
-  document.getElementById('ec-base').value=c.base;
+  document.getElementById('ec-base').value=fmtInput(c.base);
   document.getElementById('ec-iva-tipo').value=c.ivaPct||0;
   document.getElementById('ec-irpf-tipo').value=c.irpfPct||0;
   document.getElementById('ec-iva').value=c.serie==='A'?fmt(c.cuotaIva||0):'Sin IVA';
@@ -2040,6 +2104,7 @@ function saveEditCoste(){
   const id=document.getElementById('ec-id').value;
   const c=getD('costes').find(x=>x.id===id);if(!c)return;
   const proveedor=document.getElementById('ec-proveedor').value.trim();
+  const nifProv=document.getElementById('ec-nif')?.value.trim()||'';
   const numfact=document.getElementById('ec-numfact').value.trim();
   const fecha=document.getElementById('ec-fecha').value;
   const tipo=document.getElementById('ec-tipo').value;
@@ -2051,7 +2116,7 @@ function saveEditCoste(){
   const cuotaIva=base*ivaPct/100;
   const retencion=base*irpfPct/100;
   const total=base+cuotaIva-retencion;
-  setD('costes',getD('costes').map(x=>x.id===id?{...x,proveedor,numfact,fecha,tipo,proyectoId,base,ivaPct,cuotaIva,irpfPct,retencion,total}:x));
+  setD('costes',getD('costes').map(x=>x.id===id?{...x,proveedor,nif:nifProv,numfact,fecha,tipo,proyectoId,base,ivaPct,cuotaIva,irpfPct,retencion,total}:x));
   closeModal('modal-edit-coste');renderCostes();toast('Actualizada.');
 }
 function getPagadoCoste(cid){return getD('pagos').filter(p=>p.costeId===cid).reduce((s,p)=>s+p.importe,0);}
@@ -2097,7 +2162,7 @@ function renderCostes(){
     return`<tr style="cursor:pointer" onclick="toggleCosteHist('${c.id}',this)">
       <td style="width:24px">${clipC}</td>
       <td><span class="badge ${c.serie==='A'?'badge-blue':'badge-purple'}">${c.serie}</span></td>
-      <td>${c.numero}</td><td>${c.proveedor}</td><td>${c.numfact||'—'}</td><td>${c.fecha}</td>
+      <td>${c.numero}</td><td>${c.proveedor}</td><td style='color:var(--muted);font-size:.8rem'>${c.nif||'—'}</td><td>${c.numfact||'—'}</td><td>${c.fecha}</td>
       <td><span class="badge ${c.tipo==='proyecto'?'badge-purple':'badge-blue'}">${c.tipo==='proyecto'?'Proy.':'Gral.'}</span></td>
       <td>${proy?proy.nombre:'—'}</td><td>${fmt(c.base)}</td>
       <td>${c.serie==='A'?ivaDetail:'—'}</td>
@@ -2242,6 +2307,54 @@ function toggleCosteHist(costeId, row){
     </tr>`).join('')}</tbody></table>`;
 }
 
+
+function showCobroHist(ventaId, row){
+  const panel=document.getElementById('cobros-hist-panel');
+  const tbody=document.getElementById('tbody-cobros-hist');
+  const empty=document.getElementById('cobros-empty');
+  // Deselect all rows
+  document.querySelectorAll('#tbody-cobros-pend tr').forEach(r=>r.style.background='');
+  row.style.background='rgba(91,127,166,.09)';
+  const v=getD('ventas').find(x=>x.id===ventaId);
+  const cobros=getD('cobros').filter(c=>c.ventaId===ventaId).sort((a,b)=>b.fecha.localeCompare(a.fecha));
+  document.getElementById('cobros-hist-title').textContent='Cobros — '+v.numero+' ('+v.cliente+')';
+  if(!cobros.length){tbody.innerHTML='';empty.style.display='block';}
+  else{
+    empty.style.display='none';
+    tbody.innerHTML=cobros.map(c=>`<tr>
+      <td>${c.fecha}</td>
+      <td class="mp"><strong>${fmt(c.importe)}</strong></td>
+      <td>${c.forma}</td>
+      <td><button class="btn btn-danger btn-xs" onclick="deleteCobro('${c.id}');renderCobros()">&#x1F5D1;&#xFE0F;</button></td>
+    </tr>`).join('');
+  }
+  panel.style.display='block';
+  panel.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+function showPagoHist(costeId, row){
+  const panel=document.getElementById('pagos-hist-panel');
+  const tbody=document.getElementById('tbody-pagos-hist');
+  const empty=document.getElementById('pagos-empty');
+  document.querySelectorAll('#tbody-pagos-pend tr').forEach(r=>r.style.background='');
+  row.style.background='rgba(91,127,166,.09)';
+  const c=getD('costes').find(x=>x.id===costeId);
+  const pagos=getD('pagos').filter(p=>p.costeId===costeId).sort((a,b)=>b.fecha.localeCompare(a.fecha));
+  document.getElementById('pagos-hist-title').textContent='Pagos — '+c.numero+' ('+c.proveedor+')';
+  if(!pagos.length){tbody.innerHTML='';empty.style.display='block';}
+  else{
+    empty.style.display='none';
+    tbody.innerHTML=pagos.map(p=>`<tr>
+      <td>${p.fecha}</td>
+      <td class="mp"><strong>${fmt(p.importe)}</strong></td>
+      <td>${p.forma}</td>
+      <td><button class="btn btn-danger btn-xs" onclick="deletePago('${p.id}');renderPagos()">&#x1F5D1;&#xFE0F;</button></td>
+    </tr>`).join('');
+  }
+  panel.style.display='block';
+  panel.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
 function renderCobros(){
   const serie=document.getElementById('co-filter-serie').value;
   const ventas=getD('ventas');const cobros=getD('cobros');
@@ -2261,20 +2374,13 @@ function renderCobros(){
   document.getElementById('tbody-cobros-pend').innerHTML=filtV.map(v=>{
     const cobrado=getCobradoVenta(v.id);const pend=v.total-cobrado;
     const est=pend<=0?'<span class="badge badge-green">Cobrado</span>':cobrado>0?'<span class="badge badge-yellow">Parcial</span>':'<span class="badge badge-orange">Pendiente</span>';
-    return`<tr><td><strong>${v.numero}</strong></td><td><span class="badge ${v.serie==='A'?'badge-blue':'badge-purple'}">${v.serie}</span></td>
-    <td>${v.fecha}</td><td>${v.cliente}</td><td>${fmt(v.total)}</td>
-    <td class="mp">${fmt(cobrado)}</td><td class="${pend>0?'mn':''}">${fmt(pend)}</td><td>${est}</td></tr>`;
+    return`<tr style="cursor:pointer" onclick="showCobroHist('${v.id}',this)">
+      <td><strong>${v.numero}</strong></td><td><span class="badge ${v.serie==='A'?'badge-blue':'badge-purple'}">${v.serie}</span></td>
+      <td>${v.fecha}</td><td>${v.cliente}</td><td>${fmt(v.total)}</td>
+      <td class="mp">${fmt(cobrado)}</td><td class="${pend>0?'mn':''}">${fmt(pend)}</td><td>${est}</td></tr>`;
   }).join('');
-  const sorted=[...cobros].sort((a,b)=>b.fecha.localeCompare(a.fecha));
-  const empty=document.getElementById('cobros-empty');
-  if(!sorted.length){document.getElementById('tbody-cobros-hist').innerHTML='';empty.style.display='block';return;}
-  empty.style.display='none';
-  document.getElementById('tbody-cobros-hist').innerHTML=sorted.map(c=>{
-    const v=ventas.find(x=>x.id===c.ventaId)||{numero:'?',cliente:'?'};
-    return`<tr><td>${c.fecha}</td><td>${v.numero}</td><td>${v.cliente}</td>
-    <td class="mp"><strong>${fmt(c.importe)}</strong></td><td>${c.forma}</td>
-    <td><button class="btn btn-danger btn-xs" onclick="deleteCobro('${c.id}')">&#x1F5D1;&#xFE0F;</button></td></tr>`;
-  }).join('');
+  // Hide historial panel on refresh
+  document.getElementById('cobros-hist-panel').style.display='none';
 }
 
 // ═══════════════════════════════════════════
@@ -2366,22 +2472,14 @@ function renderPagos(){
   document.getElementById('tbody-pagos-pend').innerHTML=filtC.map(c=>{
     const pagado=getPagadoCoste(c.id);const pend=c.total-pagado;
     const est=pend<=0?'<span class="badge badge-green">Pagado</span>':pagado>0?'<span class="badge badge-yellow">Parcial</span>':'<span class="badge badge-orange">Pendiente</span>';
-    return`<tr><td>${c.numero}</td><td><span class="badge ${c.serie==='A'?'badge-blue':'badge-purple'}">${c.serie}</span></td>
-    <td>${c.proveedor}</td><td>${c.fecha}</td>
-    <td><span class="badge ${c.tipo==='proyecto'?'badge-purple':'badge-blue'}">${c.tipo==='proyecto'?'Proy.':'Gral.'}</span></td>
-    <td>${fmt(c.total)}</td><td class="mp">${fmt(pagado)}</td>
-    <td class="${pend>0?'mn':''}">${fmt(pend)}</td><td>${est}</td></tr>`;
+    return`<tr style="cursor:pointer" onclick="showPagoHist('${c.id}',this)">
+      <td>${c.numero}</td><td><span class="badge ${c.serie==='A'?'badge-blue':'badge-purple'}">${c.serie}</span></td>
+      <td>${c.proveedor}</td><td>${c.fecha}</td>
+      <td><span class="badge ${c.tipo==='proyecto'?'badge-purple':'badge-blue'}">${c.tipo==='proyecto'?'Proy.':'Gral.'}</span></td>
+      <td>${fmt(c.total)}</td><td class="mp">${fmt(pagado)}</td>
+      <td class="${pend>0?'mn':''}">${fmt(pend)}</td><td>${est}</td></tr>`;
   }).join('');
-  const sorted=[...pagos].sort((a,b)=>b.fecha.localeCompare(a.fecha));
-  const empty=document.getElementById('pagos-empty');
-  if(!sorted.length){document.getElementById('tbody-pagos-hist').innerHTML='';empty.style.display='block';return;}
-  empty.style.display='none';
-  document.getElementById('tbody-pagos-hist').innerHTML=sorted.map(p=>{
-    const c=costes.find(x=>x.id===p.costeId)||{numero:'?',proveedor:'?'};
-    return`<tr><td>${p.fecha}</td><td>${c.numero}</td><td>${c.proveedor}</td>
-    <td class="mp"><strong>${fmt(p.importe)}</strong></td><td>${p.forma}</td>
-    <td><button class="btn btn-danger btn-xs" onclick="deletePago('${p.id}')">&#x1F5D1;&#xFE0F;</button></td></tr>`;
-  }).join('');
+  document.getElementById('pagos-hist-panel').style.display='none';
 }
 
 // ═══════════════════════════════════════════
@@ -2419,30 +2517,78 @@ function renderResumen(){
   const mr=totalVenta-totalCoste;const mrpct=totalVenta>0?(mr/totalVenta*100):0;
   const mp=p.venta-p.coste;const mppct=p.venta>0?(mp/p.venta*100):0;
   cont.innerHTML=`
-    <div class="res-header"><h3>${p.nombre}</h3><div class="sub">Cliente: ${p.cliente}</div></div>
+    <div class="res-header">
+      <h3>${p.nombre}</h3>
+      <div class="sub">Cliente: ${p.cliente}${p.nif?' &nbsp;·&nbsp; NIF: <strong>'+p.nif+'</strong>':''}</div>
+    </div>
     <div class="stats-row" style="grid-template-columns:repeat(3,1fr);margin-bottom:18px;">
       <div class="stat-card"><div class="label">Venta Prevista</div><div class="value purple">${fmt(p.venta)}</div></div>
       <div class="stat-card"><div class="label">Coste Previsto</div><div class="value yellow">${fmt(p.coste)}</div></div>
       <div class="stat-card"><div class="label">Margen Previsto</div><div class="value ${mp>=0?'green':'red'}">${fmt(mp)} <small>(${fmtPct(mppct)})</small></div></div>
     </div>
+
     <div class="res-block"><h4>&#x1F4E4; Facturas Emitidas</h4>
-      ${ventas.length?`<div class="table-wrap"><table><thead><tr><th>Nº</th><th>Serie</th><th>Fecha</th><th>Total</th><th>Cobrado</th><th>Pendiente</th></tr></thead><tbody>
-      ${ventas.map(v=>{const cob=getCobradoVenta(v.id);const pend=v.total-cob;
-        return`<tr><td>${v.numero}</td><td><span class="badge ${v.serie==='A'?'badge-blue':'badge-purple'}">${v.serie}</span></td>
-        <td>${v.fecha}</td><td>${fmt(v.total)}</td><td class="mp">${fmt(cob)}</td><td class="${pend>0?'mn':''}">${fmt(pend)}</td></tr>`;}).join('')}
-      <tr style="font-weight:700;border-top:2px solid var(--border)"><td colspan="3">TOTAL</td><td>${fmt(totalVenta)}</td><td class="mp">${fmt(totalCobrado)}</td><td class="${totalVenta-totalCobrado>0?'mn':''}">${fmt(totalVenta-totalCobrado)}</td></tr>
-      </tbody></table></div>`:'<p style="color:var(--muted);font-size:.85rem">Sin facturas emitidas.</p>'}
+      ${ventas.length?`<div class="table-wrap"><table>
+        <thead><tr><th>Nº</th><th>Serie</th><th>Fecha</th><th>Total</th><th>Cobrado</th><th>Pendiente</th><th>Estado</th><th>Acciones</th></tr></thead>
+        <tbody>
+        ${ventas.map(v=>{
+          const cob=getCobradoVenta(v.id);const pend=v.total-cob;
+          const est=pend<=0?'<span class="badge badge-green">Cobrado</span>':cob>0?'<span class="badge badge-yellow">Parcial</span>':'<span class="badge badge-orange">Pendiente</span>';
+          return`<tr>
+            <td><strong>${v.numero}</strong></td>
+            <td><span class="badge ${v.serie==='A'?'badge-blue':'badge-purple'}">${v.serie}</span></td>
+            <td>${v.fecha}</td><td>${fmt(v.total)}</td>
+            <td class="mp">${fmt(cob)}</td>
+            <td class="${pend>0?'mn':''}">${fmt(pend)}</td>
+            <td>${est}</td>
+            <td style="white-space:nowrap">
+              ${pend>0?`<button class="btn btn-success btn-xs" onclick="openQuickCobro('${v.id}')">&#x1F4B0; Cobrar</button>`:''}
+              <button class="btn btn-ghost btn-xs" onclick="resEditVenta('${v.id}')">&#x270F;&#xFE0F;</button>
+              <button class="btn btn-danger btn-xs" onclick="resDeleteVenta('${v.id}','${p.id}')">&#x1F5D1;&#xFE0F;</button>
+            </td>
+          </tr>`;}).join('')}
+        <tr style="font-weight:700;border-top:2px solid var(--border)">
+          <td colspan="3">TOTAL</td><td>${fmt(totalVenta)}</td>
+          <td class="mp">${fmt(totalCobrado)}</td>
+          <td class="${totalVenta-totalCobrado>0?'mn':''}">${fmt(totalVenta-totalCobrado)}</td>
+          <td colspan="2"></td>
+        </tr>
+        </tbody></table></div>`
+      :'<p style="color:var(--muted);font-size:.85rem">Sin facturas emitidas.</p>'}
     </div>
+
     <div class="res-block"><h4>&#x1F4E5; Facturas Recibidas</h4>
-      ${costes.length?`<div class="table-wrap"><table><thead><tr><th>Nº</th><th>Serie</th><th>Proveedor</th><th>Fecha</th><th>Base</th><th>IVA</th><th>IRPF</th><th>Total</th><th>Pagado</th><th>Pendiente</th></tr></thead><tbody>
-      ${costes.map(c=>{const pag=getPagadoCoste(c.id);const pend=c.total-pag;
-        return`<tr><td>${c.numero}</td><td><span class="badge ${c.serie==='A'?'badge-blue':'badge-purple'}">${c.serie}</span></td>
-        <td>${c.proveedor}</td><td>${c.fecha}</td><td>${fmt(c.base)}</td>
-        <td>${c.serie==='A'?(c.ivaPct||0)+'%':'—'}</td><td>${(c.irpfPct||0)>0?c.irpfPct+'%':'—'}</td>
-        <td>${fmt(c.total)}</td><td class="mp">${fmt(pag)}</td><td class="${pend>0?'mn':''}">${fmt(pend)}</td></tr>`;}).join('')}
-      <tr style="font-weight:700;border-top:2px solid var(--border)"><td colspan="7">TOTAL</td><td>${fmt(totalCoste)}</td><td class="mp">${fmt(totalPagado)}</td><td class="${totalCoste-totalPagado>0?'mn':''}">${fmt(totalCoste-totalPagado)}</td></tr>
-      </tbody></table></div>`:'<p style="color:var(--muted);font-size:.85rem">Sin facturas recibidas.</p>'}
+      ${costes.length?`<div class="table-wrap"><table>
+        <thead><tr><th>Nº</th><th>Serie</th><th>Proveedor</th><th>NIF</th><th>Fecha</th><th>Total</th><th>Pagado</th><th>Pendiente</th><th>Estado</th><th>Acciones</th></tr></thead>
+        <tbody>
+        ${costes.map(c=>{
+          const pag=getPagadoCoste(c.id);const pend=c.total-pag;
+          const est=pend<=0?'<span class="badge badge-green">Pagado</span>':pag>0?'<span class="badge badge-yellow">Parcial</span>':'<span class="badge badge-orange">Pendiente</span>';
+          return`<tr>
+            <td><strong>${c.numero}</strong></td>
+            <td><span class="badge ${c.serie==='A'?'badge-blue':'badge-purple'}">${c.serie}</span></td>
+            <td>${c.proveedor}</td>
+            <td style="color:var(--muted);font-size:.8rem">${c.nif||'—'}</td>
+            <td>${c.fecha}</td><td>${fmt(c.total)}</td>
+            <td class="mp">${fmt(pag)}</td>
+            <td class="${pend>0?'mn':''}">${fmt(pend)}</td>
+            <td>${est}</td>
+            <td style="white-space:nowrap">
+              ${pend>0?`<button class="btn btn-warn btn-xs" onclick="openQuickPago('${c.id}')">&#x1F4B8; Pagar</button>`:''}
+              <button class="btn btn-ghost btn-xs" onclick="resEditCoste('${c.id}')">&#x270F;&#xFE0F;</button>
+              <button class="btn btn-danger btn-xs" onclick="resDeleteCoste('${c.id}','${p.id}')">&#x1F5D1;&#xFE0F;</button>
+            </td>
+          </tr>`;}).join('')}
+        <tr style="font-weight:700;border-top:2px solid var(--border)">
+          <td colspan="5">TOTAL</td><td>${fmt(totalCoste)}</td>
+          <td class="mp">${fmt(totalPagado)}</td>
+          <td class="${totalCoste-totalPagado>0?'mn':''}">${fmt(totalCoste-totalPagado)}</td>
+          <td colspan="2"></td>
+        </tr>
+        </tbody></table></div>`
+      :'<p style="color:var(--muted);font-size:.85rem">Sin facturas recibidas.</p>'}
     </div>
+
     <div class="stats-row" style="grid-template-columns:repeat(4,1fr);">
       <div class="stat-card"><div class="label">Total Facturado</div><div class="value blue">${fmt(totalVenta)}</div></div>
       <div class="stat-card"><div class="label">Total Costes</div><div class="value red">${fmt(totalCoste)}</div></div>
@@ -2450,6 +2596,36 @@ function renderResumen(){
       <div class="stat-card"><div class="label">Margen Real (%)</div><div class="value ${mr>=0?'green':'red'}">${fmtPct(mrpct)}</div></div>
     </div>`;
 }
+
+// ─── RESUMEN ACTIONS ─────────────────────────────────────────────────────
+function resEditVenta(id){
+  populateVentaDropdowns();
+  editVenta(id);
+  // After save, refresh resumen
+  const origSave=window._origSaveEditVenta||saveEditVenta;
+  window._resAfterAction='resumen';
+}
+function resDeleteVenta(id, proyId){
+  if(!confirm('¿Eliminar esta factura y sus cobros?'))return;
+  setD('ventas',getD('ventas').filter(v=>v.id!==id));
+  setD('cobros',getD('cobros').filter(c=>c.ventaId!==id));
+  renderResumen();
+  renderVentas();
+  toast('Factura eliminada.','error');
+}
+function resEditCoste(id){
+  populateCosteDropdowns();
+  editCoste(id);
+}
+function resDeleteCoste(id, proyId){
+  if(!confirm('¿Eliminar esta factura y sus pagos?'))return;
+  setD('costes',getD('costes').filter(c=>c.id!==id));
+  setD('pagos',getD('pagos').filter(p=>p.costeId!==id));
+  renderResumen();
+  renderCostes();
+  toast('Factura eliminada.','error');
+}
+
 function renderResListado(){
   const filtroEstado=document.getElementById('res-filter-estado')?.value||'todos';
   const allP=getD('proyectos');
@@ -2468,11 +2644,12 @@ function renderResListado(){
   const totPV=rows.reduce((s,r)=>s+r.p.venta,0);
   const totPC=rows.reduce((s,r)=>s+r.p.coste,0);
   cont.innerHTML=`<div class="table-wrap"><table>
-    <thead><tr><th></th><th>Estado</th><th>Proyecto</th><th>Cliente</th><th>Venta Prev.</th><th>Margen Prev.</th><th>M.P%</th><th>Facturado</th><th>Costes</th><th>Margen Real</th><th>M.R%</th></tr></thead>
+    <thead><tr><th></th><th>Estado</th><th>Proyecto</th><th>Cliente</th><th>NIF</th><th>Venta Prev.</th><th>Margen Prev.</th><th>M.P%</th><th>Facturado</th><th>Costes</th><th>Margen Real</th><th>M.R%</th></tr></thead>
     <tbody>${rows.map(r=>{
       const cerrado=(r.p.estado||'abierto')==='cerrado';
       const estBadge=cerrado?'<span class="badge badge-red">Cerrado</span>':'<span class="badge badge-green">Abierto</span>';
       return`<tr><td>${estBadge}</td><td><strong>${r.p.nombre}</strong></td><td>${r.p.cliente}</td>
+      <td style='color:var(--muted);font-size:.8rem'>${r.p.nif||'—'}</td>
       <td>${fmt(r.p.venta)}</td><td class="${r.mp>=0?'mp':'mn'}">${fmt(r.mp)}</td><td class="${r.mp>=0?'mp':'mn'}">${fmtPct(r.mppct)}</td>
       <td>${fmt(r.tv)}</td><td>${fmt(r.tc)}</td>
       <td class="${r.mr>=0?'mp':'mn'}">${fmt(r.mr)}</td><td class="${r.mr>=0?'mp':'mn'}">${fmtPct(r.mrpct)}</td></tr>`;}).join('')}
@@ -2575,69 +2752,132 @@ function parseNumFromText(s){
 
 function extractDataFromText(t,type){
   const r={};
+  // Normalize: collapse multiple spaces, keep newlines
+  const text=t.replace(/[ \t]+/g,' ');
+
   function findNum(kws){
     for(const kw of kws){
-      const re=new RegExp(kw+'[\\s:]*([\\d.,]+)','i');
-      const m=t.match(re);
-      if(m)return parseNumFromText(m[1]);
-      const re2=new RegExp(kw+'[^\\n]*\\n[\\s]*([\\d.,]+)','i');
-      const m2=t.match(re2);
-      if(m2)return parseNumFromText(m2[1]);
+      // Same line: keyword followed by number
+      const re=new RegExp(kw+'[\\s:€]*([\\d]{1,3}(?:[.,][\\d]{3})*(?:[.,][\\d]{2})?)','i');
+      const m=text.match(re);
+      if(m&&m[1]){const n=parseNumFromText(m[1]);if(n>0)return n;}
+      // Next line
+      const re2=new RegExp(kw+'[^\n]*\n\s*([\\d]{1,3}(?:[.,][\\d]{3})*(?:[.,][\\d]{2})?)','i');
+      const m2=text.match(re2);
+      if(m2&&m2[1]){const n=parseNumFromText(m2[1]);if(n>0)return n;}
     }
     return null;
   }
+
   function findDate(){
-    let m=t.match(/(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
+    // YYYY-MM-DD or YYYY/MM/DD
+    let m=text.match(/\b(20\d{2})[-\/](0?[1-9]|1[0-2])[-\/](0?[1-9]|[12]\d|3[01])\b/);
     if(m)return m[1]+'-'+m[2].padStart(2,'0')+'-'+m[3].padStart(2,'0');
-    m=t.match(/(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})/);
+    // DD/MM/YYYY or DD-MM-YYYY
+    m=text.match(/\b(0?[1-9]|[12]\d|3[01])[-\/](0?[1-9]|1[0-2])[-\/](20\d{2})\b/);
     if(m)return m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
-    const months={enero:1,febrero:2,marzo:3,abril:4,mayo:5,junio:6,julio:7,agosto:8,septiembre:9,octubre:10,noviembre:11,diciembre:12};
-    m=t.match(/(\d{1,2})\s+de\s+(\w+)\s+(?:de\s+)?(\d{4})/i);
-    if(m){const mo=months[m[2].toLowerCase()];if(mo)return m[3]+'-'+String(mo).padStart(2,'0')+'-'+m[1].padStart(2,'0');}
+    // DD de Mes de YYYY / DD de Mes YYYY
+    const months={enero:'01',febrero:'02',marzo:'03',abril:'04',mayo:'05',junio:'06',
+      julio:'07',agosto:'08',septiembre:'09',octubre:'10',noviembre:'11',diciembre:'12'};
+    m=text.match(/\b(\d{1,2})\s+de\s+([a-záéíóú]+)\s+(?:de\s+)?(20\d{2})\b/i);
+    if(m){const mo=months[m[2].toLowerCase()];if(mo)return m[3]+'-'+mo+'-'+m[1].padStart(2,'0');}
     return null;
   }
+
   function findInvNum(){
-    let m=t.match(/(?:factura|fra\.?|n[uú]mero|n[oO]?\.?)[:\s#]*([A-Z0-9][-\/A-Z0-9]+)/i);
-    if(m)return m[1].trim();
-    m=t.match(/([A-Z]{1,3}[-\/]\d{3,})/);
-    if(m)return m[1];
-    return null;
-  }
-  function findName(kws){
-    for(const kw of kws){
-      const re=new RegExp(kw+'[:\\s]+([A-Z\\u00C0-\\u024F][\\w\\s,\\.]{2,50})','im');
-      const m=t.match(re);
-      if(m)return m[1].trim().split('\n')[0].trim();
+    // Explicit label patterns (most reliable)
+    const patterns=[
+      /n[uú]mero\s+(?:de\s+)?factura[:\s#]*([A-Z0-9][-\/A-Z0-9]*\d)/i,
+      /factura\s+n[uú]m\.?[:\s#]*([A-Z0-9][-\/A-Z0-9]*\d)/i,
+      /fra\.?\s*n[oº°]?\.?[:\s#]*([A-Z0-9][-\/A-Z0-9]*\d)/i,
+      /n[oº°]?\.?\s*factura[:\s#]*([A-Z0-9][-\/A-Z0-9]*\d)/i,
+      /factura[:\s#]+([A-Z]{0,3}\d{4,}[-\/]?\d*)/i,
+      // Common Spanish invoice number formats: F2024/001, A-001, 2024-001
+      /\b([A-Z]{1,2}[-\/]?\d{4}[-\/]\d{1,4})\b/,
+      /\b([A-Z]{1,3}[-\/]\d{3,6})\b/,
+      /\b(\d{4}[-\/]\d{3,6})\b/,
+    ];
+    for(const p of patterns){
+      const m=text.match(p);
+      if(m&&m[1])return m[1].trim();
     }
-    return null;
+    return '';
   }
+
+  function findSupplier(){
+    // Try labeled patterns first
+    const labeled=[
+      /(?:raz[oó]n social|empresa|raz[oó]n)[:\s]+([^\n]{3,60})/i,
+      /(?:emisor|proveedor)[:\s]+([^\n]{3,60})/i,
+      /(?:de:|expedido por)[:\s]+([^\n]{3,60})/i,
+      /(?:nombre fiscal)[:\s]+([^\n]{3,60})/i,
+    ];
+    for(const p of labeled){
+      const m=text.match(p);
+      if(m&&m[1].trim().length>2)return m[1].trim();
+    }
+    // CIF/NIF pattern: company usually near its tax id
+    const nifM=text.match(/(?:CIF|NIF|N\.I\.F\.)[:\s]*[A-Z]?\d{7,8}[A-Z]?[\s\n]+([A-Z][^\n]{3,50})/i);
+    if(nifM&&nifM[1])return nifM[1].trim();
+    const nifM2=text.match(/([A-Z][^\n]{3,50})[\s\n]+(?:CIF|NIF|N\.I\.F\.)[:\s]*[A-Z]?\d{7,8}[A-Z]?/i);
+    if(nifM2&&nifM2[1])return nifM2[1].trim();
+    return '';
+  }
+
+  function findClient(){
+    const patterns=[
+      /(?:cliente|facturado a|destinatario|para)[:\s]+([^\n]{3,60})/i,
+      /(?:a:|att\.?:)[:\s]+([A-Z][^\n]{3,50})/i,
+    ];
+    for(const p of patterns){
+      const m=text.match(p);
+      if(m&&m[1].trim().length>2)return m[1].trim();
+    }
+    return '';
+  }
+
+  function findNif(){
+    // Spanish NIF/CIF/NIE patterns
+    const m=text.match(/\b([A-Z]\d{7}[A-Z0-9]|\d{8}[A-Z]|[XYZ]\d{7}[A-Z])\b/);
+    if(m)return m[1];
+    return '';
+  }
+
   if(type==='proyecto'){
-    r.venta=findNum(['total','importe total','presupuesto total','precio total'])||
+    r.venta=findNum(['total presupuesto','total','importe total','precio total'])||
              findNum(['subtotal','base imponible'])||0;
     r.coste=0;
-    r.cliente=findName(['cliente','a:','para:','destinatario'])||'';
-    const fl=t.split('\n').map(l=>l.trim()).filter(l=>l.length>5&&l.length<80&&!/^\d/.test(l));
+    r.cliente=findClient()||'';
+    const fl=text.split('\n').map(l=>l.trim()).filter(l=>l.length>4&&l.length<80&&!/^\d/.test(l)&&!/^[A-Z]{2,}\d/.test(l));
     r.nombre=fl[0]||'';
+
   } else if(type==='venta'){
     r.numero=findInvNum()||nextVentaNum('A');
     r.fecha=findDate()||todayStr();
-    r.cliente=findName(['cliente','facturado a','a:'])||'';
-    r.base=findNum(['base imponible','base','subtotal','importe neto'])||0;
-    const ivaAmt=findNum(['cuota iva','cuota i.v.a']);
-    const total=findNum(['total','total factura','importe total']);
+    r.cliente=findClient()||'';
+    r.base=findNum(['base imponible','base impon','subtotal','importe neto','base'])||0;
+    const ivaAmt=findNum(['cuota iva','cuota de iva','cuota i\.v\.a']);
+    const total=findNum(['total factura','total a pagar','importe total','total']);
     if(!r.base&&total)r.base=Math.round(total/1.21*100)/100;
-    r.serie=ivaAmt?'A':'A';
+    r.serie=(ivaAmt||r.base)?'A':'A';
+
   } else {
     r.numfact=findInvNum()||'';
     r.fecha=findDate()||todayStr();
-    r.proveedor=findName(['emisor','proveedor','empresa','de:','nombre'])||'';
-    r.base=findNum(['base imponible','base','subtotal','importe neto'])||0;
-    r.cuotaIva=findNum(['cuota iva','cuota i.v.a','i.v.a'])||0;
-    r.retencion=findNum(['retencion','retenci\u00f3n','irpf'])||0;
-    r.total=findNum(['total','total factura','importe total'])||0;
-    r.ivaPct=r.base&&r.cuotaIva?Math.round(r.cuotaIva/r.base*100):21;
-    r.irpfPct=r.base&&r.retencion?Math.round(r.retencion/r.base*100):0;
+    r.proveedor=findSupplier()||'';
+    r.nif=findNif()||'';
+    r.base=findNum(['base imponible','base impon','subtotal','importe neto'])||0;
+    r.cuotaIva=findNum(['cuota iva','cuota de iva','cuota i\.v\.a'])||0;
+    r.retencion=findNum(['retenci[oó]n irpf','retenci[oó]n','irpf'])||0;
+    r.total=findNum(['total factura','total a pagar','importe total','total'])||0;
+    // Infer IVA% from amounts
+    if(r.base>0&&r.cuotaIva>0){
+      const pct=Math.round(r.cuotaIva/r.base*100);
+      r.ivaPct=[4,10,21].reduce((a,b)=>Math.abs(b-pct)<Math.abs(a-pct)?b:a);
+    } else { r.ivaPct=DB.defaultIvaPct||21; }
+    r.irpfPct=r.base>0&&r.retencion>0?Math.round(r.retencion/r.base*100):0;
     if(!r.total&&r.base)r.total=r.base+r.cuotaIva-r.retencion;
+    r.ivaLines=[{base:r.base,ivaPct:r.ivaPct,cuota:r.cuotaIva}];
   }
   return r;
 }
@@ -2697,10 +2937,11 @@ function renderPdfForm(type,data){
     html=`
       <div class="form-group"><label>Serie</label><select id="pdf-f-serie"><option value="A">Serie A (IVA)</option><option value="B">Serie B</option></select></div>
       <div class="form-group"><label>Proveedor</label><input type="text" id="pdf-f-proveedor" value="${esc(data.proveedor||'')}"></div>
+      <div class="form-group"><label>NIF / CIF</label><input type="text" id="pdf-f-nif" value="${esc(data.nif||'')}"></div>
       <div class="form-group"><label>Nº Fact. Proveedor</label><input type="text" id="pdf-f-numfact" value="${esc(data.numfact||'')}"></div>
       <div class="form-group"><label>Fecha</label><input type="date" id="pdf-f-fecha" value="${data.fecha||todayStr()}"></div>
-      <div class="form-group"><label>Tipo de Gasto</label><select id="pdf-f-tipo"><option value="general">General</option><option value="proyecto">Proyecto</option></select></div>
-      <div class="form-group"><label>Proyecto</label><select id="pdf-f-proyecto"><option value="">—</option>${projOpts}</select></div>
+      <div class="form-group"><label>Tipo de Gasto</label><select id="pdf-f-tipo" onchange="document.getElementById('pdf-f-proyecto-grp').style.display=this.value==='proyecto'?'flex':'none'"><option value="general">General</option><option value="proyecto">Proyecto</option></select></div>
+      <div class="form-group" id="pdf-f-proyecto-grp" style="display:none"><label>Proyecto</label><select id="pdf-f-proyecto"><option value="">—</option>${projOpts}</select></div>
       <div class="form-group"><label>Base Imponible (€)</label><input type="text" inputmode="decimal" id="pdf-f-base" value="${data.base||''}" step="0.01"></div>
       <div class="form-group"><label>Tipo IVA</label><select id="pdf-f-ivaPct">${ivaTypes}</select></div>
       <div class="form-group"><label>Retención IRPF</label><select id="pdf-f-irpfPct">${irpfTypes}</select></div>`;
@@ -2745,7 +2986,7 @@ function confirmPdfImport(){
     });
     const totalBase=ivaLines.reduce((s,l)=>s+l.base,0);
     const totalCuota=ivaLines.reduce((s,l)=>s+l.cuota,0);
-    addCoste({serie:g('pdf-f-serie'),proveedor:g('pdf-f-proveedor'),numfact:g('pdf-f-numfact'),
+    addCoste({serie:g('pdf-f-serie'),proveedor:g('pdf-f-proveedor'),nif:g('pdf-f-nif'),numfact:g('pdf-f-numfact'),
       fecha:g('pdf-f-fecha'),tipo:g('pdf-f-tipo'),proyectoId:g('pdf-f-proyecto'),
       base:totalBase,cuotaIva:totalCuota,ivaPct:totalBase>0?Math.round(totalCuota/totalBase*100):21,
       irpfPct:fnum(g('pdf-f-irpfPct')),
@@ -2780,7 +3021,7 @@ function exportarCostes(tipo){
   if(tipo==='excel'){
     const rows=[['Nº','Proveedor','Nº Prov.','Fecha','Tipo','Proyecto','Base','IVA%','Cuota IVA','IRPF%','Retención','Total','Pagado','Pendiente']];
     costes.forEach(c=>{const proy=proyectos.find(p=>p.id===c.proyectoId);const pag=getPagadoCoste(c.id);
-      rows.push([c.numero,c.proveedor,c.numfact||'',c.fecha,c.tipo,proy?proy.nombre:'',c.base,c.ivaPct||0,c.cuotaIva||0,c.irpfPct||0,c.retencion||0,c.total,pag,c.total-pag]);});
+      rows.push([c.numero,c.proveedor,c.nif||'',c.numfact||'',c.fecha,c.tipo,proy?proy.nombre:'',c.base,c.ivaPct||0,c.cuotaIva||0,c.irpfPct||0,c.retencion||0,c.total,pag,c.total-pag]);});
     exportCSV(rows,'facturas_recibidas');
   }else{
     printTable('Facturas Recibidas',['Nº','Proveedor','Fecha','Tipo','Proyecto','Base','IVA%','IRPF%','Total'],
