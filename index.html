@@ -762,7 +762,7 @@ const DRIVE_FOLDER  = 'GestiónPro';
 const DRIVE_FILE    = 'datos.json';
 const BACKUP_FOLDER = 'backups';
 const MAX_BACKUPS   = 5;
-const SCOPES        = 'https://www.googleapis.com/auth/drive.file';
+const SCOPES        = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email';
 let CLIENT_ID      = localStorage.getItem('gp_client_id') || '';
 let accessToken    = null;
 let folderId       = null;
@@ -946,23 +946,36 @@ function signIn(){
 }
 
 function fetchUserInfo(){
-  fetch('https://www.googleapis.com/oauth2/v2/userinfo',{headers:{Authorization:'Bearer '+accessToken}})
-    .then(r=>{
-      if(!r.ok) throw new Error('HTTP '+r.status);
-      return r.json();
-    })
-    .then(u=>{
+  fetch('https://www.googleapis.com/oauth2/v2/userinfo',{
+    headers:{Authorization:'Bearer '+accessToken}
+  })
+  .then(r=>{
+    if(r.status===401){
+      // Token rejected by userinfo - still try to proceed with Drive
+      // The token might only have drive scope
+      console.warn('Userinfo 401 - proceeding without profile data');
+      return null;
+    }
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    return r.json();
+  })
+  .then(u=>{
+    if(u){
       document.getElementById('user-name').textContent=u.name||u.email||'Usuario';
       if(u.picture) document.getElementById('user-avatar').src=u.picture;
-      document.getElementById('login-screen').style.display='none';
-      document.getElementById('topbar').classList.add('show');
-      document.getElementById('app-shell').classList.add('show');
-      initDriveData();
-    })
-    .catch(e=>{
-      setLoginLoading(false);
-      setLoginError('Error al obtener datos de usuario: '+e.message);
-    });
+    } else {
+      document.getElementById('user-name').textContent='Usuario conectado';
+    }
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('topbar').classList.add('show');
+    document.getElementById('app-shell').classList.add('show');
+    initDriveData();
+  })
+  .catch(e=>{
+    setLoginLoading(false);
+    setLoginError('Error al obtener datos de usuario: '+e.message+
+      '<br><br>Prueba a recargar la página (F5) e iniciar sesión de nuevo.');
+  });
 }
 
 function signOut(){
