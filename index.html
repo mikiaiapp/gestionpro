@@ -68,7 +68,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-body);display
 .sidebar-logo{padding:22px 20px 16px;border-bottom:1px solid var(--border);}
 .sidebar-logo .app-name{font-family:var(--font-head);font-size:1.1rem;font-weight:800;color:var(--text);letter-spacing:-.5px;}
 .sidebar-logo .app-sub{font-size:.68rem;color:var(--muted);margin-top:3px;letter-spacing:.5px;text-transform:uppercase;}
-.sidebar-logo img#logo-img{max-width:100%;max-height:46px;object-fit:contain;display:none;margin-bottom:8px;border-radius:4px;}
+.sidebar-logo img#logo-img{max-width:100%;max-height:80px;object-fit:contain;display:none;margin-bottom:10px;border-radius:4px;}
 nav{flex:1;padding:12px 10px;display:flex;flex-direction:column;gap:2px;}
 nav .nav-label{font-size:.62rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted2);padding:10px 10px 5px;font-weight:600;}
 nav a{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:8px;color:var(--muted);text-decoration:none;font-size:.86rem;font-weight:500;transition:all .15s;cursor:pointer;user-select:none;}
@@ -144,6 +144,7 @@ tbody td{padding:9px 12px;color:var(--text);vertical-align:middle;}
 .badge-yellow{background:rgba(160,108,0,.1);color:var(--yellow);}
 .badge-orange{background:rgba(184,92,32,.1);color:var(--orange);}
 .badge-purple{background:rgba(124,92,170,.12);color:var(--accent2);}
+.badge-gray{background:rgba(122,110,96,.1);color:var(--muted);}
 
 .empty-state{text-align:center;padding:42px 20px;color:var(--muted);}
 .empty-state .icon{font-size:2.2rem;margin-bottom:10px;}
@@ -195,6 +196,9 @@ tbody td{padding:9px 12px;color:var(--text);vertical-align:middle;}
 .fiscal-tag{display:inline-flex;align-items:center;gap:6px;background:var(--card2);border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-size:.8rem;font-weight:600;color:var(--text);margin:3px;}
 .fiscal-tag .remove{cursor:pointer;color:var(--muted2);font-size:.9rem;line-height:1;}
 .fiscal-tag .remove:hover{color:var(--red);}
+.fiscal-tag .star{cursor:pointer;font-size:.85rem;line-height:1;transition:color .15s;}
+.fiscal-tag .star:hover{color:var(--accent);}
+.fiscal-tag.is-default{border-color:var(--accent);background:rgba(91,127,166,.1);}
 .add-fiscal-row{display:flex;gap:8px;align-items:center;margin-top:10px;}
 .add-fiscal-row input{flex:0 0 100px;background:var(--card2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-body);font-size:.88rem;padding:7px 11px;outline:none;}
 .add-fiscal-row input:focus{border-color:var(--accent);}
@@ -302,7 +306,21 @@ tbody td{padding:9px 12px;color:var(--text);vertical-align:middle;}
   </div>
   <div class="section-box">
     <h2>📋 Listado de Proyectos</h2>
-    <div class="table-wrap"><table><thead><tr><th>Proyecto</th><th>Cliente</th><th>Venta Prev.</th><th>Coste Prev.</th><th>Margen (€)</th><th>Margen (%)</th><th>Acciones</th></tr></thead>
+    <div class="filter-bar">
+      <div class="form-group"><label>Estado</label>
+        <select id="proj-filter-estado" onchange="renderProyectos()">
+          <option value="todos">Todos</option>
+          <option value="abierto" selected>Abiertos</option>
+          <option value="cerrado">Cerrados</option>
+        </select>
+      </div>
+      <button class="btn btn-ghost" onclick="document.getElementById('proj-filter-estado').value='todos';renderProyectos()">Mostrar todos</button>
+    </div>
+    <div class="table-wrap"><table><thead><tr>
+      <th>Estado</th><th>Proyecto</th><th>Cliente</th>
+      <th>Venta Prev.</th><th>Venta Real</th><th>Coste Prev.</th><th>Coste Real</th>
+      <th>Margen Prev.</th><th>Margen Real</th><th>M.Real %</th><th>Acciones</th>
+    </tr></thead>
     <tbody id="tbody-proyectos"></tbody></table>
     <div id="proj-empty" class="empty-state" style="display:none"><div class="icon">📁</div><p>No hay proyectos. ¡Crea el primero!</p></div></div>
   </div>
@@ -417,11 +435,14 @@ tbody td{padding:9px 12px;color:var(--text);vertical-align:middle;}
       <div class="form-group"><label>Importe (€)</label><input type="number" id="co-importe" placeholder="0.00" step="0.01"></div>
       <div class="form-group"><label>Forma de Pago</label><select id="co-forma"><option>Transferencia</option><option>Cheque</option><option>Efectivo</option><option>Pagaré</option><option>Otro</option></select></div>
     </div>
-    <button class="btn btn-primary" onclick="addCobro()">✓ Registrar Cobro</button>
+    <button class="btn btn-primary" onclick="submitCobro()">✓ Registrar Cobro</button>
   </div>
   <div class="section-box">
     <h2>📋 Estado de Cobros por Factura</h2>
-    <div class="filter-bar"><div class="form-group"><label>Serie</label><select id="co-filter-serie" onchange="renderCobros()"><option value="">Todas</option><option value="A">A</option><option value="B">B</option></select></div></div>
+    <div class="filter-bar">
+      <div class="form-group"><label>Serie</label><select id="co-filter-serie" onchange="renderCobros()"><option value="">Todas</option><option value="A">A</option><option value="B">B</option></select></div>
+      <div class="form-group"><label>Estado</label><select id="co-filter-estado" onchange="renderCobros()"><option value="todos">Todas</option><option value="pendiente" selected>Con pendiente</option><option value="cobrado">Totalmente cobradas</option></select></div>
+    </div>
     <div class="table-wrap"><table><thead><tr><th>Factura</th><th>Serie</th><th>Fecha</th><th>Cliente</th><th>Total</th><th>Cobrado</th><th>Pendiente</th><th>Estado</th></tr></thead><tbody id="tbody-cobros-pend"></tbody></table></div>
     <h2 style="margin-top:22px;">🧾 Historial de Cobros</h2>
     <div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Factura</th><th>Cliente</th><th>Importe</th><th>Forma</th><th>Acc.</th></tr></thead><tbody id="tbody-cobros-hist"></tbody></table>
@@ -446,13 +467,14 @@ tbody td{padding:9px 12px;color:var(--text);vertical-align:middle;}
       <div class="form-group"><label>Importe (€)</label><input type="number" id="pa-importe" placeholder="0.00" step="0.01"></div>
       <div class="form-group"><label>Forma de Pago</label><select id="pa-forma"><option>Transferencia</option><option>Cheque</option><option>Efectivo</option><option>Pagaré</option><option>Otro</option></select></div>
     </div>
-    <button class="btn btn-primary" onclick="addPago()">✓ Registrar Pago</button>
+    <button class="btn btn-primary" onclick="submitPago()">✓ Registrar Pago</button>
   </div>
   <div class="section-box">
     <h2>📋 Estado de Pagos por Factura</h2>
     <div class="filter-bar">
       <div class="form-group"><label>Serie</label><select id="pa-filter-serie" onchange="renderPagos()"><option value="">Todas</option><option value="A">A</option><option value="B">B</option></select></div>
       <div class="form-group"><label>Tipo</label><select id="pa-filter-tipo" onchange="renderPagos()"><option value="">Todos</option><option value="general">General</option><option value="proyecto">Proyecto</option></select></div>
+      <div class="form-group"><label>Estado</label><select id="pa-filter-estado" onchange="renderPagos()"><option value="todos">Todas</option><option value="pendiente" selected>Con pendiente</option><option value="pagado">Totalmente pagadas</option></select></div>
     </div>
     <div class="table-wrap"><table><thead><tr><th>Nº</th><th>Serie</th><th>Proveedor</th><th>Fecha</th><th>Tipo</th><th>Total</th><th>Pagado</th><th>Pendiente</th><th>Estado</th></tr></thead><tbody id="tbody-pagos-pend"></tbody></table></div>
     <h2 style="margin-top:22px;">📄 Historial de Pagos</h2>
@@ -470,8 +492,11 @@ tbody td{padding:9px 12px;color:var(--text);vertical-align:middle;}
       <button class="tab" id="tab-res-listado" onclick="switchResTab('listado')">📋 Listado</button>
     </div>
     <div id="res-detalle-panel">
-      <div class="form-grid cols2" style="max-width:480px;margin-bottom:20px;">
+      <div class="form-grid cols2" style="max-width:600px;margin-bottom:20px;">
         <div class="form-group" style="grid-column:span 2"><label>Seleccionar Proyecto</label><select id="res-selector" onchange="renderResumen()"><option value="">— Seleccionar —</option></select></div>
+      </div>
+      <div class="filter-bar" id="res-listado-filters" style="display:none;">
+        <div class="form-group"><label>Estado</label><select id="res-filter-estado" onchange="renderResListado()"><option value="todos">Todos</option><option value="abierto">Abiertos</option><option value="cerrado">Cerrados</option></select></div>
       </div>
       <div id="res-content"><div class="empty-state"><div class="icon">📊</div><p>Selecciona un proyecto.</p></div></div>
     </div>
@@ -490,22 +515,27 @@ tbody td{padding:9px 12px;color:var(--text);vertical-align:middle;}
   <h1>Ajustes</h1><p class="page-desc">Google Drive, logotipo, tipos fiscales y copias de seguridad.</p>
 
   <!-- Google Drive -->
-  <div class="section-box" style="border-color:rgba(160,108,0,.3);background:rgba(160,108,0,.03);">
-    <h2>🔑 Configuración Google Drive API</h2>
-    <div class="form-grid cols2" style="max-width:600px;">
-      <div class="form-group" style="grid-column:span 2"><label>Google Client ID</label><input type="text" id="cfg-client-id" placeholder="xxxx.apps.googleusercontent.com"></div>
+  <div class="section-box" style="border-color:rgba(160,108,0,.2);background:rgba(160,108,0,.02);">
+    <h2 style="cursor:pointer;user-select:none;" onclick="toggleDriveConfig()">
+      🔑 Configuración Google Drive API
+      <span id="drive-config-toggle" style="margin-left:auto;font-size:.8rem;color:var(--muted);font-family:var(--font-body);">▼ Mostrar</span>
+    </h2>
+    <div id="drive-config-body" style="display:none;">
+      <div class="form-grid cols2" style="max-width:600px;">
+        <div class="form-group" style="grid-column:span 2"><label>Google Client ID</label><input type="text" id="cfg-client-id" placeholder="xxxx.apps.googleusercontent.com"></div>
+      </div>
+      <div class="btn-group">
+        <button class="btn btn-primary" onclick="saveClientId()">💾 Guardar</button>
+        <button class="btn btn-ghost" id="btn-current-id" style="display:none"></button>
+      </div>
+      <div id="drive-status" style="margin-top:12px;font-size:.82rem;color:var(--muted);"></div>
     </div>
-    <div class="btn-group">
-      <button class="btn btn-primary" onclick="saveClientId()">💾 Guardar</button>
-      <button class="btn btn-ghost" id="btn-current-id" style="display:none"></button>
-    </div>
-    <div id="drive-status" style="margin-top:12px;font-size:.82rem;color:var(--muted);"></div>
   </div>
 
   <!-- Tipos Fiscales -->
   <div class="section-box">
     <h2>🧾 Mantenimiento de Tipos Fiscales</h2>
-    <p style="color:var(--muted);font-size:.85rem;margin-bottom:16px;">Gestiona los tipos de IVA e IRPF disponibles en facturas recibidas. Los cambios se aplican inmediatamente.</p>
+    <p style="color:var(--muted);font-size:.85rem;margin-bottom:16px;">Gestiona los tipos de IVA e IRPF. Pulsa ★ para marcar el tipo que aparecerá por defecto al registrar facturas. Los cambios se aplican inmediatamente.</p>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
       <!-- IVA -->
       <div>
@@ -536,16 +566,23 @@ tbody td{padding:9px 12px;color:var(--text);vertical-align:middle;}
       <button class="btn btn-primary" onclick="saveLogo()">💾 Guardar</button>
       <button class="btn btn-danger" onclick="removeLogo()">🗑 Quitar</button>
     </div>
-    <div id="logo-preview-wrap" style="margin-top:14px;display:none;"><img id="logo-preview" style="max-height:60px;border-radius:6px;border:1px solid var(--border);padding:6px;background:var(--card);"></div>
+    <div id="logo-preview-wrap" style="margin-top:14px;display:none;"><img id="logo-preview" style="max-height:100px;border-radius:8px;border:1px solid var(--border);padding:8px;background:var(--card);"></div>
   </div>
 
   <!-- Drive Ops -->
   <div class="section-box">
-    <h2>☁️ Google Drive</h2>
-    <p style="color:var(--muted);font-size:.85rem;margin-bottom:14px;">Carpeta: <code style="background:var(--card2);padding:2px 8px;border-radius:4px;font-size:.8rem;">Mi unidad / GestiónPro / datos.json</code></p>
-    <div class="btn-group">
-      <button class="btn btn-primary" onclick="forceSave()">☁️ Guardar Ahora</button>
-      <button class="btn btn-ghost" onclick="forceLoad()">🔄 Recargar desde Drive</button>
+    <h2>☁️ Gestión de Copias de Seguridad</h2>
+    <p style="color:var(--muted);font-size:.85rem;margin-bottom:14px;">
+      Datos en: <code style="background:var(--card2);padding:2px 8px;border-radius:4px;font-size:.8rem;">GestiónPro / datos.json</code><br>
+      Backups automáticos en: <code style="background:var(--card2);padding:2px 8px;border-radius:4px;font-size:.8rem;">GestiónPro / backups/</code> (se mantienen los últimos 5)
+    </p>
+    <div class="btn-group" style="margin-bottom:14px;">
+      <button class="btn btn-primary" onclick="forceSave()">💾 Copia de Seguridad Manual</button>
+      <button class="btn btn-ghost" onclick="showRestoreModal()">🔄 Restauración de Copias</button>
+    </div>
+    <div id="backup-list-wrap" style="display:none;margin-top:12px;">
+      <div style="font-size:.82rem;font-weight:600;margin-bottom:8px;color:var(--muted);">Copias disponibles:</div>
+      <div id="backup-list"></div>
     </div>
   </div>
 </div>
@@ -679,14 +716,26 @@ tbody td{padding:9px 12px;color:var(--text);vertical-align:middle;}
 
 <div id="toast"></div>
 
+<!-- Restore Backups Modal -->
+<div class="modal-overlay" id="modal-restore-backup">
+  <div class="modal">
+    <h3>🔄 Restauración de Copias de Seguridad</h3>
+    <p style="color:var(--muted);font-size:.86rem;margin-bottom:16px;">Selecciona una copia para restaurar. Los datos actuales serán reemplazados.</p>
+    <div id="restore-backup-list" style="margin-bottom:16px;"></div>
+    <div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal('modal-restore-backup')">Cerrar</button></div>
+  </div>
+</div>
+
 <script>
 'use strict';
 // ═══════════════════════════════════════════
 // CONFIG & STATE
 // ═══════════════════════════════════════════
-const DRIVE_FOLDER = 'GestiónPro';
-const DRIVE_FILE   = 'datos.json';
-const SCOPES       = 'https://www.googleapis.com/auth/drive.file';
+const DRIVE_FOLDER  = 'GestiónPro';
+const DRIVE_FILE    = 'datos.json';
+const BACKUP_FOLDER = 'backups';
+const MAX_BACKUPS   = 5;
+const SCOPES        = 'https://www.googleapis.com/auth/drive.file';
 let CLIENT_ID      = localStorage.getItem('gp_client_id') || '';
 let accessToken    = null;
 let folderId       = null;
@@ -702,7 +751,9 @@ let DB = {
   proyectos:[], ventas:[], costes:[], cobros:[], pagos:[],
   logo:'',
   tiposIva: [...DEFAULT_IVA],
-  tiposIrpf: [...DEFAULT_IRPF]
+  tiposIrpf: [...DEFAULT_IRPF],
+  defaultIvaPct: 21,
+  defaultIrpfPct: 0
 };
 
 // ═══════════════════════════════════════════
@@ -785,7 +836,7 @@ function fetchUserInfo(){
 function signOut(){
   if(!confirm('¿Cerrar sesión?'))return;
   accessToken=null;folderId=null;fileId=null;
-  DB={proyectos:[],ventas:[],costes:[],cobros:[],pagos:[],logo:'',tiposIva:[...DEFAULT_IVA],tiposIrpf:[...DEFAULT_IRPF]};
+  DB={proyectos:[],ventas:[],costes:[],cobros:[],pagos:[],logo:'',tiposIva:[...DEFAULT_IVA],tiposIrpf:[...DEFAULT_IRPF],defaultIvaPct:21,defaultIrpfPct:0};
   document.getElementById('login-screen').style.display='flex';
   document.getElementById('topbar').classList.remove('show');
   document.getElementById('app-shell').classList.remove('show');
@@ -832,6 +883,8 @@ async function loadFromDrive(){
       DB.logo=parsed.logo||'';
       DB.tiposIva=parsed.tiposIva||[...DEFAULT_IVA];
       DB.tiposIrpf=parsed.tiposIrpf||[...DEFAULT_IRPF];
+      DB.defaultIvaPct=parsed.defaultIvaPct??21;
+      DB.defaultIrpfPct=parsed.defaultIrpfPct??0;
     }
   }catch(e){}
 }
@@ -857,6 +910,94 @@ function scheduleSave(){
   saveTimeout=setTimeout(()=>saveToDrive(),1500);
 }
 
+async function getOrCreateBackupFolder(parentId){
+  const q=encodeURIComponent(`name='${BACKUP_FOLDER}' and '${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`);
+  const r=await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)`,{headers:driveH()});
+  const d=await r.json();
+  if(d.files&&d.files.length)return d.files[0].id;
+  const cr=await fetch('https://www.googleapis.com/drive/v3/files',{method:'POST',headers:driveH(),
+    body:JSON.stringify({name:BACKUP_FOLDER,mimeType:'application/vnd.google-apps.folder',parents:[parentId]})});
+  return(await cr.json()).id;
+}
+
+async function createAutoBackup(){
+  try{
+    const today=todayStr();
+    const lastBackup=localStorage.getItem('gp_last_backup');
+    if(lastBackup===today)return; // already backed up today
+    const backupFolderId=await getOrCreateBackupFolder(folderId);
+    // List existing backups
+    const q=encodeURIComponent(`'${backupFolderId}' in parents and trashed=false`);
+    const r=await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,createdTime)&orderBy=createdTime`,{headers:driveH()});
+    const d=await r.json();
+    const backups=(d.files||[]).sort((a,b)=>a.createdTime.localeCompare(b.createdTime));
+    // Delete oldest if > MAX_BACKUPS-1
+    while(backups.length>=MAX_BACKUPS){
+      const old=backups.shift();
+      await fetch(`https://www.googleapis.com/drive/v3/files/${old.id}`,{method:'DELETE',headers:driveH()});
+    }
+    // Create new backup
+    const backupName=`backup_${today}.json`;
+    const form=new FormData();
+    form.append('metadata',new Blob([JSON.stringify({name:backupName,parents:[backupFolderId]})],{type:'application/json'}));
+    form.append('file',new Blob([JSON.stringify(DB)],{type:'application/json'}));
+    await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{
+      method:'POST',headers:{Authorization:'Bearer '+accessToken},body:form
+    });
+    localStorage.setItem('gp_last_backup',today);
+    console.log('Auto-backup created: '+backupName);
+  }catch(e){console.warn('Auto-backup failed:',e);}
+}
+
+async function listBackups(){
+  try{
+    const backupFolderId=await getOrCreateBackupFolder(folderId);
+    const q=encodeURIComponent(`'${backupFolderId}' in parents and trashed=false`);
+    const r=await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,createdTime)&orderBy=createdTime desc`,{headers:driveH()});
+    const d=await r.json();
+    return{files:d.files||[],backupFolderId};
+  }catch(e){return{files:[],backupFolderId:null};}
+}
+
+async function showRestoreModal(){
+  openModal('modal-restore-backup');
+  const list=document.getElementById('restore-backup-list');
+  list.innerHTML='<div style="color:var(--muted);font-size:.86rem;">Cargando copias...</div>';
+  const{files}=await listBackups();
+  if(!files.length){
+    list.innerHTML='<div style="color:var(--muted);font-size:.86rem;">No hay copias de seguridad disponibles.</div>';
+    return;
+  }
+  list.innerHTML=files.map(f=>`
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--card2);border:1px solid var(--border);border-radius:8px;margin-bottom:8px;">
+      <div>
+        <div style="font-weight:600;font-size:.86rem;">${f.name}</div>
+        <div style="font-size:.76rem;color:var(--muted);">${new Date(f.createdTime).toLocaleString('es-ES')}</div>
+      </div>
+      <button class="btn btn-warn btn-sm" onclick="restoreFromBackup('${f.id}','${f.name}')">🔄 Restaurar</button>
+    </div>`).join('');
+}
+
+async function restoreFromBackup(fileId,name){
+  if(!confirm(`¿Restaurar la copia "${name}"? Los datos actuales serán reemplazados.`))return;
+  closeModal('modal-restore-backup');
+  showSyncOverlay('Restaurando copia de seguridad...');
+  try{
+    const r=await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,{headers:{Authorization:'Bearer '+accessToken}});
+    const parsed=JSON.parse(await r.text());
+    if(parsed&&typeof parsed==='object'){
+      DB.proyectos=parsed.proyectos||[];DB.ventas=parsed.ventas||[];
+      DB.costes=parsed.costes||[];DB.cobros=parsed.cobros||[];DB.pagos=parsed.pagos||[];
+      DB.logo=parsed.logo||'';DB.tiposIva=parsed.tiposIva||[...DEFAULT_IVA];
+      DB.tiposIrpf=parsed.tiposIrpf||[...DEFAULT_IRPF];
+      DB.defaultIvaPct=parsed.defaultIvaPct??21;DB.defaultIrpfPct=parsed.defaultIrpfPct??0;
+    }
+    await saveToDrive();
+    hideSyncOverlay();renderAll();
+    toast('Datos restaurados desde '+name);
+  }catch(e){hideSyncOverlay();toast('Error al restaurar.','error');}
+}
+
 async function initDriveData(){
   showSyncOverlay('Conectando con Google Drive...');
   try{
@@ -869,6 +1010,8 @@ async function initDriveData(){
     renderAll();
     setSyncStatus('ok','Conectado');
     toast('Datos cargados ✓');
+    // Auto backup (transparent, after a short delay)
+    setTimeout(()=>createAutoBackup(),3000);
   }catch(e){
     hideSyncOverlay();
     toast('Error Drive: '+e.message,'error');
@@ -941,16 +1084,18 @@ function populateFiscalDropdowns(){
   const irpfSelects=['c-irpf-tipo','ec-irpf-tipo'];
   const ivaTypes=DB.tiposIva||[...DEFAULT_IVA];
   const irpfTypes=DB.tiposIrpf||[...DEFAULT_IRPF];
+  const defIva=DB.defaultIvaPct??21;
+  const defIrpf=DB.defaultIrpfPct??0;
   ivaSelects.forEach(id=>{
     const el=document.getElementById(id);if(!el)return;
     const cur=el.value;
-    el.innerHTML=ivaTypes.map(t=>`<option value="${t}">${t}%</option>`).join('');
+    el.innerHTML=ivaTypes.map(t=>`<option value="${t}" ${!cur&&t===defIva?'selected':''}>${t}%${t===defIva?' (defecto)':''}</option>`).join('');
     if(cur)el.value=cur;
   });
   irpfSelects.forEach(id=>{
     const el=document.getElementById(id);if(!el)return;
     const cur=el.value;
-    el.innerHTML='<option value="0">Sin retención</option>'+irpfTypes.filter(t=>t>0).map(t=>`<option value="${t}">${t}%</option>`).join('');
+    el.innerHTML=irpfTypes.map(t=>`<option value="${t}" ${!cur&&t===defIrpf?'selected':''}>${t===0?'Sin retención':t+'%'}${t===defIrpf?' (defecto)':''}</option>`).join('');
     if(cur)el.value=cur;
   });
 }
@@ -961,9 +1106,25 @@ function renderFiscalTags(){
   if(!ivaDiv||!irpfDiv)return;
   const ivaTypes=DB.tiposIva||[...DEFAULT_IVA];
   const irpfTypes=DB.tiposIrpf||[...DEFAULT_IRPF];
-  ivaDiv.innerHTML=ivaTypes.map(t=>`<span class="fiscal-tag">${t}% <span class="remove" onclick="removeIva(${t})">×</span></span>`).join('');
-  irpfDiv.innerHTML=irpfTypes.map(t=>`<span class="fiscal-tag">${t}% <span class="remove" onclick="removeIrpf(${t})">×</span></span>`).join('');
+  const defIva=DB.defaultIvaPct??21;
+  const defIrpf=DB.defaultIrpfPct??0;
+  ivaDiv.innerHTML=ivaTypes.map(t=>{
+    const isDefault=t===defIva;
+    return`<span class="fiscal-tag${isDefault?' is-default':''}">
+      ${t}% <span class="star" style="color:${isDefault?'var(--accent)':'var(--muted2)'};" title="Establecer como defecto" onclick="setDefaultIva(${t})">★</span>
+      ${t!==0?`<span class="remove" onclick="removeIva(${t})">×</span>`:''}
+    </span>`;
+  }).join('');
+  irpfDiv.innerHTML=irpfTypes.map(t=>{
+    const isDefault=t===defIrpf;
+    return`<span class="fiscal-tag${isDefault?' is-default':''}">
+      ${t===0?'Sin ret.':t+'%'} <span class="star" style="color:${isDefault?'var(--accent)':'var(--muted2)'};" title="Establecer como defecto" onclick="setDefaultIrpf(${t})">★</span>
+      ${t!==0?`<span class="remove" onclick="removeIrpf(${t})">×</span>`:''}
+    </span>`;
+  }).join('');
 }
+function setDefaultIva(v){DB.defaultIvaPct=v;scheduleSave();renderFiscalTags();populateFiscalDropdowns();toast('IVA por defecto: '+v+'%');}
+function setDefaultIrpf(v){DB.defaultIrpfPct=v;scheduleSave();renderFiscalTags();populateFiscalDropdowns();toast('IRPF por defecto: '+(v===0?'Sin retención':v+'%'));}
 function addIvaTipo(){
   const v=parseFloat(document.getElementById('new-iva').value);
   if(isNaN(v)||v<0||v>100){toast('Valor no válido.','error');return;}
@@ -1048,13 +1209,15 @@ function saveEditProyecto(){
   closeModal('modal-edit-proj');renderProyectos();toast('Proyecto actualizado.');
 }
 function renderProyectos(){
-  const proyectos=getD('proyectos');
+  const allProy=getD('proyectos');
+  const filtroEstado=document.getElementById('proj-filter-estado')?.value||'todos';
+  const proyectos=filtroEstado==='todos'?allProy:allProy.filter(p=>(p.estado||'abierto')===filtroEstado);
   const tbody=document.getElementById('tbody-proyectos');
   const empty=document.getElementById('proj-empty');
-  const tv=proyectos.reduce((s,p)=>s+p.venta,0);
-  const tc=proyectos.reduce((s,p)=>s+p.coste,0);
+  const tv=allProy.reduce((s,p)=>s+p.venta,0);
+  const tc=allProy.reduce((s,p)=>s+p.coste,0);
   const tm=tv-tc;
-  document.getElementById('st-p-total').textContent=proyectos.length;
+  document.getElementById('st-p-total').textContent=allProy.length;
   document.getElementById('st-p-venta').textContent=fmt(tv);
   document.getElementById('st-p-coste').textContent=fmt(tc);
   const me=document.getElementById('st-p-margen');
@@ -1062,12 +1225,44 @@ function renderProyectos(){
   if(!proyectos.length){tbody.innerHTML='';empty.style.display='block';return;}
   empty.style.display='none';
   tbody.innerHTML=proyectos.map(p=>{
-    const m=p.venta-p.coste;const pct=p.venta>0?(m/p.venta*100):0;
-    return`<tr><td><strong>${p.nombre}</strong></td><td>${p.cliente}</td><td>${fmt(p.venta)}</td><td>${fmt(p.coste)}</td>
-    <td class="${m>=0?'mp':'mn'}">${fmt(m)}</td><td class="${m>=0?'mp':'mn'}">${fmtPct(pct)}</td>
-    <td><button class="btn btn-ghost btn-xs" onclick="editProyecto('${p.id}')">✏️</button>
-    <button class="btn btn-danger btn-xs" onclick="deleteProyecto('${p.id}')">🗑</button></td></tr>`;
+    const ventasReal=getD('ventas').filter(v=>v.proyectoId===p.id).reduce((s,v)=>s+v.total,0);
+    const costesReal=getD('costes').filter(c=>c.proyectoId===p.id).reduce((s,c)=>s+c.total,0);
+    const mp=p.venta-p.coste;const mppct=p.venta>0?(mp/p.venta*100):0;
+    const mr=ventasReal-costesReal;const mrpct=ventasReal>0?(mr/ventasReal*100):0;
+    const cerrado=(p.estado||'abierto')==='cerrado';
+    const estadoBadge=cerrado?'<span class="badge badge-red">🔒 Cerrado</span>':'<span class="badge badge-green">🟢 Abierto</span>';
+    const toggleBtn=cerrado
+      ?`<button class="btn btn-success btn-xs" title="Reabrir proyecto" onclick="toggleProyectoEstado('${p.id}')">🔓 Reabrir</button>`
+      :`<button class="btn btn-warn btn-xs" title="Cerrar proyecto" onclick="toggleProyectoEstado('${p.id}')">🔒 Cerrar</button>`;
+    return`<tr>
+      <td>${estadoBadge}</td>
+      <td><strong>${p.nombre}</strong></td>
+      <td>${p.cliente}</td>
+      <td>${fmt(p.venta)}</td><td class="mp">${fmt(ventasReal)}</td>
+      <td>${fmt(p.coste)}</td><td class="mp">${fmt(costesReal)}</td>
+      <td class="${mp>=0?'mp':'mn'}">${fmt(mp)} <small>(${fmtPct(mppct)})</small></td>
+      <td class="${mr>=0?'mp':'mn'}">${fmt(mr)}</td>
+      <td class="${mr>=0?'mp':'mn'}">${fmtPct(mrpct)}</td>
+      <td style="white-space:nowrap">${toggleBtn}
+        <button class="btn btn-ghost btn-xs" onclick="editProyecto('${p.id}')">✏️</button>
+        <button class="btn btn-danger btn-xs" onclick="deleteProyecto('${p.id}')">🗑</button>
+      </td></tr>`;
   }).join('');
+}
+
+function toggleProyectoEstado(id){
+  const p=getD('proyectos').find(x=>x.id===id);if(!p)return;
+  const cerrado=(p.estado||'abierto')==='cerrado';
+  if(!cerrado&&!confirm('¿Cerrar este proyecto? No se podrán imputar más facturas hasta reabrirlo.'))return;
+  setD('proyectos',getD('proyectos').map(x=>x.id===id?{...x,estado:cerrado?'abierto':'cerrado'}:x));
+  renderProyectos();
+  toast(cerrado?'Proyecto reabierto.':'Proyecto cerrado.');
+}
+
+function isProyectoCerrado(proyectoId){
+  if(!proyectoId)return false;
+  const p=getD('proyectos').find(x=>x.id===proyectoId);
+  return p&&(p.estado||'abierto')==='cerrado';
 }
 
 // ═══════════════════════════════════════════
@@ -1117,6 +1312,7 @@ function addVenta(data){
   if(!cliente){toast('Selecciona un cliente.','error');return;}
   if(base<=0){toast('La base debe ser mayor que 0.','error');return;}
   if(getD('ventas').find(v=>v.numero===numero)){toast('Ya existe esa factura.','error');return;}
+  if(proyectoId&&isProyectoCerrado(proyectoId)){toast('⛔ El proyecto está cerrado. Reabre el proyecto para imputar facturas.','error');return;}
   const iva=serie==='A'?base*0.21:0;
   const ventas=getD('ventas');
   ventas.push({id:genId(),serie,numero,fecha,cliente,proyectoId,base,iva,total:base+iva});
@@ -1276,6 +1472,7 @@ function addCoste(data){
   if(!fecha){toast('La fecha es obligatoria.','error');return;}
   if(base<=0){toast('La base debe ser mayor que 0.','error');return;}
   if(tipo==='proyecto'&&!proyectoId){toast('Selecciona un proyecto.','error');return;}
+  if(proyectoId&&isProyectoCerrado(proyectoId)){toast('⛔ El proyecto está cerrado. Reabre el proyecto para imputar facturas.','error');return;}
   const cuotaIva=base*ivaPct/100;
   const retencion=base*irpfPct/100;
   const total=base+cuotaIva-retencion;
@@ -1463,7 +1660,14 @@ function renderCobros(){
   document.getElementById('st-co-facturado').textContent=fmt(totalF);
   document.getElementById('st-co-cobrado').textContent=fmt(totalC);
   document.getElementById('st-co-pendiente').textContent=fmt(totalF-totalC);
-  const filtV=ventas.filter(v=>!serie||v.serie===serie);
+  const filtroEstadoCo=document.getElementById('co-filter-estado')?.value||'pendiente';
+  const filtV=ventas.filter(v=>{
+    if(serie&&v.serie!==serie)return false;
+    const cobrado=getCobradoVenta(v.id);const pend=v.total-cobrado;
+    if(filtroEstadoCo==='pendiente'&&pend<=0.001)return false;
+    if(filtroEstadoCo==='cobrado'&&pend>0.001)return false;
+    return true;
+  });
   document.getElementById('tbody-cobros-pend').innerHTML=filtV.map(v=>{
     const cobrado=getCobradoVenta(v.id);const pend=v.total-cobrado;
     const est=pend<=0?'<span class="badge badge-green">Cobrado</span>':cobrado>0?'<span class="badge badge-yellow">Parcial</span>':'<span class="badge badge-orange">Pendiente</span>';
@@ -1560,9 +1764,13 @@ function renderPagos(){
   document.getElementById('st-pa-facturado').textContent=fmt(totalF);
   document.getElementById('st-pa-pagado').textContent=fmt(totalP);
   document.getElementById('st-pa-pendiente').textContent=fmt(totalF-totalP);
+  const filtroEstadoPa=document.getElementById('pa-filter-estado')?.value||'pendiente';
   const filtC=costes.filter(c=>{
     if(serie&&c.serie!==serie)return false;
     if(tipo&&c.tipo!==tipo)return false;
+    const pagado=getPagadoCoste(c.id);const pend=c.total-pagado;
+    if(filtroEstadoPa==='pendiente'&&pend<=0.001)return false;
+    if(filtroEstadoPa==='pagado'&&pend>0.001)return false;
     return true;
   });
   document.getElementById('tbody-pagos-pend').innerHTML=filtC.map(c=>{
@@ -1596,11 +1804,16 @@ function switchResTab(tab){
   document.getElementById('tab-res-listado').classList.toggle('active',tab==='listado');
   document.getElementById('res-detalle-panel').style.display=tab==='detalle'?'block':'none';
   document.getElementById('res-listado-panel').style.display=tab==='listado'?'block':'none';
+  const filters=document.getElementById('res-listado-filters');
+  if(filters)filters.style.display=tab==='listado'?'flex':'none';
   if(tab==='listado')renderResListado();
 }
 function populateResSelector(){
   const sel=document.getElementById('res-selector');
-  sel.innerHTML='<option value="">— Seleccionar —</option>'+getD('proyectos').map(p=>`<option value="${p.id}">${p.nombre} — ${p.cliente}</option>`).join('');
+  sel.innerHTML='<option value="">— Seleccionar —</option>'+getD('proyectos').map(p=>{
+    const cerrado=(p.estado||'abierto')==='cerrado';
+    return`<option value="${p.id}">${cerrado?'🔒 ':''} ${p.nombre} — ${p.cliente}</option>`;
+  }).join('');
 }
 function renderResumen(){
   const id=document.getElementById('res-selector').value;
@@ -1648,7 +1861,9 @@ function renderResumen(){
     </div>`;
 }
 function renderResListado(){
-  const proyectos=getD('proyectos');
+  const filtroEstado=document.getElementById('res-filter-estado')?.value||'todos';
+  const allP=getD('proyectos');
+  const proyectos=filtroEstado==='todos'?allP:allP.filter(p=>(p.estado||'abierto')===filtroEstado);
   const cont=document.getElementById('res-listado-content');
   if(!proyectos.length){cont.innerHTML='<div class="empty-state"><div class="icon">📋</div><p>Sin proyectos.</p></div>';return;}
   const rows=proyectos.map(p=>{
@@ -1663,11 +1878,14 @@ function renderResListado(){
   const totPV=rows.reduce((s,r)=>s+r.p.venta,0);
   const totPC=rows.reduce((s,r)=>s+r.p.coste,0);
   cont.innerHTML=`<div class="table-wrap"><table>
-    <thead><tr><th>Proyecto</th><th>Cliente</th><th>Venta Prev.</th><th>Margen Prev.</th><th>M.P%</th><th>Facturado</th><th>Costes</th><th>Margen Real</th><th>M.R%</th></tr></thead>
-    <tbody>${rows.map(r=>`<tr><td><strong>${r.p.nombre}</strong></td><td>${r.p.cliente}</td>
+    <thead><tr><th>Estado</th><th>Proyecto</th><th>Cliente</th><th>Venta Prev.</th><th>Margen Prev.</th><th>M.P%</th><th>Facturado</th><th>Costes</th><th>Margen Real</th><th>M.R%</th></tr></thead>
+    <tbody>${rows.map(r=>{
+      const cerrado=(r.p.estado||'abierto')==='cerrado';
+      const estBadge=cerrado?'<span class="badge badge-red">🔒 Cerrado</span>':'<span class="badge badge-green">🟢 Abierto</span>';
+      return`<tr><td>${estBadge}</td><td><strong>${r.p.nombre}</strong></td><td>${r.p.cliente}</td>
       <td>${fmt(r.p.venta)}</td><td class="${r.mp>=0?'mp':'mn'}">${fmt(r.mp)}</td><td class="${r.mp>=0?'mp':'mn'}">${fmtPct(r.mppct)}</td>
       <td>${fmt(r.tv)}</td><td>${fmt(r.tc)}</td>
-      <td class="${r.mr>=0?'mp':'mn'}">${fmt(r.mr)}</td><td class="${r.mr>=0?'mp':'mn'}">${fmtPct(r.mrpct)}</td></tr>`).join('')}
+      <td class="${r.mr>=0?'mp':'mn'}">${fmt(r.mr)}</td><td class="${r.mr>=0?'mp':'mn'}">${fmtPct(r.mrpct)}</td></tr>`;}).join('')}
     <tr style="font-weight:700;border-top:2px solid var(--border);background:rgba(91,127,166,.06)">
       <td colspan="2">TOTALES</td><td>${fmt(totPV)}</td>
       <td class="${totPV-totPC>=0?'mp':'mn'}">${fmt(totPV-totPC)}</td>
@@ -1717,52 +1935,111 @@ function onPdfSelected(){
   reader.readAsDataURL(file);
 }
 
+async function extractTextFromPdf(base64){
+  // Use PDF.js to extract text client-side
+  return new Promise((resolve)=>{
+    try{
+      const script=document.createElement('script');
+      script.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+      script.onload=async()=>{
+        try{
+          const pdfjsLib=window['pdfjs-dist/build/pdf'];
+          pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+          const binary=atob(base64);
+          const bytes=new Uint8Array(binary.length);
+          for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
+          const pdf=await pdfjsLib.getDocument({data:bytes}).promise;
+          let text='';
+          for(let i=1;i<=Math.min(pdf.numPages,5);i++){
+            const page=await pdf.getPage(i);
+            const content=await page.getTextContent();
+            text+=content.items.map(s=>s.str).join(' ')+'
+';
+          }
+          resolve(text.trim());
+        }catch(e){resolve('');}
+      };
+      script.onerror=()=>resolve('');
+      if(!document.querySelector('script[src*="pdf.min.js"]'))document.head.appendChild(script);
+      else resolve('');
+    }catch(e){resolve('');}
+  });
+}
+
 async function extractPdfWithAI(base64,type){
   const bar=document.getElementById('ai-status-bar');
   const msg=document.getElementById('ai-status-msg');
   bar.style.display='flex';
-  msg.textContent='Analizando PDF con IA...';
-  document.getElementById('pdf-form-content').innerHTML='<div style="color:var(--muted);font-size:.86rem;padding:12px;">Extrayendo datos...</div>';
+  msg.textContent='Extrayendo texto del PDF...';
+  document.getElementById('pdf-form-content').innerHTML='<div style="color:var(--muted);font-size:.86rem;padding:12px;">Procesando PDF...</div>';
+
+  // Step 1: Extract text with PDF.js
+  const pdfText=await extractTextFromPdf(base64);
+
+  if(!pdfText||pdfText.length<20){
+    bar.style.display='none';
+    // Show form empty for manual fill
+    renderPdfForm(type,{});
+    document.getElementById('ai-status-bar').style.display='flex';
+    document.getElementById('ai-status-bar').style.borderColor='rgba(160,108,0,.3)';
+    document.getElementById('ai-status-msg').textContent='No se pudo extraer texto. Rellena los datos manualmente.';
+    return;
+  }
+
+  msg.textContent='Analizando con IA...';
 
   const prompts={
-    proyecto:`Analiza este presupuesto y extrae en JSON (solo JSON, sin backticks):
-{"nombre":"nombre del proyecto o descripción breve","cliente":"nombre del cliente","venta":"importe total del presupuesto como número","coste":"estimación de coste si aparece, sino 0"}`,
-    venta:`Analiza esta factura emitida y extrae en JSON (solo JSON, sin backticks):
-{"numero":"número de factura","fecha":"fecha en formato YYYY-MM-DD","cliente":"nombre del cliente","base":"base imponible como número","iva":"cuota de IVA como número","total":"total factura como número","serie":"A si tiene IVA, B si no tiene IVA"}`,
-    coste:`Analiza esta factura recibida y extrae en JSON (solo JSON, sin backticks):
-{"proveedor":"nombre del proveedor","numfact":"número de factura del proveedor","fecha":"fecha en formato YYYY-MM-DD","base":"base imponible como número","ivaPct":"porcentaje de IVA aplicado como número (0,4,10,21)","cuotaIva":"cuota de IVA como número","irpfPct":"porcentaje de retención IRPF si existe como número, sino 0","retencion":"importe de retención como número","total":"total factura como número"}`
+    proyecto:`Analiza este presupuesto y extrae en JSON (SOLO JSON puro, sin explicaciones ni backticks):
+{"nombre":"nombre del proyecto o descripción breve","cliente":"nombre del cliente","venta":NUMERO_SIN_COMILLAS,"coste":NUMERO_SIN_COMILLAS}
+
+Texto del documento:
+${pdfText.slice(0,3000)}`,
+    venta:`Analiza esta factura emitida y extrae en JSON (SOLO JSON puro, sin explicaciones ni backticks):
+{"numero":"número de factura","fecha":"YYYY-MM-DD","cliente":"nombre del cliente","base":NUMERO,"serie":"A o B"}
+
+Texto del documento:
+${pdfText.slice(0,3000)}`,
+    coste:`Analiza esta factura recibida y extrae en JSON (SOLO JSON puro, sin explicaciones ni backticks):
+{"proveedor":"nombre del proveedor","numfact":"número de factura","fecha":"YYYY-MM-DD","base":NUMERO,"ivaPct":NUMERO,"cuotaIva":NUMERO,"irpfPct":NUMERO,"retencion":NUMERO,"total":NUMERO}
+
+Texto del documento:
+${pdfText.slice(0,3000)}`
   };
 
   try{
     const resp=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
-      headers:{'Content-Type':'application/json'},
+      headers:{'Content-Type':'application/json','anthropic-dangerous-direct-browser-access':'true'},
       body:JSON.stringify({
         model:'claude-sonnet-4-20250514',
-        max_tokens:1000,
-        messages:[{
-          role:'user',
-          content:[
-            {type:'document',source:{type:'base64',media_type:'application/pdf',data:base64}},
-            {type:'text',text:prompts[type]}
-          ]
-        }]
+        max_tokens:800,
+        messages:[{role:'user',content:prompts[type]}]
       })
     });
     const data=await resp.json();
-    const text=data.content?.map(i=>i.text||'').join('').trim();
+    if(data.error){throw new Error(data.error.message||'API error');}
+    const text=(data.content||[]).map(i=>i.text||'').join('').trim();
     let parsed={};
-    try{parsed=JSON.parse(text.replace(/```json|```/g,'').trim());}catch(e){parsed={};}
+    try{
+      const clean=text.replace(/```json|```/g,'').replace(/^[^{]*/,'').replace(/[^}]*$/,'').trim();
+      parsed=JSON.parse(clean);
+    }catch(e){parsed={};}
     pdfExtracted=parsed;
     bar.style.display='none';
     renderPdfForm(type,parsed);
   }catch(e){
     bar.style.display='none';
-    msg.textContent='Error al analizar. Rellena los datos manualmente.';
-    bar.style.display='flex';
-    bar.style.borderColor='rgba(192,57,43,.3)';
-    pdfExtracted={};
+    // Still show form with empty fields for manual fill
     renderPdfForm(type,{});
+    const bar2=document.getElementById('ai-status-bar');
+    bar2.style.display='flex';
+    bar2.style.borderColor='rgba(160,108,0,.3)';
+    bar2.style.color='var(--yellow)';
+    document.getElementById('ai-status-msg').textContent='IA no disponible (se necesita API key). El texto del PDF está visible. Rellena los datos manualmente o consulta el PDF.';
+    // Show extracted text in a collapsible
+    const panel=document.getElementById('pdf-form-content');
+    const existingForm=panel.innerHTML;
+    panel.innerHTML=existingForm+`<details style="margin-top:12px;"><summary style="cursor:pointer;font-size:.78rem;color:var(--muted);font-weight:600;">📄 Ver texto extraído del PDF</summary><pre style="font-size:.72rem;color:var(--muted);background:var(--card2);padding:10px;border-radius:8px;overflow:auto;max-height:200px;margin-top:8px;white-space:pre-wrap;">${pdfText.slice(0,2000)}</pre></details>`;
   }
 }
 
@@ -1919,6 +2196,13 @@ function saveClientId(){
   CLIENT_ID=val;localStorage.setItem('gp_client_id',val);
   toast('Client ID actualizado.');loadAjustesStatus();
 }
+function toggleDriveConfig(){
+  const body=document.getElementById('drive-config-body');
+  const toggle=document.getElementById('drive-config-toggle');
+  const open=body.style.display==='none';
+  body.style.display=open?'block':'none';
+  toggle.textContent=open?'▲ Ocultar':'▼ Mostrar';
+}
 function loadAjustesStatus(){
   const saved=localStorage.getItem('gp_client_id')||'';
   const btn=document.getElementById('btn-current-id');
@@ -1937,9 +2221,6 @@ window.addEventListener('DOMContentLoaded',()=>{
     document.getElementById('login-client-id').value=CLIENT_ID;
     goToStep2();
   }
-  // Fix cobro/pago form submit buttons
-  document.getElementById('co-factura')?.closest('.section-box')?.querySelector('.btn-primary')?.addEventListener('click',submitCobro);
-  document.getElementById('pa-factura')?.closest('.section-box')?.querySelector('.btn-primary')?.addEventListener('click',submitPago);
 });
 </script>
 </body>
