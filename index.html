@@ -215,25 +215,35 @@ tbody td{padding:9px 12px;color:var(--text);vertical-align:middle;}
     <div class="login-step active" id="login-step-1">
       <div class="setup-hint">
         🔑 <strong>Primera vez:</strong> Necesitas un <strong>Google Client ID</strong> gratuito.<br>
-        Consulta la Guía de Configuración incluida para obtenerlo.<br>
-        <a href="https://console.cloud.google.com" target="_blank">console.cloud.google.com →</a>
+        Consúltalo en <a href="https://console.cloud.google.com" target="_blank">console.cloud.google.com →</a>
       </div>
       <label class="client-id-label">Google Client ID</label>
-      <input class="client-id-input" type="text" id="login-client-id" placeholder="xxxxxxx.apps.googleusercontent.com">
+      <input class="client-id-input" type="text" id="login-client-id"
+        placeholder="xxxxxxx.apps.googleusercontent.com"
+        onkeydown="if(event.key==='Enter')setupClientId()">
+      <div id="step1-error" style="display:none;background:rgba(192,57,43,.1);border:1px solid rgba(192,57,43,.25);border-radius:7px;padding:8px 12px;font-size:.78rem;color:var(--red);margin-bottom:10px;text-align:left;"></div>
       <button class="btn-setup" onclick="setupClientId()">Guardar y continuar →</button>
     </div>
     <div class="login-step" id="login-step-2">
       <div style="margin-bottom:16px;text-align:left;">
         <label class="client-id-label" style="display:flex;align-items:center;justify-content:space-between;">
           <span>Google Client ID</span>
-          <button onclick="toggleEditClientId()" id="btn-edit-toggle" style="background:transparent;border:none;color:var(--accent);font-size:.75rem;cursor:pointer;font-family:var(--font-body);font-weight:600;text-decoration:underline;">✏️ Editar</button>
+          <button onclick="toggleEditClientId()" id="btn-edit-toggle"
+            style="background:transparent;border:none;color:var(--accent);font-size:.75rem;cursor:pointer;font-family:var(--font-body);font-weight:600;text-decoration:underline;">✏️ Editar</button>
         </label>
         <div id="clientid-readonly" style="background:var(--card2);border:1px solid var(--border);border-radius:9px;padding:10px 14px;font-size:.74rem;color:var(--muted);font-family:monospace;word-break:break-all;text-align:left;"></div>
         <div id="clientid-edit-wrap" style="display:none;margin-top:8px;">
-          <input class="client-id-input" type="text" id="login-client-id-2" placeholder="xxxxxxx.apps.googleusercontent.com" style="margin-bottom:8px;">
+          <input class="client-id-input" type="text" id="login-client-id-2"
+            placeholder="xxxxxxx.apps.googleusercontent.com"
+            style="margin-bottom:6px;"
+            onkeydown="if(event.key==='Enter')saveClientIdInline()">
+          <div id="step2-error" style="display:none;background:rgba(192,57,43,.1);border:1px solid rgba(192,57,43,.25);border-radius:7px;padding:8px 12px;font-size:.78rem;color:var(--red);margin-bottom:8px;text-align:left;"></div>
           <div style="display:flex;gap:8px;">
             <button class="btn-setup" style="flex:1;padding:9px;" onclick="saveClientIdInline()">✓ Guardar</button>
-            <button onclick="toggleEditClientId()" style="flex:0 0 auto;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:9px;padding:9px 14px;cursor:pointer;font-family:var(--font-body);font-size:.84rem;">Cancelar</button>
+            <button onclick="toggleEditClientId()"
+              style="flex:0 0 auto;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:9px;padding:9px 14px;cursor:pointer;font-family:var(--font-body);font-size:.84rem;">
+              Cancelar
+            </button>
           </div>
         </div>
       </div>
@@ -241,6 +251,12 @@ tbody td{padding:9px 12px;color:var(--text);vertical-align:middle;}
         <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
         Entrar con Google
       </button>
+      <div style="margin-top:10px;">
+        <button onclick="goToStep1()"
+          style="background:transparent;border:none;color:var(--muted2);font-size:.76rem;cursor:pointer;font-family:var(--font-body);text-decoration:underline;">
+          ← Cambiar Client ID desde cero
+        </button>
+      </div>
       <div class="login-note">🔒 Solo se accede a una carpeta privada en tu Drive.</div>
     </div>
   </div>
@@ -1038,24 +1054,43 @@ function renderAll(){
 // ═══════════════════════════════════════════
 // LOGIN STEP NAVIGATION
 // ═══════════════════════════════════════════
+function validateClientId(val){
+  if(!val||val.length<20){return'El Client ID es demasiado corto.';}
+  if(!val.includes('googleusercontent.com')&&!val.includes('.apps.')){
+    return'El Client ID debe contener "googleusercontent.com". Cópialo exactamente desde Google Cloud Console.';
+  }
+  return null; // valid
+}
+
 function setupClientId(){
   const val=document.getElementById('login-client-id').value.trim();
-  if(!val||!val.includes('.apps.googleusercontent.com')){alert('Client ID no válido.');return;}
+  const err=validateClientId(val);
+  const hint=document.getElementById('step1-error');
+  if(err){
+    if(hint){hint.textContent=err;hint.style.display='block';}
+    else alert(err);
+    return;
+  }
+  if(hint)hint.style.display='none';
   CLIENT_ID=val;localStorage.setItem('gp_client_id',val);goToStep2();
 }
+
 function goToStep2(){
   document.getElementById('login-step-1').classList.remove('active');
   document.getElementById('login-step-2').classList.add('active');
-  const ro=document.getElementById('clientid-readonly');
-  if(ro)ro.textContent=CLIENT_ID||'(no configurado)';
+  // Always show the Client ID in the editable field directly (no readonly/toggle complexity)
   const inp=document.getElementById('login-client-id-2');
-  if(inp)inp.value=CLIENT_ID||'';
+  if(inp){inp.value=CLIENT_ID||'';inp.style.display='block';}
+  const ro=document.getElementById('clientid-readonly');
+  if(ro)ro.textContent=CLIENT_ID||'';
 }
+
 function goToStep1(){
   document.getElementById('login-step-2').classList.remove('active');
   document.getElementById('login-step-1').classList.add('active');
   document.getElementById('login-client-id').value=CLIENT_ID||'';
 }
+
 function toggleEditClientId(){
   const wrap=document.getElementById('clientid-edit-wrap');
   const ro=document.getElementById('clientid-readonly');
@@ -1064,16 +1099,28 @@ function toggleEditClientId(){
   wrap.style.display=isEditing?'none':'block';
   ro.style.display=isEditing?'block':'none';
   btn.textContent=isEditing?'✏️ Editar':'✕ Cancelar';
-  if(!isEditing){const inp=document.getElementById('login-client-id-2');inp.value=CLIENT_ID||'';inp.focus();inp.select();}
+  if(!isEditing){
+    const inp=document.getElementById('login-client-id-2');
+    if(inp){inp.value=CLIENT_ID||'';inp.focus();inp.select();}
+  }
 }
+
 function saveClientIdInline(){
   const val=document.getElementById('login-client-id-2').value.trim();
-  if(!val||!val.includes('.apps.googleusercontent.com')){alert('Client ID no válido.');return;}
+  const err=validateClientId(val);
+  const hint=document.getElementById('step2-error');
+  if(err){
+    if(hint){hint.textContent=err;hint.style.display='block';}
+    else alert(err);
+    return;
+  }
+  if(hint)hint.style.display='none';
   CLIENT_ID=val;localStorage.setItem('gp_client_id',val);
   document.getElementById('clientid-readonly').textContent=val;
   document.getElementById('clientid-edit-wrap').style.display='none';
   document.getElementById('clientid-readonly').style.display='block';
   document.getElementById('btn-edit-toggle').textContent='✏️ Editar';
+  toast('Client ID actualizado.');
 }
 
 // ═══════════════════════════════════════════
@@ -2218,9 +2265,11 @@ function loadAjustesStatus(){
 // ═══════════════════════════════════════════
 window.addEventListener('DOMContentLoaded',()=>{
   if(CLIENT_ID){
+    // Already configured → go to step 2 with readonly showing saved ID
     document.getElementById('login-client-id').value=CLIENT_ID;
     goToStep2();
   }
+  // If no CLIENT_ID, step 1 is already active by default (has class 'active' in HTML)
 });
 </script>
 </body>
