@@ -789,7 +789,21 @@ let DB = {
 const N=(v,d=2)=>parseFloat(v||0).toLocaleString('es-ES',{minimumFractionDigits:d,maximumFractionDigits:d});
 const fmt=v=>N(v)+' €';
 const fmtPct=v=>N(v,1)+' %';
-const fnum=v=>parseFloat(v||0);
+// fnum: parse number from input (handles both . and , as decimal separator)
+const fnum=v=>{
+  if(v===null||v===undefined||v==='')return 0;
+  const s=String(v).trim().replace(/€/g,'').replace(/\s/g,'');
+  // If has both . and ,: European format (1.234,56) or US (1,234.56)
+  const lastDot=s.lastIndexOf('.');
+  const lastComma=s.lastIndexOf(',');
+  let clean=s;
+  if(lastComma>lastDot){// European: 1.234,56
+    clean=s.replace(/\./g,'').replace(',','.');
+  } else if(lastDot>lastComma){// US or plain: 1,234.56
+    clean=s.replace(/,/g,'');
+  }
+  return parseFloat(clean)||0;
+};
 function genId(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
 function todayStr(){return new Date().toISOString().slice(0,10);}
 function getD(k){return DB[k]||[];}
@@ -2141,83 +2155,112 @@ async function extractTextFromPdf(base64){
   });
 }
 
+// Local PDF data extractor (no API key needed)
+function parseNumFromText(s){
+  if(!s)return 0;
+  s=String(s).replace(/[\u20ac$\s]/g,'').trim();
+  const ld=s.lastIndexOf('.');const lc=s.lastIndexOf(',');
+  if(lc>ld)s=s.replace(/\./g,'').replace(',','.');
+  else if(ld>lc)s=s.replace(/,/g,'');
+  return parseFloat(s)||0;
+}
+
+function extractDataFromText(t,type){
+  const r={};
+  function findNum(kws){
+    for(const kw of kws){
+      const re=new RegExp(kw+'[\\s:]*([\\d.,]+)','i');
+      const m=t.match(re);
+      if(m)return parseNumFromText(m[1]);
+      const re2=new RegExp(kw+'[^\\n]*\\n[\\s]*([\\d.,]+)','i');
+      const m2=t.match(re2);
+      if(m2)return parseNumFromText(m2[1]);
+    }
+    return null;
+  }
+  function findDate(){
+    let m=t.match(/(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
+    if(m)return m[1]+'-'+m[2].padStart(2,'0')+'-'+m[3].padStart(2,'0');
+    m=t.match(/(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})/);
+    if(m)return m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
+    const months={enero:1,febrero:2,marzo:3,abril:4,mayo:5,junio:6,julio:7,agosto:8,septiembre:9,octubre:10,noviembre:11,diciembre:12};
+    m=t.match(/(\d{1,2})\s+de\s+(\w+)\s+(?:de\s+)?(\d{4})/i);
+    if(m){const mo=months[m[2].toLowerCase()];if(mo)return m[3]+'-'+String(mo).padStart(2,'0')+'-'+m[1].padStart(2,'0');}
+    return null;
+  }
+  function findInvNum(){
+    let m=t.match(/(?:factura|fra\.?|n[uú]mero|n[oO]?\.?)[:\s#]*([A-Z0-9][-\/A-Z0-9]+)/i);
+    if(m)return m[1].trim();
+    m=t.match(/([A-Z]{1,3}[-\/]\d{3,})/);
+    if(m)return m[1];
+    return null;
+  }
+  function findName(kws){
+    for(const kw of kws){
+      const re=new RegExp(kw+'[:\\s]+([A-Z\\u00C0-\\u024F][\\w\\s,\\.]{2,50})','im');
+      const m=t.match(re);
+      if(m)return m[1].trim().split('\n')[0].trim();
+    }
+    return null;
+  }
+  if(type==='proyecto'){
+    r.venta=findNum(['total','importe total','presupuesto total','precio total'])||
+             findNum(['subtotal','base imponible'])||0;
+    r.coste=0;
+    r.cliente=findName(['cliente','a:','para:','destinatario'])||'';
+    const fl=t.split('\n').map(l=>l.trim()).filter(l=>l.length>5&&l.length<80&&!/^\d/.test(l));
+    r.nombre=fl[0]||'';
+  } else if(type==='venta'){
+    r.numero=findInvNum()||nextVentaNum('A');
+    r.fecha=findDate()||todayStr();
+    r.cliente=findName(['cliente','facturado a','a:'])||'';
+    r.base=findNum(['base imponible','base','subtotal','importe neto'])||0;
+    const ivaAmt=findNum(['cuota iva','cuota i.v.a']);
+    const total=findNum(['total','total factura','importe total']);
+    if(!r.base&&total)r.base=Math.round(total/1.21*100)/100;
+    r.serie=ivaAmt?'A':'A';
+  } else {
+    r.numfact=findInvNum()||'';
+    r.fecha=findDate()||todayStr();
+    r.proveedor=findName(['emisor','proveedor','empresa','de:','nombre'])||'';
+    r.base=findNum(['base imponible','base','subtotal','importe neto'])||0;
+    r.cuotaIva=findNum(['cuota iva','cuota i.v.a','i.v.a'])||0;
+    r.retencion=findNum(['retencion','retenci\u00f3n','irpf'])||0;
+    r.total=findNum(['total','total factura','importe total'])||0;
+    r.ivaPct=r.base&&r.cuotaIva?Math.round(r.cuotaIva/r.base*100):21;
+    r.irpfPct=r.base&&r.retencion?Math.round(r.retencion/r.base*100):0;
+    if(!r.total&&r.base)r.total=r.base+r.cuotaIva-r.retencion;
+  }
+  return r;
+}
+
 async function extractPdfWithAI(base64,type){
   const bar=document.getElementById('ai-status-bar');
   const msg=document.getElementById('ai-status-msg');
   bar.style.display='flex';
+  bar.style.borderColor='';
+  bar.style.color='var(--accent)';
   msg.textContent='Extrayendo texto del PDF...';
-  document.getElementById('pdf-form-content').innerHTML='<div style="color:var(--muted);font-size:.86rem;padding:12px;">Procesando PDF...</div>';
-
-  // Step 1: Extract text with PDF.js
+  document.getElementById('pdf-form-content').innerHTML='<div style="color:var(--muted);font-size:.86rem;padding:12px;">Procesando...</div>';
   const pdfText=await extractTextFromPdf(base64);
-
-  if(!pdfText||pdfText.length<20){
-    bar.style.display='none';
-    // Show form empty for manual fill
+  if(!pdfText||pdfText.length<10){
+    bar.style.color='var(--yellow)';
+    bar.style.borderColor='rgba(160,108,0,.3)';
+    msg.textContent='No se pudo extraer texto (PDF escaneado como imagen). Rellena los datos manualmente.';
     renderPdfForm(type,{});
-    document.getElementById('ai-status-bar').style.display='flex';
-    document.getElementById('ai-status-bar').style.borderColor='rgba(160,108,0,.3)';
-    document.getElementById('ai-status-msg').textContent='No se pudo extraer texto. Rellena los datos manualmente.';
     return;
   }
-
-  msg.textContent='Analizando con IA...';
-
-  const prompts={
-    proyecto:`Analiza este presupuesto y extrae en JSON (SOLO JSON puro, sin explicaciones ni backticks):
-{"nombre":"nombre del proyecto o descripción breve","cliente":"nombre del cliente","venta":NUMERO_SIN_COMILLAS,"coste":NUMERO_SIN_COMILLAS}
-
-Texto del documento:
-${pdfText.slice(0,3000)}`,
-    venta:`Analiza esta factura emitida y extrae en JSON (SOLO JSON puro, sin explicaciones ni backticks):
-{"numero":"número de factura","fecha":"YYYY-MM-DD","cliente":"nombre del cliente","base":NUMERO,"serie":"A o B"}
-
-Texto del documento:
-${pdfText.slice(0,3000)}`,
-    coste:`Analiza esta factura recibida y extrae en JSON (SOLO JSON puro, sin explicaciones ni backticks):
-{"proveedor":"nombre del proveedor","numfact":"número de factura","fecha":"YYYY-MM-DD","base":NUMERO,"ivaPct":NUMERO,"cuotaIva":NUMERO,"irpfPct":NUMERO,"retencion":NUMERO,"total":NUMERO}
-
-Texto del documento:
-${pdfText.slice(0,3000)}`
-  };
-
-  try{
-    const resp=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',
-        max_tokens:800,
-        messages:[{role:'user',content:prompts[type]}]
-      })
-    });
-    const data=await resp.json();
-    if(data.error){throw new Error(data.error.message||'API error');}
-    const text=(data.content||[]).map(i=>i.text||'').join('').trim();
-    let parsed={};
-    try{
-      const clean=text.replace(/```json|```/g,'').replace(/^[^{]*/,'').replace(/[^}]*$/,'').trim();
-      parsed=JSON.parse(clean);
-    }catch(e){parsed={};}
-    pdfExtracted=parsed;
-    bar.style.display='none';
-    renderPdfForm(type,parsed);
-  }catch(e){
-    bar.style.display='none';
-    // Still show form with empty fields for manual fill
-    renderPdfForm(type,{});
-    const bar2=document.getElementById('ai-status-bar');
-    bar2.style.display='flex';
-    bar2.style.borderColor='rgba(160,108,0,.3)';
-    bar2.style.color='var(--yellow)';
-    document.getElementById('ai-status-msg').textContent='IA no disponible (se necesita API key). El texto del PDF está visible. Rellena los datos manualmente o consulta el PDF.';
-    // Show extracted text in a collapsible
-    const panel=document.getElementById('pdf-form-content');
-    const existingForm=panel.innerHTML;
-    panel.innerHTML=existingForm+`<details style="margin-top:12px;"><summary style="cursor:pointer;font-size:.78rem;color:var(--muted);font-weight:600;">📄 Ver texto extraído del PDF</summary><pre style="font-size:.72rem;color:var(--muted);background:var(--card2);padding:10px;border-radius:8px;overflow:auto;max-height:200px;margin-top:8px;white-space:pre-wrap;">${pdfText.slice(0,2000)}</pre></details>`;
-  }
+  msg.textContent='Analizando datos del documento...';
+  const parsed=extractDataFromText(pdfText,type);
+  pdfExtracted=parsed;
+  bar.style.display='none';
+  renderPdfForm(type,parsed);
+  const panel=document.getElementById('pdf-form-content');
+  panel.innerHTML+=`<details style="margin-top:12px;border:1px solid var(--border);border-radius:8px;">
+    <summary style="cursor:pointer;font-size:.76rem;color:var(--muted);font-weight:600;padding:8px 12px;">&#x1F50D; Ver texto extraído (para verificar datos)</summary>
+    <pre style="font-size:.7rem;color:var(--muted);background:var(--card2);padding:10px;overflow:auto;max-height:180px;white-space:pre-wrap;border-top:1px solid var(--border);">${pdfText.replace(/</g,'&lt;').slice(0,3000)}</pre>
+  </details>`;
 }
-
 function renderPdfForm(type,data){
   const proyectos=getD('proyectos');
   const clientes=[...new Set(proyectos.map(p=>p.cliente))];
