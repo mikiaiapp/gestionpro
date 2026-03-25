@@ -23,12 +23,46 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-body);display
 }
 .login-box{
   background:var(--card);border:1px solid var(--border);border-radius:20px;
-  padding:48px 52px;text-align:center;max-width:420px;width:90%;
+  padding:40px 48px;text-align:center;max-width:460px;width:90%;
   box-shadow:0 24px 80px rgba(0,0,0,.5);
 }
-.login-box .logo-wrap{font-size:2.8rem;margin-bottom:20px;}
-.login-box h1{font-family:var(--font-head);font-size:1.9rem;font-weight:800;margin-bottom:8px;}
-.login-box p{color:var(--muted);font-size:.9rem;line-height:1.6;margin-bottom:32px;}
+.login-box .logo-wrap{font-size:2.6rem;margin-bottom:16px;}
+.login-box h1{font-family:var(--font-head);font-size:1.8rem;font-weight:800;margin-bottom:6px;}
+.login-box .login-desc{color:var(--muted);font-size:.88rem;line-height:1.6;margin-bottom:28px;}
+
+/* Step panels inside login */
+.login-step{display:none;}
+.login-step.active{display:block;}
+
+/* Step 1: Client ID */
+.client-id-label{font-size:.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;text-align:left;display:block;margin-bottom:6px;}
+.client-id-input{
+  width:100%;background:var(--card2);border:1px solid var(--border);border-radius:9px;
+  color:var(--text);font-family:var(--font-body);font-size:.84rem;padding:11px 14px;
+  outline:none;transition:border .15s;margin-bottom:12px;
+}
+.client-id-input:focus{border-color:var(--accent);}
+.client-id-input::placeholder{color:var(--muted);}
+.btn-setup{
+  width:100%;background:linear-gradient(135deg,var(--accent),var(--accent2));
+  color:#fff;border:none;border-radius:9px;padding:12px;font-size:.9rem;font-weight:600;
+  cursor:pointer;font-family:var(--font-body);transition:all .15s;
+}
+.btn-setup:hover{opacity:.88;transform:translateY(-1px);}
+.setup-hint{
+  background:rgba(79,142,247,.08);border:1px solid rgba(79,142,247,.2);
+  border-radius:9px;padding:12px 14px;font-size:.78rem;color:#a8b8e8;
+  text-align:left;margin-bottom:16px;line-height:1.6;
+}
+.setup-hint a{color:var(--accent);}
+.setup-hint strong{color:var(--text);}
+.btn-already{
+  background:transparent;border:none;color:var(--muted);font-size:.8rem;
+  cursor:pointer;font-family:var(--font-body);margin-top:10px;text-decoration:underline;
+}
+.btn-already:hover{color:var(--text);}
+
+/* Step 2: Google Sign-In */
 .btn-google{
   display:inline-flex;align-items:center;gap:12px;
   background:#fff;color:#333;border:none;border-radius:10px;
@@ -38,7 +72,13 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-body);display
 }
 .btn-google:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.3);}
 .btn-google img{width:22px;}
-.login-note{color:var(--muted);font-size:.76rem;margin-top:18px;line-height:1.5;}
+.btn-change-id{
+  background:transparent;border:1px solid var(--border);color:var(--muted);
+  border-radius:8px;padding:7px 14px;font-size:.78rem;cursor:pointer;
+  font-family:var(--font-body);transition:all .15s;margin-top:12px;width:100%;
+}
+.btn-change-id:hover{background:var(--card2);color:var(--text);}
+.login-note{color:var(--muted);font-size:.74rem;margin-top:16px;line-height:1.5;}
 
 /* ── SYNC OVERLAY ── */
 #sync-overlay{
@@ -177,34 +217,50 @@ tbody td{padding:10px 12px;color:var(--text);vertical-align:middle;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
 
-/* ── CONFIG BANNER ── */
-#config-banner{
-  display:none;position:fixed;top:0;left:0;right:0;z-index:998;
-  background:linear-gradient(135deg,#f7617a,#f7934c);
-  color:#fff;text-align:center;padding:12px 20px;font-size:.86rem;font-weight:600;
-}
-#config-banner a{color:#fff;text-decoration:underline;cursor:pointer;margin-left:8px;}
+
 </style>
 </head>
 <body>
-
-<!-- ══════════════ CONFIG BANNER ══════════════ -->
-<div id="config-banner">
-  ⚠️ Debes configurar tu Client ID de Google antes de usar la app.
-  <a onclick="showPage('ajustes',document.querySelector('nav a:last-child'))">Ir a Ajustes →</a>
-</div>
 
 <!-- ══════════════ LOGIN SCREEN ══════════════ -->
 <div id="login-screen">
   <div class="login-box">
     <div class="logo-wrap">📊</div>
     <h1>GestiónPro</h1>
-    <p>Control de proyectos, ventas, costes y márgenes.<br>Tus datos guardados de forma segura en tu Google Drive.</p>
-    <button class="btn-google" onclick="signIn()">
-      <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
-      Entrar con Google
-    </button>
-    <div class="login-note">🔒 Solo se accede a una carpeta privada en tu Drive.<br>Ningún dato sale de tu cuenta de Google.</div>
+    <p class="login-desc">Control de proyectos, ventas, costes y márgenes.<br>Datos guardados en tu Google Drive.</p>
+
+    <!-- PASO 1: Configurar Client ID -->
+    <div class="login-step active" id="login-step-1">
+      <div class="setup-hint">
+        🔑 <strong>Primera vez:</strong> Necesitas un <strong>Google Client ID</strong> gratuito.<br>
+        Consulta la <strong>Guía de Configuración</strong> incluida para obtenerlo en ~10 min.<br>
+        <a href="https://console.cloud.google.com" target="_blank">console.cloud.google.com →</a>
+      </div>
+      <label class="client-id-label">Google Client ID</label>
+      <input class="client-id-input" type="text" id="login-client-id"
+        placeholder="xxxxxxx.apps.googleusercontent.com">
+      <button class="btn-setup" onclick="setupClientId()">Guardar y continuar →</button>
+      <div style="margin-top:10px;">
+        <button class="btn-already" onclick="skipToLogin()" id="btn-skip-to-login" style="display:none">
+          Ya tengo el Client ID configurado → Iniciar sesión
+        </button>
+      </div>
+    </div>
+
+    <!-- PASO 2: Login con Google -->
+    <div class="login-step" id="login-step-2">
+      <div class="setup-hint" style="margin-bottom:18px;text-align:center;">
+        ✅ Client ID configurado.<br>Ahora inicia sesión con tu cuenta Google.
+      </div>
+      <button class="btn-google" onclick="signIn()">
+        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
+        Entrar con Google
+      </button>
+      <button class="btn-change-id" onclick="goToStep1()">
+        🔧 Cambiar Client ID
+      </button>
+      <div class="login-note">🔒 Solo se accede a una carpeta privada en tu Drive.<br>Ningún dato sale de tu cuenta de Google.</div>
+    </div>
   </div>
 </div>
 
@@ -826,8 +882,7 @@ function saveClientId(){
   if(!val){toast('Introduce el Client ID.','error');return;}
   CLIENT_ID=val;
   localStorage.setItem('gp_client_id',val);
-  document.getElementById('config-banner').style.display='none';
-  toast('Client ID guardado. Ahora inicia sesión con Google.');
+  toast('Client ID actualizado.');
   loadAjustesStatus();
 }
 
@@ -1534,11 +1589,40 @@ function printTable(title,headers,rows){
 }
 
 // ═══════════════════════════════════════════
+// LOGIN STEP NAVIGATION
+// ═══════════════════════════════════════════
+function setupClientId(){
+  const val=document.getElementById('login-client-id').value.trim();
+  if(!val||!val.includes('.apps.googleusercontent.com')){
+    alert('Introduce un Client ID válido.\nDebe terminar en .apps.googleusercontent.com');
+    return;
+  }
+  CLIENT_ID=val;
+  localStorage.setItem('gp_client_id',val);
+  goToStep2();
+}
+function goToStep2(){
+  document.getElementById('login-step-1').classList.remove('active');
+  document.getElementById('login-step-2').classList.add('active');
+}
+function goToStep1(){
+  document.getElementById('login-step-2').classList.remove('active');
+  document.getElementById('login-step-1').classList.add('active');
+  document.getElementById('login-client-id').value=CLIENT_ID||'';
+}
+function skipToLogin(){ goToStep2(); }
+
+// ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
 window.addEventListener('DOMContentLoaded',()=>{
-  if(!CLIENT_ID){document.getElementById('config-banner').style.display='block';}
-  else{loadAjustesStatus();}
+  if(CLIENT_ID){
+    // Already configured: go straight to Google login
+    document.getElementById('login-client-id').value=CLIENT_ID;
+    document.getElementById('btn-skip-to-login').style.display='inline-block';
+    goToStep2();
+  }
+  // else: step 1 is already shown by default (has class 'active' in HTML)
 });
 </script>
 </body>
