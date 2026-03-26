@@ -9,7 +9,7 @@
   style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
   font-src 'self' https://fonts.gstatic.com;
   connect-src 'self' https://accounts.google.com https://www.googleapis.com https://oauth2.googleapis.com https://generativelanguage.googleapis.com https://api.anthropic.com;
-  frame-src https://accounts.google.com;
+  frame-src https://accounts.google.com blob: data:;
   img-src 'self' data: https:;
 ">
 <title>GestiónPro — Control de Proyectos</title>
@@ -1066,6 +1066,30 @@ function toast(msg,type='success'){
 }
 function openModal(id){document.getElementById(id).classList.add('open');}
 function closeModal(id){document.getElementById(id).classList.remove('open');}
+
+
+function loadAjustesStatus(){
+  // Populate Client ID field
+  const saved = localStorage.getItem('gp_client_id') || '';
+  const cfgInput = document.getElementById('cfg-client-id');
+  if(cfgInput) cfgInput.value = saved;
+  const btn = document.getElementById('btn-current-id');
+  if(btn){
+    if(saved){ btn.style.display='inline-flex'; btn.textContent='✓ '+saved.slice(0,32)+'...'; }
+    else { btn.style.display='none'; }
+  }
+  const status = document.getElementById('drive-status');
+  if(status){
+    status.innerHTML = folderId && fileId
+      ? '<span style="color:var(--green)">&#x2714; Conectado a Google Drive</span>'
+      : '<span style="color:var(--muted)">No conectado aún.</span>';
+  }
+  // Populate Gemini key field
+  const geminiInput = document.getElementById('cfg-gemini-key');
+  if(geminiInput) geminiInput.value = localStorage.getItem('gp_gemini_key') || '';
+  const geminiSaved = localStorage.getItem('gp_gemini_key') || '';
+  if(geminiSaved) updateGeminiStatus('API key configurada. Usa "Probar conexión" para verificarla.');
+}
 
 function showPage(id,el){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
