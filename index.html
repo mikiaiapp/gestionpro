@@ -3256,21 +3256,31 @@ function saveGeminiKey(){
 async function testGeminiKey(){
   const key = document.getElementById('cfg-gemini-key').value.trim() || GEMINI_KEY;
   if(!key){ toast('Introduce primero la API key.', 'error'); return; }
-  updateGeminiStatus('Probando conexión...');
+  updateGeminiStatus('Verificando API key...');
+
+  // Use zero-quota endpoint to validate key (no tokens consumed)
   try{
-    const r = await fetch(GEMINI_URL + '?key=' + key, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: 'Responde solo: OK' }] }],
-        generationConfig: { maxOutputTokens: 10 }
-      })
-    });
-    const d = await r.json();
-    if(d.error) throw new Error(d.error.message);
-    updateGeminiStatus('&#x2714; Conexión correcta. Gemini listo para importar facturas.', true);
+    const listR = await fetch(
+      'https://generativelanguage.googleapis.com/v1beta/models?key=' + key + '&pageSize=3',
+      {method:'GET'}
+    );
+    const listD = await listR.json();
+    if(listD.error){
+      const code = listD.error.code, msg = listD.error.message||'';
+      if(code===400 || msg.toLowerCase().includes('invalid') || msg.includes('API_KEY')){
+        updateGeminiStatus('&#x2716; API key incorrecta. Cópiala desde <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--accent)">aistudio.google.com/apikey</a>.', false, true);
+      } else {
+        updateGeminiStatus('&#x2716; Error ' + code + ': ' + msg, false, true);
+      }
+      return;
+    }
+    // Key is valid — show available models
+    const models = (listD.models||[]).map(m=>m.name.replace('models/',''));
+    const geminiModels = models.filter(m=>m.startsWith('gemini-2'));
+    const best = geminiModels[0] || models[0] || 'desconocido';
+    updateGeminiStatus('&#x2714; API key válida. Modelo activo: <strong>' + best + '</strong>. Lista para importar PDFs.', true);
   } catch(e){
-    updateGeminiStatus('&#x2716; Error: ' + e.message + '. Verifica la API key.', false, true);
+    updateGeminiStatus('&#x2716; Error de red. Desactiva bloqueadores de anuncios (uBlock, AdBlock) para esta p&aacute;gina y prueba en modo inc&oacute;gnito.', false, true);
   }
 }
 
@@ -3669,55 +3679,6 @@ function saveGeminiKey(){
   localStorage.setItem('gp_gemini_key', val);
   toast('API key de Gemini guardada.');
   updateGeminiStatus('Guardada. Pulsa "Probar conexión" para verificarla.');
-}
-
-async function testGeminiKey(){
-  const key = document.getElementById('cfg-gemini-key').value.trim() || GEMINI_KEY;
-  if(!key){ toast('Introduce primero la API key.', 'error'); return; }
-  updateGeminiStatus('Probando conexión...');
-  // Try each model until one responds
-  const modelsToTest = ['gemini-2.0-flash', 'gemini-2.5-flash-lite'];
-  let testUrl = 'https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODEL + ':generateContent?key=' + key;
-  const url = testUrl;
-  try{
-    const r = await fetch(url, {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({
-        contents:[{parts:[{text:'Di OK'}]}],
-        generationConfig:{maxOutputTokens:5, temperature:0}
-      })
-    });
-    if(!r.ok && r.status !== 200){
-      const errText = await r.text();
-      throw new Error('HTTP ' + r.status + ': ' + errText.slice(0,120));
-    }
-    const d = await r.json();
-    if(d.error) throw new Error(d.error.message || JSON.stringify(d.error));
-    updateGeminiStatus('&#x2714; Conexión correcta con ' + GEMINI_MODEL + '. Lista para importar PDFs.', true);
-  } catch(e){
-    let msg = e.message || String(e);
-    if(msg.includes('NetworkError') || msg.includes('Failed to fetch') || msg.includes('fetch')){
-      msg = 'Error de red — posibles causas:<br>' +
-        '&bull; Bloqueador de anuncios activo (uBlock, AdBlock...) — desactívalo para esta página<br>' +
-        '&bull; API key con restricción de dominio — en Google Cloud Console comprueba que la key no tiene restricciones de HTTP referrer<br>' +
-        '&bull; Prueba en modo incógnito sin extensiones';
-    } else if(msg.includes('429') || msg.includes('quota') || msg.includes('RESOURCE_EXHAUSTED')){
-      msg = 'Límite de peticiones alcanzado (429).<br>' +
-        'El plan gratuito permite 15 peticiones/minuto. Espera 1-2 minutos y vuelve a intentarlo.<br>' +
-        'Si el error persiste, revisa el uso en <a href="https://aistudio.google.com" target="_blank" style="color:var(--accent)">aistudio.google.com</a>.';
-    } else if(msg.includes('400') || msg.includes('API_KEY_INVALID')){
-      msg = 'API key inválida. Verifica que la has copiado correctamente desde <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--accent)">aistudio.google.com/apikey</a>.';
-    }
-    updateGeminiStatus('&#x2716; ' + msg, false, true);
-  }
-}
-
-function updateGeminiStatus(msg, ok, err){
-  const el = document.getElementById('gemini-status');
-  if(!el) return;
-  el.innerHTML = msg;
-  el.style.color = ok ? 'var(--green)' : err ? 'var(--red)' : 'var(--muted)';
 }
 
 async function extractWithGemini(base64, type){
