@@ -2590,28 +2590,20 @@ function populateProveedorSelect(selectId){
   const sel = document.getElementById(selectId);
   if(!sel) return;
   _proveedoresList = getProveedores();
-  console.log('[Proveedores] lista:', JSON.stringify(_proveedoresList));
   sel.innerHTML = '<option value="">— Nuevo proveedor —</option>' +
     _proveedoresList.map((p, i)=>{
       const label = p.nombre + (p.nif ? ' (' + p.nif + ')' : '');
-      console.log('[Proveedores] opción', i, ':', label, '| nif:', p.nif);
       return '<option value="' + i + '">' + label + '</option>';
     }).join('');
 }
 
 function applyProveedorSelection(idxStr, nombreFieldId, nifFieldId){
-  console.log('[Proveedores] applySelection idxStr:', idxStr, 'lista len:', _proveedoresList.length);
   if(idxStr === '' || idxStr === null || idxStr === undefined) return;
   const idx = parseInt(idxStr, 10);
-  if(isNaN(idx) || idx < 0 || idx >= _proveedoresList.length) {
-    console.warn('[Proveedores] idx fuera de rango:', idx);
-    return;
-  }
+  if(isNaN(idx) || idx < 0 || idx >= _proveedoresList.length) return;
   const p = _proveedoresList[idx];
-  console.log('[Proveedores] proveedor seleccionado:', JSON.stringify(p));
   const nombreEl = document.getElementById(nombreFieldId);
   const nifEl    = document.getElementById(nifFieldId);
-  console.log('[Proveedores] campos:', nombreFieldId, '=', nombreEl, nifFieldId, '=', nifEl);
   if(nombreEl) nombreEl.value = p.nombre || '';
   if(nifEl)    nifEl.value    = p.nif    || '';
 }
@@ -2720,7 +2712,7 @@ function addCoste(data){
     document.getElementById('c-proyecto-group').style.display='none';
     onCosteSerieChange();
   }
-  renderCostes();toast(`Factura ${numero} guardada.`);
+  renderCostes();populateProveedorSelect('c-prov-select');populateProveedorSelect('ec-prov-select');toast(`Factura ${numero} guardada.`);
 }
 function deleteCoste(id){
   if(!confirm('¿Eliminar factura y sus pagos?'))return;
@@ -2773,7 +2765,7 @@ async function saveEditCoste(){
   const ecFile=document.getElementById('ec-pdf-file')?.files[0];
   if(ecFile){try{if(cPdfId)deleteAttachment(cPdfId);const {base64,mimeType,name}=await readFileAsBase64(ecFile);cPdfId=await uploadAttachment(base64,name,mimeType);cPdfName=name;}catch(e){toast('Error PDF: '+e.message,'error');}}
   setD('costes',getD('costes').map(x=>x.id===id?{...x,proveedor,nif:nifProv,numfact,fecha,tipo,proyectoId,base,ivaPct,cuotaIva,irpfPct,retencion,total,pdfDriveId:cPdfId,pdfName:cPdfName}:x));
-  closeModal('modal-edit-coste');renderCostes();toast('Actualizada.');
+  closeModal('modal-edit-coste');renderCostes();populateProveedorSelect('c-prov-select');populateProveedorSelect('ec-prov-select');toast('Actualizada.');
 }
 function getPagadoCoste(cid){return getD('pagos').filter(p=>p.costeId===cid).reduce((s,p)=>s+p.importe,0);}
 function getCostesFiltered(){
