@@ -871,6 +871,11 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
       <div class="form-group"><label>Coste Previsto (€)</label><input type="text" inputmode="decimal" id="ep-coste" oninput="calcMargenEdit()"></div>
       <div class="form-group" style="grid-column:span 2"><label>Margen</label><input type="text" id="ep-margen-prev" readonly class="computed"></div>
     </div>
+    <div id="ep-pdf-section" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
+      <label style="font-size:.76rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;">PDF Adjunto</label>
+      <div id="ep-pdf-current" style="margin:6px 0;font-size:.82rem;"></div>
+      <input type="file" id="ep-pdf-file" accept=".pdf" style="font-size:.8rem;margin-top:4px;">
+    </div>
     <div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal('modal-edit-proj')">Cancelar</button><button class="btn btn-primary" onclick="saveEditProyecto()">✓ Guardar</button></div>
   </div>
 </div>
@@ -885,6 +890,11 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
       <div class="form-group"><label>Base Imponible (€)</label><input type="text" inputmode="decimal" id="ev-base" oninput="calcVentaEdit()"></div>
       <div class="form-group"><label>IVA</label><input type="text" id="ev-iva" readonly class="computed"></div>
       <div class="form-group"><label>Total</label><input type="text" id="ev-total" readonly class="computed"></div>
+    </div>
+    <div id="ev-pdf-section" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
+      <label style="font-size:.76rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;">PDF Adjunto</label>
+      <div id="ev-pdf-current" style="margin:6px 0;font-size:.82rem;"></div>
+      <input type="file" id="ev-pdf-file" accept=".pdf" style="font-size:.8rem;margin-top:4px;">
     </div>
     <div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal('modal-edit-venta')">Cancelar</button><button class="btn btn-primary" onclick="saveEditVenta()">✓ Guardar</button></div>
   </div>
@@ -906,6 +916,11 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
       <div class="form-group"><label>Retención IRPF</label><select id="ec-irpf-tipo" onchange="calcCosteEdit()"></select></div>
       <div class="form-group"><label>Retención (€)</label><input type="text" id="ec-irpf" readonly class="computed-red"></div>
       <div class="form-group"><label>Total</label><input type="text" id="ec-total" readonly class="computed"></div>
+    </div>
+    <div id="ec-pdf-section" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
+      <label style="font-size:.76rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;">PDF Adjunto</label>
+      <div id="ec-pdf-current" style="margin:6px 0;font-size:.82rem;"></div>
+      <input type="file" id="ec-pdf-file" accept=".pdf" style="font-size:.8rem;margin-top:4px;">
     </div>
     <div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal('modal-edit-coste')">Cancelar</button><button class="btn btn-primary" onclick="saveEditCoste()">✓ Guardar</button></div>
   </div>
@@ -1067,6 +1082,49 @@ function toast(msg,type='success'){
 function openModal(id){document.getElementById(id).classList.add('open');}
 function closeModal(id){document.getElementById(id).classList.remove('open');}
 
+
+
+// ─── PDF ATTACHMENT HELPERS ──────────────────────────────────────────────
+function renderPdfCurrent(sectionId, driveId, pdfName){
+  const div = document.getElementById(sectionId);
+  if(!div) return;
+  if(driveId){
+    const a = document.createElement('a');
+    a.href = getAttachUrl(driveId); a.target='_blank';
+    a.style.cssText='color:var(--accent);font-size:.82rem;margin-right:10px;';
+    a.innerHTML='&#x1F4CE; '+(pdfName||'Ver PDF adjunto');
+    const btn = document.createElement('button');
+    btn.type='button'; btn.innerHTML='&#x2715; Quitar';
+    btn.style.cssText='background:none;border:none;color:var(--red);cursor:pointer;font-size:.76rem;text-decoration:underline;';
+    btn.onclick=()=>removePdfAttach(sectionId, driveId);
+    div.innerHTML=''; div.appendChild(a); div.appendChild(btn);
+  } else {
+    div.innerHTML = '<span style="color:var(--muted2);font-size:.8rem;">Sin adjunto</span>';
+  }
+}
+
+// Track removed attachments during edit
+let _removedDriveId = null;
+function removePdfAttach(sectionId, driveId){
+  _removedDriveId = driveId;
+  const div = document.getElementById(sectionId);
+  if(div) div.innerHTML = '<span style="color:var(--muted2);font-size:.8rem;"><em>Adjunto eliminado al guardar</em></span>';
+}
+
+async function processPdfFileInput(fileInputId){
+  // Returns {driveId, pdfName} or null if no file selected
+  const fileInput = document.getElementById(fileInputId);
+  if(!fileInput || !fileInput.files[0]) return null;
+  try{
+    const {base64, mimeType, name} = await readFileAsBase64(fileInput.files[0]);
+    toast('Subiendo PDF...');
+    const driveId = await uploadAttachment(base64, name, mimeType);
+    return {driveId, pdfName: name};
+  } catch(e){
+    toast('Error al subir PDF: '+e.message, 'error');
+    return null;
+  }
+}
 
 function loadAjustesStatus(){
   // Populate Client ID field
@@ -1746,15 +1804,18 @@ function deleteProyecto(id){
 }
 function editProyecto(id){
   const p=getD('proyectos').find(x=>x.id===id);if(!p)return;
+  _removedDriveId=null;
   document.getElementById('ep-id').value=id;
   document.getElementById('ep-nombre').value=p.nombre;
   document.getElementById('ep-cliente').value=p.cliente;
   document.getElementById('ep-nif').value=p.nif||'';
   document.getElementById('ep-venta').value=fmtInput(p.venta);
   document.getElementById('ep-coste').value=fmtInput(p.coste);
+  if(document.getElementById('ep-pdf-file')) document.getElementById('ep-pdf-file').value='';
+  renderPdfCurrent('ep-pdf-current', p.pdfDriveId, p.pdfName);
   calcMargenEdit();openModal('modal-edit-proj');
 }
-function saveEditProyecto(){
+async function saveEditProyecto(){
   const id=document.getElementById('ep-id').value;
   const nombre=document.getElementById('ep-nombre').value.trim();
   const cliente=document.getElementById('ep-cliente').value.trim();
@@ -1762,7 +1823,19 @@ function saveEditProyecto(){
   const venta=fnum(document.getElementById('ep-venta').value);
   const coste=fnum(document.getElementById('ep-coste').value);
   if(!nombre||!cliente){toast('Nombre y cliente son obligatorios.','error');return;}
-  setD('proyectos',getD('proyectos').map(p=>p.id===id?{...p,nombre,cliente,nif,venta,coste}:p));
+  // Handle PDF attachment change
+  let pdfDriveId = getD('proyectos').find(p=>p.id===id)?.pdfDriveId||null;
+  let pdfName    = getD('proyectos').find(p=>p.id===id)?.pdfName||null;
+  if(_removedDriveId){ deleteAttachment(_removedDriveId); pdfDriveId=null; pdfName=null; _removedDriveId=null; }
+  const newFile  = document.getElementById('ep-pdf-file')?.files[0];
+  if(newFile){
+    try{
+      if(pdfDriveId) deleteAttachment(pdfDriveId);
+      const {base64,mimeType,name}=await readFileAsBase64(newFile);
+      pdfDriveId=await uploadAttachment(base64,name,mimeType); pdfName=name;
+    }catch(e){toast('Error al subir PDF: '+e.message,'error');}
+  }
+  setD('proyectos',getD('proyectos').map(p=>p.id===id?{...p,nombre,cliente,nif,venta,coste,pdfDriveId,pdfName}:p));
   closeModal('modal-edit-proj');renderProyectos();toast('Proyecto actualizado.');
 }
 function renderProyectos(){
@@ -1916,7 +1989,7 @@ function editVenta(id){
   document.getElementById('ev-total').value=fmt(v.total);
   openModal('modal-edit-venta');
 }
-function saveEditVenta(){
+async function saveEditVenta(){
   const id=document.getElementById('ev-id').value;
   const v=getD('ventas').find(x=>x.id===id);if(!v)return;
   const fecha=document.getElementById('ev-fecha').value;
@@ -2160,9 +2233,12 @@ function editCoste(id){
   document.getElementById('ec-irpf').value=c.irpfPct>0?fmt(c.retencion||0):'—';
   document.getElementById('ec-total').value=fmt(c.total);
   // show/hide iva/irpf fields in edit modal based on serie
+  _removedDriveId=null;
+  if(document.getElementById('ec-pdf-file')) document.getElementById('ec-pdf-file').value='';
+  renderPdfCurrent('ec-pdf-current', c.pdfDriveId, c.pdfName);
   openModal('modal-edit-coste');
 }
-function saveEditCoste(){
+async function saveEditCoste(){
   const id=document.getElementById('ec-id').value;
   const c=getD('costes').find(x=>x.id===id);if(!c)return;
   const proveedor=document.getElementById('ec-proveedor').value.trim();
@@ -2178,7 +2254,12 @@ function saveEditCoste(){
   const cuotaIva=base*ivaPct/100;
   const retencion=base*irpfPct/100;
   const total=base+cuotaIva-retencion;
-  setD('costes',getD('costes').map(x=>x.id===id?{...x,proveedor,nif:nifProv,numfact,fecha,tipo,proyectoId,base,ivaPct,cuotaIva,irpfPct,retencion,total}:x));
+  let cPdfId=getD('costes').find(x=>x.id===id)?.pdfDriveId||null;
+  let cPdfName=getD('costes').find(x=>x.id===id)?.pdfName||null;
+  if(_removedDriveId){deleteAttachment(_removedDriveId);cPdfId=null;cPdfName=null;_removedDriveId=null;}
+  const ecFile=document.getElementById('ec-pdf-file')?.files[0];
+  if(ecFile){try{if(cPdfId)deleteAttachment(cPdfId);const {base64,mimeType,name}=await readFileAsBase64(ecFile);cPdfId=await uploadAttachment(base64,name,mimeType);cPdfName=name;}catch(e){toast('Error PDF: '+e.message,'error');}}
+  setD('costes',getD('costes').map(x=>x.id===id?{...x,proveedor,nif:nifProv,numfact,fecha,tipo,proyectoId,base,ivaPct,cuotaIva,irpfPct,retencion,total,pdfDriveId:cPdfId,pdfName:cPdfName}:x));
   closeModal('modal-edit-coste');renderCostes();toast('Actualizada.');
 }
 function getPagadoCoste(cid){return getD('pagos').filter(p=>p.costeId===cid).reduce((s,p)=>s+p.importe,0);}
@@ -3229,16 +3310,30 @@ function renderPdfForm(type, data){
 
 function esc(s){return String(s||'').replace(/&/g,'\u0026amp;').replace(/"/g,'\u0026quot;').replace(/</g,'\u0026lt;').replace(/>/g,'\u0026gt;');}
 
-function confirmPdfImport(){
+async function confirmPdfImport(){
   const type=document.getElementById('pdf-import-type').value;
   const g=id=>{const el=document.getElementById(id);return el?el.value:'';};
+
+  // Upload the PDF that was used for extraction to Drive
+  let pdfDriveId = null, pdfName = null;
+  if(pdfBase64){
+    try{
+      toast('Subiendo PDF a Drive...');
+      const filename = (document.getElementById('pdf-file-input')?.files[0]?.name) || ('factura_'+todayStr()+'.pdf');
+      pdfDriveId = await uploadAttachment(pdfBase64, filename, 'application/pdf');
+      pdfName = filename;
+    } catch(e){
+      console.warn('Could not upload PDF to Drive:', e);
+      toast('No se pudo adjuntar el PDF: '+e.message, 'error');
+    }
+  }
 
   if(type==='proyecto'){
     addProyecto({
       nombre:g('pdf-f-nombre'), cliente:g('pdf-f-cliente'),
       nif:g('pdf-f-nif'),
       venta:fnum(g('pdf-f-venta')), coste:0,
-      pdfDriveId:pdfExtracted._driveId||null, pdfName:pdfExtracted._pdfName||null
+      pdfDriveId, pdfName
     });
 
   } else if(type==='venta'){
@@ -3246,11 +3341,10 @@ function confirmPdfImport(){
       serie:g('pdf-f-serie'), numero:g('pdf-f-numero'),
       fecha:g('pdf-f-fecha'), cliente:g('pdf-f-cliente'),
       proyectoId:g('pdf-f-proyecto'), base:fnum(g('pdf-f-base')),
-      pdfDriveId:pdfExtracted._driveId||null, pdfName:pdfExtracted._pdfName||null
+      pdfDriveId, pdfName
     });
 
   } else {
-    // Collect IVA lines from the editable table
     const ivaLines=[];
     document.querySelectorAll('#pdf-iva-tbody tr').forEach(row=>{
       const base   = fnum(row.cells[0].querySelector('input').value);
@@ -3258,31 +3352,21 @@ function confirmPdfImport(){
       const cuota  = fnum(row.cells[2].querySelector('input').value)||Math.round(base*ivaPct*100)/10000;
       if(base>0) ivaLines.push({base, ivaPct, cuota});
     });
-    if(!ivaLines.length){
-      toast('Añade al menos una línea de base imponible.','error'); return;
-    }
+    if(!ivaLines.length){ toast('Añade al menos una línea de base imponible.','error'); return; }
     const totalBase  = ivaLines.reduce((s,l)=>s+l.base, 0);
     const totalCuota = ivaLines.reduce((s,l)=>s+l.cuota, 0);
     const irpfPct    = fnum(g('pdf-f-irpfPct'));
     const retencion  = fnum(g('pdf-f-irpfImporte'))||Math.round(totalBase*irpfPct*100)/10000;
     const total      = fnum(g('pdf-f-total'))||(totalBase+totalCuota-retencion);
-
     addCoste({
-      serie:    g('pdf-f-serie'),
-      proveedor:g('pdf-f-proveedor'),
-      nif:      g('pdf-f-nif'),
-      numfact:  g('pdf-f-numfact'),
-      fecha:    g('pdf-f-fecha'),
-      tipo:     g('pdf-f-tipo'),
-      proyectoId:g('pdf-f-proyecto'),
-      base:     totalBase,
-      cuotaIva: totalCuota,
-      ivaPct:   totalBase>0?Math.round(totalCuota/totalBase*100):21,
-      irpfPct,  retencion, total,
-      ivaLines,
-      numero:   nextCosteNum(g('pdf-f-serie')),
-      pdfDriveId:pdfExtracted._driveId||null,
-      pdfName:  pdfExtracted._pdfName||null
+      serie:g('pdf-f-serie'), proveedor:g('pdf-f-proveedor'), nif:g('pdf-f-nif'),
+      numfact:g('pdf-f-numfact'), fecha:g('pdf-f-fecha'),
+      tipo:g('pdf-f-tipo'), proyectoId:g('pdf-f-proyecto'),
+      base:totalBase, cuotaIva:totalCuota,
+      ivaPct:totalBase>0?Math.round(totalCuota/totalBase*100):21,
+      irpfPct, retencion, total, ivaLines,
+      numero:nextCosteNum(g('pdf-f-serie')),
+      pdfDriveId, pdfName
     });
   }
   closeModal('modal-pdf-import');
