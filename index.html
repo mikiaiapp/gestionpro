@@ -2132,6 +2132,38 @@ function renderFiscalTags(){
     </span>`;
   }).join('');
 }
+
+function populateFiscalDropdowns(){
+  const ivaTypes = DB.tiposIva || [...DEFAULT_IVA];
+  const irpfTypes = DB.tiposIrpf || [...DEFAULT_IRPF];
+  const defIva = DB.defaultIvaPct ?? 21;
+  const defIrpf = DB.defaultIrpfPct ?? 0;
+
+  // IVA selects: costes form and edit modal
+  ['c-iva-tipo','ec-iva-tipo'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(!el) return;
+    const cur = el.value || defIva;
+    el.innerHTML = ivaTypes.map(t=>
+      `<option value="${t}" ${t==cur?'selected':''}>${t}%</option>`
+    ).join('');
+  });
+
+  // IRPF selects: costes form and edit modal
+  ['c-irpf-tipo','ec-irpf-tipo'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(!el) return;
+    const cur = el.value || defIrpf;
+    el.innerHTML = '<option value="0"'+(0==cur?' selected':'')+'>Sin retención</option>' +
+      irpfTypes.filter(t=>t>0).map(t=>
+        `<option value="${t}" ${t==cur?'selected':''}>${t}%</option>`
+      ).join('');
+  });
+
+  // Also update IVA lines table defaults
+  if(typeof renderIvaLines === 'function') renderIvaLines();
+}
+
 function setDefaultIva(v){DB.defaultIvaPct=v;scheduleSave();renderFiscalTags();populateFiscalDropdowns();toast('IVA por defecto: '+v+'%');}
 function setDefaultIrpf(v){DB.defaultIrpfPct=v;scheduleSave();renderFiscalTags();populateFiscalDropdowns();toast('IRPF por defecto: '+(v===0?'Sin retención':v+'%'));}
 function addIvaTipo(){
@@ -2538,41 +2570,39 @@ function getIvaTotals(){
 
 // ─── PROVEEDOR HISTORY ────────────────────────────────────────────────────
 function getProveedores(){
-  // Build unique provider list from existing costes, keyed by NIF (or name if no NIF)
+  // Build unique provider list from existing costes, keyed by NIF (or name)
   const map = new Map();
   getD('costes').forEach(c=>{
     if(!c.proveedor) return;
-    const key = (c.nif||c.proveedor).trim().toUpperCase();
-    if(!map.has(key)) map.set(key, {nif:c.nif||'', nombre:c.proveedor});
+    // Use index starting from 0 as the unique key — simple and collision-free
+    const nif = (c.nif||'').trim();
+    const nombre = c.proveedor.trim();
+    const key = nif || nombre;
+    if(!map.has(key)) map.set(key, {nif, nombre});
   });
   return [...map.values()].sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));
 }
 
-// Map to look up proveedor data by key (avoids HTML attribute encoding issues)
-let _proveedoresMap = {};
+// Indexed by numeric position to avoid any key encoding issues
+let _proveedoresList = [];
 
 function populateProveedorSelect(selectId){
   const sel = document.getElementById(selectId);
   if(!sel) return;
-  const provs = getProveedores();
-  // Build lookup map: key → {nombre, nif}
-  _proveedoresMap = {};
-  provs.forEach(p=>{
-    const key = p.nif || p.nombre;
-    _proveedoresMap[key] = p;
-  });
+  _proveedoresList = getProveedores();
+  // Use array index as option value — 100% safe, no encoding problems
   sel.innerHTML = '<option value="">— Nuevo proveedor —</option>' +
-    provs.map(p=>{
-      const key = p.nif || p.nombre;
+    _proveedoresList.map((p, i)=>{
       const label = p.nombre + (p.nif ? ' (' + p.nif + ')' : '');
-      return `<option value="${esc(key)}">${label}</option>`;
+      return '<option value="' + i + '">' + label + '</option>';
     }).join('');
 }
 
-function applyProveedorSelection(key, nombreFieldId, nifFieldId){
-  if(!key) return;
-  const p = _proveedoresMap[key];
-  if(!p) return;
+function applyProveedorSelection(idxStr, nombreFieldId, nifFieldId){
+  if(idxStr === '' || idxStr === null || idxStr === undefined) return;
+  const idx = parseInt(idxStr, 10);
+  if(isNaN(idx) || idx < 0 || idx >= _proveedoresList.length) return;
+  const p = _proveedoresList[idx];
   const nombreEl = document.getElementById(nombreFieldId);
   const nifEl    = document.getElementById(nifFieldId);
   if(nombreEl) nombreEl.value = p.nombre || '';
