@@ -2765,16 +2765,17 @@ function openPdfImport(type){
 function onPdfSelected(){
   const file=document.getElementById('pdf-file-input').files[0];
   if(!file)return;
+  // Show PDF via blob URL (avoids data: URL warnings)
+  const blobUrl=URL.createObjectURL(file);
+  const iframe=document.getElementById('pdf-iframe');
+  iframe.src=blobUrl;
+  iframe.style.display='block';
+  document.getElementById('pdf-placeholder').style.display='none';
+  // Read as base64 for Gemini
   const reader=new FileReader();
   reader.onload=e=>{
     pdfBase64=e.target.result.split(',')[1];
-    // Show PDF in iframe
-    const iframe=document.getElementById('pdf-iframe');
-    iframe.src=e.target.result;
-    iframe.style.display='block';
-    document.getElementById('pdf-placeholder').style.display='none';
-    // Start AI extraction
-    extractPdfWithAI(pdfBase64,pdfImportType);
+    extractPdfWithAI(pdfBase64, pdfImportType);
   };
   reader.readAsDataURL(file);
 }
@@ -3456,49 +3457,6 @@ function geminiToFormData(data, type){
   return r;
 }
 
-async function extractPdfWithAI(base64, type){
-  const bar = document.getElementById('ai-status-bar');
-  const msg = document.getElementById('ai-status-msg');
-  bar.style.display = 'flex';
-  bar.style.borderColor = '';
-  bar.style.color = 'var(--accent)';
-
-  if(!GEMINI_KEY){
-    bar.style.display = 'none';
-    renderPdfForm(type, {});
-    // Show config hint
-    const panel = document.getElementById('pdf-form-content');
-    panel.innerHTML = `<div style="background:rgba(160,108,0,.08);border:1px solid rgba(160,108,0,.25);border-radius:10px;padding:14px 16px;margin-bottom:14px;font-size:.84rem;color:var(--yellow);">
-      <strong>&#x1F916; Activa la extracción automática</strong><br>
-      Añade tu API key gratuita de Google Gemini en
-      <button onclick="showPage('ajustes',document.querySelector('nav a:last-child'));closeModal('modal-pdf-import')"
-        style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:.84rem;text-decoration:underline;font-family:var(--font-body);">
-        Ajustes → API de IA →
-      </button>
-    </div>` + panel.innerHTML;
-    return;
-  }
-
-  msg.textContent = '&#x1F916; Enviando a Gemini 2.0 Flash...';
-  document.getElementById('pdf-form-content').innerHTML =
-    '<div style="color:var(--muted);font-size:.86rem;padding:16px;text-align:center;">&#x1F916; Analizando factura...</div>';
-
-  try{
-    const raw = await extractWithGemini(base64, type);
-    const parsed = geminiToFormData(raw, type);
-    pdfExtracted = parsed;
-    bar.style.display = 'none';
-    renderPdfForm(type, parsed);  // ← fills the form directly
-
-  } catch(e){
-    bar.style.color = 'var(--red)';
-    bar.style.borderColor = 'rgba(192,57,43,.3)';
-    msg.textContent = 'Error: ' + e.message;
-    setTimeout(()=>{ bar.style.display='none'; }, 4000);
-    renderPdfForm(type, {});
-  }
-}
-
 function renderPdfForm(type,data){
   const proyectos=getD('proyectos');
   const clientes=[...new Set(proyectos.map(p=>p.cliente))];
@@ -3703,105 +3661,6 @@ function saveGeminiKey(){
   localStorage.setItem('gp_gemini_key', val);
   toast('API key de Gemini guardada.');
   updateGeminiStatus('Guardada. Pulsa "Probar conexión" para verificarla.');
-}
-
-async function extractWithGemini(base64, type){
-  const key = GEMINI_KEY;
-  if(!key) throw new Error('NO_KEY');
-
-  // Try models in order until one works
-  const MODELS_TO_TRY = ['gemini-2.0-flash', 'gemini-2.5-flash-lite'];
-
-  const prompts = {
-    coste: `Analiza esta factura y responde ÚNICAMENTE con un objeto JSON válido, sin explicaciones, sin markdown, sin backticks.
-El JSON debe tener exactamente estas claves:
-{"nif":"NIF o CIF del EMISOR","proveedor":"Nombre del EMISOR","numfact":"Número de factura","fecha":"YYYY-MM-DD","ivaLines":[{"base":1000.00,"ivaPct":21,"cuota":210.00}],"irpfImporte":0,"irpfPct":0,"total":1210.00}
-Si hay varias bases con diferentes tipos de IVA incluye una entrada por cada una en ivaLines. Si no hay IRPF pon 0. Importes como números.`,
-    venta: `Analiza esta factura emitida y responde ÚNICAMENTE con un objeto JSON válido, sin markdown:
-{"nifCliente":"NIF del CLIENTE","cliente":"Nombre del CLIENTE","numfact":"Número de factura","fecha":"YYYY-MM-DD","base":1000.00,"ivaPct":21,"cuotaIva":210.00,"total":1210.00,"serie":"A si tiene IVA, B si no"}`,
-    proyecto: `Analiza este presupuesto y responde ÚNICAMENTE con un objeto JSON válido, sin markdown:
-{"nombre":"Descripción del proyecto (máx 80 chars)","cliente":"Nombre del cliente","nif":"NIF si aparece","venta":0.00}`
-  };
-
-  const body = {
-    contents:[{parts:[
-      {inline_data:{mime_type:'application/pdf', data:base64}},
-      {text: prompts[type]}
-    ]}],
-    generationConfig:{maxOutputTokens:500, temperature:0}
-  };
-
-  let lastError = null;
-  for(const model of MODELS_TO_TRY){
-    try{
-      const r = await fetch(
-        'https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent?key=' + key,
-        {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)}
-      );
-      const d = await r.json();
-      if(d.error){
-        // 404 = model not found, try next; 429 = quota, stop
-        if(d.error.code===404){ lastError=new Error(d.error.message); continue; }
-        throw new Error(d.error.message);
-      }
-      let raw = (d.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
-      raw = raw.replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/\s*```$/,'').trim();
-      let parsed;
-      try { parsed = JSON.parse(raw); }
-      catch(e){
-        const m = raw.match(/\{[\s\S]*\}/);
-        if(m) parsed = JSON.parse(m[0]);
-        else throw new Error('Respuesta no válida: ' + raw.slice(0,80));
-      }
-      return parsed;
-    } catch(e){
-      if(e.message.includes('429') || e.message.includes('quota')) throw e; // quota errors: don't retry
-      lastError = e;
-    }
-  }
-  throw lastError || new Error('No se pudo conectar con ningún modelo de Gemini');
-}
-
-function geminiToFormData(data, type){
-  const r = {};
-  function cN(v){ if(typeof v==='number') return v; let s=String(v||0).replace(/[€$\s]/g,'').trim(); const lc=s.lastIndexOf(','),ld=s.lastIndexOf('.'); if(lc>ld)s=s.replace(/\./g,'').replace(',','.'); else if(ld>lc)s=s.replace(/,/g,''); return parseFloat(s)||0; }
-  function cD(s){ if(!s) return todayStr(); if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s; const m=String(s).match(/(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})/); if(m) return m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0'); return todayStr(); }
-
-  if(type==='coste'){
-    r.nif       = String(data.nif||'').trim();
-    r.proveedor = String(data.proveedor||'').trim();
-    r.numfact   = String(data.numfact||'').trim();
-    r.fecha     = cD(data.fecha);
-    let ivaLines = Array.isArray(data.ivaLines) && data.ivaLines.length
-      ? data.ivaLines.map(l=>({base:cN(l.base),ivaPct:cN(l.ivaPct),cuota:cN(l.cuota)||Math.round(cN(l.base)*cN(l.ivaPct)*100)/10000})).filter(l=>l.base>0)
-      : [];
-    if(!ivaLines.length) ivaLines=[{base:0,ivaPct:DB.defaultIvaPct||21,cuota:0}];
-    r.ivaLines  = ivaLines;
-    r.base      = ivaLines.reduce((s,l)=>s+l.base,0);
-    r.cuotaIva  = ivaLines.reduce((s,l)=>s+l.cuota,0);
-    r.ivaPct    = ivaLines.length===1 ? ivaLines[0].ivaPct : (DB.defaultIvaPct||21);
-    r.retencion = cN(data.irpfImporte||data.retencion||0);
-    r.irpfPct   = cN(data.irpfPct||0);
-    if(!r.irpfPct&&r.retencion&&r.base) r.irpfPct=Math.round(r.retencion/r.base*100);
-    r.total     = cN(data.total)||(r.base+r.cuotaIva-r.retencion);
-  } else if(type==='venta'){
-    r.nifCliente= String(data.nifCliente||'').trim();
-    r.cliente   = String(data.cliente||'').trim();
-    r.numero    = String(data.numfact||'').trim()||nextVentaNum('A');
-    r.fecha     = cD(data.fecha);
-    r.base      = cN(data.base||0);
-    r.ivaPct    = cN(data.ivaPct||21);
-    r.cuotaIva  = cN(data.cuotaIva||0)||Math.round(r.base*r.ivaPct*100)/10000;
-    r.total     = cN(data.total||0)||(r.base+r.cuotaIva);
-    r.serie     = String(data.serie||'A').toUpperCase()==='B'?'B':'A';
-  } else {
-    r.nombre    = String(data.nombre||'').trim();
-    r.cliente   = String(data.cliente||'').trim();
-    r.nif       = String(data.nif||'').trim();
-    r.venta     = cN(data.venta||0);
-    r.coste     = 0;
-  }
-  return r;
 }
 
 async function extractPdfWithAI(base64, type){
