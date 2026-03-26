@@ -8,7 +8,7 @@
   script-src 'self' 'unsafe-inline' https://accounts.google.com https://apis.google.com https://fonts.googleapis.com https://cdnjs.cloudflare.com;
   style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
   font-src 'self' https://fonts.gstatic.com;
-  connect-src 'self' https://accounts.google.com https://www.googleapis.com https://oauth2.googleapis.com https://api.anthropic.com;
+  connect-src 'self' https://accounts.google.com https://www.googleapis.com https://oauth2.googleapis.com https://generativelanguage.googleapis.com https://api.anthropic.com;
   frame-src https://accounts.google.com;
   img-src 'self' data: https:;
 ">
@@ -3675,20 +3675,33 @@ async function testGeminiKey(){
   const key = document.getElementById('cfg-gemini-key').value.trim() || GEMINI_KEY;
   if(!key){ toast('Introduce primero la API key.', 'error'); return; }
   updateGeminiStatus('Probando conexión...');
+  const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODEL + ':generateContent?key=' + key;
   try{
-    const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODEL + ':generateContent?key=' + key, {
+    const r = await fetch(url, {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({
-        contents:[{parts:[{text:'Responde solo: OK'}]}],
-        generationConfig:{maxOutputTokens:5}
+        contents:[{parts:[{text:'Di OK'}]}],
+        generationConfig:{maxOutputTokens:5, temperature:0}
       })
     });
+    if(!r.ok && r.status !== 200){
+      const errText = await r.text();
+      throw new Error('HTTP ' + r.status + ': ' + errText.slice(0,120));
+    }
     const d = await r.json();
-    if(d.error) throw new Error(d.error.message);
-    updateGeminiStatus('&#x2714; Conexión correcta. Gemini listo.', true);
+    if(d.error) throw new Error(d.error.message || JSON.stringify(d.error));
+    updateGeminiStatus('&#x2714; Conexión correcta con ' + GEMINI_MODEL + '. Lista para importar PDFs.', true);
   } catch(e){
-    updateGeminiStatus('&#x2716; Error: ' + e.message, false, true);
+    let msg = e.message || String(e);
+    if(msg.includes('NetworkError') || msg.includes('Failed to fetch') || msg.includes('fetch')){
+      msg = 'Error de red. Posibles causas:<br>' +
+        '1. La API key es incorrecta o no tiene permisos<br>' +
+        '2. Tu navegador o red bloquea generativelanguage.googleapis.com<br>' +
+        '3. Prueba desactivar bloqueadores de anuncios (uBlock, etc.)<br>' +
+        '4. Prueba en modo incógnito';
+    }
+    updateGeminiStatus('&#x2716; ' + msg, false, true);
   }
 }
 
