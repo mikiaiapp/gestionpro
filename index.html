@@ -3073,89 +3073,217 @@ function extractDataFromText(t, type){
 }
 
 
-function renderPdfForm(type,data){
+function pdfIvaLineRow(line, idx){
+  const ivaOpts=(DB.tiposIva||DEFAULT_IVA).map(t=>`<option value="${t}" ${t===(line.ivaPct||21)?'selected':''}>${t}%</option>`).join('');
+  const cuota=line.cuota||Math.round((line.base||0)*(line.ivaPct||21)*100)/10000;
+  const inpStyle='padding:6px 8px;width:100%;background:var(--card2);border:1px solid var(--border);border-radius:6px;font-size:.84rem;color:var(--text);';
+  return`<tr data-idx="${idx}">
+    <td><input type="text" inputmode="decimal" value="${fmtInput(line.base||0)}"
+      style="${inpStyle}" onblur="pdfIvaRecalc(this)"></td>
+    <td><select style="${inpStyle}" onchange="pdfIvaRecalc(this)">
+      ${ivaOpts}</select></td>
+    <td><input type="text" value="${fmtInput(cuota)}" readonly
+      style="${inpStyle.replace('var(--card2)','var(--bg)')}color:var(--green);font-weight:600;"></td>
+    <td><button type="button" onclick="this.closest('tr').remove();pdfIvaTotals()"
+      style="background:none;border:none;cursor:pointer;color:var(--muted2);font-size:1rem;">&#x2715;</button></td>
+  </tr>`;
+}
+
+function pdfIvaRecalc(el){
+  const row=el.closest('tr');
+  const base=fnum(row.cells[0].querySelector('input').value);
+  const ivaPct=fnum(row.cells[1].querySelector('select').value);
+  const cuota=Math.round(base*ivaPct*100)/10000;
+  row.cells[2].querySelector('input').value=fmtInput(cuota);
+  pdfIvaTotals();
+}
+
+function pdfIvaTotals(){
+  let totalBase=0, totalCuota=0;
+  document.querySelectorAll('#pdf-iva-tbody tr').forEach(row=>{
+    totalBase+=fnum(row.cells[0].querySelector('input').value);
+    totalCuota+=fnum(row.cells[2].querySelector('input').value);
+  });
+  const el=document.getElementById('pdf-iva-totals');
+  if(el) el.innerHTML=`Base total: <strong>${fmt(totalBase)}</strong> &nbsp;|&nbsp; Cuota IVA total: <strong>${fmt(totalCuota)}</strong>`;
+}
+
+function addPdfIvaLine(){
+  const tbody=document.getElementById('pdf-iva-tbody');
+  if(!tbody)return;
+  const idx=tbody.rows.length;
+  const defIva=DB.defaultIvaPct||21;
+  tbody.insertAdjacentHTML('beforeend', pdfIvaLineRow({base:0,ivaPct:defIva,cuota:0}, idx));
+}
+
+function renderPdfForm(type, data){
   const proyectos=getD('proyectos');
   const clientes=[...new Set(proyectos.map(p=>p.cliente))];
-  const ivaTypes=(DB.tiposIva||DEFAULT_IVA).map(t=>`<option value="${t}" ${t===(data.ivaPct||21)?'selected':''}>${t}%</option>`).join('');
-  const irpfTypes='<option value="0">Sin retención</option>'+((DB.tiposIrpf||DEFAULT_IRPF).filter(t=>t>0).map(t=>`<option value="${t}" ${t===(data.irpfPct||0)?'selected':''}>${t}%</option>`).join(''));
+  const irpfPct=data.irpfPct||0;
+  const irpfTypes='<option value="0">Sin retención</option>'+
+    (DB.tiposIrpf||DEFAULT_IRPF).filter(t=>t>0)
+    .map(t=>`<option value="${t}" ${t===irpfPct?'selected':''}>${t}%</option>`).join('');
 
   let html='';
+
   if(type==='proyecto'){
     html=`
-      <div class="form-group"><label>Nombre del Proyecto</label><input type="text" id="pdf-f-nombre" value="${esc(data.nombre||'')}"></div>
-      <div class="form-group"><label>Cliente</label><input type="text" id="pdf-f-cliente" value="${esc(data.cliente||'')}"></div>
-      <div class="form-group"><label>Valor de Venta (€)</label><input type="text" inputmode="decimal" id="pdf-f-venta" value="${data.venta||''}" step="0.01"></div>
-      <div class="form-group"><label>Coste Previsto (€)</label><input type="text" inputmode="decimal" id="pdf-f-coste" value="${data.coste||0}" step="0.01"></div>`;
+      <div class="form-group"><label>Nombre del Proyecto</label>
+        <input type="text" id="pdf-f-nombre" value="${esc(data.nombre||'')}"></div>
+      <div class="form-group"><label>Cliente</label>
+        <input type="text" id="pdf-f-cliente" value="${esc(data.cliente||'')}"></div>
+      <div class="form-group"><label>NIF / CIF cliente</label>
+        <input type="text" id="pdf-f-nif" value="${esc(data.nif||'')}"></div>
+      <div class="form-group"><label>Valor de Venta (€)</label>
+        <input type="text" inputmode="decimal" id="pdf-f-venta" value="${fmtInput(data.venta||0)}"></div>`;
+
   } else if(type==='venta'){
     const provOpts=clientes.map(c=>`<option value="${c}" ${c===data.cliente?'selected':''}>${c}</option>`).join('');
     const projOpts=proyectos.map(p=>`<option value="${p.id}">${p.nombre}</option>`).join('');
     html=`
-      <div class="form-group"><label>Serie</label><select id="pdf-f-serie"><option value="A" ${data.serie==='A'?'selected':''}>Serie A (IVA)</option><option value="B" ${data.serie==='B'?'selected':''}>Serie B (sin IVA)</option></select></div>
-      <div class="form-group"><label>Nº Factura</label><input type="text" id="pdf-f-numero" value="${esc(data.numero||nextVentaNum(data.serie||'A'))}"></div>
-      <div class="form-group"><label>Fecha</label><input type="date" id="pdf-f-fecha" value="${data.fecha||todayStr()}"></div>
-      <div class="form-group"><label>Cliente</label><select id="pdf-f-cliente"><option value="">— Seleccionar —</option>${provOpts}</select></div>
-      <div class="form-group"><label>Proyecto (opc.)</label><select id="pdf-f-proyecto"><option value="">—</option>${projOpts}</select></div>
-      <div class="form-group"><label>Base Imponible (€)</label><input type="text" inputmode="decimal" id="pdf-f-base" value="${data.base||''}" step="0.01"></div>`;
+      <div class="form-group"><label>Serie</label>
+        <select id="pdf-f-serie">
+          <option value="A" ${data.serie!=='B'?'selected':''}>Serie A (IVA)</option>
+          <option value="B" ${data.serie==='B'?'selected':''}>Serie B (sin IVA)</option>
+        </select></div>
+      <div class="form-group"><label>Nº Factura</label>
+        <input type="text" id="pdf-f-numero" value="${esc(data.numero||nextVentaNum('A'))}"></div>
+      <div class="form-group"><label>Fecha</label>
+        <input type="date" id="pdf-f-fecha" value="${data.fecha||todayStr()}"></div>
+      <div class="form-group"><label>NIF / CIF Cliente</label>
+        <input type="text" id="pdf-f-nifcliente" value="${esc(data.nifCliente||'')}"></div>
+      <div class="form-group"><label>Cliente</label>
+        <select id="pdf-f-cliente">
+          <option value="">— Seleccionar o escribir —</option>${provOpts}
+        </select></div>
+      <div class="form-group"><label>Proyecto (opc.)</label>
+        <select id="pdf-f-proyecto"><option value="">—</option>${projOpts}</select></div>
+      <div class="form-group"><label>Base Imponible (€)</label>
+        <input type="text" inputmode="decimal" id="pdf-f-base" value="${fmtInput(data.base||0)}"></div>`;
+
   } else {
+    // COSTE — IVA múltiple
     const projOpts=proyectos.map(p=>`<option value="${p.id}">${p.nombre}</option>`).join('');
+    const ivaLines=(data.ivaLines&&data.ivaLines.length)
+      ? data.ivaLines
+      : [{base:data.base||0, ivaPct:data.ivaPct||21, cuota:data.cuotaIva||0}];
+    const ivaRowsHtml=ivaLines.map((l,i)=>pdfIvaLineRow(l,i)).join('');
     html=`
-      <div class="form-group"><label>Serie</label><select id="pdf-f-serie"><option value="A">Serie A (IVA)</option><option value="B">Serie B</option></select></div>
-      <div class="form-group"><label>Proveedor</label><input type="text" id="pdf-f-proveedor" value="${esc(data.proveedor||'')}"></div>
-      <div class="form-group"><label>NIF / CIF</label><input type="text" id="pdf-f-nif" value="${esc(data.nif||'')}"></div>
-      <div class="form-group"><label>Nº Fact. Proveedor</label><input type="text" id="pdf-f-numfact" value="${esc(data.numfact||'')}"></div>
-      <div class="form-group"><label>Fecha</label><input type="date" id="pdf-f-fecha" value="${data.fecha||todayStr()}"></div>
-      <div class="form-group"><label>Tipo de Gasto</label><select id="pdf-f-tipo" onchange="document.getElementById('pdf-f-proyecto-grp').style.display=this.value==='proyecto'?'flex':'none'"><option value="general">General</option><option value="proyecto">Proyecto</option></select></div>
-      <div class="form-group" id="pdf-f-proyecto-grp" style="display:none"><label>Proyecto</label><select id="pdf-f-proyecto"><option value="">—</option>${projOpts}</select></div>
-      <div class="form-group"><label>Base Imponible (€)</label><input type="text" inputmode="decimal" id="pdf-f-base" value="${data.base||''}" step="0.01"></div>
-      <div class="form-group"><label>Tipo IVA</label><select id="pdf-f-ivaPct">${ivaTypes}</select></div>
-      <div class="form-group"><label>Retención IRPF</label><select id="pdf-f-irpfPct">${irpfTypes}</select></div>`;
+      <div class="form-group"><label>Serie</label>
+        <select id="pdf-f-serie">
+          <option value="A">Serie A (IVA)</option>
+          <option value="B">Serie B (sin IVA)</option>
+        </select></div>
+      <div class="form-group"><label>Proveedor</label>
+        <input type="text" id="pdf-f-proveedor" value="${esc(data.proveedor||'')}"></div>
+      <div class="form-group"><label>NIF / CIF Proveedor</label>
+        <input type="text" id="pdf-f-nif" value="${esc(data.nif||'')}"></div>
+      <div class="form-group"><label>Nº Factura Proveedor</label>
+        <input type="text" id="pdf-f-numfact" value="${esc(data.numfact||'')}"></div>
+      <div class="form-group"><label>Fecha</label>
+        <input type="date" id="pdf-f-fecha" value="${data.fecha||todayStr()}"></div>
+      <div class="form-group"><label>Tipo de Gasto</label>
+        <select id="pdf-f-tipo" onchange="document.getElementById('pdf-f-proyecto-grp').style.display=this.value==='proyecto'?'flex':'none'">
+          <option value="general">Gasto General</option>
+          <option value="proyecto">Proyecto</option>
+        </select></div>
+      <div class="form-group" id="pdf-f-proyecto-grp" style="display:none"><label>Proyecto</label>
+        <select id="pdf-f-proyecto"><option value="">—</option>${projOpts}</select></div>
+      <div class="form-group"><label>Retención IRPF</label>
+        <select id="pdf-f-irpfPct">${irpfTypes}</select></div>
+      <div class="form-group"><label>Importe IRPF (€)</label>
+        <input type="text" inputmode="decimal" id="pdf-f-irpfImporte" value="${fmtInput(data.retencion||data.irpfImporte||0)}"></div>
+      <div class="form-group"><label>Total Factura (€)</label>
+        <input type="text" inputmode="decimal" id="pdf-f-total" value="${fmtInput(data.total||0)}"></div>`;
+
+    // IVA lines table rendered separately after the grid
+    document.getElementById('pdf-form-content').innerHTML=
+      `<div class="form-grid cols2" style="gap:10px;">${html}</div>
+       <div style="margin-top:12px;">
+         <div style="font-size:.75rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;">
+           Líneas de IVA — Base Imponible y Tipo
+         </div>
+         <table class="iva-lines" style="width:100%;">
+           <thead><tr>
+             <th style="width:36%">Base Imponible (€)</th>
+             <th style="width:22%">Tipo IVA</th>
+             <th style="width:28%">Cuota IVA (€)</th>
+             <th style="width:14%"></th>
+           </tr></thead>
+           <tbody id="pdf-iva-tbody">${ivaRowsHtml}</tbody>
+         </table>
+         <div style="display:flex;align-items:center;gap:10px;margin-top:6px;">
+           <button class="btn btn-ghost btn-sm" type="button" onclick="addPdfIvaLine()">+ Añadir línea IVA</button>
+           <div id="pdf-iva-totals" class="iva-totals" style="flex:1;"></div>
+         </div>
+       </div>`;
+    document.getElementById('pdf-import-confirm').style.display='inline-flex';
+    setTimeout(pdfIvaTotals, 0);
+    return;
   }
 
-  document.getElementById('pdf-form-content').innerHTML=`<div class="form-grid cols2" style="gap:10px;">${html}</div>`;
+  document.getElementById('pdf-form-content').innerHTML=
+    `<div class="form-grid cols2" style="gap:10px;">${html}</div>`;
   document.getElementById('pdf-import-confirm').style.display='inline-flex';
 }
 
 function esc(s){return String(s||'').replace(/&/g,'\u0026amp;').replace(/"/g,'\u0026quot;').replace(/</g,'\u0026lt;').replace(/>/g,'\u0026gt;');}
 
-function addPdfIvaLine(){
-  const tbody=document.getElementById('pdf-iva-tbody');
-  if(!tbody)return;
-  const defIva=DB.defaultIvaPct||21;
-  const ivaOpts=(DB.tiposIva||[0,4,10,21]).map(t=>`<option value="${t}" ${t===defIva?'selected':''}>${t}%</option>`).join('');
-  const tr=document.createElement('tr');
-  tr.innerHTML=`<td><input type="text" inputmode="decimal" value="0,00" style="padding:6px 8px;width:100%;background:var(--card2);border:1px solid var(--border);border-radius:6px;font-size:.84rem;color:var(--text);"></td>
-    <td><select style="padding:6px 8px;width:100%;background:var(--card2);border:1px solid var(--border);border-radius:6px;font-size:.84rem;color:var(--text);">${ivaOpts}</select></td>
-    <td><input type="text" value="0,00" readonly style="padding:6px 8px;width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:.84rem;color:var(--green);font-weight:600;"></td>
-    <td><button type="button" onclick="this.closest('tr').remove()" style="background:none;border:none;cursor:pointer;color:var(--muted2);">&#x2715;</button></td>`;
-  tbody.appendChild(tr);
-}
-
 function confirmPdfImport(){
   const type=document.getElementById('pdf-import-type').value;
-  const g=id=>{const el=document.getElementById(id);return el?el.value:'';}
+  const g=id=>{const el=document.getElementById(id);return el?el.value:'';};
+
   if(type==='proyecto'){
-    addProyecto({nombre:g('pdf-f-nombre'),cliente:g('pdf-f-cliente'),venta:fnum(g('pdf-f-venta')),coste:fnum(g('pdf-f-coste')),pdfDriveId:pdfExtracted._driveId||null,pdfName:pdfExtracted._pdfName||null});
+    addProyecto({
+      nombre:g('pdf-f-nombre'), cliente:g('pdf-f-cliente'),
+      nif:g('pdf-f-nif'),
+      venta:fnum(g('pdf-f-venta')), coste:0,
+      pdfDriveId:pdfExtracted._driveId||null, pdfName:pdfExtracted._pdfName||null
+    });
+
   } else if(type==='venta'){
-    addVenta({serie:g('pdf-f-serie'),numero:g('pdf-f-numero'),fecha:g('pdf-f-fecha'),cliente:g('pdf-f-cliente'),proyectoId:g('pdf-f-proyecto'),base:fnum(g('pdf-f-base')),pdfDriveId:pdfExtracted._driveId||null,pdfName:pdfExtracted._pdfName||null});
+    addVenta({
+      serie:g('pdf-f-serie'), numero:g('pdf-f-numero'),
+      fecha:g('pdf-f-fecha'), cliente:g('pdf-f-cliente'),
+      proyectoId:g('pdf-f-proyecto'), base:fnum(g('pdf-f-base')),
+      pdfDriveId:pdfExtracted._driveId||null, pdfName:pdfExtracted._pdfName||null
+    });
+
   } else {
-    // Collect IVA lines from the PDF import form
+    // Collect IVA lines from the editable table
     const ivaLines=[];
     document.querySelectorAll('#pdf-iva-tbody tr').forEach(row=>{
-      const inputs=row.querySelectorAll('input,select');
-      if(inputs.length>=2){
-        const base=fnum(inputs[0].value);
-        const ivaPct=fnum(inputs[1].value);
-        if(base>0) ivaLines.push({base,ivaPct,cuota:base*ivaPct/100});
-      }
+      const base   = fnum(row.cells[0].querySelector('input').value);
+      const ivaPct = fnum(row.cells[1].querySelector('select').value);
+      const cuota  = fnum(row.cells[2].querySelector('input').value)||Math.round(base*ivaPct*100)/10000;
+      if(base>0) ivaLines.push({base, ivaPct, cuota});
     });
-    const totalBase=ivaLines.reduce((s,l)=>s+l.base,0);
-    const totalCuota=ivaLines.reduce((s,l)=>s+l.cuota,0);
-    addCoste({serie:g('pdf-f-serie'),proveedor:g('pdf-f-proveedor'),nif:g('pdf-f-nif'),numfact:g('pdf-f-numfact'),
-      fecha:g('pdf-f-fecha'),tipo:g('pdf-f-tipo'),proyectoId:g('pdf-f-proyecto'),
-      base:totalBase,cuotaIva:totalCuota,ivaPct:totalBase>0?Math.round(totalCuota/totalBase*100):21,
-      irpfPct:fnum(g('pdf-f-irpfPct')),
-      ivaLines,numero:nextCosteNum(g('pdf-f-serie')),
-      pdfDriveId:pdfExtracted._driveId||null,pdfName:pdfExtracted._pdfName||null});
+    if(!ivaLines.length){
+      toast('Añade al menos una línea de base imponible.','error'); return;
+    }
+    const totalBase  = ivaLines.reduce((s,l)=>s+l.base, 0);
+    const totalCuota = ivaLines.reduce((s,l)=>s+l.cuota, 0);
+    const irpfPct    = fnum(g('pdf-f-irpfPct'));
+    const retencion  = fnum(g('pdf-f-irpfImporte'))||Math.round(totalBase*irpfPct*100)/10000;
+    const total      = fnum(g('pdf-f-total'))||(totalBase+totalCuota-retencion);
+
+    addCoste({
+      serie:    g('pdf-f-serie'),
+      proveedor:g('pdf-f-proveedor'),
+      nif:      g('pdf-f-nif'),
+      numfact:  g('pdf-f-numfact'),
+      fecha:    g('pdf-f-fecha'),
+      tipo:     g('pdf-f-tipo'),
+      proyectoId:g('pdf-f-proyecto'),
+      base:     totalBase,
+      cuotaIva: totalCuota,
+      ivaPct:   totalBase>0?Math.round(totalCuota/totalBase*100):21,
+      irpfPct,  retencion, total,
+      ivaLines,
+      numero:   nextCosteNum(g('pdf-f-serie')),
+      pdfDriveId:pdfExtracted._driveId||null,
+      pdfName:  pdfExtracted._pdfName||null
+    });
   }
   closeModal('modal-pdf-import');
 }
@@ -3490,258 +3618,7 @@ function geminiToFormData(data, type){
   return r;
 }
 
-function renderPdfForm(type,data){
-  const proyectos=getD('proyectos');
-  const clientes=[...new Set(proyectos.map(p=>p.cliente))];
-  const ivaTypes=(DB.tiposIva||DEFAULT_IVA).map(t=>`<option value="${t}" ${t===(data.ivaPct||21)?'selected':''}>${t}%</option>`).join('');
-  const irpfTypes='<option value="0">Sin retención</option>'+((DB.tiposIrpf||DEFAULT_IRPF).filter(t=>t>0).map(t=>`<option value="${t}" ${t===(data.irpfPct||0)?'selected':''}>${t}%</option>`).join(''));
 
-  let html='';
-  if(type==='proyecto'){
-    html=`
-      <div class="form-group"><label>Nombre del Proyecto</label><input type="text" id="pdf-f-nombre" value="${esc(data.nombre||'')}"></div>
-      <div class="form-group"><label>Cliente</label><input type="text" id="pdf-f-cliente" value="${esc(data.cliente||'')}"></div>
-      <div class="form-group"><label>Valor de Venta (€)</label><input type="text" inputmode="decimal" id="pdf-f-venta" value="${data.venta||''}" step="0.01"></div>
-      <div class="form-group"><label>Coste Previsto (€)</label><input type="text" inputmode="decimal" id="pdf-f-coste" value="${data.coste||0}" step="0.01"></div>`;
-  } else if(type==='venta'){
-    const provOpts=clientes.map(c=>`<option value="${c}" ${c===data.cliente?'selected':''}>${c}</option>`).join('');
-    const projOpts=proyectos.map(p=>`<option value="${p.id}">${p.nombre}</option>`).join('');
-    html=`
-      <div class="form-group"><label>Serie</label><select id="pdf-f-serie"><option value="A" ${data.serie==='A'?'selected':''}>Serie A (IVA)</option><option value="B" ${data.serie==='B'?'selected':''}>Serie B (sin IVA)</option></select></div>
-      <div class="form-group"><label>Nº Factura</label><input type="text" id="pdf-f-numero" value="${esc(data.numero||nextVentaNum(data.serie||'A'))}"></div>
-      <div class="form-group"><label>Fecha</label><input type="date" id="pdf-f-fecha" value="${data.fecha||todayStr()}"></div>
-      <div class="form-group"><label>Cliente</label><select id="pdf-f-cliente"><option value="">— Seleccionar —</option>${provOpts}</select></div>
-      <div class="form-group"><label>Proyecto (opc.)</label><select id="pdf-f-proyecto"><option value="">—</option>${projOpts}</select></div>
-      <div class="form-group"><label>Base Imponible (€)</label><input type="text" inputmode="decimal" id="pdf-f-base" value="${data.base||''}" step="0.01"></div>`;
-  } else {
-    const projOpts=proyectos.map(p=>`<option value="${p.id}">${p.nombre}</option>`).join('');
-    html=`
-      <div class="form-group"><label>Serie</label><select id="pdf-f-serie"><option value="A">Serie A (IVA)</option><option value="B">Serie B</option></select></div>
-      <div class="form-group"><label>Proveedor</label><input type="text" id="pdf-f-proveedor" value="${esc(data.proveedor||'')}"></div>
-      <div class="form-group"><label>NIF / CIF</label><input type="text" id="pdf-f-nif" value="${esc(data.nif||'')}"></div>
-      <div class="form-group"><label>Nº Fact. Proveedor</label><input type="text" id="pdf-f-numfact" value="${esc(data.numfact||'')}"></div>
-      <div class="form-group"><label>Fecha</label><input type="date" id="pdf-f-fecha" value="${data.fecha||todayStr()}"></div>
-      <div class="form-group"><label>Tipo de Gasto</label><select id="pdf-f-tipo" onchange="document.getElementById('pdf-f-proyecto-grp').style.display=this.value==='proyecto'?'flex':'none'"><option value="general">General</option><option value="proyecto">Proyecto</option></select></div>
-      <div class="form-group" id="pdf-f-proyecto-grp" style="display:none"><label>Proyecto</label><select id="pdf-f-proyecto"><option value="">—</option>${projOpts}</select></div>
-      <div class="form-group"><label>Base Imponible (€)</label><input type="text" inputmode="decimal" id="pdf-f-base" value="${data.base||''}" step="0.01"></div>
-      <div class="form-group"><label>Tipo IVA</label><select id="pdf-f-ivaPct">${ivaTypes}</select></div>
-      <div class="form-group"><label>Retención IRPF</label><select id="pdf-f-irpfPct">${irpfTypes}</select></div>`;
-  }
-
-  document.getElementById('pdf-form-content').innerHTML=`<div class="form-grid cols2" style="gap:10px;">${html}</div>`;
-  document.getElementById('pdf-import-confirm').style.display='inline-flex';
-}
-
-function esc(s){return String(s||'').replace(/&/g,'\u0026amp;').replace(/"/g,'\u0026quot;').replace(/</g,'\u0026lt;').replace(/>/g,'\u0026gt;');}
-
-function addPdfIvaLine(){
-  const tbody=document.getElementById('pdf-iva-tbody');
-  if(!tbody)return;
-  const defIva=DB.defaultIvaPct||21;
-  const ivaOpts=(DB.tiposIva||[0,4,10,21]).map(t=>`<option value="${t}" ${t===defIva?'selected':''}>${t}%</option>`).join('');
-  const tr=document.createElement('tr');
-  tr.innerHTML=`<td><input type="text" inputmode="decimal" value="0,00" style="padding:6px 8px;width:100%;background:var(--card2);border:1px solid var(--border);border-radius:6px;font-size:.84rem;color:var(--text);"></td>
-    <td><select style="padding:6px 8px;width:100%;background:var(--card2);border:1px solid var(--border);border-radius:6px;font-size:.84rem;color:var(--text);">${ivaOpts}</select></td>
-    <td><input type="text" value="0,00" readonly style="padding:6px 8px;width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:.84rem;color:var(--green);font-weight:600;"></td>
-    <td><button type="button" onclick="this.closest('tr').remove()" style="background:none;border:none;cursor:pointer;color:var(--muted2);">&#x2715;</button></td>`;
-  tbody.appendChild(tr);
-}
-
-function confirmPdfImport(){
-  const type=document.getElementById('pdf-import-type').value;
-  const g=id=>{const el=document.getElementById(id);return el?el.value:'';}
-  if(type==='proyecto'){
-    addProyecto({nombre:g('pdf-f-nombre'),cliente:g('pdf-f-cliente'),venta:fnum(g('pdf-f-venta')),coste:fnum(g('pdf-f-coste')),pdfDriveId:pdfExtracted._driveId||null,pdfName:pdfExtracted._pdfName||null});
-  } else if(type==='venta'){
-    addVenta({serie:g('pdf-f-serie'),numero:g('pdf-f-numero'),fecha:g('pdf-f-fecha'),cliente:g('pdf-f-cliente'),proyectoId:g('pdf-f-proyecto'),base:fnum(g('pdf-f-base')),pdfDriveId:pdfExtracted._driveId||null,pdfName:pdfExtracted._pdfName||null});
-  } else {
-    // Collect IVA lines from the PDF import form
-    const ivaLines=[];
-    document.querySelectorAll('#pdf-iva-tbody tr').forEach(row=>{
-      const inputs=row.querySelectorAll('input,select');
-      if(inputs.length>=2){
-        const base=fnum(inputs[0].value);
-        const ivaPct=fnum(inputs[1].value);
-        if(base>0) ivaLines.push({base,ivaPct,cuota:base*ivaPct/100});
-      }
-    });
-    const totalBase=ivaLines.reduce((s,l)=>s+l.base,0);
-    const totalCuota=ivaLines.reduce((s,l)=>s+l.cuota,0);
-    addCoste({serie:g('pdf-f-serie'),proveedor:g('pdf-f-proveedor'),nif:g('pdf-f-nif'),numfact:g('pdf-f-numfact'),
-      fecha:g('pdf-f-fecha'),tipo:g('pdf-f-tipo'),proyectoId:g('pdf-f-proyecto'),
-      base:totalBase,cuotaIva:totalCuota,ivaPct:totalBase>0?Math.round(totalCuota/totalBase*100):21,
-      irpfPct:fnum(g('pdf-f-irpfPct')),
-      ivaLines,numero:nextCosteNum(g('pdf-f-serie')),
-      pdfDriveId:pdfExtracted._driveId||null,pdfName:pdfExtracted._pdfName||null});
-  }
-  closeModal('modal-pdf-import');
-}
-
-// ═══════════════════════════════════════════
-// EXPORTAR
-// ═══════════════════════════════════════════
-function exportarVentas(tipo){
-  const ventas=getVentasFiltered();
-  if(!ventas.length){toast('No hay facturas en el filtro.','error');return;}
-  const proyectos=getD('proyectos');
-  if(tipo==='excel'){
-    const rows=[['Nº Factura','Fecha','Cliente','Proyecto','Base Imponible','IVA','Total','Cobrado','Pendiente']];
-    ventas.forEach(v=>{const proy=proyectos.find(p=>p.id===v.proyectoId);const cob=getCobradoVenta(v.id);
-      rows.push([v.numero,v.fecha,v.cliente,proy?proy.nombre:'',v.base,v.iva,v.total,cob,v.total-cob]);});
-    exportCSV(rows,'facturas_emitidas');
-  }else{
-    printTable('Facturas Emitidas',['Nº Factura','Fecha','Cliente','Proyecto','Base','IVA','Total'],
-      ventas.map(v=>{const proy=proyectos.find(p=>p.id===v.proyectoId);
-        return[v.numero,v.fecha,v.cliente,proy?proy.nombre:'—',fmt(v.base),v.serie==='A'?fmt(v.iva):'—',fmt(v.total)];}));
-  }
-}
-function exportarCostes(tipo){
-  const costes=getCostesFiltered();
-  if(!costes.length){toast('No hay facturas en el filtro.','error');return;}
-  const proyectos=getD('proyectos');
-  if(tipo==='excel'){
-    const rows=[['Nº','Proveedor','Nº Prov.','Fecha','Tipo','Proyecto','Base','IVA%','Cuota IVA','IRPF%','Retención','Total','Pagado','Pendiente']];
-    costes.forEach(c=>{const proy=proyectos.find(p=>p.id===c.proyectoId);const pag=getPagadoCoste(c.id);
-      rows.push([c.numero,c.proveedor,c.nif||'',c.numfact||'',c.fecha,c.tipo,proy?proy.nombre:'',c.base,c.ivaPct||0,c.cuotaIva||0,c.irpfPct||0,c.retencion||0,c.total,pag,c.total-pag]);});
-    exportCSV(rows,'facturas_recibidas');
-  }else{
-    printTable('Facturas Recibidas',['Nº','Proveedor','Fecha','Tipo','Proyecto','Base','IVA%','IRPF%','Total'],
-      costes.map(c=>{const proy=proyectos.find(p=>p.id===c.proyectoId);
-        return[c.numero,c.proveedor,c.fecha,c.tipo,proy?proy.nombre:'—',fmt(c.base),(c.ivaPct||0)+'%',(c.irpfPct||0)+'%',fmt(c.total)];}));
-  }
-}
-function exportarResumenExcel(){
-  const rows=[['Proyecto','Cliente','Venta Prev.','Coste Prev.','Margen Prev.','M.Prev%','Facturado','Costes','Margen Real','M.Real%']];
-  getD('proyectos').forEach(p=>{
-    const tv=getD('ventas').filter(v=>v.proyectoId===p.id).reduce((s,v)=>s+v.total,0);
-    const tc=getD('costes').filter(c=>c.proyectoId===p.id).reduce((s,c)=>s+c.total,0);
-    const mr=tv-tc;const mp=p.venta-p.coste;
-    rows.push([p.nombre,p.cliente,p.venta,p.coste,mp,p.venta>0?(mp/p.venta*100).toFixed(1):0,tv,tc,mr,tv>0?(mr/tv*100).toFixed(1):0]);
-  });
-  exportCSV(rows,'resumen_proyectos');
-}
-function exportarResumenPDF(){
-  printTable('Resumen de Proyectos',['Proyecto','Cliente','Venta Prev.','Margen Prev.','Facturado','Costes','Margen Real'],
-    getD('proyectos').map(p=>{
-      const tv=getD('ventas').filter(v=>v.proyectoId===p.id).reduce((s,v)=>s+v.total,0);
-      const tc=getD('costes').filter(c=>c.proyectoId===p.id).reduce((s,c)=>s+c.total,0);
-      const mr=tv-tc;const mp=p.venta-p.coste;
-      return[p.nombre,p.cliente,fmt(p.venta),`${fmt(mp)} (${p.venta>0?fmtPct(mp/p.venta*100):'0,0%'})`,fmt(tv),fmt(tc),`${fmt(mr)} (${tv>0?fmtPct(mr/tv*100):'0,0%'})`];}));
-}
-function exportCSV(rows,filename){
-  const bom='\uFEFF';
-  const csv=bom+rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(';')).join('\n');
-  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');a.href=url;a.download=filename+'_'+todayStr()+'.csv';a.click();
-  URL.revokeObjectURL(url);toast('Excel exportado.');
-}
-function printTable(title,headers,rows){
-  const logo=DB.logo;
-  const logoTag=logo?`<img src="${logo}" style="max-height:50px;margin-bottom:8px;"><br>`:'';
-  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title>
-  <style>body{font-family:Arial,sans-serif;font-size:11px;margin:20px;color:#111;}h2{font-size:14px;margin-bottom:12px;}
-  table{width:100%;border-collapse:collapse;}th{background:#f0ece6;padding:6px 8px;text-align:left;font-size:10px;border:1px solid #c8bfb2;}
-  td{padding:5px 8px;border:1px solid #ddd;}tr:nth-child(even){background:#faf7f3;}
-  .footer{margin-top:12px;font-size:9px;color:#888;}</style></head>
-  <body>${logoTag}<h2>${title}</h2>
-  <table><thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead>
-  <tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table>
-  <div class="footer">Generado el ${new Date().toLocaleDateString('es-ES')} — GestiónPro</div>
-  </body></html>`;
-  const w=window.open('','_blank');w.document.write(html);w.document.close();w.focus();setTimeout(()=>w.print(),400);
-}
-
-// ═══════════════════════════════════════════
-// AJUSTES
-// ═══════════════════════════════════════════
-function saveLogo(){
-  const file=document.getElementById('logo-input').files[0];
-  if(!file){toast('Selecciona una imagen.','error');return;}
-  const r=new FileReader();
-  r.onload=e=>{DB.logo=e.target.result;scheduleSave();applyLogo(e.target.result);toast('Logotipo guardado.');};
-  r.readAsDataURL(file);
-}
-function removeLogo(){DB.logo='';scheduleSave();document.getElementById('logo-img').style.display='none';document.getElementById('logo-preview-wrap').style.display='none';toast('Eliminado.');}
-function applyLogo(src){
-  const img=document.getElementById('logo-img');img.src=src;img.style.display='block';
-  const prev=document.getElementById('logo-preview');if(prev){prev.src=src;}
-  const wrap=document.getElementById('logo-preview-wrap');if(wrap)wrap.style.display='block';
-}
-function saveClientId(){
-  const val=document.getElementById('cfg-client-id').value.trim();
-  if(!val){toast('Introduce el Client ID.','error');return;}
-  CLIENT_ID=val;localStorage.setItem('gp_client_id',val);
-  toast('Client ID actualizado.');loadAjustesStatus();
-}
-function toggleDriveConfig(){
-  const body=document.getElementById('drive-config-body');
-  const toggle=document.getElementById('drive-config-toggle');
-  const open=body.style.display==='none';
-  body.style.display=open?'block':'none';
-  toggle.textContent=open?'▲ Ocultar':'▼ Mostrar';
-}
-// ─── GEMINI API ──────────────────────────────────────────────────────────
-
-// ─── GEMINI API KEY MANAGEMENT ───────────────────────────────────────────
-GEMINI_KEY = localStorage.getItem('gp_gemini_key') || '';
-GEMINI_KEY = localStorage.getItem('gp_gemini_key') || '';
-// GEMINI_MODEL already declared above
-function saveGeminiKey(){
-  const val = document.getElementById('cfg-gemini-key').value.trim();
-  if(!val){ toast('Introduce la API key de Gemini.', 'error'); return; }
-  GEMINI_KEY = val;
-  localStorage.setItem('gp_gemini_key', val);
-  toast('API key de Gemini guardada.');
-  updateGeminiStatus('Guardada. Pulsa "Probar conexión" para verificarla.');
-}
-
-async function extractPdfWithAI(base64, type){
-  const bar = document.getElementById('ai-status-bar');
-  const msg = document.getElementById('ai-status-msg');
-  bar.style.display='flex'; bar.style.borderColor=''; bar.style.color='var(--accent)';
-
-  if(!GEMINI_KEY){
-    bar.style.display='none';
-    renderPdfForm(type,{});
-    const panel=document.getElementById('pdf-form-content');
-    panel.innerHTML=`<div style="background:rgba(160,108,0,.08);border:1px solid rgba(160,108,0,.25);border-radius:10px;padding:14px 16px;margin-bottom:14px;font-size:.84rem;color:var(--yellow);">
-      <strong>&#x1F916; Activa la extracción automática</strong><br>
-      Añade tu API key gratuita de Gemini en
-      <button onclick="showPage('ajustes',document.querySelector('nav .ni:last-child'));closeModal('modal-pdf-import')"
-        style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:.84rem;text-decoration:underline;font-family:var(--font-body);">
-        Ajustes → API de IA →
-      </button>
-    </div>`+panel.innerHTML;
-    return;
-  }
-
-  msg.textContent='&#x1F916; Analizando con Gemini 2.0 Flash...';
-  document.getElementById('pdf-form-content').innerHTML='<div style="color:var(--muted);font-size:.86rem;padding:16px;text-align:center;">&#x1F916; Analizando factura...</div>';
-  console.log('[PDF Import] extractPdfWithAI called, type:', type, 'base64 length:', base64?.length, 'GEMINI_KEY set:', !!GEMINI_KEY);
-
-  try{
-    const raw    = await extractWithGemini(base64, type);
-    console.log('[PDF Import] extractWithGemini returned:', JSON.stringify(raw).slice(0,300));
-    const parsed = geminiToFormData(raw, type);
-    console.log('[PDF Import] parsed form data:', JSON.stringify(parsed).slice(0,300));
-    pdfExtracted = parsed;
-    bar.style.display='none';
-    renderPdfForm(type, parsed);
-  } catch(e){
-    console.error('[PDF Import] Error:', e);
-    bar.style.color='var(--red)'; bar.style.borderColor='rgba(192,57,43,.3)';
-    let errMsg = e.message || String(e);
-    if(errMsg.includes('429') || errMsg.includes('quota') || errMsg.includes('RESOURCE_EXHAUSTED') || errMsg.includes('Cuota') || errMsg.includes('agotado')){
-      errMsg = 'Cuota Gemini agotada en todos los modelos disponibles. Espera unos minutos y vuelve a intentarlo, o crea una nueva API key en <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--accent)">aistudio.google.com/apikey</a>.';
-    } else if(errMsg.includes('NetworkError') || errMsg.includes('Failed to fetch')){
-      errMsg = 'Error de red. Desactiva bloqueadores de anuncios y prueba en incógnito.';
-    }
-    msg.innerHTML = '&#x2716; ' + errMsg + ' — Revisa la consola (F12) para más detalles.';
-    setTimeout(()=>{bar.style.display='none';},6000);
-    renderPdfForm(type,{});
-  }
-}
 
 // ═══════════════════════════════════════════
 // INIT
