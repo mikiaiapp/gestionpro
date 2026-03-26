@@ -614,8 +614,17 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
     <div class="form-grid cols4">
       <div class="form-group"><label>Serie</label><select id="c-serie" onchange="onCosteSerieChange()"><option value="A">Serie A (IVA)</option><option value="B">Serie B (sin IVA)</option></select></div>
       <div class="form-group"><label>Nº Interno</label><input type="text" id="c-num" readonly></div>
-      <div class="form-group"><label>Proveedor</label><input type="text" id="c-proveedor" placeholder="Nombre proveedor"></div>
-      <div class="form-group"><label>NIF / CIF Proveedor</label><input type="text" id="c-nif" placeholder="B12345678"></div>
+      <div class="form-group" style="grid-column:span 2">
+        <label>Proveedor</label>
+        <div style="display:flex;gap:6px;align-items:flex-start;">
+          <select id="c-prov-select" onchange="onProveedorSelect()"
+            style="flex:0 0 220px;min-width:0;">
+            <option value="">— Nuevo proveedor —</option>
+          </select>
+          <input type="text" id="c-proveedor" placeholder="Nombre del proveedor" style="flex:1;min-width:0;">
+          <input type="text" id="c-nif" placeholder="NIF/CIF" style="flex:0 0 130px;min-width:0;">
+        </div>
+      </div>
       <div class="form-group"><label>Nº Fact. Proveedor</label><input type="text" id="c-numfact" placeholder="Nº fact. prov."></div>
       <div class="form-group"><label>Fecha</label><input type="date" id="c-fecha"></div>
       <div class="form-group"><label>Tipo de Gasto</label><select id="c-tipo" onchange="onCosteTipoChange()"><option value="general">Gasto General</option><option value="proyecto">Proyecto</option></select></div>
@@ -904,8 +913,17 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
 <div class="modal-overlay" id="modal-edit-coste">
   <div class="modal"><h3>✏️ Editar Factura Recibida</h3><input type="hidden" id="ec-id">
     <div class="form-grid cols2">
-      <div class="form-group"><label>Proveedor</label><input type="text" id="ec-proveedor"></div>
-      <div class="form-group"><label>NIF / CIF</label><input type="text" id="ec-nif" placeholder="B12345678"></div>
+      <div class="form-group" style="grid-column:span 2">
+        <label>Proveedor</label>
+        <div style="display:flex;gap:6px;align-items:flex-start;">
+          <select id="ec-prov-select" onchange="onProveedorSelectEdit()"
+            style="flex:0 0 200px;min-width:0;">
+            <option value="">— Nuevo proveedor —</option>
+          </select>
+          <input type="text" id="ec-proveedor" placeholder="Nombre" style="flex:1;min-width:0;">
+          <input type="text" id="ec-nif" placeholder="NIF/CIF" style="flex:0 0 120px;min-width:0;">
+        </div>
+      </div>
       <div class="form-group"><label>Nº Fact. Proveedor</label><input type="text" id="ec-numfact"></div>
       <div class="form-group"><label>Fecha</label><input type="date" id="ec-fecha"></div>
       <div class="form-group"><label>Tipo</label><select id="ec-tipo" onchange="onEcTipoChange()"><option value="general">Gasto General</option><option value="proyecto">Proyecto</option></select></div>
@@ -2123,6 +2141,44 @@ function getIvaTotals(){
   };
 }
 
+
+// ─── PROVEEDOR HISTORY ────────────────────────────────────────────────────
+function getProveedores(){
+  // Build unique provider list from existing costes, keyed by NIF (or name if no NIF)
+  const map = new Map();
+  getD('costes').forEach(c=>{
+    if(!c.proveedor) return;
+    const key = (c.nif||c.proveedor).trim().toUpperCase();
+    if(!map.has(key)) map.set(key, {nif:c.nif||'', nombre:c.proveedor});
+  });
+  return [...map.values()].sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));
+}
+
+function populateProveedorSelect(selectId){
+  const sel = document.getElementById(selectId);
+  if(!sel) return;
+  const provs = getProveedores();
+  sel.innerHTML = '<option value="">— Nuevo proveedor —</option>' +
+    provs.map(p=>`<option value="${p.nif||p.nombre}" data-nombre="${p.nombre}" data-nif="${p.nif}">`+
+      `${p.nombre}${p.nif?' ('+p.nif+')':''}</option>`).join('');
+}
+
+function onProveedorSelect(){
+  const sel = document.getElementById('c-prov-select');
+  if(!sel||!sel.value) return;
+  const opt = sel.options[sel.selectedIndex];
+  document.getElementById('c-proveedor').value = opt.dataset.nombre || '';
+  document.getElementById('c-nif').value       = opt.dataset.nif    || '';
+}
+
+function onProveedorSelectEdit(){
+  const sel = document.getElementById('ec-prov-select');
+  if(!sel||!sel.value) return;
+  const opt = sel.options[sel.selectedIndex];
+  document.getElementById('ec-proveedor').value = opt.dataset.nombre || '';
+  document.getElementById('ec-nif').value       = opt.dataset.nif    || '';
+}
+
 function onCosteSerieChange(){
   const serie=document.getElementById('c-serie').value;
   document.getElementById('c-num').value=nextCosteNum(serie);
@@ -2135,6 +2191,8 @@ function onCosteSerieChange(){
 }
 function onCosteTipoChange(){document.getElementById('c-proyecto-group').style.display=document.getElementById('c-tipo').value==='proyecto'?'flex':'none';}
 function populateCosteDropdowns(){
+  populateProveedorSelect('c-prov-select');
+  populateProveedorSelect('ec-prov-select');
   const proyectos=getD('proyectos');
   const html='<option value="">— Seleccionar —</option>'+proyectos.map(p=>`<option value="${p.id}">${p.nombre}</option>`).join('');
   ['c-proyecto','ec-proyecto'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=html;});
@@ -2698,19 +2756,34 @@ function renderResumen(){
         ${ventas.map(v=>{
           const cob=getCobradoVenta(v.id);const pend=v.total-cob;
           const est=pend<=0?'<span class="badge badge-green">Cobrado</span>':cob>0?'<span class="badge badge-yellow">Parcial</span>':'<span class="badge badge-orange">Pendiente</span>';
-          return`<tr>
+          const cobros=getD('cobros').filter(c=>c.ventaId===v.id);
+          const histHtml=cobros.length?`<tr id="res-hist-v-${v.id}" style="display:none">
+            <td colspan="8" style="padding:0">
+              <div style="background:rgba(91,127,166,.05);padding:8px 16px;border-top:1px dashed var(--border);">
+                <table style="font-size:.78rem;width:100%;"><thead><tr>
+                  <th style="padding:4px 8px;font-size:.65rem;color:var(--muted)">Fecha cobro</th>
+                  <th style="padding:4px 8px;font-size:.65rem;color:var(--muted)">Importe</th>
+                  <th style="padding:4px 8px;font-size:.65rem;color:var(--muted)">Forma de pago</th>
+                </tr></thead><tbody>${cobros.map(c=>`<tr>
+                  <td style="padding:4px 8px">${c.fecha}</td>
+                  <td style="padding:4px 8px;color:var(--green);font-weight:600">${fmt(c.importe)}</td>
+                  <td style="padding:4px 8px">${c.forma}</td>
+                </tr>`).join('')}</tbody></table>
+              </div>
+            </td></tr>`:'';
+          return`<tr style="cursor:pointer" onclick="resToggleHist('res-hist-v-${v.id}',this)">
             <td><strong>${v.numero}</strong></td>
             <td><span class="badge ${v.serie==='A'?'badge-blue':'badge-purple'}">${v.serie}</span></td>
             <td>${v.fecha}</td><td>${fmt(v.total)}</td>
             <td class="mp">${fmt(cob)}</td>
             <td class="${pend>0?'mn':''}">${fmt(pend)}</td>
             <td>${est}</td>
-            <td style="white-space:nowrap">
+            <td style="white-space:nowrap" onclick="event.stopPropagation()">
               ${pend>0?`<button class="btn btn-success btn-xs" onclick="openQuickCobro('${v.id}')">&#x1F4B0; Cobrar</button>`:''}
               <button class="btn btn-ghost btn-xs" onclick="resEditVenta('${v.id}')">&#x270F;&#xFE0F;</button>
               <button class="btn btn-danger btn-xs" onclick="resDeleteVenta('${v.id}','${p.id}')">&#x1F5D1;&#xFE0F;</button>
             </td>
-          </tr>`;}).join('')}
+          </tr>${histHtml}`;}).join('')}
         <tr style="font-weight:700;border-top:2px solid var(--border)">
           <td colspan="3">TOTAL</td><td>${fmt(totalVenta)}</td>
           <td class="mp">${fmt(totalCobrado)}</td>
@@ -2728,7 +2801,22 @@ function renderResumen(){
         ${costes.map(c=>{
           const pag=getPagadoCoste(c.id);const pend=c.total-pag;
           const est=pend<=0?'<span class="badge badge-green">Pagado</span>':pag>0?'<span class="badge badge-yellow">Parcial</span>':'<span class="badge badge-orange">Pendiente</span>';
-          return`<tr>
+          const pagos=getD('pagos').filter(pg=>pg.costeId===c.id);
+          const histHtmlC=pagos.length?`<tr id="res-hist-c-${c.id}" style="display:none">
+            <td colspan="10" style="padding:0">
+              <div style="background:rgba(91,127,166,.05);padding:8px 16px;border-top:1px dashed var(--border);">
+                <table style="font-size:.78rem;width:100%;"><thead><tr>
+                  <th style="padding:4px 8px;font-size:.65rem;color:var(--muted)">Fecha pago</th>
+                  <th style="padding:4px 8px;font-size:.65rem;color:var(--muted)">Importe</th>
+                  <th style="padding:4px 8px;font-size:.65rem;color:var(--muted)">Forma de pago</th>
+                </tr></thead><tbody>${pagos.map(pg=>`<tr>
+                  <td style="padding:4px 8px">${pg.fecha}</td>
+                  <td style="padding:4px 8px;color:var(--green);font-weight:600">${fmt(pg.importe)}</td>
+                  <td style="padding:4px 8px">${pg.forma}</td>
+                </tr>`).join('')}</tbody></table>
+              </div>
+            </td></tr>`:'';
+          return`<tr style="cursor:pointer" onclick="resToggleHist('res-hist-c-${c.id}',this)">
             <td><strong>${c.numero}</strong></td>
             <td><span class="badge ${c.serie==='A'?'badge-blue':'badge-purple'}">${c.serie}</span></td>
             <td>${c.proveedor}</td>
@@ -2737,12 +2825,12 @@ function renderResumen(){
             <td class="mp">${fmt(pag)}</td>
             <td class="${pend>0?'mn':''}">${fmt(pend)}</td>
             <td>${est}</td>
-            <td style="white-space:nowrap">
+            <td style="white-space:nowrap" onclick="event.stopPropagation()">
               ${pend>0?`<button class="btn btn-warn btn-xs" onclick="openQuickPago('${c.id}')">&#x1F4B8; Pagar</button>`:''}
               <button class="btn btn-ghost btn-xs" onclick="resEditCoste('${c.id}')">&#x270F;&#xFE0F;</button>
               <button class="btn btn-danger btn-xs" onclick="resDeleteCoste('${c.id}','${p.id}')">&#x1F5D1;&#xFE0F;</button>
             </td>
-          </tr>`;}).join('')}
+          </tr>${histHtmlC}`;}).join('')}
         <tr style="font-weight:700;border-top:2px solid var(--border)">
           <td colspan="5">TOTAL</td><td>${fmt(totalCoste)}</td>
           <td class="mp">${fmt(totalPagado)}</td>
@@ -2762,6 +2850,19 @@ function renderResumen(){
 }
 
 // ─── RESUMEN ACTIONS ─────────────────────────────────────────────────────
+
+function resToggleHist(rowId, clickedRow){
+  const histRow = document.getElementById(rowId);
+  if(!histRow) return;
+  const isOpen = histRow.style.display !== 'none';
+  // Close all open resumen hist rows first
+  document.querySelectorAll('[id^="res-hist-"]').forEach(r=>r.style.display='none');
+  document.querySelectorAll('.res-block tbody tr[style*="cursor:pointer"]').forEach(r=>r.style.background='');
+  if(isOpen) return;
+  histRow.style.display = '';
+  clickedRow.style.background = 'rgba(91,127,166,.07)';
+}
+
 function resEditVenta(id){
   populateVentaDropdowns();
   editVenta(id);
