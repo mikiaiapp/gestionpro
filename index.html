@@ -2195,11 +2195,17 @@ function addCoste(data){
   if(base<=0){toast('La base debe ser mayor que 0.','error');return;}
   if(tipo==='proyecto'&&!proyectoId){toast('Selecciona un proyecto.','error');return;}
   if(proyectoId&&isProyectoCerrado(proyectoId)){toast('⚠️ El proyecto está cerrado. Reabre el proyecto para imputar facturas.','error');return;}
-  const cuotaIva=base*ivaPct/100;
-  const retencion=base*irpfPct/100;
-  const total=base+cuotaIva-retencion;
+  // Use values from data if provided (import from PDF), else calculate from fields
+  const cuotaIva = d.cuotaIva !== undefined ? d.cuotaIva : base*ivaPct/100;
+  const retencion= d.retencion !== undefined ? d.retencion : base*irpfPct/100;
+  const total    = d.total     !== undefined ? d.total     : base+cuotaIva-retencion;
+  const ivaLinesData = d.ivaLines || null;
+  const pdfDriveId   = d.pdfDriveId || null;
+  const pdfName      = d.pdfName    || null;
   const costes=getD('costes');
-  costes.push({id:genId(),serie,numero,proveedor,numfact,fecha,tipo,proyectoId,base,ivaPct,cuotaIva,irpfPct,retencion,total});
+  costes.push({id:genId(),serie,numero,proveedor,nif:nifProv,numfact,fecha,tipo,proyectoId,
+    base,ivaPct,cuotaIva,irpfPct,retencion,total,
+    ivaLines:ivaLinesData,pdfDriveId,pdfName});
   setD('costes',costes);
   if(!data){
     ['c-proveedor','c-numfact','c-fecha','c-base','c-iva','c-irpf','c-total'].forEach(id=>document.getElementById(id).value='');
@@ -3316,16 +3322,21 @@ async function confirmPdfImport(){
 
   // Upload the PDF that was used for extraction to Drive
   let pdfDriveId = null, pdfName = null;
+  console.log('[confirmPdfImport] pdfBase64 length:', pdfBase64?.length, 'accessToken set:', !!accessToken, 'folderId:', folderId);
   if(pdfBase64){
     try{
       toast('Subiendo PDF a Drive...');
       const filename = (document.getElementById('pdf-file-input')?.files[0]?.name) || ('factura_'+todayStr()+'.pdf');
+      console.log('[confirmPdfImport] uploading:', filename);
       pdfDriveId = await uploadAttachment(pdfBase64, filename, 'application/pdf');
       pdfName = filename;
+      console.log('[confirmPdfImport] uploaded OK, driveId:', pdfDriveId);
     } catch(e){
-      console.warn('Could not upload PDF to Drive:', e);
+      console.error('[confirmPdfImport] upload error:', e);
       toast('No se pudo adjuntar el PDF: '+e.message, 'error');
     }
+  } else {
+    console.warn('[confirmPdfImport] pdfBase64 is null/empty — PDF not available to upload');
   }
 
   if(type==='proyecto'){
@@ -3368,6 +3379,7 @@ async function confirmPdfImport(){
       numero:nextCosteNum(g('pdf-f-serie')),
       pdfDriveId, pdfName
     });
+    console.log('[confirmPdfImport] coste saved, pdfDriveId:', pdfDriveId, 'pdfName:', pdfName);
   }
   closeModal('modal-pdf-import');
 }
