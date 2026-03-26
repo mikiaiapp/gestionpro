@@ -256,7 +256,11 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
   background:rgba(44,36,22,.4);z-index:149;
 }
 
-/* ══ TABLET ≤900px ══ */
+/* ══════════════════════════════════════════════════
+   RESPONSIVE — TABLET / MÓVIL
+══════════════════════════════════════════════════ */
+
+/* ── TABLET ≤900px ── */
 @media(max-width:900px){
   #menu-toggle{display:flex;}
   #sidebar{
@@ -275,126 +279,177 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
   .pdf-viewer{height:260px;}
 }
 
-/* ══ MÓVIL VERTICAL ≤600px ══ */
-@media(max-width:600px) and (orientation:portrait){
-  body{overflow-x:hidden;}
-  #main{padding:10px 8px 28px;padding-top:50px;}
-  #topbar{padding:7px 10px 7px 48px;gap:6px;}
+/* ══════════════════════════════════════════════════
+   MÓVIL VERTICAL (portrait ≤640px)
+   Tablas → tarjetas apiladas, sin scroll horizontal
+══════════════════════════════════════════════════ */
+@media(max-width:640px) and (orientation:portrait){
+
+  /* ── Layout base ── */
+  body{overflow-x:hidden;max-width:100vw;}
+  #main{padding:10px 8px 28px;padding-top:50px;max-width:100vw;overflow-x:hidden;}
+  #topbar{left:0;border-left:none;padding-left:48px;gap:6px;}
   #topbar .user-name{display:none;}
-  h1{font-size:1.15rem;}
-  .page-desc{font-size:.78rem;margin-bottom:10px;}
+  h1{font-size:1.1rem;}
+  .page-desc{font-size:.77rem;margin-bottom:8px;}
 
-  /* Stats 2 col */
+  /* ── Stats cards: 2 columnas ── */
   .stats-row,.stats-row.cols3,.stats-row.cols5{
-    grid-template-columns:repeat(2,1fr);gap:7px;margin-bottom:12px;
+    grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:10px;
   }
-  .stat-card{padding:10px 11px;}
-  .stat-card .value{font-size:1rem;}
-  .stat-card .label{font-size:.58rem;}
+  .stat-card{padding:9px 10px;}
+  .stat-card .value{font-size:.95rem;}
+  .stat-card .label{font-size:.57rem;}
 
-  /* Forms: 1 col */
+  /* ── Formularios: 1 columna ── */
   .form-grid,.form-grid.cols2,.form-grid.cols4,.form-grid.cols5{
     grid-template-columns:1fr !important;
   }
-  [style*="grid-column:span"]{grid-column:1 !important;}
-  .section-box{padding:12px 10px;margin-bottom:10px;}
-  .section-box h2{font-size:.85rem;}
-
-  /* Buttons compact */
-  .btn{padding:7px 12px;font-size:.8rem;}
-  .btn-group{gap:5px;}
-  .btn-sm{padding:4px 9px;font-size:.72rem;}
-  .btn-xs{padding:3px 7px;font-size:.68rem;}
-
-  /* Filter bar wrap */
-  .filter-bar{gap:5px;}
-  .filter-bar .form-group{min-width:90px;}
-
-  /* Modal full-screen */
-  .modal{padding:16px 12px;max-height:92vh;width:96vw;}
-  .modal.modal-wide{max-width:96vw;}
+  .section-box{padding:11px 9px;margin-bottom:9px;}
+  .section-box h2{font-size:.84rem;}
+  .btn{padding:7px 11px;font-size:.79rem;}
+  .btn-group{gap:5px;flex-wrap:wrap;}
+  .btn-sm{padding:4px 8px;font-size:.71rem;}
+  .btn-xs{padding:3px 6px;font-size:.68rem;}
+  .filter-bar{gap:5px;flex-wrap:wrap;}
+  .filter-bar .form-group{min-width:80px;}
+  .modal{padding:14px 11px;max-height:90vh;width:97vw;max-width:97vw;}
   .pdf-import-wrap{grid-template-columns:1fr;height:auto;}
-  .pdf-viewer{height:200px;}
+  .pdf-viewer{height:190px;}
 
-  /* ── TABLE → CARD LAYOUT (portrait mobile only) ── */
-  .table-wrap{overflow-x:visible !important;}
+  /* ══ TABLA → TARJETA (portrait móvil) ══
+     El truco: cada <tr> se convierte en una tarjeta
+     usando display:block con pseudo-etiquetas data-m  */
+  .table-wrap{
+    overflow-x:visible !important;
+    overflow-y:visible !important;
+    width:100% !important;
+  }
 
-  .mobile-cards table{display:block;min-width:0 !important;}
+  /* Ocultar thead, convertir tabla en lista */
+  .mobile-cards{width:100% !important;}
+  .mobile-cards table,
+  .mobile-cards tbody{display:block;width:100%;}
   .mobile-cards thead{display:none;}
-  .mobile-cards tbody{display:block;}
 
-  /* Each row becomes a card */
+  /* Cada fila = tarjeta */
   .mobile-cards tbody tr{
-    display:grid;
-    grid-template-columns:1fr 1fr;
-    gap:2px 8px;
+    display:block;
     background:var(--card);
     border:1px solid var(--border);
     border-radius:10px;
-    margin-bottom:8px;
-    padding:10px 12px 8px;
+    margin-bottom:9px;
+    padding:9px 11px 7px;
     position:relative;
+    width:100%;
+    box-sizing:border-box;
+    cursor:pointer;
   }
-  .mobile-cards tbody tr:hover{background:var(--card);}
+  .mobile-cards tbody tr.hist-row{
+    border-radius:0 0 10px 10px;
+    margin-top:-10px;
+    padding-top:0;
+    border-top:none;
+    background:var(--card2);
+  }
 
-  /* All cells default */
+  /* Celdas — cada una ocupa su línea */
   .mobile-cards tbody td{
     display:block;
-    padding:1px 0;
+    padding:2px 0;
     border:none;
-    font-size:.81rem;
+    font-size:.82rem;
+    line-height:1.4;
     overflow:hidden;
     text-overflow:ellipsis;
-    white-space:nowrap;
+    white-space:normal;        /* permite wrap */
+    max-width:100%;
   }
 
-  /* Label before each cell */
-  .mobile-cards tbody td[data-m]:before{
-    content:attr(data-m) ' ';
-    font-size:.63rem;
-    font-weight:600;
+  /* Ocultar celdas sin datos útiles en móvil */
+  .mobile-cards tbody td:empty{display:none;}
+
+  /* Etiqueta antes del valor */
+  .mobile-cards tbody td[data-m]::before{
+    content:attr(data-m) ": ";
+    font-size:.62rem;
+    font-weight:700;
     color:var(--muted2);
     text-transform:uppercase;
     letter-spacing:.3px;
-    display:block;
   }
 
-  /* Key cells span full width */
-  .mobile-cards tbody td.m-full{grid-column:1 / -1;}
+  /* Campos importantes: ocupan fila completa y sin etiqueta */
+  .mobile-cards tbody td.m-full{
+    font-size:.88rem;
+    font-weight:600;
+    color:var(--text);
+    margin-bottom:2px;
+  }
+  .mobile-cards tbody td.m-full::before{display:none;}
 
-  /* Actions row always at bottom full width */
+  /* Fila de acciones: flex al final */
   .mobile-cards tbody td.m-actions{
-    grid-column:1 / -1;
-    display:flex;gap:5px;
-    margin-top:6px;padding-top:6px;
+    display:flex;
+    gap:5px;
+    flex-wrap:wrap;
+    margin-top:7px;
+    padding-top:7px;
     border-top:1px solid var(--border);
     justify-content:flex-end;
   }
-  .mobile-cards tbody td.m-actions:before{display:none;}
+  .mobile-cards tbody td.m-actions::before{display:none;}
 
-  /* Clip icon: absolute top-right */
+  /* Clip (adjunto): esquina superior derecha */
   .mobile-cards tbody td.m-clip{
-    position:absolute;top:8px;right:10px;
-    width:auto;padding:0;
+    position:absolute;
+    top:8px;right:10px;
+    padding:0;
+    width:auto;
+    display:block;
+  }
+  .mobile-cards tbody td.m-clip::before{display:none;}
+
+  /* Filas de historial expandido (cobros/pagos) */
+  .mobile-cards tbody tr.hist-row td{
+    padding:6px 4px;
+  }
+
+  /* Fila de totales */
+  .mobile-cards tbody tr[style*="font-weight:700"]{
+    background:rgba(91,127,166,.07);
+    font-weight:700;
+  }
+  .mobile-cards tbody tr[style*="font-weight:700"] td::before{display:none;}
+  .mobile-cards tbody tr[style*="font-weight:700"] td[colspan]{
+    grid-column:1/-1;
+    font-weight:700;
+    font-size:.8rem;
   }
 }
 
-/* ══ MÓVIL HORIZONTAL ≤900px landscape ══ */
+/* ══════════════════════════════════════════════════
+   MÓVIL HORIZONTAL (landscape ≤900px)
+   Tabla normal compacta con scroll si hace falta
+══════════════════════════════════════════════════ */
 @media(max-width:900px) and (orientation:landscape){
-  #main{padding:12px 14px 24px;padding-top:50px;}
+  #main{padding:10px 12px 20px;padding-top:48px;}
   .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
-  table{font-size:.76rem;min-width:500px;}
-  thead th{padding:6px 8px;font-size:.61rem;}
-  tbody td{padding:6px 8px;}
-  .stats-row{grid-template-columns:repeat(4,1fr);gap:8px;}
+  table{font-size:.74rem;}
+  thead th{padding:5px 7px;font-size:.60rem;}
+  tbody td{padding:5px 7px;}
+  .stats-row{grid-template-columns:repeat(4,1fr);gap:7px;}
   .stats-row.cols5{grid-template-columns:repeat(5,1fr);}
   .form-grid{grid-template-columns:repeat(2,1fr);}
   .form-grid.cols4{grid-template-columns:repeat(4,1fr);}
 }
 
-/* ══ VERY SMALL ≤380px ══ */
+/* ══ MUY PEQUEÑO ≤380px portrait ══ */
 @media(max-width:380px) and (orientation:portrait){
-  .stats-row,.stats-row.cols3,.stats-row.cols5{grid-template-columns:1fr;}
+  .stats-row,.stats-row.cols3,.stats-row.cols5{
+    grid-template-columns:1fr;
+  }
+  .btn-group{flex-direction:column;}
 }
 
 </style>
@@ -407,53 +462,12 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
     <div class="logo-wrap">📊</div>
     <h1>GestiónPro</h1>
     <p class="login-desc">Control de proyectos, ventas, costes y márgenes.<br>Datos guardados en tu Google Drive.</p>
-    <div class="login-step active" id="login-step-1">
-      <div class="setup-hint">
-        🔑 <strong>Primera vez:</strong> Necesitas un <strong>Google Client ID</strong> gratuito.<br>
-        Consúltalo en <a href="https://console.cloud.google.com" target="_blank">console.cloud.google.com →</a>
-      </div>
-      <label class="client-id-label">Google Client ID</label>
-      <input class="client-id-input" type="text" id="login-client-id"
-        placeholder="xxxxxxx.apps.googleusercontent.com"
-        onkeydown="if(event.key==='Enter')setupClientId()">
-      <div id="step1-error" style="display:none;background:rgba(192,57,43,.1);border:1px solid rgba(192,57,43,.25);border-radius:7px;padding:8px 12px;font-size:.78rem;color:var(--red);margin-bottom:10px;text-align:left;"></div>
-      <button class="btn-setup" onclick="setupClientId()">Guardar y continuar →</button>
-    </div>
-    <div class="login-step" id="login-step-2">
-      <div style="margin-bottom:16px;text-align:left;">
-        <label class="client-id-label" style="display:flex;align-items:center;justify-content:space-between;">
-          <span>Google Client ID</span>
-          <button onclick="toggleEditClientId()" id="btn-edit-toggle"
-            style="background:transparent;border:none;color:var(--accent);font-size:.75rem;cursor:pointer;font-family:var(--font-body);font-weight:600;text-decoration:underline;">✏️ Editar</button>
-        </label>
-        <div id="clientid-readonly" style="background:var(--card2);border:1px solid var(--border);border-radius:9px;padding:10px 14px;font-size:.74rem;color:var(--muted);font-family:monospace;word-break:break-all;text-align:left;"></div>
-        <div id="clientid-edit-wrap" style="display:none;margin-top:8px;">
-          <input class="client-id-input" type="text" id="login-client-id-2"
-            placeholder="xxxxxxx.apps.googleusercontent.com"
-            style="margin-bottom:6px;"
-            onkeydown="if(event.key==='Enter')saveClientIdInline()">
-          <div id="step2-error" style="display:none;background:rgba(192,57,43,.1);border:1px solid rgba(192,57,43,.25);border-radius:7px;padding:8px 12px;font-size:.78rem;color:var(--red);margin-bottom:8px;text-align:left;"></div>
-          <div style="display:flex;gap:8px;">
-            <button class="btn-setup" style="flex:1;padding:9px;" onclick="saveClientIdInline()">✓ Guardar</button>
-            <button onclick="toggleEditClientId()"
-              style="flex:0 0 auto;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:9px;padding:9px 14px;cursor:pointer;font-family:var(--font-body);font-size:.84rem;">
-              Cancelar
-            </button>
-          </div>
-        </div>
-      </div>
-      <button class="btn-google" onclick="signIn()">
-        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
-        Entrar con Google
-      </button>
-      <div style="margin-top:10px;">
-        <button onclick="goToStep1()"
-          style="background:transparent;border:none;color:var(--muted2);font-size:.76rem;cursor:pointer;font-family:var(--font-body);text-decoration:underline;">
-          ← Cambiar Client ID desde cero
-        </button>
-      </div>
-      <div class="login-note">🔒 Solo se accede a una carpeta privada en tu Drive.</div>
-    </div>
+    <button class="btn-google" onclick="signIn()" style="margin-top:8px;">
+      <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
+      Entrar con Google
+    </button>
+    <div id="login-error-msg" style="display:none;margin-top:12px;background:rgba(192,57,43,.1);border:1px solid rgba(192,57,43,.3);border-radius:8px;padding:10px 14px;font-size:.8rem;color:var(--red);text-align:left;line-height:1.5;"></div>
+    <div class="login-note" style="margin-top:16px;">🔒 Solo se accede a una carpeta privada en tu Drive.</div>
   </div>
 </div>
 
@@ -539,7 +553,7 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
       </div>
       <button class="btn btn-ghost" onclick="document.getElementById('proj-filter-estado').value='todos';renderProyectos()">Mostrar todos</button>
     </div>
-    <div class="table-wrap"><table><thead><tr>
+    <div class="table-wrap mobile-cards"><table><thead><tr>
       <th></th><th>Estado</th><th>Proyecto</th><th>Cliente</th><th>NIF</th>
       <th>Venta Prev.</th><th>Venta Real</th><th>Coste Prev.</th><th>Coste Real</th>
       <th>Margen Prev.</th><th>Margen Real</th><th>M.Real %</th><th>Acciones</th>
@@ -664,7 +678,7 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
       <button class="btn btn-success" onclick="exportarCostes('excel')">⬇️ Excel</button>
       <button class="btn btn-success" onclick="exportarCostes('pdf')">🖨️ PDF</button>
     </div>
-    <div class="table-wrap mobile-cards"><table><thead><tr><th></th><th>Serie</th><th>Nº</th><th>Proveedor</th><th>NIF</th><th>Nº Prov.</th><th>Fecha</th><th>Tipo</th><th>Proyecto</th><th>Base</th><th>IVA%</th><th>Cuota IVA</th><th>IRPF%</th><th>Retención</th><th>Total</th><th>Pagado</th><th>Pend.</th><th>Estado</th><th>Acc.</th></tr></thead>
+    <div class="table-wrap mobile-cards" id="tw-costes"><table><thead><tr><th></th><th>Serie</th><th>Nº</th><th>Proveedor</th><th>NIF</th><th>Nº Prov.</th><th>Fecha</th><th>Tipo</th><th>Proyecto</th><th>Base</th><th>IVA%</th><th>Cuota IVA</th><th>IRPF%</th><th>Retención</th><th>Total</th><th>Pagado</th><th>Pend.</th><th>Estado</th><th>Acc.</th></tr></thead>
     <tbody id="tbody-costes"></tbody></table>
     <div id="costes-empty" class="empty-state" style="display:none"><div class="icon">📥</div><p>No hay facturas recibidas.</p></div></div>
   </div>
@@ -772,19 +786,10 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
 
   <!-- Google Drive -->
   <div class="section-box" style="border-color:rgba(160,108,0,.2);background:rgba(160,108,0,.02);">
-    <h2 style="cursor:pointer;user-select:none;" onclick="toggleDriveConfig()">
-      🔑 Configuración Google Drive API
-      <span id="drive-config-toggle" style="margin-left:auto;font-size:.8rem;color:var(--muted);font-family:var(--font-body);">▼ Mostrar</span>
-    </h2>
-    <div id="drive-config-body" style="display:none;">
-      <div class="form-grid cols2" style="max-width:600px;">
-        <div class="form-group" style="grid-column:span 2"><label>Google Client ID</label><input type="text" id="cfg-client-id" placeholder="xxxx.apps.googleusercontent.com"></div>
-      </div>
-      <div class="btn-group">
-        <button class="btn btn-primary" onclick="saveClientId()">💾 Guardar</button>
-        <button class="btn btn-ghost" id="btn-current-id" style="display:none"></button>
-      </div>
-      <div id="drive-status" style="margin-top:12px;font-size:.82rem;color:var(--muted);"></div>
+    <h2>🔑 Google Drive API</h2>
+    <div style="font-size:.84rem;color:var(--muted);line-height:1.6;">
+      Client ID configurado en la aplicación.<br>
+      <div id="drive-status" style="margin-top:8px;font-size:.82rem;"></div>
     </div>
   </div>
 
@@ -1040,7 +1045,7 @@ const BACKUP_FOLDER = 'backups';
 const ATTACH_FOLDER  = 'adjuntos';
 const MAX_BACKUPS   = 5;
 const SCOPES        = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email';
-let CLIENT_ID      = localStorage.getItem('gp_client_id') || '';
+const CLIENT_ID    = '140209768012-5c8mk7cscogdma1fbrq6e6hckl3hk4si.apps.googleusercontent.com'; // hardcoded — shared app client ID
 let accessToken    = null;
 let folderId       = null;
 let fileId         = null;
@@ -1145,22 +1150,12 @@ async function processPdfFileInput(fileInputId){
 }
 
 function loadAjustesStatus(){
-  // Populate Client ID field
-  const saved = localStorage.getItem('gp_client_id') || '';
-  const cfgInput = document.getElementById('cfg-client-id');
-  if(cfgInput) cfgInput.value = saved;
-  const btn = document.getElementById('btn-current-id');
-  if(btn){
-    if(saved){ btn.style.display='inline-flex'; btn.textContent='✓ '+saved.slice(0,32)+'...'; }
-    else { btn.style.display='none'; }
-  }
   const status = document.getElementById('drive-status');
   if(status){
     status.innerHTML = folderId && fileId
       ? '<span style="color:var(--green)">&#x2714; Conectado a Google Drive</span>'
       : '<span style="color:var(--muted)">No conectado aún.</span>';
   }
-  // Populate Gemini key field
   const geminiInput = document.getElementById('cfg-gemini-key');
   if(geminiInput) geminiInput.value = localStorage.getItem('gp_gemini_key') || '';
   const geminiSaved = localStorage.getItem('gp_gemini_key') || '';
@@ -1200,6 +1195,454 @@ function setSyncStatus(state,msg){
 // ═══════════════════════════════════════════
 // GOOGLE AUTH
 // ═══════════════════════════════════════════
+function setLoginError(msg){
+  let el=document.getElementById('login-error-msg');
+  if(!el){
+    el=document.createElement('div');
+    el.id='login-error-msg';
+    el.style.cssText='margin-top:12px;background:rgba(192,57,43,.1);border:1px solid rgba(192,57,43,.3);border-radius:8px;padding:10px 14px;font-size:.8rem;color:#c0392b;text-align:left;line-height:1.5;';
+    document.getElementById('login-step-2').appendChild(el);
+  }
+  el.style.display=msg?'block':'none';
+  el.innerHTML=msg||'';
+}
+
+function setLoginLoading(loading){
+  const btn=document.querySelector('.btn-google');
+  if(!btn)return;
+  if(loading){
+    btn.disabled=true;
+    btn.innerHTML='<div style="width:18px;height:18px;border:2px solid #ccc;border-top-color:#333;border-radius:50%;animation:spin .7s linear infinite;"></div> Conectando con Google...';
+  } else {
+    btn.disabled=false;
+    btn.innerHTML='<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width:22px"> Entrar con Google';
+  }
+}
+
+function waitForGoogle(cb, attempts){
+  attempts = attempts || 0;
+  if(window.google && window.google.accounts && window.google.accounts.oauth2){
+    cb(); return;
+  }
+  if(attempts > 60){ // 6 seconds
+    setLoginLoading(false);
+    // Check if the script element exists and what state it's in
+    const existingScript = document.querySelector('script[src*="accounts.google.com/gsi"]');
+    const scriptState = existingScript ? 'script tag exists' : 'no script tag found';
+    setLoginError(
+      'Google Sign-In no se pudo cargar (' + scriptState + ').<br><br>' +
+      '<strong>Soluciones:</strong><br>' +
+      '1. Abre la consola del navegador (F12 → Console) y busca errores en rojo relacionados con "gsi" o "accounts.google.com"<br>' +
+      '2. Desactiva bloqueadores de anuncios (uBlock, AdBlock) para esta página<br>' +
+      '3. Prueba en modo incógnito (Ctrl+Shift+N)<br>' +
+      '4. Prueba en otro navegador (Chrome recomendado)<br><br>' +
+      '<button onclick="retryLoadGSI()" style="background:var(--accent);color:#fff;border:none;border-radius:6px;padding:8px 16px;cursor:pointer;font-family:var(--font-body);font-size:.84rem;">Reintentar carga</button>'
+    );
+    return;
+  }
+  setTimeout(() => waitForGoogle(cb, attempts + 1), 100);
+}
+
+function retryLoadGSI(){
+  setLoginError('');
+  setLoginLoading(true);
+  // Remove existing script tag and reload
+  const old = document.querySelector('script[src*="accounts.google.com/gsi"]');
+  if(old) old.remove();
+  delete window.google;
+  const s = document.createElement('script');
+  s.src = 'https://accounts.google.com/gsi/client?t=' + Date.now();
+  s.onload = () => {
+    setLoginLoading(false);
+    setLoginError('Script de Google cargado. Pulsa "Entrar con Google" de nuevo.');
+  };
+  s.onerror = (e) => {
+    setLoginLoading(false);
+    setLoginError(
+      'El script de Google sigue sin cargar. El navegador o la red están bloqueando accounts.google.com.<br><br>' +
+      'Prueba en modo incógnito o en otro navegador.'
+    );
+  };
+  document.head.appendChild(s);
+}
+
+function signIn(){
+  setLoginError('');
+  if(!CLIENT_ID){
+    setLoginError('Introduce primero el Client ID de Google. Pulsa "Editar" para configurarlo.');
+    return;
+  }
+  setLoginLoading(true);
+  waitForGoogle(()=>{
+    try{
+      const client = google.accounts.oauth2.initTokenClient({
+        client_id: CLIENT_ID,
+        scope: SCOPES,
+        callback: (resp) => {
+          setLoginLoading(false);
+          if(resp.error){
+            let msg = 'Error: <strong>' + resp.error + '</strong>';
+            if(resp.error === 'access_denied')
+              msg = 'Acceso denegado. Tu cuenta debe estar en la lista de "Usuarios de prueba" en Google Cloud Console.<br>' +
+                    '<a href="https://console.cloud.google.com" target="_blank" style="color:var(--accent)">Ir a Google Cloud Console →</a><br><br>' +
+                    'Ruta: APIs y servicios → Pantalla de consentimiento → Usuarios de prueba → + Add users';
+            else if(resp.error === 'invalid_client')
+              msg = 'Client ID no válido o URL no autorizada.<br><br>' +
+                    'Verifica en Google Cloud Console que:<br>' +
+                    '1. El Client ID es correcto<br>' +
+                    '2. <strong>https://mikiaiapp.github.io</strong> está en "Orígenes de JavaScript autorizados"';
+            else if(resp.error === 'popup_closed_by_user')
+              msg = 'Ventana cerrada. Vuelve a pulsar "Entrar con Google".';
+            else if(resp.error === 'popup_blocked_by_browser')
+              msg = 'El navegador bloqueó la ventana emergente.<br>Busca el icono de popup bloqueado en la barra de direcciones y permite las ventanas emergentes para esta página.';
+            setLoginError(msg);
+            return;
+          }
+          accessToken = resp.access_token;
+          fetchUserInfo();
+        },
+        error_callback: (err) => {
+          setLoginLoading(false);
+          setLoginError('Error al iniciar sesión: ' + (err.message || err.type || JSON.stringify(err)));
+        }
+      });
+      client.requestAccessToken({prompt:'select_account'});
+    } catch(e){
+      setLoginLoading(false);
+      setLoginError('Error al inicializar Google Sign-In: ' + e.message);
+    }
+  });
+}
+
+function fetchUserInfo(){
+  fetch('https://www.googleapis.com/oauth2/v2/userinfo',{
+    headers:{Authorization:'Bearer '+accessToken}
+  })
+  .then(r=>{
+    if(r.status===401){
+      // Token rejected by userinfo - still try to proceed with Drive
+      // The token might only have drive scope
+      console.warn('Userinfo 401 - proceeding without profile data');
+      return null;
+    }
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    return r.json();
+  })
+  .then(u=>{
+    if(u){
+      document.getElementById('user-name').textContent=u.name||u.email||'Usuario';
+      if(u.picture) document.getElementById('user-avatar').src=u.picture;
+    } else {
+      document.getElementById('user-name').textContent='Usuario conectado';
+    }
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('topbar').classList.add('show');
+    document.getElementById('app-shell').classList.add('show');
+    initDriveData();
+    showFirstRunConfig();
+  })
+  .catch(e=>{
+    setLoginLoading(false);
+    setLoginError('Error al obtener datos de usuario: '+e.message+
+      '<br><br>Prueba a recargar la página (F5) e iniciar sesión de nuevo.');
+  });
+}
+
+function signOut(){
+  if(!confirm('¿Cerrar sesión?'))return;
+  accessToken=null;folderId=null;fileId=null;
+  DB={proyectos:[],ventas:[],costes:[],cobros:[],pagos:[],logo:'',tiposIva:[...DEFAULT_IVA],tiposIrpf:[...DEFAULT_IRPF],defaultIvaPct:21,defaultIrpfPct:0};
+  document.getElementById('login-screen').style.display='flex';
+  document.getElementById('topbar').classList.remove('show');
+  document.getElementById('app-shell').classList.remove('show');
+}
+
+// ═══════════════════════════════════════════
+// GOOGLE DRIVE
+// ═══════════════════════════════════════════
+function driveH(){return{Authorization:'Bearer '+accessToken,'Content-Type':'application/json'};}
+
+async function getOrCreateFolder(){
+  const q=encodeURIComponent(`name='${DRIVE_FOLDER}' and mimeType='application/vnd.google-apps.folder' and trashed=false`);
+  const r=await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)`,{headers:driveH()});
+  const d=await r.json();
+  if(d.files&&d.files.length)return d.files[0].id;
+  const cr=await fetch('https://www.googleapis.com/drive/v3/files',{method:'POST',headers:driveH(),body:JSON.stringify({name:DRIVE_FOLDER,mimeType:'application/vnd.google-apps.folder'})});
+  return(await cr.json()).id;
+}
+
+async function getOrCreateFile(fId){
+  const q=encodeURIComponent(`name='${DRIVE_FILE}' and '${fId}' in parents and trashed=false`);
+  const r=await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)`,{headers:driveH()});
+  const d=await r.json();
+  if(d.files&&d.files.length)return{id:d.files[0].id,isNew:false};
+  const meta={name:DRIVE_FILE,parents:[fId]};
+  const cr=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{
+    method:'POST',
+    headers:{Authorization:'Bearer '+accessToken,'Content-Type':'multipart/related; boundary=gp_boundary'},
+    body:`--gp_boundary\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(meta)}\r\n--gp_boundary\r\nContent-Type: application/json\r\n\r\n{}\r\n--gp_boundary--`
+  });
+  return{id:(await cr.json()).id,isNew:true};
+}
+
+async function loadFromDrive(){
+  const r=await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,{headers:{Authorization:'Bearer '+accessToken}});
+  try{
+    const parsed=JSON.parse(await r.text());
+    if(parsed&&typeof parsed==='object'){
+      DB.proyectos=parsed.proyectos||[];
+      DB.ventas=parsed.ventas||[];
+      DB.costes=parsed.costes||[];
+      DB.cobros=parsed.cobros||[];
+      DB.pagos=parsed.pagos||[];
+      DB.logo=parsed.logo||'';
+      DB.tiposIva=parsed.tiposIva||[...DEFAULT_IVA];
+      DB.tiposIrpf=parsed.tiposIrpf||[...DEFAULT_IRPF];
+      DB.defaultIvaPct=parsed.defaultIvaPct??21;
+      DB.defaultIrpfPct=parsed.defaultIrpfPct??0;
+      // Config keys stored in Drive for cross-device sync
+      if(parsed.clientId){ CLIENT_ID=parsed.clientId; localStorage.setItem('gp_client_id',parsed.clientId); }
+      if(parsed.geminiKey){ GEMINI_KEY=parsed.geminiKey; localStorage.setItem('gp_gemini_key',parsed.geminiKey); }
+    }
+  }catch(e){}
+}
+
+async function saveToDrive(){
+  if(!fileId||!accessToken)return;
+  setSyncStatus('syncing','Guardando...');
+  try{
+    const form=new FormData();
+    form.append('metadata',new Blob([JSON.stringify({name:DRIVE_FILE})],{type:'application/json'}));
+    const dbWithConfig={...DB, clientId:CLIENT_ID||'', geminiKey:GEMINI_KEY||''};
+    form.append('file',new Blob([JSON.stringify(dbWithConfig)],{type:'application/json'}));
+    await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart`,{
+      method:'PATCH',headers:{Authorization:'Bearer '+accessToken},body:form
+    });
+    const now=new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+    setSyncStatus('ok','Guardado '+now);
+  }catch(e){setSyncStatus('error','Error al guardar');toast('Error al guardar en Drive.','error');}
+}
+
+function scheduleSave(){
+  setSyncStatus('syncing','Pendiente...');
+  clearTimeout(saveTimeout);
+  saveTimeout=setTimeout(()=>saveToDrive(),1500);
+}
+
+async function getOrCreateBackupFolder(parentId){
+  const q=encodeURIComponent(`name='${BACKUP_FOLDER}' and '${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`);
+  const r=await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)`,{headers:driveH()});
+  const d=await r.json();
+  if(d.files&&d.files.length)return d.files[0].id;
+  const cr=await fetch('https://www.googleapis.com/drive/v3/files',{method:'POST',headers:driveH(),
+    body:JSON.stringify({name:BACKUP_FOLDER,mimeType:'application/vnd.google-apps.folder',parents:[parentId]})});
+  return(await cr.json()).id;
+}
+
+async function createAutoBackup(){
+  try{
+    const today=todayStr();
+    const lastBackup=localStorage.getItem('gp_last_backup');
+    if(lastBackup===today)return; // already backed up today
+    const backupFolderId=await getOrCreateBackupFolder(folderId);
+    // List existing backups
+    const q=encodeURIComponent(`'${backupFolderId}' in parents and trashed=false`);
+    const r=await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,createdTime)&orderBy=createdTime`,{headers:driveH()});
+    const d=await r.json();
+    const backups=(d.files||[]).sort((a,b)=>a.createdTime.localeCompare(b.createdTime));
+    // Delete oldest if > MAX_BACKUPS-1
+    while(backups.length>=MAX_BACKUPS){
+      const old=backups.shift();
+      await fetch(`https://www.googleapis.com/drive/v3/files/${old.id}`,{method:'DELETE',headers:driveH()});
+    }
+    // Create new backup
+    const backupName=`backup_${today}.json`;
+    const form=new FormData();
+    form.append('metadata',new Blob([JSON.stringify({name:backupName,parents:[backupFolderId]})],{type:'application/json'}));
+    const dbWithConfigB={...DB, clientId:CLIENT_ID||'', geminiKey:GEMINI_KEY||''};
+    form.append('file',new Blob([JSON.stringify(dbWithConfigB)],{type:'application/json'}));
+    await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{
+      method:'POST',headers:{Authorization:'Bearer '+accessToken},body:form
+    });
+    localStorage.setItem('gp_last_backup',today);
+    console.log('Auto-backup created: '+backupName);
+  }catch(e){console.warn('Auto-backup failed:',e);}
+}
+
+async function listBackups(){
+  try{
+    const backupFolderId=await getOrCreateBackupFolder(folderId);
+    const q=encodeURIComponent(`'${backupFolderId}' in parents and trashed=false`);
+    const r=await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,createdTime)&orderBy=createdTime desc`,{headers:driveH()});
+    const d=await r.json();
+    return{files:d.files||[],backupFolderId};
+  }catch(e){return{files:[],backupFolderId:null};}
+}
+
+async function showRestoreModal(){
+  openModal('modal-restore-backup');
+  const list=document.getElementById('restore-backup-list');
+  list.innerHTML='<div style="color:var(--muted);font-size:.86rem;">Cargando copias...</div>';
+  const{files}=await listBackups();
+  if(!files.length){
+    list.innerHTML='<div style="color:var(--muted);font-size:.86rem;">No hay copias de seguridad disponibles.</div>';
+    return;
+  }
+  list.innerHTML=files.map(f=>`
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--card2);border:1px solid var(--border);border-radius:8px;margin-bottom:8px;">
+      <div>
+        <div style="font-weight:600;font-size:.86rem;">${f.name}</div>
+        <div style="font-size:.76rem;color:var(--muted);">${new Date(f.createdTime).toLocaleString('es-ES')}</div>
+      </div>
+      <button class="btn btn-warn btn-sm" onclick="restoreFromBackup('${f.id}','${f.name}')">Restaurar</button>
+    </div>`).join('');
+}
+
+async function restoreFromBackup(fileId,name){
+  if(!confirm(`¿Restaurar la copia "${name}"? Los datos actuales serán reemplazados.`))return;
+  closeModal('modal-restore-backup');
+  showSyncOverlay('Restaurando copia de seguridad...');
+  try{
+    const r=await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,{headers:{Authorization:'Bearer '+accessToken}});
+    const parsed=JSON.parse(await r.text());
+    if(parsed&&typeof parsed==='object'){
+      DB.proyectos=parsed.proyectos||[];DB.ventas=parsed.ventas||[];
+      DB.costes=parsed.costes||[];DB.cobros=parsed.cobros||[];DB.pagos=parsed.pagos||[];
+      DB.logo=parsed.logo||'';DB.tiposIva=parsed.tiposIva||[...DEFAULT_IVA];
+      DB.tiposIrpf=parsed.tiposIrpf||[...DEFAULT_IRPF];
+      DB.defaultIvaPct=parsed.defaultIvaPct??21;DB.defaultIrpfPct=parsed.defaultIrpfPct??0;
+    }
+    await saveToDrive();
+    hideSyncOverlay();renderAll();
+    toast('Datos restaurados desde '+name);
+  }catch(e){hideSyncOverlay();toast('Error al restaurar.','error');}
+}
+
+
+// ─── ATTACHMENT (PDF) FUNCTIONS ──────────────────────────────────────────
+let attachFolderId = null;
+
+async function getOrCreateAttachFolder(){
+  if(attachFolderId) return attachFolderId;
+  const q=encodeURIComponent(`name='${ATTACH_FOLDER}' and '${folderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`);
+  const r=await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)`,{headers:driveH()});
+  const d=await r.json();
+  if(d.files&&d.files.length){attachFolderId=d.files[0].id;return attachFolderId;}
+  const cr=await fetch('https://www.googleapis.com/drive/v3/files',{
+    method:'POST',headers:driveH(),
+    body:JSON.stringify({name:ATTACH_FOLDER,mimeType:'application/vnd.google-apps.folder',parents:[folderId]})
+  });
+  attachFolderId=(await cr.json()).id;
+  return attachFolderId;
+}
+
+async function uploadAttachment(base64,filename,mimeType){
+  // Returns Drive file id
+  const afId=await getOrCreateAttachFolder();
+  const meta={name:filename,parents:[afId]};
+  const boundary='gp_attach_boundary';
+  const body=[
+    '--'+boundary,
+    'Content-Type: application/json',
+    '',
+    JSON.stringify(meta),
+    '--'+boundary,
+    'Content-Type: '+mimeType,
+    'Content-Transfer-Encoding: base64',
+    '',
+    base64,
+    '--'+boundary+'--'
+  ].join('\r\n');
+  const r=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{
+    method:'POST',
+    headers:{Authorization:'Bearer '+accessToken,'Content-Type':'multipart/related; boundary='+boundary},
+    body
+  });
+  const d=await r.json();
+  return d.id||null;
+}
+
+async function deleteAttachment(driveFileId){
+  if(!driveFileId||!accessToken) return;
+  await fetch(`https://www.googleapis.com/drive/v3/files/${driveFileId}`,{
+    method:'DELETE',headers:{Authorization:'Bearer '+accessToken}
+  });
+}
+
+function getAttachUrl(driveFileId){
+  return `https://drive.google.com/file/d/${driveFileId}/view`;
+}
+
+// Read a file input as base64
+function readFileAsBase64(file){
+  return new Promise((res,rej)=>{
+    const r=new FileReader();
+    r.onload=e=>res({base64:e.target.result.split(',')[1],mimeType:file.type,name:file.name});
+    r.onerror=rej;
+    r.readAsDataURL(file);
+  });
+}
+
+async function initDriveData(){
+  showSyncOverlay('Conectando con Google Drive...');
+  try{
+    folderId=await getOrCreateFolder();
+    showSyncOverlay('Buscando datos...');
+    const{id,isNew}=await getOrCreateFile(folderId);
+    fileId=id;
+    if(!isNew){showSyncOverlay('Cargando datos...');await loadFromDrive();}
+    hideSyncOverlay();
+    renderAll();
+    setSyncStatus('ok','Conectado');
+    toast('Datos cargados ✓');
+    // Auto backup (transparent, after a short delay)
+    setTimeout(()=>createAutoBackup(),3000);
+  }catch(e){
+    hideSyncOverlay();
+    toast('Error Drive: '+e.message,'error');
+    setSyncStatus('error','Error');
+    renderAll();
+  }
+}
+
+function showSyncOverlay(msg){document.getElementById('sync-msg').textContent=msg;document.getElementById('sync-overlay').classList.add('show');}
+function hideSyncOverlay(){document.getElementById('sync-overlay').classList.remove('show');}
+async function forceSave(){await saveToDrive();toast('Guardado en Drive.');}
+async function forceLoad(){showSyncOverlay('Recargando...');await loadFromDrive();hideSyncOverlay();renderAll();toast('Datos recargados.');}
+
+function renderAll(){
+  renderProyectos();
+  populateFiscalDropdowns();
+  const today=todayStr();
+  ['v-fecha','c-fecha','co-fecha','pa-fecha'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=today;});
+  onVentaSerieChange();
+  onCosteSerieChange();
+  if(DB.logo)applyLogo(DB.logo);
+}
+
+// ═══════════════════════════════════════════
+// LOGIN STEP NAVIGATION
+// ═══════════════════════════════════════════
+function validateClientId(){ /* removed — CLIENT_ID hardcoded */ }
+
+function setupClientId(){ /* removed — CLIENT_ID hardcoded */ }
+
+function goToStep2(){ /* removed — CLIENT_ID hardcoded */ }
+
+function goToStep1(){ /* removed — CLIENT_ID hardcoded */ }
+
+// Show config step for NEW USERS who don't have Gemini key yet
+// Called after successful first login
+function showFirstRunConfig(){
+  // Show a non-blocking toast/banner instead of interrupting the flow
+  if(!GEMINI_KEY){
+    setTimeout(()=>{
+      toast('Consejo: configura una API Key de Gemini en Ajustes para importar facturas PDF automáticamente.', '', 6000);
+    }, 2000);
+  }
+}
+
+
 function setLoginError(msg){
   let el=document.getElementById('login-error-msg');
   if(!el){
@@ -1404,6 +1847,9 @@ async function loadFromDrive(){
       DB.tiposIrpf=parsed.tiposIrpf||[...DEFAULT_IRPF];
       DB.defaultIvaPct=parsed.defaultIvaPct??21;
       DB.defaultIrpfPct=parsed.defaultIrpfPct??0;
+      // Config keys stored in Drive for cross-device sync
+      if(parsed.clientId){ CLIENT_ID=parsed.clientId; localStorage.setItem('gp_client_id',parsed.clientId); }
+      if(parsed.geminiKey){ GEMINI_KEY=parsed.geminiKey; localStorage.setItem('gp_gemini_key',parsed.geminiKey); }
     }
   }catch(e){}
 }
@@ -1414,7 +1860,8 @@ async function saveToDrive(){
   try{
     const form=new FormData();
     form.append('metadata',new Blob([JSON.stringify({name:DRIVE_FILE})],{type:'application/json'}));
-    form.append('file',new Blob([JSON.stringify(DB)],{type:'application/json'}));
+    const dbWithConfig={...DB, clientId:CLIENT_ID||'', geminiKey:GEMINI_KEY||''};
+    form.append('file',new Blob([JSON.stringify(dbWithConfig)],{type:'application/json'}));
     await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart`,{
       method:'PATCH',headers:{Authorization:'Bearer '+accessToken},body:form
     });
@@ -1459,7 +1906,8 @@ async function createAutoBackup(){
     const backupName=`backup_${today}.json`;
     const form=new FormData();
     form.append('metadata',new Blob([JSON.stringify({name:backupName,parents:[backupFolderId]})],{type:'application/json'}));
-    form.append('file',new Blob([JSON.stringify(DB)],{type:'application/json'}));
+    const dbWithConfigB={...DB, clientId:CLIENT_ID||'', geminiKey:GEMINI_KEY||''};
+    form.append('file',new Blob([JSON.stringify(dbWithConfigB)],{type:'application/json'}));
     await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{
       method:'POST',headers:{Authorization:'Bearer '+accessToken},body:form
     });
@@ -1519,7 +1967,7 @@ async function restoreFromBackup(fileId,name){
 
 
 // ─── ATTACHMENT (PDF) FUNCTIONS ──────────────────────────────────────────
-let attachFolderId = null;
+// attachFolderId declared above
 
 async function getOrCreateAttachFolder(){
   if(attachFolderId) return attachFolderId;
@@ -1659,61 +2107,7 @@ function goToStep1(){
   document.getElementById('login-client-id').value=CLIENT_ID||'';
 }
 
-function toggleEditClientId(){
-  const wrap=document.getElementById('clientid-edit-wrap');
-  const ro=document.getElementById('clientid-readonly');
-  const btn=document.getElementById('btn-edit-toggle');
-  const isEditing=wrap.style.display!=='none';
-  wrap.style.display=isEditing?'none':'block';
-  ro.style.display=isEditing?'block':'none';
-  btn.textContent=isEditing?'✏️ Editar':'✕ Cancelar';
-  if(!isEditing){
-    const inp=document.getElementById('login-client-id-2');
-    if(inp){inp.value=CLIENT_ID||'';inp.focus();inp.select();}
-  }
-}
-
-function saveClientIdInline(){
-  const val=document.getElementById('login-client-id-2').value.trim();
-  const err=validateClientId(val);
-  const hint=document.getElementById('step2-error');
-  if(err){
-    if(hint){hint.textContent=err;hint.style.display='block';}
-    else alert(err);
-    return;
-  }
-  if(hint)hint.style.display='none';
-  CLIENT_ID=val;localStorage.setItem('gp_client_id',val);
-  document.getElementById('clientid-readonly').textContent=val;
-  document.getElementById('clientid-edit-wrap').style.display='none';
-  document.getElementById('clientid-readonly').style.display='block';
-  document.getElementById('btn-edit-toggle').textContent='✏️ Editar';
-  toast('Client ID actualizado.');
-}
-
-// ═══════════════════════════════════════════
-// FISCAL TYPES
-// ═══════════════════════════════════════════
-function populateFiscalDropdowns(){
-  const ivaSelects=['c-iva-tipo','ec-iva-tipo'];
-  const irpfSelects=['c-irpf-tipo','ec-irpf-tipo'];
-  const ivaTypes=DB.tiposIva||[...DEFAULT_IVA];
-  const irpfTypes=DB.tiposIrpf||[...DEFAULT_IRPF];
-  const defIva=DB.defaultIvaPct??21;
-  const defIrpf=DB.defaultIrpfPct??0;
-  ivaSelects.forEach(id=>{
-    const el=document.getElementById(id);if(!el)return;
-    const cur=el.value;
-    el.innerHTML=ivaTypes.map(t=>`<option value="${t}" ${!cur&&t===defIva?'selected':''}>${t}%${t===defIva?' (defecto)':''}</option>`).join('');
-    if(cur)el.value=cur;
-  });
-  irpfSelects.forEach(id=>{
-    const el=document.getElementById(id);if(!el)return;
-    const cur=el.value;
-    el.innerHTML=irpfTypes.map(t=>`<option value="${t}" ${!cur&&t===defIrpf?'selected':''}>${t===0?'Sin retención':t+'%'}${t===defIrpf?' (defecto)':''}</option>`).join('');
-    if(cur)el.value=cur;
-  });
-}
+function toggleEditClientId(){ /* removed — CLIENT_ID hardcoded */ }
 
 function renderFiscalTags(){
   const ivaDiv=document.getElementById('iva-tags');
@@ -2154,29 +2548,47 @@ function getProveedores(){
   return [...map.values()].sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));
 }
 
+// Map to look up proveedor data by key (avoids HTML attribute encoding issues)
+let _proveedoresMap = {};
+
 function populateProveedorSelect(selectId){
   const sel = document.getElementById(selectId);
   if(!sel) return;
   const provs = getProveedores();
+  // Build lookup map: key → {nombre, nif}
+  _proveedoresMap = {};
+  provs.forEach(p=>{
+    const key = p.nif || p.nombre;
+    _proveedoresMap[key] = p;
+  });
   sel.innerHTML = '<option value="">— Nuevo proveedor —</option>' +
-    provs.map(p=>`<option value="${p.nif||p.nombre}" data-nombre="${p.nombre}" data-nif="${p.nif}">`+
-      `${p.nombre}${p.nif?' ('+p.nif+')':''}</option>`).join('');
+    provs.map(p=>{
+      const key = p.nif || p.nombre;
+      const label = p.nombre + (p.nif ? ' (' + p.nif + ')' : '');
+      return `<option value="${esc(key)}">${label}</option>`;
+    }).join('');
+}
+
+function applyProveedorSelection(key, nombreFieldId, nifFieldId){
+  if(!key) return;
+  const p = _proveedoresMap[key];
+  if(!p) return;
+  const nombreEl = document.getElementById(nombreFieldId);
+  const nifEl    = document.getElementById(nifFieldId);
+  if(nombreEl) nombreEl.value = p.nombre || '';
+  if(nifEl)    nifEl.value    = p.nif    || '';
 }
 
 function onProveedorSelect(){
   const sel = document.getElementById('c-prov-select');
-  if(!sel||!sel.value) return;
-  const opt = sel.options[sel.selectedIndex];
-  document.getElementById('c-proveedor').value = opt.dataset.nombre || '';
-  document.getElementById('c-nif').value       = opt.dataset.nif    || '';
+  if(!sel) return;
+  applyProveedorSelection(sel.value, 'c-proveedor', 'c-nif');
 }
 
 function onProveedorSelectEdit(){
   const sel = document.getElementById('ec-prov-select');
-  if(!sel||!sel.value) return;
-  const opt = sel.options[sel.selectedIndex];
-  document.getElementById('ec-proveedor').value = opt.dataset.nombre || '';
-  document.getElementById('ec-nif').value       = opt.dataset.nif    || '';
+  if(!sel) return;
+  applyProveedorSelection(sel.value, 'ec-proveedor', 'ec-nif');
 }
 
 function onCosteSerieChange(){
@@ -3579,8 +3991,8 @@ function applyLogo(src){
 function saveClientId(){
   const val=document.getElementById('cfg-client-id').value.trim();
   if(!val){toast('Introduce el Client ID.','error');return;}
-  CLIENT_ID=val;localStorage.setItem('gp_client_id',val);
-  toast('Client ID actualizado.');loadAjustesStatus();
+  CLIENT_ID=val;// CLIENT_ID is hardcoded in source — localStorage not needed
+  toast('El Client ID está fijo en el código fuente.');loadAjustesStatus();
 }
 function toggleDriveConfig(){
   const body=document.getElementById('drive-config-body');
@@ -3861,9 +4273,7 @@ async function extractPdfWithAI(base64, type){
 // ═══════════════════════════════════════════
 window.addEventListener('DOMContentLoaded', () => {
   GEMINI_KEY = localStorage.getItem('gp_gemini_key') || '';
-  if(CLIENT_ID){
-    goToStep2();
-  }
+  // CLIENT_ID is hardcoded — login screen shows directly
 });
 </script>
 </body>
