@@ -779,6 +779,27 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
     </div>
   </div>
 
+  <!-- Gemini API -->
+  <div class="section-box" style="border-color:rgba(91,127,166,.2);background:rgba(91,127,166,.02);">
+    <h2>🤖 API de IA para importar PDFs (Google Gemini)</h2>
+    <p style="color:var(--muted);font-size:.85rem;margin-bottom:14px;line-height:1.6;">
+      Gemini analiza automáticamente tus facturas PDF y extrae NIF, proveedor, fecha, bases de IVA e IRPF.<br>
+      Crea tu clave gratuita en <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--accent);">aistudio.google.com/apikey →</a>
+      (hasta 1.500 peticiones/día gratis).
+    </p>
+    <div class="form-grid cols2" style="max-width:600px;">
+      <div class="form-group" style="grid-column:span 2">
+        <label>Gemini API Key</label>
+        <input type="password" id="cfg-gemini-key" placeholder="AIza...">
+      </div>
+    </div>
+    <div class="btn-group">
+      <button class="btn btn-primary" onclick="saveGeminiKey()">💾 Guardar</button>
+      <button class="btn btn-ghost btn-sm" onclick="testGeminiKey()" style="margin-left:4px;">Probar conexión</button>
+    </div>
+    <div id="gemini-status" style="margin-top:10px;font-size:.82rem;color:var(--muted);"></div>
+  </div>
+
   <!-- Tipos Fiscales -->
   <div class="section-box">
     <h2>🧾 Mantenimiento de Tipos Fiscales</h2>
@@ -3027,33 +3048,6 @@ function extractDataFromText(t, type){
 }
 
 
-async function extractPdfWithAI(base64,type){
-  const bar=document.getElementById('ai-status-bar');
-  const msg=document.getElementById('ai-status-msg');
-  bar.style.display='flex';
-  bar.style.borderColor='';
-  bar.style.color='var(--accent)';
-  msg.textContent='Extrayendo texto del PDF...';
-  document.getElementById('pdf-form-content').innerHTML='<div style="color:var(--muted);font-size:.86rem;padding:12px;">Procesando...</div>';
-  const pdfText=await extractTextFromPdf(base64);
-  if(!pdfText||pdfText.length<10){
-    bar.style.color='var(--yellow)';
-    bar.style.borderColor='rgba(160,108,0,.3)';
-    msg.textContent='No se pudo extraer texto (PDF escaneado como imagen). Rellena los datos manualmente.';
-    renderPdfForm(type,{});
-    return;
-  }
-  msg.textContent='Analizando datos del documento...';
-  const parsed=extractDataFromText(pdfText,type);
-  pdfExtracted=parsed;
-  bar.style.display='none';
-  renderPdfForm(type,parsed);
-  const panel=document.getElementById('pdf-form-content');
-  panel.innerHTML+=`<details style="margin-top:12px;border:1px solid var(--border);border-radius:8px;">
-    <summary style="cursor:pointer;font-size:.76rem;color:var(--muted);font-weight:600;padding:8px 12px;">&#x1F50D; Ver texto extraído (para verificar datos)</summary>
-    <pre style="font-size:.7rem;color:var(--muted);background:var(--card2);padding:10px;overflow:auto;max-height:180px;white-space:pre-wrap;border-top:1px solid var(--border);">${pdfText.replace(/</g,'&lt;').slice(0,3000)}</pre>
-  </details>`;
-}
 function renderPdfForm(type,data){
   const proyectos=getD('proyectos');
   const clientes=[...new Set(proyectos.map(p=>p.cliente))];
@@ -3245,27 +3239,422 @@ function toggleDriveConfig(){
   body.style.display=open?'block':'none';
   toggle.textContent=open?'▲ Ocultar':'▼ Mostrar';
 }
-function loadAjustesStatus(){
-  const saved=localStorage.getItem('gp_client_id')||'';
-  const btn=document.getElementById('btn-current-id');
-  if(saved){btn.style.display='inline-flex';btn.textContent='&#x2713; '+saved.slice(0,32)+'...';}
-  document.getElementById('cfg-client-id').value=saved;
-  const status=document.getElementById('drive-status');
-  if(folderId&&fileId){status.innerHTML=`<span style="color:var(--green)">&#x2714; Conectado</span>`;}
-  else{status.innerHTML=`<span style="color:var(--muted)">No conectado.</span>`;}
+// ─── GEMINI API ──────────────────────────────────────────────────────────
+let GEMINI_KEY = localStorage.getItem('gp_gemini_key') || '';
+const GEMINI_MODEL = 'gemini-2.0-flash';
+const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODEL + ':generateContent';
+
+function saveGeminiKey(){
+  const val = document.getElementById('cfg-gemini-key').value.trim();
+  if(!val){ toast('Introduce la API key de Gemini.', 'error'); return; }
+  GEMINI_KEY = val;
+  localStorage.setItem('gp_gemini_key', val);
+  toast('API key de Gemini guardada.');
+  updateGeminiStatus('Guardada. Usa el botón "Probar conexión" para verificarla.');
+}
+
+async function testGeminiKey(){
+  const key = document.getElementById('cfg-gemini-key').value.trim() || GEMINI_KEY;
+  if(!key){ toast('Introduce primero la API key.', 'error'); return; }
+  updateGeminiStatus('Probando conexión...');
+  try{
+    const r = await fetch(GEMINI_URL + '?key=' + key, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: 'Responde solo: OK' }] }],
+        generationConfig: { maxOutputTokens: 10 }
+      })
+    });
+    const d = await r.json();
+    if(d.error) throw new Error(d.error.message);
+    updateGeminiStatus('&#x2714; Conexión correcta. Gemini listo para importar facturas.', true);
+  } catch(e){
+    updateGeminiStatus('&#x2716; Error: ' + e.message + '. Verifica la API key.', false, true);
+  }
+}
+
+function updateGeminiStatus(msg, ok, err){
+  const el = document.getElementById('gemini-status');
+  if(!el) return;
+  el.innerHTML = msg;
+  el.style.color = ok ? 'var(--green)' : err ? 'var(--red)' : 'var(--muted)';
+}
+
+// ── Main Gemini PDF extraction ───────────────────────────────────────────
+async function extractWithGemini(base64, type){
+  const key = GEMINI_KEY;
+  if(!key) throw new Error('NO_KEY');
+
+  // Single prompt asking everything at once — saves tokens and round trips
+  const prompts = {
+    coste: `Analiza esta factura y responde ÚNICAMENTE con un objeto JSON válido, sin explicaciones, sin markdown, sin backticks.
+El JSON debe tener exactamente estas claves:
+{
+  "nif": "NIF o CIF del EMISOR (proveedor), ej: B12345678",
+  "proveedor": "Nombre o razón social completa del EMISOR",
+  "numfact": "Número de factura completo",
+  "fecha": "Fecha de emisión en formato YYYY-MM-DD",
+  "ivaLines": [{"base": 1000.00, "ivaPct": 21, "cuota": 210.00}],
+  "irpfImporte": 0,
+  "irpfPct": 0,
+  "total": 1210.00
+}
+Si hay varias bases imponibles con diferentes tipos de IVA, incluye una entrada por cada una en ivaLines.
+Si no hay retención IRPF, pon 0 en irpfImporte e irpfPct.
+Todos los importes como números sin símbolo de moneda.`,
+
+    venta: `Analiza esta factura emitida y responde ÚNICAMENTE con un objeto JSON válido, sin explicaciones, sin markdown, sin backticks.
+El JSON debe tener exactamente estas claves:
+{
+  "nifCliente": "NIF o CIF del CLIENTE destinatario",
+  "cliente": "Nombre o razón social del CLIENTE",
+  "numfact": "Número de factura completo",
+  "fecha": "Fecha de emisión en formato YYYY-MM-DD",
+  "base": 1000.00,
+  "ivaPct": 21,
+  "cuotaIva": 210.00,
+  "total": 1210.00,
+  "serie": "A si tiene IVA, B si no tiene IVA"
+}
+Todos los importes como números sin símbolo de moneda.`,
+
+    proyecto: `Analiza este presupuesto y responde ÚNICAMENTE con un objeto JSON válido, sin explicaciones, sin markdown, sin backticks.
+El JSON debe tener exactamente estas claves:
+{
+  "nombre": "Descripción breve del proyecto o servicio (máx 80 caracteres)",
+  "cliente": "Nombre del cliente destinatario",
+  "nif": "NIF o CIF del cliente si aparece, si no cadena vacía",
+  "venta": 0.00
+}
+venta es el importe total del presupuesto. Todos los importes como números.`
+  };
+
+  const body = {
+    contents: [{
+      parts: [
+        { inline_data: { mime_type: 'application/pdf', data: base64 } },
+        { text: prompts[type] }
+      ]
+    }],
+    generationConfig: { maxOutputTokens: 500, temperature: 0 }
+  };
+
+  const r = await fetch(
+    'https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODEL + ':generateContent?key=' + key,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+  );
+  const d = await r.json();
+  if(d.error) throw new Error(d.error.message);
+
+  let raw = (d.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
+  // Strip markdown code fences if model adds them despite instructions
+  raw = raw.replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/\s*```$/,'').trim();
+
+  let parsed;
+  try { parsed = JSON.parse(raw); }
+  catch(e) {
+    // Try to extract JSON object from response
+    const m = raw.match(/\{[\s\S]*\}/);
+    if(m) parsed = JSON.parse(m[0]);
+    else throw new Error('Respuesta no válida de Gemini: ' + raw.slice(0,100));
+  }
+  return parsed;
+}
+
+function geminiToFormData(data, type){
+  // Convert Gemini JSON response to form data structure
+  const r = {};
+  function cleanNum(v){ return typeof v==='number' ? v : parseNumFromText(String(v||0)); }
+  function cleanDate(s){
+    if(!s) return todayStr();
+    // Already YYYY-MM-DD
+    if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    // DD/MM/YYYY
+    const m = String(s).match(/(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/);
+    if(m) return m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
+    return todayStr();
+  }
+
+  if(type === 'coste'){
+    r.nif       = String(data.nif||'').trim();
+    r.proveedor = String(data.proveedor||'').trim();
+    r.numfact   = String(data.numfact||'').trim();
+    r.fecha     = cleanDate(data.fecha);
+    // IVA lines
+    let ivaLines = [];
+    if(Array.isArray(data.ivaLines) && data.ivaLines.length){
+      ivaLines = data.ivaLines.map(l=>({
+        base:   cleanNum(l.base),
+        ivaPct: cleanNum(l.ivaPct),
+        cuota:  cleanNum(l.cuota) || Math.round(cleanNum(l.base)*cleanNum(l.ivaPct)*100)/10000
+      })).filter(l=>l.base>0);
+    }
+    if(!ivaLines.length) ivaLines = [{base:0, ivaPct:DB.defaultIvaPct||21, cuota:0}];
+    r.ivaLines  = ivaLines;
+    r.base      = ivaLines.reduce((s,l)=>s+l.base, 0);
+    r.cuotaIva  = ivaLines.reduce((s,l)=>s+l.cuota, 0);
+    r.ivaPct    = ivaLines.length===1 ? ivaLines[0].ivaPct : (DB.defaultIvaPct||21);
+    r.irpfImporte = cleanNum(data.irpfImporte||data.retencion||0);
+    r.irpfPct     = cleanNum(data.irpfPct||0);
+    if(!r.irpfPct && r.irpfImporte && r.base) r.irpfPct = Math.round(r.irpfImporte/r.base*100);
+    r.retencion = r.irpfImporte;
+    r.total     = cleanNum(data.total) || (r.base + r.cuotaIva - r.retencion);
+
+  } else if(type === 'venta'){
+    r.nifCliente= String(data.nifCliente||'').trim();
+    r.cliente   = String(data.cliente||'').trim();
+    r.numero    = String(data.numfact||'').trim() || nextVentaNum('A');
+    r.fecha     = cleanDate(data.fecha);
+    r.base      = cleanNum(data.base||0);
+    r.ivaPct    = cleanNum(data.ivaPct||21);
+    r.cuotaIva  = cleanNum(data.cuotaIva||0) || Math.round(r.base*r.ivaPct*100)/10000;
+    r.total     = cleanNum(data.total||0) || (r.base + r.cuotaIva);
+    r.serie     = String(data.serie||'A').toUpperCase() === 'B' ? 'B' : 'A';
+
+  } else {
+    r.nombre  = String(data.nombre||'').trim();
+    r.cliente = String(data.cliente||'').trim();
+    r.nif     = String(data.nif||'').trim();
+    r.venta   = cleanNum(data.venta||0);
+    r.coste   = 0;
+  }
+  return r;
+}
+
+async function extractPdfWithAI(base64, type){
+  const bar = document.getElementById('ai-status-bar');
+  const msg = document.getElementById('ai-status-msg');
+  bar.style.display = 'flex';
+  bar.style.borderColor = '';
+  bar.style.color = 'var(--accent)';
+
+  if(!GEMINI_KEY){
+    bar.style.display = 'none';
+    renderPdfForm(type, {});
+    // Show config hint
+    const panel = document.getElementById('pdf-form-content');
+    panel.innerHTML = `<div style="background:rgba(160,108,0,.08);border:1px solid rgba(160,108,0,.25);border-radius:10px;padding:14px 16px;margin-bottom:14px;font-size:.84rem;color:var(--yellow);">
+      <strong>&#x1F916; Activa la extracción automática</strong><br>
+      Añade tu API key gratuita de Google Gemini en
+      <button onclick="showPage('ajustes',document.querySelector('nav a:last-child'));closeModal('modal-pdf-import')"
+        style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:.84rem;text-decoration:underline;font-family:var(--font-body);">
+        Ajustes → API de IA →
+      </button>
+    </div>` + panel.innerHTML;
+    return;
+  }
+
+  msg.textContent = '&#x1F916; Enviando a Gemini 2.0 Flash...';
+  document.getElementById('pdf-form-content').innerHTML =
+    '<div style="color:var(--muted);font-size:.86rem;padding:16px;text-align:center;">&#x1F916; Analizando factura...</div>';
+
+  try{
+    const raw = await extractWithGemini(base64, type);
+    const parsed = geminiToFormData(raw, type);
+    pdfExtracted = parsed;
+    bar.style.display = 'none';
+    renderPdfForm(type, parsed);  // ← fills the form directly
+
+  } catch(e){
+    bar.style.color = 'var(--red)';
+    bar.style.borderColor = 'rgba(192,57,43,.3)';
+    msg.textContent = 'Error: ' + e.message;
+    setTimeout(()=>{ bar.style.display='none'; }, 4000);
+    renderPdfForm(type, {});
+  }
+}
+
+function renderPdfForm(type,data){
+  const proyectos=getD('proyectos');
+  const clientes=[...new Set(proyectos.map(p=>p.cliente))];
+  const ivaTypes=(DB.tiposIva||DEFAULT_IVA).map(t=>`<option value="${t}" ${t===(data.ivaPct||21)?'selected':''}>${t}%</option>`).join('');
+  const irpfTypes='<option value="0">Sin retención</option>'+((DB.tiposIrpf||DEFAULT_IRPF).filter(t=>t>0).map(t=>`<option value="${t}" ${t===(data.irpfPct||0)?'selected':''}>${t}%</option>`).join(''));
+
+  let html='';
+  if(type==='proyecto'){
+    html=`
+      <div class="form-group"><label>Nombre del Proyecto</label><input type="text" id="pdf-f-nombre" value="${esc(data.nombre||'')}"></div>
+      <div class="form-group"><label>Cliente</label><input type="text" id="pdf-f-cliente" value="${esc(data.cliente||'')}"></div>
+      <div class="form-group"><label>Valor de Venta (€)</label><input type="text" inputmode="decimal" id="pdf-f-venta" value="${data.venta||''}" step="0.01"></div>
+      <div class="form-group"><label>Coste Previsto (€)</label><input type="text" inputmode="decimal" id="pdf-f-coste" value="${data.coste||0}" step="0.01"></div>`;
+  } else if(type==='venta'){
+    const provOpts=clientes.map(c=>`<option value="${c}" ${c===data.cliente?'selected':''}>${c}</option>`).join('');
+    const projOpts=proyectos.map(p=>`<option value="${p.id}">${p.nombre}</option>`).join('');
+    html=`
+      <div class="form-group"><label>Serie</label><select id="pdf-f-serie"><option value="A" ${data.serie==='A'?'selected':''}>Serie A (IVA)</option><option value="B" ${data.serie==='B'?'selected':''}>Serie B (sin IVA)</option></select></div>
+      <div class="form-group"><label>Nº Factura</label><input type="text" id="pdf-f-numero" value="${esc(data.numero||nextVentaNum(data.serie||'A'))}"></div>
+      <div class="form-group"><label>Fecha</label><input type="date" id="pdf-f-fecha" value="${data.fecha||todayStr()}"></div>
+      <div class="form-group"><label>Cliente</label><select id="pdf-f-cliente"><option value="">— Seleccionar —</option>${provOpts}</select></div>
+      <div class="form-group"><label>Proyecto (opc.)</label><select id="pdf-f-proyecto"><option value="">—</option>${projOpts}</select></div>
+      <div class="form-group"><label>Base Imponible (€)</label><input type="text" inputmode="decimal" id="pdf-f-base" value="${data.base||''}" step="0.01"></div>`;
+  } else {
+    const projOpts=proyectos.map(p=>`<option value="${p.id}">${p.nombre}</option>`).join('');
+    html=`
+      <div class="form-group"><label>Serie</label><select id="pdf-f-serie"><option value="A">Serie A (IVA)</option><option value="B">Serie B</option></select></div>
+      <div class="form-group"><label>Proveedor</label><input type="text" id="pdf-f-proveedor" value="${esc(data.proveedor||'')}"></div>
+      <div class="form-group"><label>NIF / CIF</label><input type="text" id="pdf-f-nif" value="${esc(data.nif||'')}"></div>
+      <div class="form-group"><label>Nº Fact. Proveedor</label><input type="text" id="pdf-f-numfact" value="${esc(data.numfact||'')}"></div>
+      <div class="form-group"><label>Fecha</label><input type="date" id="pdf-f-fecha" value="${data.fecha||todayStr()}"></div>
+      <div class="form-group"><label>Tipo de Gasto</label><select id="pdf-f-tipo" onchange="document.getElementById('pdf-f-proyecto-grp').style.display=this.value==='proyecto'?'flex':'none'"><option value="general">General</option><option value="proyecto">Proyecto</option></select></div>
+      <div class="form-group" id="pdf-f-proyecto-grp" style="display:none"><label>Proyecto</label><select id="pdf-f-proyecto"><option value="">—</option>${projOpts}</select></div>
+      <div class="form-group"><label>Base Imponible (€)</label><input type="text" inputmode="decimal" id="pdf-f-base" value="${data.base||''}" step="0.01"></div>
+      <div class="form-group"><label>Tipo IVA</label><select id="pdf-f-ivaPct">${ivaTypes}</select></div>
+      <div class="form-group"><label>Retención IRPF</label><select id="pdf-f-irpfPct">${irpfTypes}</select></div>`;
+  }
+
+  document.getElementById('pdf-form-content').innerHTML=`<div class="form-grid cols2" style="gap:10px;">${html}</div>`;
+  document.getElementById('pdf-import-confirm').style.display='inline-flex';
+}
+
+function esc(s){return String(s||'').replace(/&/g,'\u0026amp;').replace(/"/g,'\u0026quot;').replace(/</g,'\u0026lt;').replace(/>/g,'\u0026gt;');}
+
+function addPdfIvaLine(){
+  const tbody=document.getElementById('pdf-iva-tbody');
+  if(!tbody)return;
+  const defIva=DB.defaultIvaPct||21;
+  const ivaOpts=(DB.tiposIva||[0,4,10,21]).map(t=>`<option value="${t}" ${t===defIva?'selected':''}>${t}%</option>`).join('');
+  const tr=document.createElement('tr');
+  tr.innerHTML=`<td><input type="text" inputmode="decimal" value="0,00" style="padding:6px 8px;width:100%;background:var(--card2);border:1px solid var(--border);border-radius:6px;font-size:.84rem;color:var(--text);"></td>
+    <td><select style="padding:6px 8px;width:100%;background:var(--card2);border:1px solid var(--border);border-radius:6px;font-size:.84rem;color:var(--text);">${ivaOpts}</select></td>
+    <td><input type="text" value="0,00" readonly style="padding:6px 8px;width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:.84rem;color:var(--green);font-weight:600;"></td>
+    <td><button type="button" onclick="this.closest('tr').remove()" style="background:none;border:none;cursor:pointer;color:var(--muted2);">&#x2715;</button></td>`;
+  tbody.appendChild(tr);
+}
+
+function confirmPdfImport(){
+  const type=document.getElementById('pdf-import-type').value;
+  const g=id=>{const el=document.getElementById(id);return el?el.value:'';}
+  if(type==='proyecto'){
+    addProyecto({nombre:g('pdf-f-nombre'),cliente:g('pdf-f-cliente'),venta:fnum(g('pdf-f-venta')),coste:fnum(g('pdf-f-coste')),pdfDriveId:pdfExtracted._driveId||null,pdfName:pdfExtracted._pdfName||null});
+  } else if(type==='venta'){
+    addVenta({serie:g('pdf-f-serie'),numero:g('pdf-f-numero'),fecha:g('pdf-f-fecha'),cliente:g('pdf-f-cliente'),proyectoId:g('pdf-f-proyecto'),base:fnum(g('pdf-f-base')),pdfDriveId:pdfExtracted._driveId||null,pdfName:pdfExtracted._pdfName||null});
+  } else {
+    // Collect IVA lines from the PDF import form
+    const ivaLines=[];
+    document.querySelectorAll('#pdf-iva-tbody tr').forEach(row=>{
+      const inputs=row.querySelectorAll('input,select');
+      if(inputs.length>=2){
+        const base=fnum(inputs[0].value);
+        const ivaPct=fnum(inputs[1].value);
+        if(base>0) ivaLines.push({base,ivaPct,cuota:base*ivaPct/100});
+      }
+    });
+    const totalBase=ivaLines.reduce((s,l)=>s+l.base,0);
+    const totalCuota=ivaLines.reduce((s,l)=>s+l.cuota,0);
+    addCoste({serie:g('pdf-f-serie'),proveedor:g('pdf-f-proveedor'),nif:g('pdf-f-nif'),numfact:g('pdf-f-numfact'),
+      fecha:g('pdf-f-fecha'),tipo:g('pdf-f-tipo'),proyectoId:g('pdf-f-proyecto'),
+      base:totalBase,cuotaIva:totalCuota,ivaPct:totalBase>0?Math.round(totalCuota/totalBase*100):21,
+      irpfPct:fnum(g('pdf-f-irpfPct')),
+      ivaLines,numero:nextCosteNum(g('pdf-f-serie')),
+      pdfDriveId:pdfExtracted._driveId||null,pdfName:pdfExtracted._pdfName||null});
+  }
+  closeModal('modal-pdf-import');
 }
 
 // ═══════════════════════════════════════════
-// INIT
+// EXPORTAR
 // ═══════════════════════════════════════════
-window.addEventListener('DOMContentLoaded',()=>{
-  if(CLIENT_ID){
-    // Already configured → go to step 2 with readonly showing saved ID
-    document.getElementById('login-client-id').value=CLIENT_ID;
-    goToStep2();
+function exportarVentas(tipo){
+  const ventas=getVentasFiltered();
+  if(!ventas.length){toast('No hay facturas en el filtro.','error');return;}
+  const proyectos=getD('proyectos');
+  if(tipo==='excel'){
+    const rows=[['Nº Factura','Fecha','Cliente','Proyecto','Base Imponible','IVA','Total','Cobrado','Pendiente']];
+    ventas.forEach(v=>{const proy=proyectos.find(p=>p.id===v.proyectoId);const cob=getCobradoVenta(v.id);
+      rows.push([v.numero,v.fecha,v.cliente,proy?proy.nombre:'',v.base,v.iva,v.total,cob,v.total-cob]);});
+    exportCSV(rows,'facturas_emitidas');
+  }else{
+    printTable('Facturas Emitidas',['Nº Factura','Fecha','Cliente','Proyecto','Base','IVA','Total'],
+      ventas.map(v=>{const proy=proyectos.find(p=>p.id===v.proyectoId);
+        return[v.numero,v.fecha,v.cliente,proy?proy.nombre:'—',fmt(v.base),v.serie==='A'?fmt(v.iva):'—',fmt(v.total)];}));
   }
-  // If no CLIENT_ID, step 1 is already active by default (has class 'active' in HTML)
-});
-</script>
-</body>
-</html>
+}
+function exportarCostes(tipo){
+  const costes=getCostesFiltered();
+  if(!costes.length){toast('No hay facturas en el filtro.','error');return;}
+  const proyectos=getD('proyectos');
+  if(tipo==='excel'){
+    const rows=[['Nº','Proveedor','Nº Prov.','Fecha','Tipo','Proyecto','Base','IVA%','Cuota IVA','IRPF%','Retención','Total','Pagado','Pendiente']];
+    costes.forEach(c=>{const proy=proyectos.find(p=>p.id===c.proyectoId);const pag=getPagadoCoste(c.id);
+      rows.push([c.numero,c.proveedor,c.nif||'',c.numfact||'',c.fecha,c.tipo,proy?proy.nombre:'',c.base,c.ivaPct||0,c.cuotaIva||0,c.irpfPct||0,c.retencion||0,c.total,pag,c.total-pag]);});
+    exportCSV(rows,'facturas_recibidas');
+  }else{
+    printTable('Facturas Recibidas',['Nº','Proveedor','Fecha','Tipo','Proyecto','Base','IVA%','IRPF%','Total'],
+      costes.map(c=>{const proy=proyectos.find(p=>p.id===c.proyectoId);
+        return[c.numero,c.proveedor,c.fecha,c.tipo,proy?proy.nombre:'—',fmt(c.base),(c.ivaPct||0)+'%',(c.irpfPct||0)+'%',fmt(c.total)];}));
+  }
+}
+function exportarResumenExcel(){
+  const rows=[['Proyecto','Cliente','Venta Prev.','Coste Prev.','Margen Prev.','M.Prev%','Facturado','Costes','Margen Real','M.Real%']];
+  getD('proyectos').forEach(p=>{
+    const tv=getD('ventas').filter(v=>v.proyectoId===p.id).reduce((s,v)=>s+v.total,0);
+    const tc=getD('costes').filter(c=>c.proyectoId===p.id).reduce((s,c)=>s+c.total,0);
+    const mr=tv-tc;const mp=p.venta-p.coste;
+    rows.push([p.nombre,p.cliente,p.venta,p.coste,mp,p.venta>0?(mp/p.venta*100).toFixed(1):0,tv,tc,mr,tv>0?(mr/tv*100).toFixed(1):0]);
+  });
+  exportCSV(rows,'resumen_proyectos');
+}
+function exportarResumenPDF(){
+  printTable('Resumen de Proyectos',['Proyecto','Cliente','Venta Prev.','Margen Prev.','Facturado','Costes','Margen Real'],
+    getD('proyectos').map(p=>{
+      const tv=getD('ventas').filter(v=>v.proyectoId===p.id).reduce((s,v)=>s+v.total,0);
+      const tc=getD('costes').filter(c=>c.proyectoId===p.id).reduce((s,c)=>s+c.total,0);
+      const mr=tv-tc;const mp=p.venta-p.coste;
+      return[p.nombre,p.cliente,fmt(p.venta),`${fmt(mp)} (${p.venta>0?fmtPct(mp/p.venta*100):'0,0%'})`,fmt(tv),fmt(tc),`${fmt(mr)} (${tv>0?fmtPct(mr/tv*100):'0,0%'})`];}));
+}
+function exportCSV(rows,filename){
+  const bom='\uFEFF';
+  const csv=bom+rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(';')).join('\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=filename+'_'+todayStr()+'.csv';a.click();
+  URL.revokeObjectURL(url);toast('Excel exportado.');
+}
+function printTable(title,headers,rows){
+  const logo=DB.logo;
+  const logoTag=logo?`<img src="${logo}" style="max-height:50px;margin-bottom:8px;"><br>`:'';
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title>
+  <style>body{font-family:Arial,sans-serif;font-size:11px;margin:20px;color:#111;}h2{font-size:14px;margin-bottom:12px;}
+  table{width:100%;border-collapse:collapse;}th{background:#f0ece6;padding:6px 8px;text-align:left;font-size:10px;border:1px solid #c8bfb2;}
+  td{padding:5px 8px;border:1px solid #ddd;}tr:nth-child(even){background:#faf7f3;}
+  .footer{margin-top:12px;font-size:9px;color:#888;}</style></head>
+  <body>${logoTag}<h2>${title}</h2>
+  <table><thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+  <tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table>
+  <div class="footer">Generado el ${new Date().toLocaleDateString('es-ES')} — GestiónPro</div>
+  </body></html>`;
+  const w=window.open('','_blank');w.document.write(html);w.document.close();w.focus();setTimeout(()=>w.print(),400);
+}
+
+// ═══════════════════════════════════════════
+// AJUSTES
+// ═══════════════════════════════════════════
+function saveLogo(){
+  const file=document.getElementById('logo-input').files[0];
+  if(!file){toast('Selecciona una imagen.','error');return;}
+  const r=new FileReader();
+  r.onload=e=>{DB.logo=e.target.result;scheduleSave();applyLogo(e.target.result);toast('Logotipo guardado.');};
+  r.readAsDataURL(file);
+}
+function removeLogo(){DB.logo='';scheduleSave();document.getElementById('logo-img').style.display='none';document.getElementById('logo-preview-wrap').style.display='none';toast('Eliminado.');}
+function applyLogo(src){
+  const img=document.getElementById('logo-img');img.src=src;img.style.display='block';
+  const prev=document.getElementById('logo-preview');if(prev){prev.src=src;}
+  const wrap=document.getElementById('logo-preview-wrap');if(wrap)wrap.style.display='block';
+}
+function saveClientId(){
+  const val=document.getElementById('cfg-client-id').value.trim();
+  if(!val){toast('Introduce el Client ID.','error');return;}
+  CLIENT_ID=val;localStorage.setItem('gp_client_id',val);
+  toast('Client ID actualizado.');loadAjustesStatus();
+}
+function toggleDriveConfig(){
+  const body=document.getElementById('drive-config-body');
+  const toggle=document.getElementById('drive-config-toggle');
+  const open=body.style.display==='none';
+  body.style.display=open?'block':'none';
+  toggle.textContent=open?'▲ Ocultar':'▼ Mostrar';
+}
+// ─── GEMINI API ──────────────────────────────────────────────────────────
+
