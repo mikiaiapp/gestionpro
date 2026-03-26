@@ -3266,7 +3266,7 @@ function toggleDriveConfig(){
 }
 // ─── GEMINI API ──────────────────────────────────────────────────────────
 let GEMINI_KEY = localStorage.getItem('gp_gemini_key') || '';
-const GEMINI_MODEL = 'gemini-2.0-flash';
+const GEMINI_MODEL = 'gemini-2.0-flash-lite';
 const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODEL + ':generateContent';
 
 function saveGeminiKey(){
@@ -3320,8 +3320,9 @@ function updateGeminiStatus(msg, ok, err){
 async function extractWithGemini(base64, type){
   const key = GEMINI_KEY;
   if(!key) throw new Error('NO_KEY');
+  console.log('[Gemini] Starting extraction, type:', type, 'base64 length:', base64?.length);
+  console.log('[Gemini] Model:', GEMINI_MODEL, 'Key starts:', key.slice(0,8)+'...');
 
-  // Single prompt asking everything at once — saves tokens and round trips
   const prompts = {
     coste: `Analiza esta factura y responde ÚNICAMENTE con un objeto JSON válido, sin explicaciones, sin markdown, sin backticks.
 El JSON debe tener exactamente estas claves:
@@ -3375,26 +3376,58 @@ venta es el importe total del presupuesto. Todos los importes como números.`
     generationConfig: { maxOutputTokens: 500, temperature: 0 }
   };
 
-  const r = await fetch(
-    'https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODEL + ':generateContent?key=' + key,
-    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
-  );
-  const d = await r.json();
-  if(d.error) throw new Error(d.error.message);
+  // Try models in sequence, with retry on 429
+  const modelsToTry = ['gemini-2.0-flash-lite', 'gemini-2.0-flash', 'gemini-2.5-flash-lite'];
+  let lastErr = null;
 
-  let raw = (d.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
-  // Strip markdown code fences if model adds them despite instructions
-  raw = raw.replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/\s*```$/,'').trim();
+  for(const model of modelsToTry){
+    console.log('[Gemini] Trying model:', model);
+    try{
+      const r = await fetch(
+        'https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent?key=' + key,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+      );
+      console.log('[Gemini] HTTP status:', r.status, 'model:', model);
+      const d = await r.json();
+      console.log('[Gemini] Response:', JSON.stringify(d).slice(0, 300));
 
-  let parsed;
-  try { parsed = JSON.parse(raw); }
-  catch(e) {
-    // Try to extract JSON object from response
-    const m = raw.match(/\{[\s\S]*\}/);
-    if(m) parsed = JSON.parse(m[0]);
-    else throw new Error('Respuesta no válida de Gemini: ' + raw.slice(0,100));
+      if(d.error){
+        const code = d.error.code;
+        const msg  = d.error.message || '';
+        if(code === 429 || msg.includes('RESOURCE_EXHAUSTED')){
+          console.warn('[Gemini] 429 on', model, '— trying next model');
+          lastErr = new Error('Cuota agotada en ' + model);
+          continue; // try next model
+        }
+        if(code === 404){ lastErr = new Error('Modelo no disponible: ' + model); continue; }
+        throw new Error(msg || 'Error ' + code);
+      }
+
+      let raw = (d.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
+      console.log('[Gemini] Success with', model, '— raw:', raw.slice(0, 200));
+      raw = raw.replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/\s*```$/,'').trim();
+      let parsed;
+      try{ parsed = JSON.parse(raw); }
+      catch(e){
+        const m = raw.match(/\{[\s\S]*\}/);
+        if(m) parsed = JSON.parse(m[0]);
+        else throw new Error('JSON inválido: ' + raw.slice(0,80));
+      }
+      return parsed;
+
+    } catch(e){
+      if(e.message.includes('Cuota') || e.message.includes('no disponible')){
+        lastErr = e; continue;
+      }
+      throw e; // real error, don't retry
+    }
   }
-  return parsed;
+
+  // All models exhausted
+  throw new Error(
+    'Todos los modelos de Gemini han agotado su cuota gratuita (429). ' +
+    'Espera unos minutos o crea una nueva API key en aistudio.google.com/apikey'
+  );
 }
 
 function geminiToFormData(data, type){
@@ -3685,22 +3718,26 @@ async function extractPdfWithAI(base64, type){
 
   msg.textContent='&#x1F916; Analizando con Gemini 2.0 Flash...';
   document.getElementById('pdf-form-content').innerHTML='<div style="color:var(--muted);font-size:.86rem;padding:16px;text-align:center;">&#x1F916; Analizando factura...</div>';
+  console.log('[PDF Import] extractPdfWithAI called, type:', type, 'base64 length:', base64?.length, 'GEMINI_KEY set:', !!GEMINI_KEY);
 
   try{
     const raw    = await extractWithGemini(base64, type);
+    console.log('[PDF Import] extractWithGemini returned:', JSON.stringify(raw).slice(0,300));
     const parsed = geminiToFormData(raw, type);
+    console.log('[PDF Import] parsed form data:', JSON.stringify(parsed).slice(0,300));
     pdfExtracted = parsed;
     bar.style.display='none';
     renderPdfForm(type, parsed);
   } catch(e){
+    console.error('[PDF Import] Error:', e);
     bar.style.color='var(--red)'; bar.style.borderColor='rgba(192,57,43,.3)';
-    let errMsg = e.message || '';
-    if(errMsg.includes('429') || errMsg.includes('quota') || errMsg.includes('RESOURCE_EXHAUSTED')){
-      errMsg = 'Límite Gemini alcanzado. Espera 1-2 minutos e inténtalo de nuevo.';
-    } else if(errMsg.includes('NetworkError') || errMsg.includes('fetch')){
-      errMsg = 'Error de red. Comprueba que no tienes un bloqueador de anuncios activo.';
+    let errMsg = e.message || String(e);
+    if(errMsg.includes('429') || errMsg.includes('quota') || errMsg.includes('RESOURCE_EXHAUSTED') || errMsg.includes('Cuota') || errMsg.includes('agotado')){
+      errMsg = 'Cuota Gemini agotada en todos los modelos disponibles. Espera unos minutos y vuelve a intentarlo, o crea una nueva API key en <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--accent)">aistudio.google.com/apikey</a>.';
+    } else if(errMsg.includes('NetworkError') || errMsg.includes('Failed to fetch')){
+      errMsg = 'Error de red. Desactiva bloqueadores de anuncios y prueba en incógnito.';
     }
-    msg.innerHTML = '&#x2716; ' + errMsg + ' — Puedes rellenar los datos manualmente.';
+    msg.innerHTML = '&#x2716; ' + errMsg + ' — Revisa la consola (F12) para más detalles.';
     setTimeout(()=>{bar.style.display='none';},6000);
     renderPdfForm(type,{});
   }
