@@ -240,159 +240,163 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
 .add-fiscal-row input{flex:0 0 100px;background:var(--card2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-body);font-size:.88rem;padding:7px 11px;outline:none;}
 .add-fiscal-row input:focus{border-color:var(--accent);}
 
-/* ════════════════════════════════════════════
-   RESPONSIVE — TABLET (≤900px) & MÓVIL (≤600px)
-════════════════════════════════════════════ */
+/* ══════════════════════════════════════════
+   RESPONSIVE DESIGN
+══════════════════════════════════════════ */
 
-/* ── HAMBURGER BUTTON ── */
+/* ── HAMBURGER ── */
 #menu-toggle{
   display:none;position:fixed;top:10px;left:12px;z-index:300;
   background:var(--card);border:1px solid var(--border);border-radius:8px;
-  padding:8px 10px;cursor:pointer;font-size:1.1rem;line-height:1;
+  padding:8px 11px;cursor:pointer;font-size:1.1rem;line-height:1;
   box-shadow:var(--shadow);color:var(--text);
 }
 #sidebar-overlay{
-  display:none;position:fixed;inset:0;background:rgba(44,36,22,.45);
-  z-index:149;backdrop-filter:blur(2px);
+  display:none;position:fixed;inset:0;
+  background:rgba(44,36,22,.4);z-index:149;
 }
 
-/* ── TABLET (≤900px) ── */
+/* ══ TABLET ≤900px ══ */
 @media(max-width:900px){
   #menu-toggle{display:flex;}
   #sidebar{
     position:fixed;top:0;left:0;height:100vh;z-index:150;
-    transform:translateX(-100%);transition:transform .25s ease;
-    box-shadow:4px 0 24px rgba(44,36,22,.18);
+    transform:translateX(-100%);transition:transform .22s ease;
+    box-shadow:4px 0 24px rgba(44,36,22,.2);
   }
   #sidebar.open{transform:translateX(0);}
   #sidebar-overlay.open{display:block;}
-  #main{padding:16px 16px 28px;padding-top:56px;}
-  #topbar{left:0;border-left:none;padding-left:56px;}
+  #main{padding:16px 14px 32px;padding-top:52px;}
+  #topbar{left:0;border-left:none;padding-left:52px;}
   .stats-row{grid-template-columns:repeat(2,1fr);}
   .stats-row.cols5{grid-template-columns:repeat(3,1fr);}
   .form-grid.cols4{grid-template-columns:repeat(2,1fr);}
-  .form-grid{grid-template-columns:repeat(2,1fr);}
   .pdf-import-wrap{grid-template-columns:1fr;height:auto;}
   .pdf-viewer{height:260px;}
 }
 
-/* ── MÓVIL (≤600px) ── */
-@media(max-width:600px){
-  #main{padding:12px 10px 28px;padding-top:52px;}
-  #topbar{padding:8px 12px 8px 52px;}
+/* ══ MÓVIL VERTICAL ≤600px ══ */
+@media(max-width:600px) and (orientation:portrait){
+  body{overflow-x:hidden;}
+  #main{padding:10px 8px 28px;padding-top:50px;}
+  #topbar{padding:7px 10px 7px 48px;gap:6px;}
   #topbar .user-name{display:none;}
-  h1{font-size:1.2rem;}
-  .page-desc{font-size:.8rem;margin-bottom:14px;}
+  h1{font-size:1.15rem;}
+  .page-desc{font-size:.78rem;margin-bottom:10px;}
 
-  /* Stats: 1 columna en móvil pequeño, 2 en el resto */
-  .stats-row{grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px;}
-  .stats-row.cols3{grid-template-columns:repeat(2,1fr);}
-  .stats-row.cols5{grid-template-columns:repeat(2,1fr);}
-  .stat-card{padding:12px 12px;}
-  .stat-card .value{font-size:1.1rem;}
-  .stat-card .label{font-size:.6rem;}
-
-  /* Forms: 1 columna */
-  .form-grid,.form-grid.cols2,.form-grid.cols4,.form-grid.cols5{
-    grid-template-columns:1fr!important;
+  /* Stats 2 col */
+  .stats-row,.stats-row.cols3,.stats-row.cols5{
+    grid-template-columns:repeat(2,1fr);gap:7px;margin-bottom:12px;
   }
-  .form-group[style*="grid-column:span"]{grid-column:1!important;}
+  .stat-card{padding:10px 11px;}
+  .stat-card .value{font-size:1rem;}
+  .stat-card .label{font-size:.58rem;}
 
-  /* Section boxes */
-  .section-box{padding:14px 12px;margin-bottom:12px;}
-  .section-box h2{font-size:.88rem;}
+  /* Forms: 1 col */
+  .form-grid,.form-grid.cols2,.form-grid.cols4,.form-grid.cols5{
+    grid-template-columns:1fr !important;
+  }
+  [style*="grid-column:span"]{grid-column:1 !important;}
+  .section-box{padding:12px 10px;margin-bottom:10px;}
+  .section-box h2{font-size:.85rem;}
 
-  /* Buttons */
-  .btn{padding:8px 14px;font-size:.82rem;}
-  .btn-group{gap:6px;}
-  .btn-sm{padding:5px 10px;font-size:.73rem;}
-  .btn-xs{padding:3px 7px;font-size:.69rem;}
+  /* Buttons compact */
+  .btn{padding:7px 12px;font-size:.8rem;}
+  .btn-group{gap:5px;}
+  .btn-sm{padding:4px 9px;font-size:.72rem;}
+  .btn-xs{padding:3px 7px;font-size:.68rem;}
 
-  /* Tables: scroll horizontal + compact */
-  .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -4px;}
-  table{font-size:.75rem;min-width:480px;}
-  thead th{padding:7px 8px;font-size:.6rem;}
-  tbody td{padding:7px 8px;}
+  /* Filter bar wrap */
+  .filter-bar{gap:5px;}
+  .filter-bar .form-group{min-width:90px;}
 
-  /* Filter bar: wrap */
-  .filter-bar{gap:6px;}
-  .filter-bar .form-group{min-width:100px;}
-  .filter-bar select,.filter-bar input{font-size:.78rem;padding:6px 8px;}
-
-  /* Tabs */
-  .tab{padding:6px 12px;font-size:.78rem;}
-
-  /* Modal */
-  .modal{padding:18px 14px;max-height:95vh;}
-  .modal.modal-wide{max-width:98vw;}
+  /* Modal full-screen */
+  .modal{padding:16px 12px;max-height:92vh;width:96vw;}
+  .modal.modal-wide{max-width:96vw;}
   .pdf-import-wrap{grid-template-columns:1fr;height:auto;}
-  .pdf-viewer{height:220px;}
+  .pdf-viewer{height:200px;}
 
-  /* IVA lines table */
-  .iva-lines{font-size:.78rem;}
-  .iva-lines input,.iva-lines select{padding:5px 6px;font-size:.78rem;}
+  /* ── TABLE → CARD LAYOUT (portrait mobile only) ── */
+  .table-wrap{overflow-x:visible !important;}
 
-  /* Login */
-  .login-box{padding:28px 20px;}
-  .login-box h1{font-size:1.5rem;}
+  .mobile-cards table{display:block;min-width:0 !important;}
+  .mobile-cards thead{display:none;}
+  .mobile-cards tbody{display:block;}
 
-  /* Topbar compact */
-  #topbar{gap:6px;}
-  .sync-status span{display:none;}
-}
-
-/* ── MUY PEQUEÑO (≤380px) ── */
-@media(max-width:380px){
-  .stats-row{grid-template-columns:1fr;}
-  table{min-width:400px;}
-}
-
-/* ── MOBILE TABLE → CARD LAYOUT ── */
-@media(max-width:600px){
-  /* Tables become stacked cards */
-  .table-wrap{overflow-x:visible;margin:0;}
-  .mobile-cards table,
-  .mobile-cards thead,
-  .mobile-cards tbody,
-  .mobile-cards th,
-  .mobile-cards td,
-  .mobile-cards tr{display:block;}
-  .mobile-cards thead tr{display:none;}
+  /* Each row becomes a card */
   .mobile-cards tbody tr{
-    background:var(--card);border:1px solid var(--border);
-    border-radius:10px;margin-bottom:8px;padding:10px 12px;
-    position:relative;cursor:pointer;
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:2px 8px;
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:10px;
+    margin-bottom:8px;
+    padding:10px 12px 8px;
+    position:relative;
   }
   .mobile-cards tbody tr:hover{background:var(--card);}
+
+  /* All cells default */
   .mobile-cards tbody td{
-    padding:2px 0;border:none;font-size:.82rem;
-    display:flex;align-items:baseline;gap:6px;
+    display:block;
+    padding:1px 0;
+    border:none;
+    font-size:.81rem;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
   }
-  .mobile-cards tbody td[data-label]:before{
-    content:attr(data-label);
-    font-size:.68rem;font-weight:600;color:var(--muted2);
-    text-transform:uppercase;letter-spacing:.3px;
-    min-width:80px;flex-shrink:0;
+
+  /* Label before each cell */
+  .mobile-cards tbody td[data-m]:before{
+    content:attr(data-m) ' ';
+    font-size:.63rem;
+    font-weight:600;
+    color:var(--muted2);
+    text-transform:uppercase;
+    letter-spacing:.3px;
+    display:block;
   }
-  .mobile-cards tbody td:empty{display:none;}
-  .mobile-cards tbody td.td-actions{
-    display:flex;gap:6px;margin-top:6px;padding-top:6px;
-    border-top:1px solid var(--border);justify-content:flex-end;
+
+  /* Key cells span full width */
+  .mobile-cards tbody td.m-full{grid-column:1 / -1;}
+
+  /* Actions row always at bottom full width */
+  .mobile-cards tbody td.m-actions{
+    grid-column:1 / -1;
+    display:flex;gap:5px;
+    margin-top:6px;padding-top:6px;
+    border-top:1px solid var(--border);
+    justify-content:flex-end;
   }
-  .mobile-cards tbody td.td-actions:before{display:none;}
-  /* Landscape: back to normal table */
-  @media(orientation:landscape){
-    .mobile-cards table,
-    .mobile-cards thead,
-    .mobile-cards tbody,
-    .mobile-cards th,
-    .mobile-cards td,
-    .mobile-cards tr{display:revert;}
-    .mobile-cards thead tr{display:revert;}
-    .table-wrap{overflow-x:auto;}
-    .mobile-cards tbody td:before{display:none;}
+  .mobile-cards tbody td.m-actions:before{display:none;}
+
+  /* Clip icon: absolute top-right */
+  .mobile-cards tbody td.m-clip{
+    position:absolute;top:8px;right:10px;
+    width:auto;padding:0;
   }
 }
+
+/* ══ MÓVIL HORIZONTAL ≤900px landscape ══ */
+@media(max-width:900px) and (orientation:landscape){
+  #main{padding:12px 14px 24px;padding-top:50px;}
+  .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  table{font-size:.76rem;min-width:500px;}
+  thead th{padding:6px 8px;font-size:.61rem;}
+  tbody td{padding:6px 8px;}
+  .stats-row{grid-template-columns:repeat(4,1fr);gap:8px;}
+  .stats-row.cols5{grid-template-columns:repeat(5,1fr);}
+  .form-grid{grid-template-columns:repeat(2,1fr);}
+  .form-grid.cols4{grid-template-columns:repeat(4,1fr);}
+}
+
+/* ══ VERY SMALL ≤380px ══ */
+@media(max-width:380px) and (orientation:portrait){
+  .stats-row,.stats-row.cols3,.stats-row.cols5{grid-template-columns:1fr;}
+}
+
 </style>
 </head>
 <body>
@@ -1005,12 +1009,20 @@ let DB = {
 // ═══════════════════════════════════════════
 // UTILS
 // ═══════════════════════════════════════════
-// Formatters — forced es-ES locale for consistent . thousands , decimals
-const _fmtES = new Intl.NumberFormat('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2});
-const _fmtES1= new Intl.NumberFormat('es-ES',{minimumFractionDigits:1,maximumFractionDigits:1});
-const N=(v,d=2)=>d===1?_fmtES1.format(parseFloat(v)||0):_fmtES.format(parseFloat(v)||0);
-const fmt=v=>N(v)+' €';
-const fmtPct=v=>N(v,1)+' %';
+// Formatters — hand-rolled es-ES: ALWAYS . for thousands, , for decimals
+function _numES(value, decimals){
+  const n = Math.abs(parseFloat(value)||0);
+  const sign = (parseFloat(value)||0) < 0 ? '-' : '';
+  const fixed = n.toFixed(decimals);
+  const parts = fixed.split('.');
+  // Add . every 3 digits from the right in the integer part
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return sign + parts[0] + ',' + (parts[1]||'00');
+}
+const N=(v,d=2)=>_numES(v,d);
+const fmt=v=>_numES(v,2)+' €';
+const fmtPct=v=>_numES(v,1)+' %';
+const fmtInput=v=>_numES(v,2);
 // fnum: parse number from input (handles both . and , as decimal separator)
 const fnum=v=>{
   if(v===null||v===undefined||v==='')return 0;
@@ -1020,7 +1032,7 @@ const fnum=v=>{
   else if(ld>lc)s=s.replace(/,/g,'');
   return parseFloat(s)||0;
 };
-const fmtInput=v=>_fmtES.format(parseFloat(v)||0);
+
 function genId(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
 function todayStr(){return new Date().toISOString().slice(0,10);}
 function getD(k){return DB[k]||[];}
@@ -1738,11 +1750,11 @@ function renderProyectos(){
       ?`<a href="${getAttachUrl(p.pdfDriveId)}" target="_blank" class="clip-icon has-doc" title="${p.pdfName||'Ver PDF'}">&#x1F4CE;</a>`
       :'<span class="clip-icon" title="Sin adjunto">&#x1F4CE;</span>';
     return`<tr>
-      <td style="width:24px">${clipP}</td>
-      <td>${estadoBadge}</td>
-      <td><strong>${p.nombre}</strong></td>
-      <td>${p.cliente}</td>
-      <td style="color:var(--muted);font-size:.8rem">${p.nif||'—'}</td>
+      <td class="m-clip" style="width:24px">${clipP}</td>
+      <td data-m="Estado">${estadoBadge}</td>
+      <td data-m="Proyecto" class="m-full"><strong>${p.nombre}</strong></td>
+      <td data-m="Cliente" class="m-full">${p.cliente}</td>
+      <td data-m="NIF" style="color:var(--muted);font-size:.8rem">${p.nif||'—'}</td>
       <td>${fmt(p.venta)}</td><td class="mp">${fmt(ventasReal)}</td>
       <td>${fmt(p.coste)}</td><td class="mp">${fmt(costesReal)}</td>
       <td class="${mp>=0?'mp':'mn'}">${fmt(mp)} <small>(${fmtPct(mppct)})</small></td>
@@ -1907,14 +1919,19 @@ function renderVentas(){
       ?`<a href="${getAttachUrl(v.pdfDriveId)}" target="_blank" class="clip-icon has-doc" title="${v.pdfName||'Ver PDF'}">&#x1F4CE;</a>`
       :'<span class="clip-icon" title="Sin adjunto">&#x1F4CE;</span>';
     return`<tr style="cursor:pointer" onclick="toggleVentaHist('${v.id}',this)">
-      <td style="width:24px">${clipV}</td>
-      <td><span class="badge ${v.serie==='A'?'badge-blue':'badge-purple'}">${v.serie}</span></td>
-      <td><strong>${v.numero}</strong></td><td>${v.fecha}</td><td>${v.cliente}</td>
-      <td>${proy?proy.nombre:'—'}</td><td>${fmt(v.base)}</td>
-      <td>${v.serie==='A'?fmt(v.iva):'—'}</td><td><strong>${fmt(v.total)}</strong></td>
-      <td class="mp">${fmt(cobrado)}</td><td class="${pend>0?'mn':''}">${fmt(pend)}</td>
-      <td>${est}</td>
-      <td style="white-space:nowrap" onclick="event.stopPropagation()">${cobBtn} <button class="btn btn-ghost btn-xs" onclick="editVenta('${v.id}')">&#x270F;&#xFE0F;</button> <button class="btn btn-danger btn-xs" onclick="deleteVenta('${v.id}')">&#x1F5D1;&#xFE0F;</button></td>
+      <td class="m-clip" style="width:24px">${clipV}</td>
+      <td data-m="Serie"><span class="badge ${v.serie==='A'?'badge-blue':'badge-purple'}">${v.serie}</span></td>
+      <td data-m="Nº" class="m-full"><strong>${v.numero}</strong></td>
+      <td data-m="Fecha">${v.fecha}</td>
+      <td data-m="Cliente" class="m-full">${v.cliente}</td>
+      <td data-m="Proyecto">${proy?proy.nombre:'—'}</td>
+      <td data-m="Base">${fmt(v.base)}</td>
+      <td data-m="IVA">${v.serie==='A'?fmt(v.iva):'—'}</td>
+      <td data-m="Total"><strong>${fmt(v.total)}</strong></td>
+      <td data-m="Cobrado" class="mp">${fmt(cobrado)}</td>
+      <td data-m="Pendiente" class="${pend>0?'mn':''}">${fmt(pend)}</td>
+      <td data-m="Estado">${est}</td>
+      <td class="m-actions" onclick="event.stopPropagation()">${cobBtn} <button class="btn btn-ghost btn-xs" onclick="editVenta('${v.id}')">&#x270F;&#xFE0F;</button> <button class="btn btn-danger btn-xs" onclick="deleteVenta('${v.id}')">&#x1F5D1;&#xFE0F;</button></td>
     </tr>
     <tr id="hist-venta-${v.id}" class="hist-row" style="display:none">
       <td colspan="13"><div class="hist-inner" id="hist-venta-inner-${v.id}"></div></td>
@@ -2160,19 +2177,25 @@ function renderCostes(){
       ?`<a href="${getAttachUrl(c.pdfDriveId)}" target="_blank" class="clip-icon has-doc" title="${c.pdfName||'Ver PDF'}">&#x1F4CE;</a>`
       :'<span class="clip-icon" title="Sin adjunto">&#x1F4CE;</span>';
     return`<tr style="cursor:pointer" onclick="toggleCosteHist('${c.id}',this)">
-      <td style="width:24px">${clipC}</td>
-      <td><span class="badge ${c.serie==='A'?'badge-blue':'badge-purple'}">${c.serie}</span></td>
-      <td>${c.numero}</td><td>${c.proveedor}</td><td style='color:var(--muted);font-size:.8rem'>${c.nif||'—'}</td><td>${c.numfact||'—'}</td><td>${c.fecha}</td>
-      <td><span class="badge ${c.tipo==='proyecto'?'badge-purple':'badge-blue'}">${c.tipo==='proyecto'?'Proy.':'Gral.'}</span></td>
-      <td>${proy?proy.nombre:'—'}</td><td>${fmt(c.base)}</td>
-      <td>${c.serie==='A'?ivaDetail:'—'}</td>
-      <td>${c.serie==='A'?fmt(c.cuotaIva||0):'—'}</td>
-      <td>${(c.irpfPct||0)>0?c.irpfPct+'%':'—'}</td>
-      <td>${(c.irpfPct||0)>0?fmt(c.retencion||0):'—'}</td>
-      <td><strong>${fmt(c.total)}</strong></td>
-      <td class="mp">${fmt(pagado)}</td><td class="${pend>0?'mn':''}">${fmt(pend)}</td>
-      <td>${est}</td>
-      <td style="white-space:nowrap" onclick="event.stopPropagation()">${pagBtn} <button class="btn btn-ghost btn-xs" onclick="editCoste('${c.id}')">&#x270F;&#xFE0F;</button> <button class="btn btn-danger btn-xs" onclick="deleteCoste('${c.id}')">&#x1F5D1;&#xFE0F;</button></td>
+      <td class="m-clip" style="width:24px">${clipC}</td>
+      <td data-m="Serie"><span class="badge ${c.serie==='A'?'badge-blue':'badge-purple'}">${c.serie}</span></td>
+      <td data-m="Nº">${c.numero}</td>
+      <td data-m="Proveedor" class="m-full"><strong>${c.proveedor}</strong></td>
+      <td data-m="NIF" style="color:var(--muted);font-size:.8rem">${c.nif||'—'}</td>
+      <td data-m="Nº Prov.">${c.numfact||'—'}</td>
+      <td data-m="Fecha">${c.fecha}</td>
+      <td data-m="Tipo"><span class="badge ${c.tipo==='proyecto'?'badge-purple':'badge-blue'}">${c.tipo==='proyecto'?'Proy.':'Gral.'}</span></td>
+      <td data-m="Proyecto">${proy?proy.nombre:'—'}</td>
+      <td data-m="Base">${fmt(c.base)}</td>
+      <td data-m="IVA%">${c.serie==='A'?ivaDetail:'—'}</td>
+      <td data-m="Cuota IVA">${c.serie==='A'?fmt(c.cuotaIva||0):'—'}</td>
+      <td data-m="IRPF%">${(c.irpfPct||0)>0?c.irpfPct+'%':'—'}</td>
+      <td data-m="Retención">${(c.irpfPct||0)>0?fmt(c.retencion||0):'—'}</td>
+      <td data-m="Total"><strong>${fmt(c.total)}</strong></td>
+      <td data-m="Pagado" class="mp">${fmt(pagado)}</td>
+      <td data-m="Pendiente" class="${pend>0?'mn':''}">${fmt(pend)}</td>
+      <td data-m="Estado">${est}</td>
+      <td class="m-actions" onclick="event.stopPropagation()">${pagBtn} <button class="btn btn-ghost btn-xs" onclick="editCoste('${c.id}')">&#x270F;&#xFE0F;</button> <button class="btn btn-danger btn-xs" onclick="deleteCoste('${c.id}')">&#x1F5D1;&#xFE0F;</button></td>
     </tr>
     <tr id="hist-coste-${c.id}" class="hist-row" style="display:none">
       <td colspan="17"><div class="hist-inner" id="hist-coste-inner-${c.id}"></div></td>
@@ -2375,9 +2398,14 @@ function renderCobros(){
     const cobrado=getCobradoVenta(v.id);const pend=v.total-cobrado;
     const est=pend<=0?'<span class="badge badge-green">Cobrado</span>':cobrado>0?'<span class="badge badge-yellow">Parcial</span>':'<span class="badge badge-orange">Pendiente</span>';
     return`<tr style="cursor:pointer" onclick="showCobroHist('${v.id}',this)">
-      <td><strong>${v.numero}</strong></td><td><span class="badge ${v.serie==='A'?'badge-blue':'badge-purple'}">${v.serie}</span></td>
-      <td>${v.fecha}</td><td>${v.cliente}</td><td>${fmt(v.total)}</td>
-      <td class="mp">${fmt(cobrado)}</td><td class="${pend>0?'mn':''}">${fmt(pend)}</td><td>${est}</td></tr>`;
+      <td data-m="Nº" class="m-full"><strong>${v.numero}</strong></td>
+      <td data-m="Serie"><span class="badge ${v.serie==='A'?'badge-blue':'badge-purple'}">${v.serie}</span></td>
+      <td data-m="Fecha">${v.fecha}</td>
+      <td data-m="Cliente" class="m-full">${v.cliente}</td>
+      <td data-m="Total">${fmt(v.total)}</td>
+      <td data-m="Cobrado" class="mp">${fmt(cobrado)}</td>
+      <td data-m="Pendiente" class="${pend>0?'mn':''}">${fmt(pend)}</td>
+      <td data-m="Estado">${est}</td></tr>`;
   }).join('');
   // Hide historial panel on refresh
   document.getElementById('cobros-hist-panel').style.display='none';
@@ -2473,11 +2501,15 @@ function renderPagos(){
     const pagado=getPagadoCoste(c.id);const pend=c.total-pagado;
     const est=pend<=0?'<span class="badge badge-green">Pagado</span>':pagado>0?'<span class="badge badge-yellow">Parcial</span>':'<span class="badge badge-orange">Pendiente</span>';
     return`<tr style="cursor:pointer" onclick="showPagoHist('${c.id}',this)">
-      <td>${c.numero}</td><td><span class="badge ${c.serie==='A'?'badge-blue':'badge-purple'}">${c.serie}</span></td>
-      <td>${c.proveedor}</td><td>${c.fecha}</td>
-      <td><span class="badge ${c.tipo==='proyecto'?'badge-purple':'badge-blue'}">${c.tipo==='proyecto'?'Proy.':'Gral.'}</span></td>
-      <td>${fmt(c.total)}</td><td class="mp">${fmt(pagado)}</td>
-      <td class="${pend>0?'mn':''}">${fmt(pend)}</td><td>${est}</td></tr>`;
+      <td data-m="Nº">${c.numero}</td>
+      <td data-m="Serie"><span class="badge ${c.serie==='A'?'badge-blue':'badge-purple'}">${c.serie}</span></td>
+      <td data-m="Proveedor" class="m-full"><strong>${c.proveedor}</strong></td>
+      <td data-m="Fecha">${c.fecha}</td>
+      <td data-m="Tipo"><span class="badge ${c.tipo==='proyecto'?'badge-purple':'badge-blue'}">${c.tipo==='proyecto'?'Proy.':'Gral.'}</span></td>
+      <td data-m="Total">${fmt(c.total)}</td>
+      <td data-m="Pagado" class="mp">${fmt(pagado)}</td>
+      <td data-m="Pendiente" class="${pend>0?'mn':''}">${fmt(pend)}</td>
+      <td data-m="Estado">${est}</td></tr>`;
   }).join('');
   document.getElementById('pagos-hist-panel').style.display='none';
 }
@@ -2750,137 +2782,250 @@ function parseNumFromText(s){
   return parseFloat(s)||0;
 }
 
-function extractDataFromText(t,type){
-  const r={};
-  // Normalize: collapse multiple spaces, keep newlines
-  const text=t.replace(/[ \t]+/g,' ');
+function extractDataFromText(t, type){
+  // ── Pre-process: normalize whitespace but keep structure ──
+  const lines = t.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+  const text  = lines.join('\n');  // clean multi-line text
 
-  function findNum(kws){
-    for(const kw of kws){
-      // Same line: keyword followed by number
-      const re=new RegExp(kw+'[\\s:€]*([\\d]{1,3}(?:[.,][\\d]{3})*(?:[.,][\\d]{2})?)','i');
-      const m=text.match(re);
-      if(m&&m[1]){const n=parseNumFromText(m[1]);if(n>0)return n;}
-      // Next line
-      const re2=new RegExp(kw+'[^\n]*\n\s*([\\d]{1,3}(?:[.,][\\d]{3})*(?:[.,][\\d]{2})?)','i');
-      const m2=text.match(re2);
-      if(m2&&m2[1]){const n=parseNumFromText(m2[1]);if(n>0)return n;}
-    }
-    return null;
+  // ── Core helpers ──────────────────────────────────────────
+
+  // Parse any Spanish/international number from string
+  function pN(s){
+    if(!s) return 0;
+    s = String(s).replace(/[€$\s]/g,'').trim();
+    // Remove thousands separators: if comma before exactly 2 digits at end = decimal
+    const lastComma = s.lastIndexOf(','), lastDot = s.lastIndexOf('.');
+    if(lastComma > lastDot) s = s.replace(/\./g,'').replace(',','.');
+    else if(lastDot > lastComma) s = s.replace(/,/g,'');
+    return parseFloat(s) || 0;
   }
 
+  // Search for a number near keywords, on same line or next non-empty line
+  function findN(keywords){
+    // Number pattern: optional sign, digits with optional separators
+    const numPat = '([\\d]{1,3}(?:[.,][\\d]{3})*(?:[.,][\\d]{1,2})?|[\\d]+(?:[.,][\\d]{1,2})?)';
+    for(const kw of keywords){
+      // Same line search
+      const re = new RegExp(kw + '[\\s:*|#€]?' + numPat, 'i');
+      for(const line of lines){
+        const m = line.match(re);
+        if(m && m[1]){ const n = pN(m[1]); if(n > 0) return n; }
+      }
+      // Two-line search: keyword on one line, number starts the next
+      for(let i = 0; i < lines.length - 1; i++){
+        if(new RegExp(kw, 'i').test(lines[i])){
+          const m2 = lines[i+1].match(new RegExp('^' + numPat));
+          if(m2 && m2[1]){ const n = pN(m2[1]); if(n > 0) return n; }
+        }
+      }
+    }
+    return 0;
+  }
+
+  // Search for a date in multiple formats
   function findDate(){
-    // YYYY-MM-DD or YYYY/MM/DD
-    let m=text.match(/\b(20\d{2})[-\/](0?[1-9]|1[0-2])[-\/](0?[1-9]|[12]\d|3[01])\b/);
-    if(m)return m[1]+'-'+m[2].padStart(2,'0')+'-'+m[3].padStart(2,'0');
-    // DD/MM/YYYY or DD-MM-YYYY
-    m=text.match(/\b(0?[1-9]|[12]\d|3[01])[-\/](0?[1-9]|1[0-2])[-\/](20\d{2})\b/);
-    if(m)return m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
-    // DD de Mes de YYYY / DD de Mes YYYY
-    const months={enero:'01',febrero:'02',marzo:'03',abril:'04',mayo:'05',junio:'06',
+    const months = {enero:'01',febrero:'02',marzo:'03',abril:'04',mayo:'05',junio:'06',
       julio:'07',agosto:'08',septiembre:'09',octubre:'10',noviembre:'11',diciembre:'12'};
-    m=text.match(/\b(\d{1,2})\s+de\s+([a-záéíóú]+)\s+(?:de\s+)?(20\d{2})\b/i);
-    if(m){const mo=months[m[2].toLowerCase()];if(mo)return m[3]+'-'+mo+'-'+m[1].padStart(2,'0');}
+    // Try labeled patterns first
+    const dateLabels = /(?:fecha(?:\s+de\s+factura)?|date|emisi[oó]n)[:\s]*/i;
+    for(const line of lines){
+      if(dateLabels.test(line)){
+        // Look for date in same line or next
+        const checkLine = line + ' ' + (lines[lines.indexOf(line)+1]||'');
+        let m;
+        m = checkLine.match(/\b(20\d{2})[\/\-\.](0?[1-9]|1[0-2])[\/\-\.](0?[1-9]|[12]\d|3[01])\b/);
+        if(m) return m[1]+'-'+m[2].padStart(2,'0')+'-'+m[3].padStart(2,'0');
+        m = checkLine.match(/\b(0?[1-9]|[12]\d|3[01])[\/\-\.](0?[1-9]|1[0-2])[\/\-\.](20\d{2})\b/);
+        if(m) return m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
+        m = checkLine.match(/\b(\d{1,2})\s+de\s+([a-záéíóú]+)\s+(?:de\s+)?(20\d{2})\b/i);
+        if(m){ const mo=months[m[2].toLowerCase()]; if(mo) return m[3]+'-'+mo+'-'+m[1].padStart(2,'0'); }
+      }
+    }
+    // Fallback: find any date in full text
+    let m;
+    m = text.match(/\b(0?[1-9]|[12]\d|3[01])[\/\-\.](0?[1-9]|1[0-2])[\/\-\.](20\d{2})\b/);
+    if(m) return m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
+    m = text.match(/\b(20\d{2})[\/\-\.](0?[1-9]|1[0-2])[\/\-\.](0?[1-9]|[12]\d|3[01])\b/);
+    if(m) return m[1]+'-'+m[2].padStart(2,'0')+'-'+m[3].padStart(2,'0');
+    m = text.match(/\b(\d{1,2})\s+de\s+([a-záéíóú]+)\s+(?:de\s+)?(20\d{2})\b/i);
+    if(m){ const mo=months[m[2].toLowerCase()]; if(mo) return m[3]+'-'+mo+'-'+m[1].padStart(2,'0'); }
     return null;
   }
 
+  // Find invoice number with prioritized patterns
   function findInvNum(){
-    // Explicit label patterns (most reliable)
-    const patterns=[
-      /n[uú]mero\s+(?:de\s+)?factura[:\s#]*([A-Z0-9][-\/A-Z0-9]*\d)/i,
-      /factura\s+n[uú]m\.?[:\s#]*([A-Z0-9][-\/A-Z0-9]*\d)/i,
-      /fra\.?\s*n[oº°]?\.?[:\s#]*([A-Z0-9][-\/A-Z0-9]*\d)/i,
-      /n[oº°]?\.?\s*factura[:\s#]*([A-Z0-9][-\/A-Z0-9]*\d)/i,
-      /factura[:\s#]+([A-Z]{0,3}\d{4,}[-\/]?\d*)/i,
-      // Common Spanish invoice number formats: F2024/001, A-001, 2024-001
-      /\b([A-Z]{1,2}[-\/]?\d{4}[-\/]\d{1,4})\b/,
-      /\b([A-Z]{1,3}[-\/]\d{3,6})\b/,
-      /\b(\d{4}[-\/]\d{3,6})\b/,
-    ];
-    for(const p of patterns){
-      const m=text.match(p);
-      if(m&&m[1])return m[1].trim();
-    }
-    return '';
-  }
-
-  function findSupplier(){
-    // Try labeled patterns first
-    const labeled=[
-      /(?:raz[oó]n social|empresa|raz[oó]n)[:\s]+([^\n]{3,60})/i,
-      /(?:emisor|proveedor)[:\s]+([^\n]{3,60})/i,
-      /(?:de:|expedido por)[:\s]+([^\n]{3,60})/i,
-      /(?:nombre fiscal)[:\s]+([^\n]{3,60})/i,
+    const labeled = [
+      /n[uú]mero\s+(?:de\s+)?factura\s*[:\s#]*\s*([A-Z0-9][A-Z0-9\/\-]{1,20})/i,
+      /factura\s+(?:n[uú]m|n[oº°]|nro)\s*\.?\s*[:\s#]*\s*([A-Z0-9][A-Z0-9\/\-]{1,20})/i,
+      /fra\.?\s*(?:n[uú]m|n[oº°]|nro)?\s*\.?\s*[:\s#]*\s*([A-Z0-9][A-Z0-9\/\-]{1,20})/i,
+      /(?:^|\s)(?:factura|invoice)\s*[:\s#]+([A-Z0-9][A-Z0-9\/\-]{1,20})/im,
+      /n[uú]m(?:ero)?\.?\s*[:\s#]+([A-Z]{0,3}\d{3,}[A-Z0-9\/\-]*)/i,
     ];
     for(const p of labeled){
-      const m=text.match(p);
-      if(m&&m[1].trim().length>2)return m[1].trim();
+      const m = text.match(p);
+      if(m && m[1] && m[1].length >= 2) return m[1].trim();
     }
-    // CIF/NIF pattern: company usually near its tax id
-    const nifM=text.match(/(?:CIF|NIF|N\.I\.F\.)[:\s]*[A-Z]?\d{7,8}[A-Z]?[\s\n]+([A-Z][^\n]{3,50})/i);
-    if(nifM&&nifM[1])return nifM[1].trim();
-    const nifM2=text.match(/([A-Z][^\n]{3,50})[\s\n]+(?:CIF|NIF|N\.I\.F\.)[:\s]*[A-Z]?\d{7,8}[A-Z]?/i);
-    if(nifM2&&nifM2[1])return nifM2[1].trim();
-    return '';
-  }
-
-  function findClient(){
-    const patterns=[
-      /(?:cliente|facturado a|destinatario|para)[:\s]+([^\n]{3,60})/i,
-      /(?:a:|att\.?:)[:\s]+([A-Z][^\n]{3,50})/i,
+    // Common standalone formats
+    const standalone = [
+      /\b([A-Z]{1,3}[\/\-]\d{4}[\/\-]\d{1,6})\b/,
+      /\b([A-Z]{1,3}[\/\-]\d{3,6})\b/,
+      /\b(\d{4}[\/\-]\d{3,6})\b/,
+      /\b([A-Z]\d{5,})\b/,
     ];
-    for(const p of patterns){
-      const m=text.match(p);
-      if(m&&m[1].trim().length>2)return m[1].trim();
+    for(const p of standalone){
+      const m = text.match(p);
+      if(m && m[1]) return m[1];
     }
     return '';
   }
 
+  // Find NIF/CIF/NIE — Spanish tax IDs
   function findNif(){
-    // Spanish NIF/CIF/NIE patterns
-    const m=text.match(/\b([A-Z]\d{7}[A-Z0-9]|\d{8}[A-Z]|[XYZ]\d{7}[A-Z])\b/);
-    if(m)return m[1];
+    // CIF: starts with letter A-H,J,N,P,Q,R,S,U,V,W + 7 digits + letter/digit
+    // NIF: 8 digits + letter
+    // NIE: X,Y,Z + 7 digits + letter
+    // Also handle formats with hyphens: B-12345678, 12.345.678-A
+    const nifRe = /\b([ABCDEFGHJNPQRSUVW]\d{7}[0-9A-J]|\d{8}[A-Z]|[XYZ]\d{7}[A-Z])\b/ig;
+    const allNifs = [...text.matchAll(nifRe)].map(m => m[1]);
+    if(allNifs.length === 0) return '';
+    // If multiple, prefer the first one that appears near supplier keywords
+    const supplierArea = text.substring(0, Math.min(text.length, 800));
+    const nearMatch = supplierArea.match(nifRe);
+    if(nearMatch) return nearMatch[0];
+    return allNifs[0];
+  }
+
+  // Find company/person name near a tax ID or label
+  function findSupplier(){
+    // 1. Labeled patterns (most reliable)
+    const labeled = [
+      /(?:raz[oó]n\s*social|nombre\s*fiscal|nombre\s*empresa)\s*[:\s]+([^\n]{3,60})/i,
+      /(?:emisor|expedidor|proveedor)\s*[:\s]+([^\n]{3,60})/i,
+      /(?:de\s*:|expedido\s*por)\s+([A-ZÁÉÍÓÚÑ][^\n]{2,60})/i,
+    ];
+    for(const p of labeled){
+      const m = text.match(p);
+      if(m && m[1].trim().length > 2) return m[1].trim().split('\n')[0].trim();
+    }
+    // 2. Name near NIF/CIF: line before or after the tax ID
+    for(let i = 0; i < lines.length; i++){
+      if(/\b[ABCDEFGHJNPQRSUVW]\d{7}[0-9A-J]\b|\b\d{8}[A-Z]\b|\b[XYZ]\d{7}[A-Z]\b/i.test(lines[i])){
+        // Check line above (often company name is above the NIF)
+        if(i > 0 && lines[i-1].length > 3 && lines[i-1].length < 80
+           && !/^(cif|nif|nie|fecha|factura)/i.test(lines[i-1])
+           && /[A-ZÁÉÍÓÚÑ]/.test(lines[i-1])){
+          return lines[i-1];
+        }
+        // Check same line before the NIF
+        const sameLine = lines[i].replace(/\b[ABCDEFGHJNPQRSUVW]\d{7}[0-9A-J]\b|\b\d{8}[A-Z]\b/ig,'').trim();
+        if(sameLine.length > 3) return sameLine;
+        // Check line below
+        if(i+1 < lines.length && lines[i+1].length > 3 && lines[i+1].length < 80){
+          return lines[i+1];
+        }
+      }
+    }
+    // 3. Fallback: first line that looks like a company name (capitalized, no numbers at start)
+    for(const line of lines.slice(0, 15)){
+      if(line.length > 3 && line.length < 80
+         && /^[A-ZÁÉÍÓÚÑ]/.test(line)
+         && !/^\d/.test(line)
+         && !/^(factura|fecha|cif|nif|n[uú]mero|serie|p[aá]gina|page)/i.test(line)){
+        return line;
+      }
+    }
     return '';
   }
 
-  if(type==='proyecto'){
-    r.venta=findNum(['total presupuesto','total','importe total','precio total'])||
-             findNum(['subtotal','base imponible'])||0;
-    r.coste=0;
-    r.cliente=findClient()||'';
-    const fl=text.split('\n').map(l=>l.trim()).filter(l=>l.length>4&&l.length<80&&!/^\d/.test(l)&&!/^[A-Z]{2,}\d/.test(l));
-    r.nombre=fl[0]||'';
+  // Find client name
+  function findClient(){
+    const labeled = [
+      /(?:cliente|facturado\s*a|bill\s*to|destinatario|datos\s*del\s*cliente)\s*[:\n]+([^\n]{3,60})/i,
+      /(?:a\s*:|att\.?\s*:)\s*([A-ZÁÉÍÓÚÑ][^\n]{2,50})/i,
+    ];
+    for(const p of labeled){ const m=text.match(p); if(m&&m[1].trim().length>2) return m[1].trim(); }
+    return '';
+  }
 
-  } else if(type==='venta'){
-    r.numero=findInvNum()||nextVentaNum('A');
-    r.fecha=findDate()||todayStr();
-    r.cliente=findClient()||'';
-    r.base=findNum(['base imponible','base impon','subtotal','importe neto','base'])||0;
-    const ivaAmt=findNum(['cuota iva','cuota de iva','cuota i\.v\.a']);
-    const total=findNum(['total factura','total a pagar','importe total','total']);
-    if(!r.base&&total)r.base=Math.round(total/1.21*100)/100;
-    r.serie=(ivaAmt||r.base)?'A':'A';
+  // Extract multiple IVA lines from the document
+  function findIvaLines(){
+    const result = [];
+    // Pattern: look for rows with base + iva% + cuota
+    // Common formats: "BASE: 1000  IVA 21%: 210" or table rows
+    const ivaLineRe = /(\d[\d.,]+)\s*[€\s]*.*?(\d{1,2})\s*%\s*.*?(\d[\d.,]+)\s*[€]?/g;
+    // Simpler: find all IVA percentages mentioned with amounts
+    const bases = [];
+    // Look for explicit base imponible mentions
+    for(let i = 0; i < lines.length; i++){
+      const line = lines[i];
+      if(/base\s*imponible|base\s*impon/i.test(line)){
+        // Find number in this line or next
+        let numStr = line.match(/(\d[\d.,]+)\s*€?$/);
+        if(!numStr && i+1 < lines.length) numStr = lines[i+1].match(/^(\d[\d.,]+)/);
+        // Find IVA% nearby
+        let ivaPctStr = line.match(/(\d{1,2})\s*%/);
+        if(!ivaPctStr && i+1 < lines.length) ivaPctStr = lines[i+1].match(/(\d{1,2})\s*%/);
+        if(!ivaPctStr && i+2 < lines.length) ivaPctStr = lines[i+2].match(/(\d{1,2})\s*%/);
+        const base = numStr ? pN(numStr[1]) : 0;
+        const ivaPct = ivaPctStr ? parseFloat(ivaPctStr[1]) : (DB.defaultIvaPct||21);
+        if(base > 0) bases.push({base, ivaPct, cuota: Math.round(base*ivaPct)/100});
+      }
+    }
+    if(bases.length === 0){
+      // Fallback: single base from totals
+      const b = findN(['base imponible','base impon','subtotal','importe neto']);
+      const cuotaIva = findN(['cuota iva','cuota de iva','cuota i.v.a']);
+      const base = b || 0;
+      let ivaPct = DB.defaultIvaPct||21;
+      if(base>0 && cuotaIva>0) ivaPct = [0,4,10,21].reduce((a,b)=>Math.abs(b-Math.round(cuotaIva/base*100))<Math.abs(a-Math.round(cuotaIva/base*100))?b:a);
+      bases.push({base, ivaPct, cuota: Math.round(base*ivaPct*100)/10000});
+    }
+    return bases;
+  }
+
+  // ── Build result by type ──────────────────────────────────────────────
+
+  if(type === 'proyecto'){
+    r.venta = findN(['total presupuesto','presupuesto total','importe total','total']) ||
+              findN(['subtotal','base imponible']) || 0;
+    r.coste = 0;
+    r.cliente = findClient() || '';
+    r.nif = findNif() || '';
+    const fl = lines.filter(l => l.length>4 && l.length<80 && !/^\d/.test(l));
+    r.nombre = fl[0] || '';
+
+  } else if(type === 'venta'){
+    r.numero  = findInvNum() || nextVentaNum('A');
+    r.fecha   = findDate()   || todayStr();
+    r.cliente = findClient() || '';
+    r.base    = findN(['base imponible','base impon','subtotal','importe neto']) || 0;
+    const total = findN(['total factura','total a pagar','importe total','total a cobrar']);
+    if(!r.base && total) r.base = Math.round(total/1.21*100)/100;
+    r.serie   = 'A';
 
   } else {
-    r.numfact=findInvNum()||'';
-    r.fecha=findDate()||todayStr();
-    r.proveedor=findSupplier()||'';
-    r.nif=findNif()||'';
-    r.base=findNum(['base imponible','base impon','subtotal','importe neto'])||0;
-    r.cuotaIva=findNum(['cuota iva','cuota de iva','cuota i\.v\.a'])||0;
-    r.retencion=findNum(['retenci[oó]n irpf','retenci[oó]n','irpf'])||0;
-    r.total=findNum(['total factura','total a pagar','importe total','total'])||0;
-    // Infer IVA% from amounts
-    if(r.base>0&&r.cuotaIva>0){
-      const pct=Math.round(r.cuotaIva/r.base*100);
-      r.ivaPct=[4,10,21].reduce((a,b)=>Math.abs(b-pct)<Math.abs(a-pct)?b:a);
-    } else { r.ivaPct=DB.defaultIvaPct||21; }
-    r.irpfPct=r.base>0&&r.retencion>0?Math.round(r.retencion/r.base*100):0;
-    if(!r.total&&r.base)r.total=r.base+r.cuotaIva-r.retencion;
-    r.ivaLines=[{base:r.base,ivaPct:r.ivaPct,cuota:r.cuotaIva}];
+    // COSTE (factura recibida)
+    r.numfact   = findInvNum()   || '';
+    r.fecha     = findDate()     || todayStr();
+    r.proveedor = findSupplier() || '';
+    r.nif       = findNif()      || '';
+    const retencion = findN(['retenci\u00f3n irpf','retenci[o\u00f3]n','irpf','-irpf']);
+    r.retencion = retencion || 0;
+    r.irpfPct   = 0;
+    // Get IVA lines (supports multiple bases)
+    const ivaLines = findIvaLines();
+    r.ivaLines  = ivaLines;
+    r.base      = ivaLines.reduce((s,l) => s+l.base, 0);
+    r.cuotaIva  = ivaLines.reduce((s,l) => s+l.cuota, 0);
+    r.ivaPct    = ivaLines.length===1 ? ivaLines[0].ivaPct : (DB.defaultIvaPct||21);
+    const total = findN(['total factura','total a pagar','importe total','total a cobrar','total']);
+    r.total     = total || (r.base + r.cuotaIva - r.retencion);
+    if(r.base > 0 && r.retencion > 0) r.irpfPct = Math.round(r.retencion/r.base*100);
   }
+
   return r;
 }
+
 
 async function extractPdfWithAI(base64,type){
   const bar=document.getElementById('ai-status-bar');
