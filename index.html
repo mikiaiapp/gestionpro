@@ -3621,6 +3621,45 @@ function geminiToFormData(data, type){
 
 
 // ═══════════════════════════════════════════
+async function extractPdfWithAI(base64, type){
+  const bar = document.getElementById('ai-status-bar');
+  const msg = document.getElementById('ai-status-msg');
+  bar.style.display='flex'; bar.style.borderColor=''; bar.style.color='var(--accent)';
+
+  if(!GEMINI_KEY){
+    bar.style.display='none';
+    renderPdfForm(type, {});
+    const panel = document.getElementById('pdf-form-content');
+    panel.innerHTML = '<div style="background:rgba(160,108,0,.08);border:1px solid rgba(160,108,0,.25);border-radius:10px;padding:14px 16px;font-size:.84rem;color:var(--yellow);"><strong>&#x1F916; Configura Gemini</strong><br>Ve a Ajustes → API de IA y añade tu clave gratuita.</div>' + panel.innerHTML;
+    return;
+  }
+
+  msg.textContent = 'Analizando con Gemini...';
+  document.getElementById('pdf-form-content').innerHTML = '<div style="color:var(--muted);font-size:.86rem;padding:16px;text-align:center;">Analizando factura con IA...</div>';
+  console.log('[PDF Import] type:', type, 'base64 len:', base64?.length);
+
+  try{
+    const raw    = await extractWithGemini(base64, type);
+    console.log('[PDF Import] Gemini response:', JSON.stringify(raw).slice(0, 300));
+    const parsed = geminiToFormData(raw, type);
+    pdfExtracted = parsed;
+    bar.style.display = 'none';
+    renderPdfForm(type, parsed);
+  } catch(e){
+    console.error('[PDF Import] Error:', e);
+    bar.style.color='var(--red)'; bar.style.borderColor='rgba(192,57,43,.3)';
+    let errMsg = e.message || String(e);
+    if(errMsg.includes('Cuota') || errMsg.includes('429') || errMsg.includes('RESOURCE_EXHAUSTED')){
+      errMsg = 'Cuota de Gemini agotada. Espera unos minutos.';
+    } else if(errMsg.includes('NetworkError') || errMsg.includes('Failed to fetch')){
+      errMsg = 'Error de red. Desactiva bloqueadores de anuncios.';
+    }
+    msg.innerHTML = '&#x2716; ' + errMsg;
+    setTimeout(()=>{ bar.style.display='none'; }, 6000);
+    renderPdfForm(type, {});
+  }
+}
+
 // INIT
 // ═══════════════════════════════════════════
 window.addEventListener('DOMContentLoaded', () => {
