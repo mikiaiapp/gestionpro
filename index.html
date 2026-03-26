@@ -3241,7 +3241,7 @@ function toggleDriveConfig(){
 }
 // ─── GEMINI API ──────────────────────────────────────────────────────────
 let GEMINI_KEY = localStorage.getItem('gp_gemini_key') || '';
-const GEMINI_MODEL = 'gemini-2.0-flash';
+const GEMINI_MODEL = 'gemini-1.5-flash';
 const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODEL + ':generateContent';
 
 function saveGeminiKey(){
@@ -3695,11 +3695,16 @@ async function testGeminiKey(){
   } catch(e){
     let msg = e.message || String(e);
     if(msg.includes('NetworkError') || msg.includes('Failed to fetch') || msg.includes('fetch')){
-      msg = 'Error de red. Posibles causas:<br>' +
-        '1. La API key es incorrecta o no tiene permisos<br>' +
-        '2. Tu navegador o red bloquea generativelanguage.googleapis.com<br>' +
-        '3. Prueba desactivar bloqueadores de anuncios (uBlock, etc.)<br>' +
-        '4. Prueba en modo incógnito';
+      msg = 'Error de red — posibles causas:<br>' +
+        '&bull; Bloqueador de anuncios activo (uBlock, AdBlock...) — desactívalo para esta página<br>' +
+        '&bull; API key con restricción de dominio — en Google Cloud Console comprueba que la key no tiene restricciones de HTTP referrer<br>' +
+        '&bull; Prueba en modo incógnito sin extensiones';
+    } else if(msg.includes('429') || msg.includes('quota') || msg.includes('RESOURCE_EXHAUSTED')){
+      msg = 'Límite de peticiones alcanzado (429).<br>' +
+        'El plan gratuito permite 15 peticiones/minuto. Espera 1-2 minutos y vuelve a intentarlo.<br>' +
+        'Si el error persiste, revisa el uso en <a href="https://aistudio.google.com" target="_blank" style="color:var(--accent)">aistudio.google.com</a>.';
+    } else if(msg.includes('400') || msg.includes('API_KEY_INVALID')){
+      msg = 'API key inválida. Verifica que la has copiado correctamente desde <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--accent)">aistudio.google.com/apikey</a>.';
     }
     updateGeminiStatus('&#x2716; ' + msg, false, true);
   }
@@ -3826,8 +3831,14 @@ async function extractPdfWithAI(base64, type){
     renderPdfForm(type, parsed);
   } catch(e){
     bar.style.color='var(--red)'; bar.style.borderColor='rgba(192,57,43,.3)';
-    msg.textContent='Error Gemini: '+e.message+'. Rellena los datos manualmente.';
-    setTimeout(()=>{bar.style.display='none';},4000);
+    let errMsg = e.message || '';
+    if(errMsg.includes('429') || errMsg.includes('quota') || errMsg.includes('RESOURCE_EXHAUSTED')){
+      errMsg = 'Límite Gemini alcanzado. Espera 1-2 minutos e inténtalo de nuevo.';
+    } else if(errMsg.includes('NetworkError') || errMsg.includes('fetch')){
+      errMsg = 'Error de red. Comprueba que no tienes un bloqueador de anuncios activo.';
+    }
+    msg.innerHTML = '&#x2716; ' + errMsg + ' — Puedes rellenar los datos manualmente.';
+    setTimeout(()=>{bar.style.display='none';},6000);
     renderPdfForm(type,{});
   }
 }
