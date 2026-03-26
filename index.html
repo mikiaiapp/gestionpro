@@ -3658,3 +3658,176 @@ function toggleDriveConfig(){
 }
 // ─── GEMINI API ──────────────────────────────────────────────────────────
 
+// ─── GEMINI API KEY MANAGEMENT ───────────────────────────────────────────
+GEMINI_KEY = localStorage.getItem('gp_gemini_key') || '';
+GEMINI_KEY = localStorage.getItem('gp_gemini_key') || '';
+// GEMINI_MODEL already declared above
+function saveGeminiKey(){
+  const val = document.getElementById('cfg-gemini-key').value.trim();
+  if(!val){ toast('Introduce la API key de Gemini.', 'error'); return; }
+  GEMINI_KEY = val;
+  localStorage.setItem('gp_gemini_key', val);
+  toast('API key de Gemini guardada.');
+  updateGeminiStatus('Guardada. Pulsa "Probar conexión" para verificarla.');
+}
+
+async function testGeminiKey(){
+  const key = document.getElementById('cfg-gemini-key').value.trim() || GEMINI_KEY;
+  if(!key){ toast('Introduce primero la API key.', 'error'); return; }
+  updateGeminiStatus('Probando conexión...');
+  try{
+    const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODEL + ':generateContent?key=' + key, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        contents:[{parts:[{text:'Responde solo: OK'}]}],
+        generationConfig:{maxOutputTokens:5}
+      })
+    });
+    const d = await r.json();
+    if(d.error) throw new Error(d.error.message);
+    updateGeminiStatus('&#x2714; Conexión correcta. Gemini listo.', true);
+  } catch(e){
+    updateGeminiStatus('&#x2716; Error: ' + e.message, false, true);
+  }
+}
+
+function updateGeminiStatus(msg, ok, err){
+  const el = document.getElementById('gemini-status');
+  if(!el) return;
+  el.innerHTML = msg;
+  el.style.color = ok ? 'var(--green)' : err ? 'var(--red)' : 'var(--muted)';
+}
+
+async function extractWithGemini(base64, type){
+  const key = GEMINI_KEY;
+  if(!key) throw new Error('NO_KEY');
+
+  const prompts = {
+    coste: `Analiza esta factura y responde ÚNICAMENTE con un objeto JSON válido, sin explicaciones, sin markdown, sin backticks.
+El JSON debe tener exactamente estas claves:
+{"nif":"NIF o CIF del EMISOR","proveedor":"Nombre del EMISOR","numfact":"Número de factura","fecha":"YYYY-MM-DD","ivaLines":[{"base":1000.00,"ivaPct":21,"cuota":210.00}],"irpfImporte":0,"irpfPct":0,"total":1210.00}
+Si hay varias bases con diferentes tipos de IVA incluye una entrada por cada una en ivaLines. Si no hay IRPF pon 0. Importes como números.`,
+    venta: `Analiza esta factura emitida y responde ÚNICAMENTE con un objeto JSON válido, sin markdown:
+{"nifCliente":"NIF del CLIENTE","cliente":"Nombre del CLIENTE","numfact":"Número de factura","fecha":"YYYY-MM-DD","base":1000.00,"ivaPct":21,"cuotaIva":210.00,"total":1210.00,"serie":"A si tiene IVA, B si no"}`,
+    proyecto: `Analiza este presupuesto y responde ÚNICAMENTE con un objeto JSON válido, sin markdown:
+{"nombre":"Descripción del proyecto (máx 80 chars)","cliente":"Nombre del cliente","nif":"NIF si aparece","venta":0.00}`
+  };
+
+  const body = {
+    contents:[{parts:[
+      {inline_data:{mime_type:'application/pdf', data:base64}},
+      {text: prompts[type]}
+    ]}],
+    generationConfig:{maxOutputTokens:500, temperature:0}
+  };
+
+  const r = await fetch(
+    'https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODEL + ':generateContent?key=' + key,
+    {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)}
+  );
+  const d = await r.json();
+  if(d.error) throw new Error(d.error.message);
+  let raw = (d.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
+  raw = raw.replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/\s*```$/,'').trim();
+  let parsed;
+  try { parsed = JSON.parse(raw); }
+  catch(e){
+    const m = raw.match(/\{[\s\S]*\}/);
+    if(m) parsed = JSON.parse(m[0]);
+    else throw new Error('Respuesta no válida: ' + raw.slice(0,80));
+  }
+  return parsed;
+}
+
+function geminiToFormData(data, type){
+  const r = {};
+  function cN(v){ if(typeof v==='number') return v; let s=String(v||0).replace(/[€$\s]/g,'').trim(); const lc=s.lastIndexOf(','),ld=s.lastIndexOf('.'); if(lc>ld)s=s.replace(/\./g,'').replace(',','.'); else if(ld>lc)s=s.replace(/,/g,''); return parseFloat(s)||0; }
+  function cD(s){ if(!s) return todayStr(); if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s; const m=String(s).match(/(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})/); if(m) return m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0'); return todayStr(); }
+
+  if(type==='coste'){
+    r.nif       = String(data.nif||'').trim();
+    r.proveedor = String(data.proveedor||'').trim();
+    r.numfact   = String(data.numfact||'').trim();
+    r.fecha     = cD(data.fecha);
+    let ivaLines = Array.isArray(data.ivaLines) && data.ivaLines.length
+      ? data.ivaLines.map(l=>({base:cN(l.base),ivaPct:cN(l.ivaPct),cuota:cN(l.cuota)||Math.round(cN(l.base)*cN(l.ivaPct)*100)/10000})).filter(l=>l.base>0)
+      : [];
+    if(!ivaLines.length) ivaLines=[{base:0,ivaPct:DB.defaultIvaPct||21,cuota:0}];
+    r.ivaLines  = ivaLines;
+    r.base      = ivaLines.reduce((s,l)=>s+l.base,0);
+    r.cuotaIva  = ivaLines.reduce((s,l)=>s+l.cuota,0);
+    r.ivaPct    = ivaLines.length===1 ? ivaLines[0].ivaPct : (DB.defaultIvaPct||21);
+    r.retencion = cN(data.irpfImporte||data.retencion||0);
+    r.irpfPct   = cN(data.irpfPct||0);
+    if(!r.irpfPct&&r.retencion&&r.base) r.irpfPct=Math.round(r.retencion/r.base*100);
+    r.total     = cN(data.total)||(r.base+r.cuotaIva-r.retencion);
+  } else if(type==='venta'){
+    r.nifCliente= String(data.nifCliente||'').trim();
+    r.cliente   = String(data.cliente||'').trim();
+    r.numero    = String(data.numfact||'').trim()||nextVentaNum('A');
+    r.fecha     = cD(data.fecha);
+    r.base      = cN(data.base||0);
+    r.ivaPct    = cN(data.ivaPct||21);
+    r.cuotaIva  = cN(data.cuotaIva||0)||Math.round(r.base*r.ivaPct*100)/10000;
+    r.total     = cN(data.total||0)||(r.base+r.cuotaIva);
+    r.serie     = String(data.serie||'A').toUpperCase()==='B'?'B':'A';
+  } else {
+    r.nombre    = String(data.nombre||'').trim();
+    r.cliente   = String(data.cliente||'').trim();
+    r.nif       = String(data.nif||'').trim();
+    r.venta     = cN(data.venta||0);
+    r.coste     = 0;
+  }
+  return r;
+}
+
+async function extractPdfWithAI(base64, type){
+  const bar = document.getElementById('ai-status-bar');
+  const msg = document.getElementById('ai-status-msg');
+  bar.style.display='flex'; bar.style.borderColor=''; bar.style.color='var(--accent)';
+
+  if(!GEMINI_KEY){
+    bar.style.display='none';
+    renderPdfForm(type,{});
+    const panel=document.getElementById('pdf-form-content');
+    panel.innerHTML=`<div style="background:rgba(160,108,0,.08);border:1px solid rgba(160,108,0,.25);border-radius:10px;padding:14px 16px;margin-bottom:14px;font-size:.84rem;color:var(--yellow);">
+      <strong>&#x1F916; Activa la extracción automática</strong><br>
+      Añade tu API key gratuita de Gemini en
+      <button onclick="showPage('ajustes',document.querySelector('nav .ni:last-child'));closeModal('modal-pdf-import')"
+        style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:.84rem;text-decoration:underline;font-family:var(--font-body);">
+        Ajustes → API de IA →
+      </button>
+    </div>`+panel.innerHTML;
+    return;
+  }
+
+  msg.textContent='&#x1F916; Analizando con Gemini 2.0 Flash...';
+  document.getElementById('pdf-form-content').innerHTML='<div style="color:var(--muted);font-size:.86rem;padding:16px;text-align:center;">&#x1F916; Analizando factura...</div>';
+
+  try{
+    const raw    = await extractWithGemini(base64, type);
+    const parsed = geminiToFormData(raw, type);
+    pdfExtracted = parsed;
+    bar.style.display='none';
+    renderPdfForm(type, parsed);
+  } catch(e){
+    bar.style.color='var(--red)'; bar.style.borderColor='rgba(192,57,43,.3)';
+    msg.textContent='Error Gemini: '+e.message+'. Rellena los datos manualmente.';
+    setTimeout(()=>{bar.style.display='none';},4000);
+    renderPdfForm(type,{});
+  }
+}
+
+// ═══════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════
+window.addEventListener('DOMContentLoaded', () => {
+  GEMINI_KEY = localStorage.getItem('gp_gemini_key') || '';
+  if(CLIENT_ID){
+    goToStep2();
+  }
+});
+</script>
+</body>
+</html>
