@@ -404,44 +404,35 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
   .mobile-cards tbody td.m-full2{
     display:block;
     font-size:.78rem;font-weight:400;color:var(--muted);
-    padding:1px 12px 0 12px;
+    padding:1px 12px 4px 12px;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
   }
 
-  /* ── FILA DE CHIPS (línea 2) ── */
+  /* ── FILA DE CHIPS ── */
   .mobile-cards tbody td.m-row2{
     display:inline-flex !important;
     align-items:center;gap:3px;
-    padding:4px 5px 4px 0;
+    padding:4px 4px 4px 8px;
     font-size:.73rem;
     white-space:nowrap;vertical-align:middle;
   }
-  .mobile-cards tbody td.m-row2:first-of-type{padding-left:12px;}
   .mobile-cards tbody td.m-row2::before{
     content:attr(data-m)': ';
     font-size:.58rem;font-weight:700;
     color:var(--muted2);text-transform:uppercase;letter-spacing:.2px;
-  }
-  /* Separador visual */
-  .mobile-cards tbody td.m-row2+td.m-row2{
-    padding-left:7px;border-left:1px solid var(--border);margin-left:3px;
   }
 
   /* ── FILA DE MONTOS (línea 3) ── */
   .mobile-cards tbody td.m-row3{
     display:inline-flex !important;
     align-items:center;gap:3px;
-    padding:2px 5px 2px 0;
+    padding:2px 4px 2px 8px;
     font-size:.73rem;white-space:nowrap;vertical-align:middle;
   }
-  .mobile-cards tbody td.m-row3:first-of-type{padding-left:12px;}
   .mobile-cards tbody td.m-row3::before{
     content:attr(data-m)': ';
     font-size:.58rem;font-weight:700;
     color:var(--muted2);text-transform:uppercase;letter-spacing:.2px;
-  }
-  .mobile-cards tbody td.m-row3+td.m-row3{
-    padding-left:7px;border-left:1px solid var(--border);margin-left:3px;
   }
 
   /* Separador entre bloques de filas */
@@ -527,10 +518,7 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
     position:relative;
     z-index:1;
   }
-  .bn-item.active{
-    color:#fff;
-    border-top:2px solid transparent;
-  }
+  .bn-item.active{color:#fff;}
   .bn-item:active{opacity:.6;}
   .bn-icon{font-size:1.15rem;line-height:1;display:block;}
   .bn-label{
@@ -2867,19 +2855,20 @@ function renderVentas(){
       ?`<a href="${getAttachUrl(v.pdfDriveId)}" target="_blank" class="clip-icon has-doc" title="${v.pdfName||'Ver PDF'}">&#x1F4CE;</a>`
       :'<span class="clip-icon" title="Sin adjunto">&#x1F4CE;</span>';
     return`<tr style="cursor:pointer" onclick="toggleVentaHist('${v.id}',this)">
-      <td class="m-clip" style="width:24px">${clipV}</td>
-      <td data-m="Serie"><span class="badge ${v.serie==='A'?'badge-blue':'badge-purple'}">${v.serie}</span></td>
-      <td data-m="Nº">${v.numero}</td>
-      <td data-m="Cliente" class="m-full"><strong>${v.cliente}</strong></td>
-      <td data-m="Nº · Fecha" class="m-full2">${v.numero} &nbsp;<span style="color:var(--muted2);font-size:.72rem">${v.fecha}</span></td>
-      <td data-m="Base">${fmt(v.base)}</td>
-      <td data-m="IVA">${v.serie==='A'?fmt(v.iva):'—'}</td>
-      <td data-m="Proyecto">${proy?proy.nombre:'—'}</td>
+      <td class="m-clip">${clipV}</td>
+      <td class="m-full"><strong>${v.cliente}</strong></td>
+      <td class="m-full2">${v.numero}&nbsp;<span style="color:var(--muted2);font-size:.72rem">${v.fecha}&nbsp;·&nbsp;${v.serie==='A'?'IVA':'Sin IVA'}</span></td>
+      <td data-m="Proyecto" class="m-row2">${proy?proy.nombre:'—'}</td>
       <td data-m="Total" class="m-row2"><strong>${fmt(v.total)}</strong></td>
       <td data-m="Cobrado" class="m-row2 mp">${fmt(cobrado)}</td>
       <td data-m="Pend." class="m-row2 ${pend>0?'mn':''}">${fmt(pend)}</td>
       <td data-m="Estado" class="m-row2">${est}</td>
-      <td class="m-actions" onclick="event.stopPropagation()">${cobBtn} <button class="btn btn-ghost btn-xs" onclick="editVenta('${v.id}')">&#x270F;&#xFE0F;</button> <button class="btn btn-danger btn-xs" onclick="deleteVenta('${v.id}')">&#x1F5D1;&#xFE0F;</button></td>
+      <td class="m-actions" onclick="event.stopPropagation()">${cobBtn}<button class="btn btn-ghost btn-xs" onclick="editVenta('${v.id}')">&#x270F;&#xFE0F;</button><button class="btn btn-danger btn-xs" onclick="deleteVenta('${v.id}')">&#x1F5D1;&#xFE0F;</button></td>
+      <td style="display:none"><span class="badge ${v.serie==='A'?'badge-blue':'badge-purple'}">${v.serie}</span></td>
+      <td style="display:none">${v.numero}</td>
+      <td style="display:none">${v.fecha}</td>
+      <td style="display:none">${fmt(v.base)}</td>
+      <td style="display:none">${v.serie==='A'?fmt(v.iva):'—'}</td>
     </tr>
     <tr id="hist-venta-${v.id}" class="hist-row" style="display:none">
       <td colspan="13"><div class="hist-inner" id="hist-venta-inner-${v.id}"></div></td>
@@ -3764,11 +3753,8 @@ function renderResumen(){
               </div>
             </td></tr>`:'';
           return`<tr style="cursor:pointer" onclick="resToggleHist('res-hist-v-${v.id}',this)">
-            <td data-m="Serie"><span class="badge ${v.serie==='A'?'badge-blue':'badge-purple'}">${v.serie}</span></td>
-            <td data-m="Nº">${v.numero}</td>
-            <td data-m="Cliente" class="m-full"><strong>${v.cliente||'—'}</strong></td>
-            <td data-m="Nº · Fecha" class="m-full2">${v.numero} &nbsp;<span style="color:var(--muted2);font-size:.72rem">${v.fecha}</span></td>
-            <td data-m="Fecha">${v.fecha}</td>
+            <td class="m-full"><strong>${v.cliente||'—'}</strong></td>
+            <td class="m-full2">${v.numero}&nbsp;<span style="color:var(--muted2);font-size:.72rem">${v.fecha}&nbsp;·&nbsp;${v.serie==='A'?'IVA':'Sin IVA'}</span></td>
             <td data-m="Total" class="m-row2"><strong>${fmt(v.total)}</strong></td>
             <td data-m="Cobrado" class="m-row2 mp">${fmt(cob)}</td>
             <td data-m="Pend." class="m-row2 ${pend>0?'mn':''}">${fmt(pend)}</td>
@@ -3778,6 +3764,9 @@ function renderResumen(){
               <button class="btn btn-ghost btn-xs" onclick="resEditVenta('${v.id}')">&#x270F;&#xFE0F;</button>
               <button class="btn btn-danger btn-xs" onclick="resDeleteVenta('${v.id}','${p.id}')">&#x1F5D1;&#xFE0F;</button>
             </td>
+            <td style="display:none">${v.serie}</td>
+            <td style="display:none">${v.numero}</td>
+            <td style="display:none">${v.fecha}</td>
           </tr>${histHtml}`;}).join('')}
         <tr style="font-weight:700;border-top:2px solid var(--border)">
           <td colspan="4">TOTAL</td>
