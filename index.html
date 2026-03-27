@@ -412,7 +412,7 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
   .mobile-cards tbody tr[style*="font-weight:700"] td::before{display:none;}
 
   /* ── BOTTOM NAV: visible en portrait móvil ── */
-  /* ── BOTTOM NAV con scroll infinito ── */
+  /* ── BOTTOM NAV — scroll nativo CSS ── */
   #bottom-nav{
     position:fixed;
     bottom:0;left:0;right:0;
@@ -420,17 +420,23 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
     background:#111;
     border-top:1px solid #2a2a2a;
     height:56px;
-    overflow:hidden;
-    display:block;
-  }
-  #bottom-nav-track{
     display:flex;
-    height:100%;
-    /* width set by JS */
-    will-change:transform;
+    flex-direction:row;
+    overflow-x:auto;
+    overflow-y:hidden;
+    -webkit-overflow-scrolling:touch;
+    scroll-behavior:smooth;
+    scrollbar-width:none;
+    scroll-snap-type:x mandatory;
+    /* fade edges to hint scrollability */
+    -webkit-mask:linear-gradient(to right, transparent 0, #000 8%, #000 92%, transparent 100%);
+    mask:linear-gradient(to right, transparent 0, #000 8%, #000 92%, transparent 100%);
   }
+  #bottom-nav::-webkit-scrollbar{display:none;}
   .bn-item{
-    flex:0 0 72px;
+    flex:0 0 20vw;         /* 5 items visible at once on portrait */
+    max-width:90px;
+    min-width:64px;
     display:flex;
     flex-direction:column;
     align-items:center;
@@ -443,26 +449,35 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
     border-top:2px solid transparent;
     user-select:none;
     -webkit-tap-highlight-color:transparent;
+    scroll-snap-align:start;
   }
-  .bn-item.active{color:#fff;border-top-color:var(--accent);background:rgba(255,255,255,.05);}
-  .bn-item:active{background:rgba(255,255,255,.12);}
+  .bn-item.active{
+    color:#fff;
+    border-top-color:var(--accent);
+    background:rgba(255,255,255,.05);
+  }
+  .bn-item:active{background:rgba(255,255,255,.14);}
   .bn-icon{font-size:1.15rem;line-height:1;display:block;}
   .bn-label{
-    font-size:.53rem;margin-top:2px;
+    font-size:.52rem;margin-top:2px;
     font-family:var(--font-body);font-weight:500;
     white-space:nowrap;display:block;text-align:center;
   }
   /* Room for bottom nav */
   #main{padding-bottom:68px !important;}
-  /* Hide hamburger */
+  /* Hide hamburger on portrait — use bottom nav */
   #menu-toggle{display:none !important;}
 
 }
 /* ══════════════════════════════════════════════════
    MÓVIL HORIZONTAL (landscape ≤900px)
-   Tabla normal compacta con scroll si hace falta
+   Tabla compacta + hamburger para sidebar
 ══════════════════════════════════════════════════ */
 @media(max-width:900px) and (orientation:landscape){
+  /* Hide bottom nav — use hamburger + sidebar instead */
+  #bottom-nav{display:none !important;}
+  /* Ensure hamburger is visible */
+  #menu-toggle{display:flex !important;}
   #main{padding:10px 12px 20px;padding-top:48px;}
   .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
   table{font-size:.74rem;}
@@ -1197,8 +1212,21 @@ function showPage(id,el){
   document.querySelectorAll('nav a, .bn-item').forEach(a=>a.classList.remove('active'));
   document.getElementById('page-'+id).classList.add('active');
   if(el) el.classList.add('active');
-  // Sync bottom nav infinite scroll active state
-  if(window._bnSetActive) window._bnSetActive(id);
+  // Sync bottom nav — mark active and scroll into view
+  const bn = document.getElementById('bottom-nav');
+  if(bn){
+    bn.querySelectorAll('.bn-item').forEach(a=>{
+      const isActive = a.dataset.page === id;
+      a.classList.toggle('active', isActive);
+      if(isActive){
+        // Scroll active item into center of nav bar
+        const navW = bn.offsetWidth;
+        const itemL = a.offsetLeft;
+        const itemW = a.offsetWidth;
+        bn.scrollTo({left: itemL - navW/2 + itemW/2, behavior:'smooth'});
+      }
+    });
+  }
   closeSidebar(); // auto-close on mobile
   if(id==='ventas'){populateVentaDropdowns();renderVentas();}
   if(id==='costes'){populateCosteDropdowns();renderCostes();}
@@ -4329,31 +4357,29 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 
-<!-- ══ BOTTOM NAV (móvil) ══ -->
+<!-- ══ BOTTOM NAV (móvil portrait) ══ -->
 <nav id="bottom-nav">
-  <div id="bottom-nav-track">
-    <a data-page="proyectos" class="bn-item active">
-      <span class="bn-icon">📁</span><span class="bn-label">Proyectos</span>
-    </a>
-    <a data-page="ventas" class="bn-item">
-      <span class="bn-icon">🧾</span><span class="bn-label">Ventas</span>
-    </a>
-    <a data-page="costes" class="bn-item">
-      <span class="bn-icon">📥</span><span class="bn-label">Costes</span>
-    </a>
-    <a data-page="cobros" class="bn-item">
-      <span class="bn-icon">💰</span><span class="bn-label">Cobros</span>
-    </a>
-    <a data-page="pagos" class="bn-item">
-      <span class="bn-icon">💸</span><span class="bn-label">Pagos</span>
-    </a>
-    <a data-page="resumen" class="bn-item">
-      <span class="bn-icon">📊</span><span class="bn-label">Resumen</span>
-    </a>
-    <a data-page="ajustes" class="bn-item">
-      <span class="bn-icon">⚙️</span><span class="bn-label">Ajustes</span>
-    </a>
-  </div>
+  <a data-page="proyectos" class="bn-item active" onclick="showPage('proyectos',this)">
+    <span class="bn-icon">📁</span><span class="bn-label">Proyectos</span>
+  </a>
+  <a data-page="ventas" class="bn-item" onclick="showPage('ventas',this)">
+    <span class="bn-icon">🧾</span><span class="bn-label">Ventas</span>
+  </a>
+  <a data-page="costes" class="bn-item" onclick="showPage('costes',this)">
+    <span class="bn-icon">📥</span><span class="bn-label">Costes</span>
+  </a>
+  <a data-page="cobros" class="bn-item" onclick="showPage('cobros',this)">
+    <span class="bn-icon">💰</span><span class="bn-label">Cobros</span>
+  </a>
+  <a data-page="pagos" class="bn-item" onclick="showPage('pagos',this)">
+    <span class="bn-icon">💸</span><span class="bn-label">Pagos</span>
+  </a>
+  <a data-page="resumen" class="bn-item" onclick="showPage('resumen',this)">
+    <span class="bn-icon">📊</span><span class="bn-label">Resumen</span>
+  </a>
+  <a data-page="ajustes" class="bn-item" onclick="showPage('ajustes',this)">
+    <span class="bn-icon">⚙️</span><span class="bn-label">Ajustes</span>
+  </a>
 </nav>
 </body>
 </html>
