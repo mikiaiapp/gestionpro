@@ -265,6 +265,9 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
 #bottom-nav{
   display:none; /* hidden by default, shown on mobile */
 }
+/* Desktop reset — mobile card classes are no-ops outside portrait mobile */
+.m-full, .m-row2, .m-actions, .m-clip { /* normal table cells on desktop */ }
+
 /* ── TABLET ≤900px ── */
 @media(max-width:900px){
   #menu-toggle{display:flex;}
@@ -2376,17 +2379,18 @@ function renderProyectos(){
       :'<span class="clip-icon" title="Sin adjunto">&#x1F4CE;</span>';
     return`<tr>
       <td class="m-clip" style="width:24px">${clipP}</td>
-      <td data-m="Proyecto" class="m-full"><strong>${p.nombre}</strong></td>
-      <td data-m="Cliente" class="m-full" style="font-weight:400;font-size:.83rem;">${p.cliente}&nbsp;<span style="color:var(--muted);font-size:.78rem">${p.nif||''}</span></td>
       <td data-m="Estado" class="m-row2">${estadoBadge}</td>
+      <td data-m="Proyecto" class="m-full"><strong>${p.nombre}</strong></td>
+      <td data-m="Cliente">${p.cliente}</td>
+      <td data-m="NIF" style="color:var(--muted);font-size:.8rem">${p.nif||'—'}</td>
+      <td data-m="Venta Prev.">${fmt(p.venta)}</td>
+      <td data-m="Venta Real" class="mp">${fmt(ventasReal)}</td>
+      <td data-m="Coste Prev.">${fmt(p.coste)}</td>
+      <td data-m="Coste Real" class="mp">${fmt(costesReal)}</td>
+      <td data-m="M.Prev" class="${mp>=0?'mp':'mn'}">${fmt(mp)} <small>(${fmtPct(mppct)})</small></td>
       <td data-m="M.Real" class="m-row2 ${mr>=0?'mp':'mn'}">${fmt(mr)}</td>
       <td data-m="M.%" class="m-row2 ${mr>=0?'mp':'mn'}">${fmtPct(mrpct)}</td>
-      <td data-m="Venta Prev." style="display:none">${fmt(p.venta)}</td>
-      <td data-m="Venta Real" style="display:none" class="mp">${fmt(ventasReal)}</td>
-      <td data-m="Coste Prev." style="display:none">${fmt(p.coste)}</td>
-      <td data-m="Coste Real" style="display:none" class="mp">${fmt(costesReal)}</td>
-      <td data-m="M.Prev" style="display:none" class="${mp>=0?'mp':'mn'}">${fmt(mp)}</td>
-      <td class="m-actions">${toggleBtn}
+      <td class="m-actions" style="white-space:nowrap">${toggleBtn}
         <button class="btn btn-ghost btn-xs" onclick="editProyecto('${p.id}')">&#x270F;&#xFE0F;</button>
         <button class="btn btn-danger btn-xs" onclick="deleteProyecto('${p.id}')">&#x1F5D1;&#xFE0F;</button>
       </td></tr>`;
@@ -2549,8 +2553,13 @@ function renderVentas(){
       :'<span class="clip-icon" title="Sin adjunto">&#x1F4CE;</span>';
     return`<tr style="cursor:pointer" onclick="toggleVentaHist('${v.id}',this)">
       <td class="m-clip" style="width:24px">${clipV}</td>
-      <td data-m="Factura" class="m-full"><strong>${v.numero} &nbsp;<span style="font-weight:400;font-size:.75rem;color:var(--muted)">${v.serie}</span></strong></td>
-      <td data-m="Cliente" class="m-full" style="font-weight:400;font-size:.82rem;">${v.cliente} &nbsp;<span style="color:var(--muted)">${v.fecha}</span></td>
+      <td data-m="Serie"><span class="badge ${v.serie==='A'?'badge-blue':'badge-purple'}">${v.serie}</span></td>
+      <td data-m="Nº" class="m-full"><strong>${v.numero}</strong></td>
+      <td data-m="Fecha">${v.fecha}</td>
+      <td data-m="Cliente" class="m-full">${v.cliente}</td>
+      <td data-m="Proyecto">${proy?proy.nombre:'—'}</td>
+      <td data-m="Base">${fmt(v.base)}</td>
+      <td data-m="IVA">${v.serie==='A'?fmt(v.iva):'—'}</td>
       <td data-m="Total" class="m-row2"><strong>${fmt(v.total)}</strong></td>
       <td data-m="Cobrado" class="m-row2 mp">${fmt(cobrado)}</td>
       <td data-m="Pend." class="m-row2 ${pend>0?'mn':''}">${fmt(pend)}</td>
@@ -2874,16 +2883,23 @@ function renderCostes(){
       :'<span class="clip-icon" title="Sin adjunto">&#x1F4CE;</span>';
     return`<tr style="cursor:pointer" onclick="toggleCosteHist('${c.id}',this)">
       <td class="m-clip" style="width:24px">${clipC}</td>
-      <td data-m="Proveedor" class="m-full"><strong>${c.proveedor} &nbsp;<span style="font-weight:400;font-size:.75rem;color:var(--muted)">${c.nif||''}</span></strong></td>
-      <td data-m="Nº" class="m-full" style="font-weight:400;font-size:.82rem;">${c.numero} &nbsp;<span style="color:var(--muted)">${c.fecha}</span></td>
+      <td data-m="Serie"><span class="badge ${c.serie==='A'?'badge-blue':'badge-purple'}">${c.serie}</span></td>
+      <td data-m="Nº">${c.numero}</td>
+      <td data-m="Proveedor" class="m-full"><strong>${c.proveedor}</strong></td>
+      <td data-m="NIF" style="color:var(--muted);font-size:.8rem">${c.nif||'—'}</td>
+      <td data-m="Nº Prov.">${c.numfact||'—'}</td>
+      <td data-m="Fecha">${c.fecha}</td>
+      <td data-m="Tipo"><span class="badge ${c.tipo==='proyecto'?'badge-purple':'badge-blue'}">${c.tipo==='proyecto'?'Proy.':'Gral.'}</span></td>
+      <td data-m="Proyecto">${proy?proy.nombre:'—'}</td>
+      <td data-m="Base">${fmt(c.base)}</td>
+      <td data-m="IVA%" class="m-row2">${c.serie==='A'?ivaDetail:'—'}</td>
+      <td data-m="Cuota IVA">${c.serie==='A'?fmt(c.cuotaIva||0):'—'}</td>
+      <td data-m="IRPF%">${(c.irpfPct||0)>0?c.irpfPct+'%':'—'}</td>
+      <td data-m="Retención">${(c.irpfPct||0)>0?fmt(c.retencion||0):'—'}</td>
       <td data-m="Total" class="m-row2"><strong>${fmt(c.total)}</strong></td>
-      <td data-m="Base" class="m-row2">${fmt(c.base)}</td>
-      <td data-m="IVA" class="m-row2">${c.serie==='A'?ivaDetail:'—'}</td>
+      <td data-m="Pagado" class="mp">${fmt(pagado)}</td>
       <td data-m="Pend." class="m-row2 ${pend>0?'mn':''}">${fmt(pend)}</td>
       <td data-m="Estado" class="m-row2">${est}</td>
-      <td data-m="Serie" style="display:none">${c.serie}</td>
-      <td data-m="Tipo" style="display:none">${c.tipo}</td>
-      <td data-m="Pagado" class="mp" style="display:none">${fmt(pagado)}</td>
       <td class="m-actions" onclick="event.stopPropagation()">${pagBtn} <button class="btn btn-ghost btn-xs" onclick="editCoste('${c.id}')">&#x270F;&#xFE0F;</button> <button class="btn btn-danger btn-xs" onclick="deleteCoste('${c.id}')">&#x1F5D1;&#xFE0F;</button></td>
     </tr>
     <tr id="hist-coste-${c.id}" class="hist-row" style="display:none">
@@ -3087,9 +3103,11 @@ function renderCobros(){
     const cobrado=getCobradoVenta(v.id);const pend=v.total-cobrado;
     const est=pend<=0?'<span class="badge badge-green">Cobrado</span>':cobrado>0?'<span class="badge badge-yellow">Parcial</span>':'<span class="badge badge-orange">Pendiente</span>';
     return`<tr style="cursor:pointer" onclick="showCobroHist('${v.id}',this)">
-      <td data-m="Nº" class="m-full"><strong>${v.numero} &nbsp;<span style="font-weight:400;font-size:.78rem;color:var(--muted)">${v.fecha}</span></strong></td>
+      <td data-m="Nº" class="m-full"><strong>${v.numero}</strong></td>
+      <td data-m="Serie"><span class="badge ${v.serie==='A'?'badge-blue':'badge-purple'}">${v.serie}</span></td>
+      <td data-m="Fecha">${v.fecha}</td>
       <td data-m="Cliente" class="m-full">${v.cliente}</td>
-      <td data-m="Total" class="m-row2">${fmt(v.total)}</td>
+      <td data-m="Total">${fmt(v.total)}</td>
       <td data-m="Cobrado" class="m-row2 mp">${fmt(cobrado)}</td>
       <td data-m="Pend." class="m-row2 ${pend>0?'mn':''}">${fmt(pend)}</td>
       <td data-m="Estado" class="m-row2">${est}</td></tr>`;
@@ -3188,9 +3206,12 @@ function renderPagos(){
     const pagado=getPagadoCoste(c.id);const pend=c.total-pagado;
     const est=pend<=0?'<span class="badge badge-green">Pagado</span>':pagado>0?'<span class="badge badge-yellow">Parcial</span>':'<span class="badge badge-orange">Pendiente</span>';
     return`<tr style="cursor:pointer" onclick="showPagoHist('${c.id}',this)">
-      <td data-m="Proveedor" class="m-full"><strong>${c.proveedor} &nbsp;<span style="font-weight:400;font-size:.78rem;color:var(--muted)">${c.fecha}</span></strong></td>
-      <td data-m="Nº" class="m-full" style="font-weight:400;font-size:.82rem;">${c.numero}</td>
-      <td data-m="Total" class="m-row2">${fmt(c.total)}</td>
+      <td data-m="Nº" class="m-full">${c.numero}</td>
+      <td data-m="Serie"><span class="badge ${c.serie==='A'?'badge-blue':'badge-purple'}">${c.serie}</span></td>
+      <td data-m="Proveedor" class="m-full"><strong>${c.proveedor}</strong></td>
+      <td data-m="Fecha">${c.fecha}</td>
+      <td data-m="Tipo"><span class="badge ${c.tipo==='proyecto'?'badge-purple':'badge-blue'}">${c.tipo==='proyecto'?'Proy.':'Gral.'}</span></td>
+      <td data-m="Total">${fmt(c.total)}</td>
       <td data-m="Pagado" class="m-row2 mp">${fmt(pagado)}</td>
       <td data-m="Pend." class="m-row2 ${pend>0?'mn':''}">${fmt(pend)}</td>
       <td data-m="Estado" class="m-row2">${est}</td></tr>`;
