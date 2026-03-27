@@ -287,7 +287,7 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
 /* ══════════════════════════════════════════════════
    MÓVIL VERTICAL (portrait ≤640px)
 ══════════════════════════════════════════════════ */
-@media(max-width:640px) and (orientation:portrait){
+@media(orientation:portrait) and (max-width:640px){
 
   /* ── Bloqueo total de ancho ── */
   html,body{overflow-x:hidden !important;max-width:100vw !important;}
@@ -427,29 +427,27 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
     -webkit-overflow-scrolling:touch;
     scroll-behavior:smooth;
     scrollbar-width:none;
-    scroll-snap-type:x mandatory;
-    /* fade edges to hint scrollability */
-    -webkit-mask:linear-gradient(to right, transparent 0, #000 8%, #000 92%, transparent 100%);
-    mask:linear-gradient(to right, transparent 0, #000 8%, #000 92%, transparent 100%);
   }
   #bottom-nav::-webkit-scrollbar{display:none;}
   .bn-item{
-    flex:0 0 20vw;         /* 5 items visible at once on portrait */
-    max-width:90px;
-    min-width:64px;
+    flex:0 0 22vw;
+    max-width:88px;
+    min-width:60px;
     display:flex;
     flex-direction:column;
     align-items:center;
     justify-content:center;
-    padding:5px 4px 4px;
+    padding:6px 4px 5px;
     cursor:pointer;
     color:#888;
     text-decoration:none;
-    transition:color .15s,background .15s;
+    transition:color .12s,background .12s;
     border-top:2px solid transparent;
     user-select:none;
     -webkit-tap-highlight-color:transparent;
-    scroll-snap-align:start;
+    touch-action:manipulation;  /* disables double-tap zoom, makes tap instant */
+    position:relative;
+    z-index:1;
   }
   .bn-item.active{
     color:#fff;
@@ -474,10 +472,10 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
    Tabla compacta + hamburger para sidebar
 ══════════════════════════════════════════════════ */
 @media(max-width:900px) and (orientation:landscape){
-  /* Hide bottom nav — use hamburger + sidebar instead */
+  /* Hide bottom nav in landscape */
   #bottom-nav{display:none !important;}
-  /* Ensure hamburger is visible */
-  #menu-toggle{display:flex !important;}
+  /* Hamburger always visible in landscape */
+  #menu-toggle{display:flex !important;visibility:visible !important;opacity:1 !important;}
   #main{padding:10px 12px 20px;padding-top:48px;}
   .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
   table{font-size:.74rem;}
