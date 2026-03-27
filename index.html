@@ -398,6 +398,7 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
   .mobile-cards tbody td.m-only.m-full{display:block !important;}
   .mobile-cards tbody td.m-only.m-full2{display:block !important;}
   .mobile-cards tbody td.m-only.m-row2{display:inline-flex !important;}
+  .mobile-cards tbody td.m-only.m-actions{display:flex !important;}
 
   /* ── TÍTULO principal (línea 1) ── */
   .mobile-cards tbody td.m-full{
@@ -2870,14 +2871,19 @@ function renderVentas(){
       <td>${proy?proy.nombre:'—'}</td>
       <td>${fmt(v.base)}</td>
       <td>${v.serie==='A'?fmt(v.iva):'—'}</td>
-      <td data-m="Total" class="m-row2"><strong>${fmt(v.total)}</strong></td>
-      <td data-m="Cobrado" class="m-row2 mp">${fmt(cobrado)}</td>
-      <td data-m="Pend." class="m-row2 ${pend>0?'mn':''}">${fmt(pend)}</td>
-      <td data-m="Estado" class="m-row2">${est}</td>
-      <td class="m-actions" onclick="event.stopPropagation()">${cobBtn}<button class="btn btn-ghost btn-xs" onclick="editVenta('${v.id}')">&#x270F;&#xFE0F;</button><button class="btn btn-danger btn-xs" onclick="deleteVenta('${v.id}')">&#x1F5D1;&#xFE0F;</button></td>
+      <td><strong>${fmt(v.total)}</strong></td>
+      <td class="mp">${fmt(cobrado)}</td>
+      <td class="${pend>0?'mn':''}">${fmt(pend)}</td>
+      <td>${est}</td>
+      <td onclick="event.stopPropagation()">${cobBtn}<button class="btn btn-ghost btn-xs" onclick="editVenta('${v.id}')">&#x270F;&#xFE0F;</button><button class="btn btn-danger btn-xs" onclick="deleteVenta('${v.id}')">&#x1F5D1;&#xFE0F;</button></td>
       <td class="m-full m-only"><strong>${v.cliente}</strong></td>
       <td class="m-full2 m-only">${v.numero}&nbsp;<span style="color:var(--muted2);font-size:.72rem">${v.fecha}&nbsp;·&nbsp;${v.serie==='A'?'IVA':'Sin IVA'}</span></td>
       <td class="m-row2 m-only" data-m="Proyecto">${proy?proy.nombre:'—'}</td>
+      <td class="m-row2 m-only" data-m="Total"><strong>${fmt(v.total)}</strong></td>
+      <td class="m-row2 m-only mp" data-m="Cobrado">${fmt(cobrado)}</td>
+      <td class="m-row2 m-only ${pend>0?'mn':''}" data-m="Pend.">${fmt(pend)}</td>
+      <td class="m-row2 m-only" data-m="Estado">${est}</td>
+      <td class="m-actions m-only" onclick="event.stopPropagation()">${cobBtn}<button class="btn btn-ghost btn-xs" onclick="editVenta('${v.id}')">&#x270F;&#xFE0F;</button><button class="btn btn-danger btn-xs" onclick="deleteVenta('${v.id}')">&#x1F5D1;&#xFE0F;</button></td>
     </tr>
     <tr id="hist-venta-${v.id}" class="hist-row" style="display:none">
       <td colspan="13"><div class="hist-inner" id="hist-venta-inner-${v.id}"></div></td>
