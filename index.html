@@ -260,6 +260,11 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
    RESPONSIVE — TABLET / MÓVIL
 ══════════════════════════════════════════════════ */
 
+
+/* ── BOTTOM NAV ── */
+#bottom-nav{
+  display:none; /* hidden by default, shown on mobile */
+}
 /* ── TABLET ≤900px ── */
 @media(max-width:900px){
   #menu-toggle{display:flex;}
@@ -358,7 +363,7 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
   }
   .mobile-cards tbody td.m-row2:first-of-type{padding-left:11px;}
   .mobile-cards tbody td.m-row2::before{
-    content:attr(data-m)' a0';
+    content:attr(data-m)': ';
     font-size:.59rem;font-weight:700;
     color:var(--muted2);text-transform:uppercase;letter-spacing:.2px;
   }
@@ -405,6 +410,50 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
     display:inline !important;font-size:.76rem;font-weight:700;
   }
   .mobile-cards tbody tr[style*="font-weight:700"] td::before{display:none;}
+
+  /* ── BOTTOM NAV: visible en portrait móvil ── */
+  #bottom-nav{
+    display:flex;
+    position:fixed;
+    bottom:0;left:0;right:0;
+    z-index:200;
+    background:#111;
+    border-top:1px solid #333;
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:none;
+    padding:0;
+    height:58px;
+    justify-content:flex-start;
+    /* loop infinito visual: duplica contenido con scroll */
+    scroll-snap-type:x mandatory;
+  }
+  #bottom-nav::-webkit-scrollbar{display:none;}
+  .bn-item{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    min-width:68px;
+    flex-shrink:0;
+    padding:6px 4px 4px;
+    cursor:pointer;
+    color:#aaa;
+    text-decoration:none;
+    scroll-snap-align:start;
+    transition:color .15s;
+    border-top:2px solid transparent;
+  }
+  .bn-item.active{color:#fff;border-top-color:var(--accent);}
+  .bn-item:active{background:rgba(255,255,255,.08);}
+  .bn-icon{font-size:1.2rem;line-height:1;}
+  .bn-label{font-size:.59rem;margin-top:2px;font-family:var(--font-body);font-weight:500;white-space:nowrap;}
+
+  /* Make room for bottom nav */
+  #main{padding-bottom:70px !important;}
+
+  /* Hide hamburger and sidebar toggle on portrait mobile (use bottom nav instead) */
+  #menu-toggle{display:none !important;}
 
 }
 /* ══════════════════════════════════════════════════
@@ -1143,9 +1192,14 @@ function loadAjustesStatus(){
 
 function showPage(id,el){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('nav a').forEach(a=>a.classList.remove('active'));
+  document.querySelectorAll('nav a, .bn-item').forEach(a=>a.classList.remove('active'));
   document.getElementById('page-'+id).classList.add('active');
-  if(el)el.classList.add('active');
+  if(el) el.classList.add('active');
+  // Also sync the bottom nav
+  document.querySelectorAll('.bn-item').forEach(a=>{
+    if(a.getAttribute('onclick')&&a.getAttribute('onclick').includes("'"+id+"'"))
+      a.classList.add('active');
+  });
   closeSidebar(); // auto-close on mobile
   if(id==='ventas'){populateVentaDropdowns();renderVentas();}
   if(id==='costes'){populateCosteDropdowns();renderCostes();}
@@ -2461,16 +2515,12 @@ function renderVentas(){
       :'<span class="clip-icon" title="Sin adjunto">&#x1F4CE;</span>';
     return`<tr style="cursor:pointer" onclick="toggleVentaHist('${v.id}',this)">
       <td class="m-clip" style="width:24px">${clipV}</td>
-      <td data-m="Nº" class="m-full"><strong>${v.numero} &nbsp;<span style="font-weight:400;font-size:.78rem;color:var(--muted)">${v.fecha}</span></strong></td>
-      <td data-m="Cliente" class="m-full">${v.cliente}</td>
+      <td data-m="Factura" class="m-full"><strong>${v.numero} &nbsp;<span style="font-weight:400;font-size:.75rem;color:var(--muted)">${v.serie}</span></strong></td>
+      <td data-m="Cliente" class="m-full" style="font-weight:400;font-size:.82rem;">${v.cliente} &nbsp;<span style="color:var(--muted)">${v.fecha}</span></td>
       <td data-m="Total" class="m-row2"><strong>${fmt(v.total)}</strong></td>
       <td data-m="Cobrado" class="m-row2 mp">${fmt(cobrado)}</td>
       <td data-m="Pend." class="m-row2 ${pend>0?'mn':''}">${fmt(pend)}</td>
       <td data-m="Estado" class="m-row2">${est}</td>
-      <td data-m="Serie" style="display:none">${v.serie}</td>
-      <td data-m="Base" style="display:none">${fmt(v.base)}</td>
-      <td data-m="IVA" style="display:none">${v.serie==='A'?fmt(v.iva):'—'}</td>
-      <td data-m="Proyecto" style="display:none">${proy?proy.nombre:'—'}</td>
       <td class="m-actions" onclick="event.stopPropagation()">${cobBtn} <button class="btn btn-ghost btn-xs" onclick="editVenta('${v.id}')">&#x270F;&#xFE0F;</button> <button class="btn btn-danger btn-xs" onclick="deleteVenta('${v.id}')">&#x1F5D1;&#xFE0F;</button></td>
     </tr>
     <tr id="hist-venta-${v.id}" class="hist-row" style="display:none">
@@ -3157,7 +3207,7 @@ function renderResumen(){
     </div>
 
     <div class="res-block"><h4>&#x1F4E4; Facturas Emitidas</h4>
-      ${ventas.length?`<div class="table-wrap"><table>
+      ${ventas.length?`<div class="table-wrap mobile-cards"><table>
         <thead><tr><th>Nº</th><th>Serie</th><th>Fecha</th><th>Total</th><th>Cobrado</th><th>Pendiente</th><th>Estado</th><th>Acciones</th></tr></thead>
         <tbody>
         ${ventas.map(v=>{
@@ -3179,13 +3229,12 @@ function renderResumen(){
               </div>
             </td></tr>`:'';
           return`<tr style="cursor:pointer" onclick="resToggleHist('res-hist-v-${v.id}',this)">
-            <td><strong>${v.numero}</strong></td>
-            <td><span class="badge ${v.serie==='A'?'badge-blue':'badge-purple'}">${v.serie}</span></td>
-            <td>${v.fecha}</td><td>${fmt(v.total)}</td>
-            <td class="mp">${fmt(cob)}</td>
-            <td class="${pend>0?'mn':''}">${fmt(pend)}</td>
-            <td>${est}</td>
-            <td style="white-space:nowrap" onclick="event.stopPropagation()">
+            <td data-m="Factura" class="m-full"><strong>${v.numero} &nbsp;<span style="font-weight:400;font-size:.75rem;color:var(--muted)">${v.fecha}</span></strong></td>
+            <td data-m="Total" class="m-row2">${fmt(v.total)}</td>
+            <td data-m="Cobrado" class="m-row2 mp">${fmt(cob)}</td>
+            <td data-m="Pend." class="m-row2 ${pend>0?'mn':''}">${fmt(pend)}</td>
+            <td data-m="Estado" class="m-row2">${est}</td>
+            <td class="m-actions" onclick="event.stopPropagation()">
               ${pend>0?`<button class="btn btn-success btn-xs" onclick="openQuickCobro('${v.id}')">&#x1F4B0; Cobrar</button>`:''}
               <button class="btn btn-ghost btn-xs" onclick="resEditVenta('${v.id}')">&#x270F;&#xFE0F;</button>
               <button class="btn btn-danger btn-xs" onclick="resDeleteVenta('${v.id}','${p.id}')">&#x1F5D1;&#xFE0F;</button>
@@ -3202,7 +3251,7 @@ function renderResumen(){
     </div>
 
     <div class="res-block"><h4>&#x1F4E5; Facturas Recibidas</h4>
-      ${costes.length?`<div class="table-wrap"><table>
+      ${costes.length?`<div class="table-wrap mobile-cards"><table>
         <thead><tr><th>Nº</th><th>Serie</th><th>Proveedor</th><th>NIF</th><th>Fecha</th><th>Total</th><th>Pagado</th><th>Pendiente</th><th>Estado</th><th>Acciones</th></tr></thead>
         <tbody>
         ${costes.map(c=>{
@@ -3224,15 +3273,13 @@ function renderResumen(){
               </div>
             </td></tr>`:'';
           return`<tr style="cursor:pointer" onclick="resToggleHist('res-hist-c-${c.id}',this)">
-            <td><strong>${c.numero}</strong></td>
-            <td><span class="badge ${c.serie==='A'?'badge-blue':'badge-purple'}">${c.serie}</span></td>
-            <td>${c.proveedor}</td>
-            <td style="color:var(--muted);font-size:.8rem">${c.nif||'—'}</td>
-            <td>${c.fecha}</td><td>${fmt(c.total)}</td>
-            <td class="mp">${fmt(pag)}</td>
-            <td class="${pend>0?'mn':''}">${fmt(pend)}</td>
-            <td>${est}</td>
-            <td style="white-space:nowrap" onclick="event.stopPropagation()">
+            <td data-m="Proveedor" class="m-full"><strong>${c.proveedor} &nbsp;<span style="font-weight:400;font-size:.75rem;color:var(--muted)">${c.nif||''}</span></strong></td>
+            <td data-m="Nº" class="m-full" style="font-weight:400;font-size:.82rem;">${c.numero} &nbsp;<span style="color:var(--muted)">${c.fecha}</span></td>
+            <td data-m="Total" class="m-row2">${fmt(c.total)}</td>
+            <td data-m="Pagado" class="m-row2 mp">${fmt(pag)}</td>
+            <td data-m="Pend." class="m-row2 ${pend>0?'mn':''}">${fmt(pend)}</td>
+            <td data-m="Estado" class="m-row2">${est}</td>
+            <td class="m-actions" onclick="event.stopPropagation()">
               ${pend>0?`<button class="btn btn-warn btn-xs" onclick="openQuickPago('${c.id}')">&#x1F4B8; Pagar</button>`:''}
               <button class="btn btn-ghost btn-xs" onclick="resEditCoste('${c.id}')">&#x270F;&#xFE0F;</button>
               <button class="btn btn-danger btn-xs" onclick="resDeleteCoste('${c.id}','${p.id}')">&#x1F5D1;&#xFE0F;</button>
@@ -4271,5 +4318,30 @@ window.addEventListener('DOMContentLoaded', () => {
   // CLIENT_ID is hardcoded — login screen shows directly
 });
 </script>
+
+<!-- ══ BOTTOM NAV (móvil) ══ -->
+<nav id="bottom-nav">
+  <a onclick="showPage('proyectos',this)" class="bn-item active">
+    <span class="bn-icon">📁</span><span class="bn-label">Proyectos</span>
+  </a>
+  <a onclick="showPage('ventas',this)" class="bn-item">
+    <span class="bn-icon">🧾</span><span class="bn-label">Ventas</span>
+  </a>
+  <a onclick="showPage('costes',this)" class="bn-item">
+    <span class="bn-icon">📥</span><span class="bn-label">Costes</span>
+  </a>
+  <a onclick="showPage('cobros',this)" class="bn-item">
+    <span class="bn-icon">💰</span><span class="bn-label">Cobros</span>
+  </a>
+  <a onclick="showPage('pagos',this)" class="bn-item">
+    <span class="bn-icon">💸</span><span class="bn-label">Pagos</span>
+  </a>
+  <a onclick="showPage('resumen',this)" class="bn-item">
+    <span class="bn-icon">📊</span><span class="bn-label">Resumen</span>
+  </a>
+  <a onclick="showPage('ajustes',this)" class="bn-item">
+    <span class="bn-icon">⚙️</span><span class="bn-label">Ajustes</span>
+  </a>
+</nav>
 </body>
 </html>
