@@ -281,153 +281,132 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
 
 /* ══════════════════════════════════════════════════
    MÓVIL VERTICAL (portrait ≤640px)
-   Tablas → tarjetas apiladas, sin scroll horizontal
 ══════════════════════════════════════════════════ */
 @media(max-width:640px) and (orientation:portrait){
 
-  /* ── Layout base ── */
-  body{overflow-x:hidden;max-width:100vw;}
-  #main{padding:10px 8px 28px;padding-top:50px;max-width:100vw;overflow-x:hidden;}
+  /* ── Bloqueo total de ancho ── */
+  html,body{overflow-x:hidden !important;max-width:100vw !important;}
+  *{box-sizing:border-box;}
+  #main{padding:10px 8px 28px;padding-top:50px;overflow-x:hidden;max-width:100vw;}
+  #app-shell,.page{overflow-x:hidden;}
   #topbar{left:0;border-left:none;padding-left:48px;gap:6px;}
   #topbar .user-name{display:none;}
-  h1{font-size:1.1rem;}
-  .page-desc{font-size:.77rem;margin-bottom:8px;}
+  h1{font-size:1.05rem;}
+  .page-desc{font-size:.76rem;margin-bottom:8px;}
 
-  /* ── Stats cards: 2 columnas ── */
+  /* Stats 2 col */
   .stats-row,.stats-row.cols3,.stats-row.cols5{
     grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:10px;
   }
   .stat-card{padding:9px 10px;}
-  .stat-card .value{font-size:.95rem;}
-  .stat-card .label{font-size:.57rem;}
+  .stat-card .value{font-size:.92rem;}
+  .stat-card .label{font-size:.56rem;}
 
-  /* ── Formularios: 1 columna ── */
+  /* Forms 1 col */
   .form-grid,.form-grid.cols2,.form-grid.cols4,.form-grid.cols5{
     grid-template-columns:1fr !important;
   }
-  .section-box{padding:11px 9px;margin-bottom:9px;}
-  .section-box h2{font-size:.84rem;}
-  .btn{padding:7px 11px;font-size:.79rem;}
+  .section-box{padding:10px 8px;margin-bottom:9px;}
+  .section-box h2{font-size:.82rem;}
+  .btn{padding:7px 10px;font-size:.78rem;}
   .btn-group{gap:5px;flex-wrap:wrap;}
-  .btn-sm{padding:4px 8px;font-size:.71rem;}
-  .btn-xs{padding:3px 6px;font-size:.68rem;}
+  .btn-sm{padding:4px 8px;font-size:.7rem;}
+  .btn-xs{padding:3px 6px;font-size:.67rem;}
   .filter-bar{gap:5px;flex-wrap:wrap;}
-  .filter-bar .form-group{min-width:80px;}
   .modal{padding:14px 11px;max-height:90vh;width:97vw;max-width:97vw;}
   .pdf-import-wrap{grid-template-columns:1fr;height:auto;}
   .pdf-viewer{height:190px;}
 
-  /* ══ TABLA → TARJETA (portrait móvil) ══
-     El truco: cada <tr> se convierte en una tarjeta
-     usando display:block con pseudo-etiquetas data-m  */
-  .table-wrap{
-    overflow-x:visible !important;
-    overflow-y:visible !important;
-    width:100% !important;
-  }
-
-  /* Ocultar thead, convertir tabla en lista */
+  /* ══ TABLA → TARJETA ══ */
+  .table-wrap{overflow:visible !important;width:100% !important;}
   .mobile-cards{width:100% !important;}
-  .mobile-cards table,
-  .mobile-cards tbody{display:block;width:100%;}
+  .mobile-cards table,.mobile-cards tbody{display:block;width:100%;}
   .mobile-cards thead{display:none;}
 
-  /* Cada fila = tarjeta */
+  /* Tarjeta base */
   .mobile-cards tbody tr{
     display:block;
     background:var(--card);
     border:1px solid var(--border);
     border-radius:10px;
-    margin-bottom:9px;
-    padding:9px 11px 7px;
-    position:relative;
+    margin-bottom:8px;
     width:100%;
-    box-sizing:border-box;
-    cursor:pointer;
-  }
-  .mobile-cards tbody tr.hist-row{
-    border-radius:0 0 10px 10px;
-    margin-top:-10px;
-    padding-top:0;
-    border-top:none;
-    background:var(--card2);
-  }
-
-  /* Celdas — cada una ocupa su línea */
-  .mobile-cards tbody td{
-    display:block;
-    padding:2px 0;
-    border:none;
-    font-size:.82rem;
-    line-height:1.4;
     overflow:hidden;
-    text-overflow:ellipsis;
-    white-space:normal;        /* permite wrap */
-    max-width:100%;
+    cursor:pointer;
+    position:relative;
   }
+  /* Ocultar todas las celdas por defecto */
+  .mobile-cards tbody td{display:none;border:none;}
 
-  /* Ocultar celdas sin datos útiles en móvil */
-  .mobile-cards tbody td:empty{display:none;}
-
-  /* Etiqueta antes del valor */
-  .mobile-cards tbody td[data-m]::before{
-    content:attr(data-m) ": ";
-    font-size:.62rem;
-    font-weight:700;
-    color:var(--muted2);
-    text-transform:uppercase;
-    letter-spacing:.3px;
-  }
-
-  /* Campos importantes: ocupan fila completa y sin etiqueta */
+  /* ── FILA 1: nombre/título principal ── */
   .mobile-cards tbody td.m-full{
-    font-size:.88rem;
-    font-weight:600;
-    color:var(--text);
-    margin-bottom:2px;
+    display:block;
+    font-size:.9rem;font-weight:700;color:var(--text);
+    padding:9px 36px 0 11px; /* right padding for clip icon */
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
   }
-  .mobile-cards tbody td.m-full::before{display:none;}
 
-  /* Fila de acciones: flex al final */
+  /* ── FILA 2: datos clave en línea horizontal ── */
+  .mobile-cards tbody td.m-row2{
+    display:inline-flex !important;
+    align-items:center;
+    gap:2px;
+    padding:3px 0 3px 0;
+    font-size:.74rem;
+    white-space:nowrap;
+    vertical-align:middle;
+  }
+  .mobile-cards tbody td.m-row2:first-of-type{padding-left:11px;}
+  .mobile-cards tbody td.m-row2::before{
+    content:attr(data-m)' a0';
+    font-size:.59rem;font-weight:700;
+    color:var(--muted2);text-transform:uppercase;letter-spacing:.2px;
+  }
+  /* Separador entre campos de fila 2 */
+  .mobile-cards tbody td.m-row2 + td.m-row2{
+    padding-left:8px;
+    border-left:1px solid var(--border);
+    margin-left:4px;
+  }
+
+  /* ── ACCIONES ── */
   .mobile-cards tbody td.m-actions{
-    display:flex;
-    gap:5px;
-    flex-wrap:wrap;
-    margin-top:7px;
-    padding-top:7px;
+    display:flex !important;gap:5px;flex-wrap:wrap;
+    padding:6px 10px 8px;
     border-top:1px solid var(--border);
     justify-content:flex-end;
   }
   .mobile-cards tbody td.m-actions::before{display:none;}
 
-  /* Clip (adjunto): esquina superior derecha */
+  /* ── CLIP ── */
   .mobile-cards tbody td.m-clip{
-    position:absolute;
-    top:8px;right:10px;
-    padding:0;
-    width:auto;
-    display:block;
+    display:block !important;
+    position:absolute;top:8px;right:10px;
+    padding:0;width:auto;
   }
   .mobile-cards tbody td.m-clip::before{display:none;}
 
-  /* Filas de historial expandido (cobros/pagos) */
+  /* ── Historial expandido ── */
+  .mobile-cards tbody tr.hist-row{
+    border-radius:0 0 10px 10px;margin-top:-9px;
+    border-top:none;background:var(--card2);cursor:default;
+  }
   .mobile-cards tbody tr.hist-row td{
-    padding:6px 4px;
+    display:block !important;padding:5px 12px;font-size:.76rem;
   }
 
-  /* Fila de totales */
+  /* ── Fila totales ── */
   .mobile-cards tbody tr[style*="font-weight:700"]{
-    background:rgba(91,127,166,.07);
-    font-weight:700;
+    display:flex !important;flex-wrap:wrap;
+    background:rgba(91,127,166,.07);padding:6px 12px;
+    cursor:default;gap:6px;
+  }
+  .mobile-cards tbody tr[style*="font-weight:700"] td{
+    display:inline !important;font-size:.76rem;font-weight:700;
   }
   .mobile-cards tbody tr[style*="font-weight:700"] td::before{display:none;}
-  .mobile-cards tbody tr[style*="font-weight:700"] td[colspan]{
-    grid-column:1/-1;
-    font-weight:700;
-    font-size:.8rem;
-  }
-}
 
+}
 /* ══════════════════════════════════════════════════
    MÓVIL HORIZONTAL (landscape ≤900px)
    Tabla normal compacta con scroll si hace falta
@@ -2313,15 +2292,15 @@ function renderProyectos(){
       :'<span class="clip-icon" title="Sin adjunto">&#x1F4CE;</span>';
     return`<tr>
       <td class="m-clip" style="width:24px">${clipP}</td>
-      <td data-m="Estado">${estadoBadge}</td>
       <td data-m="Proyecto" class="m-full"><strong>${p.nombre}</strong></td>
       <td data-m="Cliente" class="m-full">${p.cliente}</td>
-      <td data-m="NIF" style="color:var(--muted);font-size:.8rem">${p.nif||'—'}</td>
+      <td data-m="Estado" class="m-row2">${estadoBadge}</td>
+      <td data-m="NIF" class="m-row2" style="color:var(--muted)">${p.nif||'—'}</td>
       <td>${fmt(p.venta)}</td><td class="mp">${fmt(ventasReal)}</td>
       <td>${fmt(p.coste)}</td><td class="mp">${fmt(costesReal)}</td>
-      <td class="${mp>=0?'mp':'mn'}">${fmt(mp)} <small>(${fmtPct(mppct)})</small></td>
-      <td class="${mr>=0?'mp':'mn'}">${fmt(mr)}</td>
-      <td class="${mr>=0?'mp':'mn'}">${fmtPct(mrpct)}</td>
+      <td data-m="M.Prev" class="m-row2 ${mp>=0?'mp':'mn'}">${fmt(mp)}</td>
+      <td data-m="M.Real" class="m-row2 ${mr>=0?'mp':'mn'}">${fmt(mr)}</td>
+      <td data-m="M.%" class="m-row2 ${mr>=0?'mp':'mn'}">${fmtPct(mrpct)}</td>
       <td style="white-space:nowrap">${toggleBtn}
         <button class="btn btn-ghost btn-xs" onclick="editProyecto('${p.id}')">&#x270F;&#xFE0F;</button>
         <button class="btn btn-danger btn-xs" onclick="deleteProyecto('${p.id}')">&#x1F5D1;&#xFE0F;</button>
@@ -2482,17 +2461,16 @@ function renderVentas(){
       :'<span class="clip-icon" title="Sin adjunto">&#x1F4CE;</span>';
     return`<tr style="cursor:pointer" onclick="toggleVentaHist('${v.id}',this)">
       <td class="m-clip" style="width:24px">${clipV}</td>
-      <td data-m="Serie"><span class="badge ${v.serie==='A'?'badge-blue':'badge-purple'}">${v.serie}</span></td>
-      <td data-m="Nº" class="m-full"><strong>${v.numero}</strong></td>
-      <td data-m="Fecha">${v.fecha}</td>
+      <td data-m="Nº" class="m-full"><strong>${v.numero} &nbsp;<span style="font-weight:400;font-size:.78rem;color:var(--muted)">${v.fecha}</span></strong></td>
       <td data-m="Cliente" class="m-full">${v.cliente}</td>
-      <td data-m="Proyecto">${proy?proy.nombre:'—'}</td>
-      <td data-m="Base">${fmt(v.base)}</td>
-      <td data-m="IVA">${v.serie==='A'?fmt(v.iva):'—'}</td>
-      <td data-m="Total"><strong>${fmt(v.total)}</strong></td>
-      <td data-m="Cobrado" class="mp">${fmt(cobrado)}</td>
-      <td data-m="Pendiente" class="${pend>0?'mn':''}">${fmt(pend)}</td>
-      <td data-m="Estado">${est}</td>
+      <td data-m="Total" class="m-row2"><strong>${fmt(v.total)}</strong></td>
+      <td data-m="Cobrado" class="m-row2 mp">${fmt(cobrado)}</td>
+      <td data-m="Pend." class="m-row2 ${pend>0?'mn':''}">${fmt(pend)}</td>
+      <td data-m="Estado" class="m-row2">${est}</td>
+      <td data-m="Serie" style="display:none">${v.serie}</td>
+      <td data-m="Base" style="display:none">${fmt(v.base)}</td>
+      <td data-m="IVA" style="display:none">${v.serie==='A'?fmt(v.iva):'—'}</td>
+      <td data-m="Proyecto" style="display:none">${proy?proy.nombre:'—'}</td>
       <td class="m-actions" onclick="event.stopPropagation()">${cobBtn} <button class="btn btn-ghost btn-xs" onclick="editVenta('${v.id}')">&#x270F;&#xFE0F;</button> <button class="btn btn-danger btn-xs" onclick="deleteVenta('${v.id}')">&#x1F5D1;&#xFE0F;</button></td>
     </tr>
     <tr id="hist-venta-${v.id}" class="hist-row" style="display:none">
@@ -2809,23 +2787,16 @@ function renderCostes(){
       :'<span class="clip-icon" title="Sin adjunto">&#x1F4CE;</span>';
     return`<tr style="cursor:pointer" onclick="toggleCosteHist('${c.id}',this)">
       <td class="m-clip" style="width:24px">${clipC}</td>
-      <td data-m="Serie"><span class="badge ${c.serie==='A'?'badge-blue':'badge-purple'}">${c.serie}</span></td>
-      <td data-m="Nº">${c.numero}</td>
-      <td data-m="Proveedor" class="m-full"><strong>${c.proveedor}</strong></td>
-      <td data-m="NIF" style="color:var(--muted);font-size:.8rem">${c.nif||'—'}</td>
-      <td data-m="Nº Prov.">${c.numfact||'—'}</td>
-      <td data-m="Fecha">${c.fecha}</td>
-      <td data-m="Tipo"><span class="badge ${c.tipo==='proyecto'?'badge-purple':'badge-blue'}">${c.tipo==='proyecto'?'Proy.':'Gral.'}</span></td>
-      <td data-m="Proyecto">${proy?proy.nombre:'—'}</td>
-      <td data-m="Base">${fmt(c.base)}</td>
-      <td data-m="IVA%">${c.serie==='A'?ivaDetail:'—'}</td>
-      <td data-m="Cuota IVA">${c.serie==='A'?fmt(c.cuotaIva||0):'—'}</td>
-      <td data-m="IRPF%">${(c.irpfPct||0)>0?c.irpfPct+'%':'—'}</td>
-      <td data-m="Retención">${(c.irpfPct||0)>0?fmt(c.retencion||0):'—'}</td>
-      <td data-m="Total"><strong>${fmt(c.total)}</strong></td>
-      <td data-m="Pagado" class="mp">${fmt(pagado)}</td>
-      <td data-m="Pendiente" class="${pend>0?'mn':''}">${fmt(pend)}</td>
-      <td data-m="Estado">${est}</td>
+      <td data-m="Proveedor" class="m-full"><strong>${c.proveedor} &nbsp;<span style="font-weight:400;font-size:.75rem;color:var(--muted)">${c.nif||''}</span></strong></td>
+      <td data-m="Nº" class="m-full" style="font-weight:400;font-size:.82rem;">${c.numero} &nbsp;<span style="color:var(--muted)">${c.fecha}</span></td>
+      <td data-m="Total" class="m-row2"><strong>${fmt(c.total)}</strong></td>
+      <td data-m="Base" class="m-row2">${fmt(c.base)}</td>
+      <td data-m="IVA" class="m-row2">${c.serie==='A'?ivaDetail:'—'}</td>
+      <td data-m="Pend." class="m-row2 ${pend>0?'mn':''}">${fmt(pend)}</td>
+      <td data-m="Estado" class="m-row2">${est}</td>
+      <td data-m="Serie" style="display:none">${c.serie}</td>
+      <td data-m="Tipo" style="display:none">${c.tipo}</td>
+      <td data-m="Pagado" class="mp" style="display:none">${fmt(pagado)}</td>
       <td class="m-actions" onclick="event.stopPropagation()">${pagBtn} <button class="btn btn-ghost btn-xs" onclick="editCoste('${c.id}')">&#x270F;&#xFE0F;</button> <button class="btn btn-danger btn-xs" onclick="deleteCoste('${c.id}')">&#x1F5D1;&#xFE0F;</button></td>
     </tr>
     <tr id="hist-coste-${c.id}" class="hist-row" style="display:none">
@@ -3029,14 +3000,12 @@ function renderCobros(){
     const cobrado=getCobradoVenta(v.id);const pend=v.total-cobrado;
     const est=pend<=0?'<span class="badge badge-green">Cobrado</span>':cobrado>0?'<span class="badge badge-yellow">Parcial</span>':'<span class="badge badge-orange">Pendiente</span>';
     return`<tr style="cursor:pointer" onclick="showCobroHist('${v.id}',this)">
-      <td data-m="Nº" class="m-full"><strong>${v.numero}</strong></td>
-      <td data-m="Serie"><span class="badge ${v.serie==='A'?'badge-blue':'badge-purple'}">${v.serie}</span></td>
-      <td data-m="Fecha">${v.fecha}</td>
+      <td data-m="Nº" class="m-full"><strong>${v.numero} &nbsp;<span style="font-weight:400;font-size:.78rem;color:var(--muted)">${v.fecha}</span></strong></td>
       <td data-m="Cliente" class="m-full">${v.cliente}</td>
-      <td data-m="Total">${fmt(v.total)}</td>
-      <td data-m="Cobrado" class="mp">${fmt(cobrado)}</td>
-      <td data-m="Pendiente" class="${pend>0?'mn':''}">${fmt(pend)}</td>
-      <td data-m="Estado">${est}</td></tr>`;
+      <td data-m="Total" class="m-row2">${fmt(v.total)}</td>
+      <td data-m="Cobrado" class="m-row2 mp">${fmt(cobrado)}</td>
+      <td data-m="Pend." class="m-row2 ${pend>0?'mn':''}">${fmt(pend)}</td>
+      <td data-m="Estado" class="m-row2">${est}</td></tr>`;
   }).join('');
   // Hide historial panel on refresh
   document.getElementById('cobros-hist-panel').style.display='none';
@@ -3132,15 +3101,12 @@ function renderPagos(){
     const pagado=getPagadoCoste(c.id);const pend=c.total-pagado;
     const est=pend<=0?'<span class="badge badge-green">Pagado</span>':pagado>0?'<span class="badge badge-yellow">Parcial</span>':'<span class="badge badge-orange">Pendiente</span>';
     return`<tr style="cursor:pointer" onclick="showPagoHist('${c.id}',this)">
-      <td data-m="Nº">${c.numero}</td>
-      <td data-m="Serie"><span class="badge ${c.serie==='A'?'badge-blue':'badge-purple'}">${c.serie}</span></td>
-      <td data-m="Proveedor" class="m-full"><strong>${c.proveedor}</strong></td>
-      <td data-m="Fecha">${c.fecha}</td>
-      <td data-m="Tipo"><span class="badge ${c.tipo==='proyecto'?'badge-purple':'badge-blue'}">${c.tipo==='proyecto'?'Proy.':'Gral.'}</span></td>
-      <td data-m="Total">${fmt(c.total)}</td>
-      <td data-m="Pagado" class="mp">${fmt(pagado)}</td>
-      <td data-m="Pendiente" class="${pend>0?'mn':''}">${fmt(pend)}</td>
-      <td data-m="Estado">${est}</td></tr>`;
+      <td data-m="Proveedor" class="m-full"><strong>${c.proveedor} &nbsp;<span style="font-weight:400;font-size:.78rem;color:var(--muted)">${c.fecha}</span></strong></td>
+      <td data-m="Nº" class="m-full" style="font-weight:400;font-size:.82rem;">${c.numero}</td>
+      <td data-m="Total" class="m-row2">${fmt(c.total)}</td>
+      <td data-m="Pagado" class="m-row2 mp">${fmt(pagado)}</td>
+      <td data-m="Pend." class="m-row2 ${pend>0?'mn':''}">${fmt(pend)}</td>
+      <td data-m="Estado" class="m-row2">${est}</td></tr>`;
   }).join('');
   document.getElementById('pagos-hist-panel').style.display='none';
 }
