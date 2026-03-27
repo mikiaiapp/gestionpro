@@ -800,7 +800,7 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
       <button class="btn btn-success" onclick="exportarCostes('excel')">⬇️ Excel</button>
       <button class="btn btn-success" onclick="exportarCostes('pdf')">🖨️ PDF</button>
     </div>
-    <div class="table-wrap mobile-cards" id="tw-costes"><table><thead><tr><th></th><th>Serie</th><th>Nº</th><th>Proveedor</th><th>Nº Prov.</th><th>Fecha</th><th>Tipo</th><th>Base</th><th>IRPF%</th><th>Ret.</th><th>Total</th><th>Pagado</th><th>Pend.</th><th>Estado</th><th>Acc.</th></tr></thead>
+    <div class="table-wrap mobile-cards" id="tw-costes"><table><thead><tr><th></th><th>Serie</th><th>Nº</th><th>Proveedor</th><th>Nº Prov.</th><th>Fecha</th><th>Tipo</th><th>Base</th><th>Total</th><th>Pagado</th><th>Pend.</th><th>Estado</th><th>Acc.</th></tr></thead>
     <tbody id="tbody-costes"></tbody></table>
     <div id="costes-empty" class="empty-state" style="display:none"><div class="icon">📥</div><p>No hay facturas recibidas.</p></div></div>
   </div>
@@ -2980,8 +2980,6 @@ function renderCostes(){
       <td data-m="Fecha">${c.fecha}</td>
       <td data-m="Tipo"><span class="badge ${c.tipo==='proyecto'?'badge-purple':'badge-blue'}">${c.tipo==='proyecto'?'Proy.':'Gral.'}</span></td>
       <td data-m="Base">${fmt(c.base)}</td>
-      <td data-m="IRPF%">${(c.irpfPct||0)>0?c.irpfPct+'%':'—'}</td>
-      <td data-m="Ret.">${(c.irpfPct||0)>0?fmt(c.retencion||0):'—'}</td>
       <td data-m="Total" class="m-row2"><strong>${fmt(c.total)}</strong></td>
       <td data-m="Pagado" class="mp">${fmt(pagado)}</td>
       <td data-m="Pend." class="m-row2 ${pend>0?'mn':''}">${fmt(pend)}</td>
@@ -2989,7 +2987,7 @@ function renderCostes(){
       <td class="m-actions" onclick="event.stopPropagation()">${pagBtn} <button class="btn btn-ghost btn-xs" onclick="editCoste('${c.id}')">&#x270F;&#xFE0F;</button> <button class="btn btn-danger btn-xs" onclick="deleteCoste('${c.id}')">&#x1F5D1;&#xFE0F;</button></td>
     </tr>
     <tr id="hist-coste-${c.id}" class="hist-row" style="display:none">
-      <td colspan="15"><div class="hist-inner" id="hist-coste-inner-${c.id}"></div></td>
+      <td colspan="13"><div class="hist-inner" id="hist-coste-inner-${c.id}"></div></td>
     </tr>`;
   }).join('');
 }
@@ -3393,14 +3391,14 @@ function renderResumen(){
 
     <div class="res-block"><h4>&#x1F4E4; Facturas Emitidas</h4>
       ${ventas.length?`<div class="table-wrap mobile-cards"><table>
-        <thead><tr><th>Nº</th><th>Serie</th><th>Fecha</th><th>Cliente</th><th>Total</th><th>Cobrado</th><th>Pendiente</th><th>Estado</th><th>Acciones</th></tr></thead>
+        <thead><tr><th>Serie</th><th>Nº</th><th>Fecha</th><th>Cliente</th><th>Total</th><th>Cobrado</th><th>Pend.</th><th>Estado</th><th>Acc.</th></tr></thead>
         <tbody>
         ${ventas.map(v=>{
           const cob=getCobradoVenta(v.id);const pend=v.total-cob;
           const est=pend<=0?'<span class="badge badge-green">Cobrado</span>':cob>0?'<span class="badge badge-yellow">Parcial</span>':'<span class="badge badge-orange">Pendiente</span>';
           const cobros=getD('cobros').filter(c=>c.ventaId===v.id);
           const histHtml=cobros.length?`<tr id="res-hist-v-${v.id}" style="display:none">
-            <td colspan="8" style="padding:0;display:table-cell !important;">
+            <td colspan="9" style="padding:0;display:table-cell !important;">
               <div style="background:rgba(91,127,166,.05);padding:8px 16px;border-top:1px dashed var(--border);">
                 <div style="font-size:.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:4px;">Cobros registrados</div>
                 ${cobros.map(c=>`<div style="display:flex;gap:10px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:.8rem;">
@@ -3411,12 +3409,14 @@ function renderResumen(){
               </div>
             </td></tr>`:'';
           return`<tr style="cursor:pointer" onclick="resToggleHist('res-hist-v-${v.id}',this)">
-            <td data-m="Cliente" class="m-full"><strong>${v.cliente||'—'}</strong></td>
-            <td data-m="Factura" class="m-full2">${v.numero} &nbsp;<span style="color:var(--muted2);font-size:.72rem">${v.fecha}</span></td>
-            <td data-m="Estado" class="m-row2">${est}</td>
+            <td data-m="Serie" class="m-row2"><span class="badge ${v.serie==='A'?'badge-blue':'badge-purple'}">${v.serie}</span></td>
+            <td data-m="Nº" class="m-full"><strong>${v.numero}</strong></td>
+            <td data-m="Fecha">${v.fecha}</td>
+            <td data-m="Cliente" class="m-full2">${v.cliente||'—'}</td>
             <td data-m="Total" class="m-row3"><strong>${fmt(v.total)}</strong></td>
             <td data-m="Cobrado" class="m-row3 mp">${fmt(cob)}</td>
             <td data-m="Pend." class="m-row3 ${pend>0?'mn':''}">${fmt(pend)}</td>
+            <td data-m="Estado" class="m-row2">${est}</td>
             <td class="m-actions" onclick="event.stopPropagation()">
               ${pend>0?`<button class="btn btn-success btn-xs" onclick="openQuickCobro('${v.id}')">&#x1F4B0; Cobrar</button>`:''}
               <button class="btn btn-ghost btn-xs" onclick="resEditVenta('${v.id}')">&#x270F;&#xFE0F;</button>
@@ -3424,7 +3424,8 @@ function renderResumen(){
             </td>
           </tr>${histHtml}`;}).join('')}
         <tr style="font-weight:700;border-top:2px solid var(--border)">
-          <td colspan="3">TOTAL</td><td>${fmt(totalVenta)}</td>
+          <td colspan="4">TOTAL</td>
+          <td><strong>${fmt(totalVenta)}</strong></td>
           <td class="mp">${fmt(totalCobrado)}</td>
           <td class="${totalVenta-totalCobrado>0?'mn':''}">${fmt(totalVenta-totalCobrado)}</td>
           <td colspan="2"></td>
@@ -3435,14 +3436,14 @@ function renderResumen(){
 
     <div class="res-block"><h4>&#x1F4E5; Facturas Recibidas</h4>
       ${costes.length?`<div class="table-wrap mobile-cards"><table>
-        <thead><tr><th>Nº</th><th>Serie</th><th>Proveedor</th><th>NIF</th><th>Fecha</th><th>Total</th><th>Pagado</th><th>Pendiente</th><th>Estado</th><th>Acciones</th></tr></thead>
+        <thead><tr><th>Serie</th><th>Nº</th><th>Proveedor</th><th>Fecha</th><th>Total</th><th>Pagado</th><th>Pend.</th><th>Estado</th><th>Acc.</th></tr></thead>
         <tbody>
         ${costes.map(c=>{
           const pag=getPagadoCoste(c.id);const pend=c.total-pag;
           const est=pend<=0?'<span class="badge badge-green">Pagado</span>':pag>0?'<span class="badge badge-yellow">Parcial</span>':'<span class="badge badge-orange">Pendiente</span>';
           const pagos=getD('pagos').filter(pg=>pg.costeId===c.id);
           const histHtmlC=pagos.length?`<tr id="res-hist-c-${c.id}" style="display:none">
-            <td colspan="10" style="padding:0">
+            <td colspan="9" style="padding:0">
               <div style="background:rgba(91,127,166,.05);padding:8px 16px;border-top:1px dashed var(--border);">
                 <table style="font-size:.78rem;width:100%;"><thead><tr>
                   <th style="padding:4px 8px;font-size:.65rem;color:var(--muted)">Fecha pago</th>
@@ -3456,12 +3457,14 @@ function renderResumen(){
               </div>
             </td></tr>`:'';
           return`<tr style="cursor:pointer" onclick="resToggleHist('res-hist-c-${c.id}',this)">
-            <td data-m="Proveedor" class="m-full"><strong>${c.proveedor}${c.nif?' &nbsp;<span style="color:var(--muted2);font-size:.72rem">('+c.nif+')</span>':''}</strong></td>
-            <td data-m="Factura" class="m-full2">${c.numero} &nbsp;<span style="color:var(--muted2);font-size:.72rem">${c.fecha}</span></td>
-            <td data-m="Estado" class="m-row2">${est}</td>
+            <td data-m="Serie" class="m-row2"><span class="badge ${c.serie==='A'?'badge-blue':'badge-purple'}">${c.serie}</span></td>
+            <td data-m="Nº" class="m-full">${c.numero}</td>
+            <td data-m="Proveedor" class="m-full2"><strong>${c.proveedor}</strong>${c.nif?' <span style="color:var(--muted);font-size:.78rem">('+c.nif+')</span>':''}</td>
+            <td data-m="Fecha">${c.fecha}</td>
             <td data-m="Total" class="m-row3"><strong>${fmt(c.total)}</strong></td>
             <td data-m="Pagado" class="m-row3 mp">${fmt(pag)}</td>
             <td data-m="Pend." class="m-row3 ${pend>0?'mn':''}">${fmt(pend)}</td>
+            <td data-m="Estado" class="m-row2">${est}</td>
             <td class="m-actions" onclick="event.stopPropagation()">
               ${pend>0?`<button class="btn btn-warn btn-xs" onclick="openQuickPago('${c.id}')">&#x1F4B8; Pagar</button>`:''}
               <button class="btn btn-ghost btn-xs" onclick="resEditCoste('${c.id}')">&#x270F;&#xFE0F;</button>
@@ -3469,7 +3472,8 @@ function renderResumen(){
             </td>
           </tr>${histHtmlC}`;}).join('')}
         <tr style="font-weight:700;border-top:2px solid var(--border)">
-          <td colspan="5">TOTAL</td><td>${fmt(totalCoste)}</td>
+          <td colspan="4">TOTAL</td>
+          <td><strong>${fmt(totalCoste)}</strong></td>
           <td class="mp">${fmt(totalPagado)}</td>
           <td class="${totalCoste-totalPagado>0?'mn':''}">${fmt(totalCoste-totalPagado)}</td>
           <td colspan="2"></td>
