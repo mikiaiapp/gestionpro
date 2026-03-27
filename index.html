@@ -529,10 +529,9 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
   }
   .bn-item.active{
     color:#fff;
-    border-top:2px solid var(--accent);
-    background:none;
+    border-top:2px solid transparent;
   }
-  .bn-item:active{opacity:.7;}
+  .bn-item:active{opacity:.6;}
   .bn-icon{font-size:1.15rem;line-height:1;display:block;}
   .bn-label{
     font-size:.52rem;margin-top:2px;
@@ -2604,7 +2603,8 @@ function comboRender(id, filtered){
 }
 
 function comboFilter(id){
-  const input = document.getElementById(id==='vcliente'?'v-cliente-input':id==='vproyecto'?'v-proyecto-input':'c-proveedor');
+  const inputMap = {vcliente:'v-cliente-input', vproyecto:'v-proyecto-input', cprov:'c-proveedor', reselector:'res-selector-input'};
+  const input = document.getElementById(inputMap[id] || (id+'-combo-input') || 'c-proveedor');
   if(!input) return;
   const q = input.value.toLowerCase();
   const combo = _combos[id];
@@ -2618,6 +2618,17 @@ function comboFilter(id){
   if(hidden) hidden.value = '';
   // Special: when cliente changes, refresh project list
   if(id === 'vcliente') refreshVProyecto();
+  // Unlock NIF if proveedor field is cleared
+  if(id === 'cprov'){
+    const nifEl = document.getElementById('c-nif');
+    const inp = document.getElementById('c-proveedor');
+    if(nifEl && inp && !inp.value.trim()){
+      nifEl.readOnly = false;
+      nifEl.style.background = '';
+      nifEl.style.color = '';
+      nifEl.title = '';
+    }
+  }
 }
 
 function comboOpen(id){
@@ -2632,12 +2643,18 @@ function comboClose(id){
 }
 
 function comboSelect(id, value, label){
-  const inputId = id==='vcliente' ? 'v-cliente-input' : id==='vproyecto' ? 'v-proyecto-input' : 'c-proveedor';
-  const hiddenId = id==='vcliente' ? 'v-cliente' : id==='vproyecto' ? 'v-proyecto' : null;
-  const input = document.getElementById(inputId);
+  // Map comboId → {inputId, hiddenId}
+  const map = {
+    'vcliente':   {inputId:'v-cliente-input',   hiddenId:'v-cliente'},
+    'vproyecto':  {inputId:'v-proyecto-input',   hiddenId:'v-proyecto'},
+    'cprov':      {inputId:'c-proveedor',         hiddenId:null},
+    'reselector': {inputId:'res-selector-input',  hiddenId:'res-selector'},
+  };
+  const ids = map[id] || {inputId:null, hiddenId:null};
+  const input = ids.inputId ? document.getElementById(ids.inputId) : null;
   if(input) input.value = label;
-  if(hiddenId){
-    const hidden = document.getElementById(hiddenId);
+  if(ids.hiddenId){
+    const hidden = document.getElementById(ids.hiddenId);
     if(hidden) hidden.value = value;
   }
   if(_combos[id]) _combos[id].selectedValue = value;
@@ -2647,12 +2664,16 @@ function comboSelect(id, value, label){
     // Also fill NIF if proveedor
     refreshVProyecto();
   }
-  // If proveedor: fill NIF
+  // If proveedor: fill NIF and lock it
   if(id === 'cprov'){
     const prov = _proveedoresList.find(p => p.nombre === value || (p.nif && p.nif === value));
-    if(prov){
-      const nifEl = document.getElementById('c-nif');
-      if(nifEl) nifEl.value = prov.nif || '';
+    const nifEl = document.getElementById('c-nif');
+    if(prov && nifEl){
+      nifEl.value = prov.nif || '';
+      nifEl.readOnly = true;
+      nifEl.style.background = 'var(--bg)';
+      nifEl.style.color = 'var(--muted)';
+      nifEl.title = 'NIF vinculado al proveedor. Borra el nombre para editarlo.';
     }
   }
   // If resumen selector: trigger render
@@ -2850,7 +2871,7 @@ function renderVentas(){
       <td data-m="Serie"><span class="badge ${v.serie==='A'?'badge-blue':'badge-purple'}">${v.serie}</span></td>
       <td data-m="Nº">${v.numero}</td>
       <td data-m="Cliente" class="m-full"><strong>${v.cliente}</strong></td>
-      <td data-m="Factura" class="m-full2">${v.numero} &nbsp;<span style="color:var(--muted2);font-size:.72rem">${v.fecha}</span></td>
+      <td data-m="Nº · Fecha" class="m-full2">${v.numero} &nbsp;<span style="color:var(--muted2);font-size:.72rem">${v.fecha}</span></td>
       <td data-m="Base">${fmt(v.base)}</td>
       <td data-m="IVA">${v.serie==='A'?fmt(v.iva):'—'}</td>
       <td data-m="Proyecto">${proy?proy.nombre:'—'}</td>
@@ -3180,6 +3201,9 @@ function addCoste(data){
     ['c-proveedor','c-numfact','c-fecha','c-base','c-iva','c-irpf','c-total'].forEach(id=>document.getElementById(id).value='');
     document.getElementById('c-tipo').value='general';
     document.getElementById('c-proyecto-group').style.display='none';
+    // Reset NIF field lock
+    const nifEl=document.getElementById('c-nif');
+    if(nifEl){nifEl.value='';nifEl.readOnly=false;nifEl.style.background='';nifEl.style.color='';nifEl.title='';}
     onCosteSerieChange();
   }
   renderCostes();populateCosteDropdowns();toast(`Factura ${numero} guardada.`);
@@ -3743,7 +3767,7 @@ function renderResumen(){
             <td data-m="Serie"><span class="badge ${v.serie==='A'?'badge-blue':'badge-purple'}">${v.serie}</span></td>
             <td data-m="Nº">${v.numero}</td>
             <td data-m="Cliente" class="m-full"><strong>${v.cliente||'—'}</strong></td>
-            <td data-m="Factura" class="m-full2">${v.numero} &nbsp;<span style="color:var(--muted2);font-size:.72rem">${v.fecha}</span></td>
+            <td data-m="Nº · Fecha" class="m-full2">${v.numero} &nbsp;<span style="color:var(--muted2);font-size:.72rem">${v.fecha}</span></td>
             <td data-m="Fecha">${v.fecha}</td>
             <td data-m="Total" class="m-row2"><strong>${fmt(v.total)}</strong></td>
             <td data-m="Cobrado" class="m-row2 mp">${fmt(cob)}</td>
