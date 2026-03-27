@@ -3914,7 +3914,7 @@ function renderResListado(){
   const totPV=rows.reduce((s,r)=>s+r.p.venta,0);
   const totPC=rows.reduce((s,r)=>s+r.p.coste,0);
   cont.innerHTML=`<div class="table-wrap mobile-cards"><table>
-    <thead><tr><th>Estado</th><th>Proyecto</th><th>Cliente</th><th>V.Prev.</th><th>M.Prev.</th><th>M.P%</th><th>Facturado</th><th>Costes</th><th>M.Real</th><th>M.R%</th></tr></thead>
+    <thead><tr><th>Estado</th><th>Proyecto</th><th>Cliente</th><th>V.Prev.</th><th>M.Prev.</th><th>M.P%</th><th>Facturado</th><th>M.Real</th><th>M.R%</th></tr></thead>
     <tbody>${rows.map(r=>{
       const cerrado=(r.p.estado||'abierto')==='cerrado';
       const estBadge=cerrado?'<span class="badge badge-red">Cerrado</span>':'<span class="badge badge-green">Abierto</span>';
@@ -3926,14 +3926,13 @@ function renderResListado(){
         <td class="${r.mp>=0?'mp':'mn'}">${fmt(r.mp)}</td>
         <td class="${r.mp>=0?'mp':'mn'}">${fmtPct(r.mppct)}</td>
         <td>${fmt(r.tv)}</td>
-        <td>${fmt(r.tc)}</td>
         <td class="${r.mr>=0?'mp':'mn'}">${fmt(r.mr)}</td>
         <td class="${r.mr>=0?'mp':'mn'}">${fmtPct(r.mrpct)}</td>
         <td class="m-full m-only"><strong>${r.p.nombre}</strong></td>
         <td class="m-full2 m-only">${r.p.cliente}${r.p.nif?' &nbsp;<span style="color:var(--muted2);font-size:.72rem">('+r.p.nif+')</span>':''}</td>
         <td class="m-row2 m-only" data-m="Estado">${estBadge}</td>
         <td class="m-row2 m-only" data-m="V.Prev">${fmt(r.p.venta)}</td>
-        <td class="m-row2 m-only" data-m="Facturado">${fmt(r.tv)}</td>
+        <td class="m-row2 m-only" data-m="V.Real">${fmt(r.tv)}</td>
         <td class="m-row3 m-only ${r.mp>=0?'mp':'mn'}" data-m="M.Prev">${fmt(r.mp)}</td>
         <td class="m-row3 m-only ${r.mp>=0?'mp':'mn'}" data-m="M.P%">${fmtPct(r.mppct)}</td>
         <td class="m-row3 m-only ${r.mr>=0?'mp':'mn'}" data-m="M.Real">${fmt(r.mr)}</td>
@@ -3945,7 +3944,6 @@ function renderResListado(){
       <td class="${totPV-totPC>=0?'mp':'mn'}">${fmt(totPV-totPC)}</td>
       <td class="${totPV-totPC>=0?'mp':'mn'}">${totPV>0?fmtPct(((totPV-totPC)/totPV)*100):'—'}</td>
       <td>${fmt(totTV)}</td>
-      <td>${fmt(totTC)}</td>
       <td class="${totTV-totTC>=0?'mp':'mn'}">${fmt(totTV-totTC)}</td>
       <td class="${totTV-totTC>=0?'mp':'mn'}">${totTV>0?fmtPct(((totTV-totTC)/totTV)*100):'—'}</td>
     </tr></tbody></table></div>`;
