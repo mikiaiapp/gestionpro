@@ -2862,7 +2862,7 @@ function renderVentas(){
       ?`<a href="${getAttachUrl(v.pdfDriveId)}" target="_blank" class="clip-icon has-doc" title="${v.pdfName||'Ver PDF'}">&#x1F4CE;</a>`
       :'<span class="clip-icon" title="Sin adjunto">&#x1F4CE;</span>';
     return`<tr style="cursor:pointer" onclick="toggleVentaHist('${v.id}',this)">
-      <td class="m-clip" style="width:24px">${clipV}</td>
+      <td style="width:24px">${clipV}</td>
       <td><span class="badge ${v.serie==='A'?'badge-blue':'badge-purple'}">${v.serie}</span></td>
       <td>${v.numero}</td>
       <td>${v.fecha}</td>
