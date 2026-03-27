@@ -529,10 +529,25 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
   }
   .bn-item.active{
     color:#fff;
-    border-top-color:var(--accent);
-    background:rgba(255,255,255,.05);
+    border-top-color:transparent; /* no border line */
+    background:transparent;
   }
-  .bn-item:active{background:rgba(255,255,255,.14);}
+  /* Liquid glass active indicator — circle behind the icon */
+  .bn-item.active .bn-icon{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:36px;height:22px;
+    background:rgba(255,255,255,.18);
+    backdrop-filter:blur(8px);
+    -webkit-backdrop-filter:blur(8px);
+    border-radius:12px;
+    border:1px solid rgba(255,255,255,.22);
+    box-shadow:0 2px 8px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.25);
+  }
+  .bn-item:active .bn-icon{
+    background:rgba(255,255,255,.28);
+  }
   .bn-icon{font-size:1.15rem;line-height:1;display:block;}
   .bn-label{
     font-size:.52rem;margin-top:2px;
@@ -546,23 +561,46 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
 
 }
 /* ══════════════════════════════════════════════════
-   MÓVIL HORIZONTAL (landscape ≤900px)
-   Tabla compacta + hamburger para sidebar
+   MÓVIL HORIZONTAL (landscape) = vista escritorio compacta
+   Tablas completas con scroll horizontal si es necesario
 ══════════════════════════════════════════════════ */
-@media(max-width:900px) and (orientation:landscape){
-  /* Hide bottom nav in landscape */
+@media(max-width:1099px) and (orientation:landscape){
+  /* Hide bottom nav — hamburger opens sidebar */
   #bottom-nav{display:none !important;}
-  /* Hamburger always visible in landscape */
   #menu-toggle{display:flex !important;visibility:visible !important;opacity:1 !important;}
-  #main{padding:10px 12px 20px;padding-top:48px;}
+  /* Compact layout */
+  #main{padding:10px 14px 20px;padding-top:48px;}
+  /* Full tables with horizontal scroll */
   .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
-  table{font-size:.74rem;}
-  thead th{padding:5px 7px;font-size:.60rem;}
-  tbody td{padding:5px 7px;}
+  /* Tables same as desktop but slightly more compact */
+  table{font-size:.76rem;}
+  thead th{padding:5px 8px;font-size:.64rem;white-space:nowrap;}
+  tbody td{padding:5px 8px;}
+  /* Disable card mode in landscape — show full tables */
+  .mobile-cards table,.mobile-cards tbody{display:table;display:revert;}
+  .mobile-cards thead{display:table-header-group;display:revert;}
+  .mobile-cards tbody tr{display:table-row;background:revert;border:none;border-radius:0;box-shadow:none;margin:0;padding:0;}
+  .mobile-cards tbody td{display:table-cell;padding:5px 8px;border:revert;}
+  .mobile-cards tbody td.m-full,.mobile-cards tbody td.m-full2,
+  .mobile-cards tbody td.m-row2,.mobile-cards tbody td.m-row3,
+  .mobile-cards tbody td.m-actions,.mobile-cards tbody td.m-clip{
+    display:table-cell !important;
+    padding:5px 8px;
+    font-size:.76rem;font-weight:normal;color:inherit;
+    white-space:nowrap;
+    position:static;
+    border-top:none;
+    flex:none;
+  }
+  .mobile-cards tbody td[data-m]::before{display:none;}
+  .mobile-cards tbody td.m-actions{justify-content:flex-start;border-top:none;margin-top:0;}
+  /* Stats */
   .stats-row{grid-template-columns:repeat(4,1fr);gap:7px;}
   .stats-row.cols5{grid-template-columns:repeat(5,1fr);}
   .form-grid{grid-template-columns:repeat(2,1fr);}
   .form-grid.cols4{grid-template-columns:repeat(4,1fr);}
+  .stat-card{padding:8px 10px;}
+  .stat-card .value{font-size:.9rem;}
 }
 
 /* ══ MUY PEQUEÑO ≤380px portrait ══ */
@@ -573,6 +611,23 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
   .btn-group{flex-direction:column;}
 }
 
+
+/* ── SEARCHABLE COMBOBOX ── */
+.combo-wrap{position:relative;width:100%;}
+.combo-wrap input{width:100%;box-sizing:border-box;}
+.combo-dropdown{
+  position:absolute;top:100%;left:0;right:0;z-index:500;
+  background:var(--card);border:1px solid var(--border);
+  border-radius:0 0 8px 8px;max-height:220px;overflow-y:auto;
+  box-shadow:0 8px 24px rgba(0,0,0,.25);display:none;
+}
+.combo-dropdown.open{display:block;}
+.combo-option{
+  padding:8px 12px;cursor:pointer;font-size:.84rem;
+  transition:background .1s;
+}
+.combo-option:hover,.combo-option.active{background:rgba(91,127,166,.15);}
+.combo-option .sub{font-size:.72rem;color:var(--muted);margin-top:1px;}
 </style>
 </head>
 <body>
@@ -701,8 +756,26 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
       <div class="form-group"><label>Serie</label><select id="v-serie" onchange="onVentaSerieChange()"><option value="A">Serie A (IVA)</option><option value="B">Serie B (sin IVA)</option></select></div>
       <div class="form-group"><label>Nº Factura</label><input type="text" id="v-num" readonly></div>
       <div class="form-group"><label>Fecha</label><input type="date" id="v-fecha"></div>
-      <div class="form-group"><label>Cliente</label><select id="v-cliente"><option value="">— Seleccionar —</option></select></div>
-      <div class="form-group"><label>Proyecto</label><select id="v-proyecto"><option value="">— Proyecto (opc.) —</option></select></div>
+      <div class="form-group"><label>Cliente</label>
+        <div class="combo-wrap" id="combo-wrap-vcliente">
+          <input type="text" id="v-cliente-input" placeholder="Buscar cliente..." autocomplete="off"
+            oninput="comboFilter('vcliente')" onfocus="comboOpen('vcliente')"
+            onblur="setTimeout(()=>comboClose('vcliente'),150)"
+            onkeydown="comboKey(event,'vcliente')">
+          <input type="hidden" id="v-cliente">
+          <div class="combo-dropdown" id="combo-drop-vcliente"></div>
+        </div>
+      </div>
+      <div class="form-group"><label>Proyecto</label>
+        <div class="combo-wrap" id="combo-wrap-vproyecto">
+          <input type="text" id="v-proyecto-input" placeholder="Buscar proyecto..." autocomplete="off"
+            oninput="comboFilter('vproyecto')" onfocus="comboOpen('vproyecto')"
+            onblur="setTimeout(()=>comboClose('vproyecto'),150)"
+            onkeydown="comboKey(event,'vproyecto')">
+          <input type="hidden" id="v-proyecto">
+          <div class="combo-dropdown" id="combo-drop-vproyecto"></div>
+        </div>
+      </div>
       <div class="form-group"><label>Base Imponible (€)</label><input type="text" inputmode="decimal" id="v-base" placeholder="0.00" step="0.01" oninput="calcVenta()"></div>
       <div class="form-group"><label>IVA (21%)</label><input type="text" id="v-iva" readonly class="computed"></div>
       <div class="form-group"><label>Total Factura</label><input type="text" id="v-total" readonly class="computed"></div>
@@ -753,11 +826,13 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
       <div class="form-group" style="grid-column:span 2">
         <label>Proveedor</label>
         <div style="display:flex;gap:6px;align-items:flex-start;">
-          <select id="c-prov-select" onchange="onProveedorSelect()"
-            style="flex:0 0 220px;min-width:0;">
-            <option value="">— Nuevo proveedor —</option>
-          </select>
-          <input type="text" id="c-proveedor" placeholder="Nombre del proveedor" style="flex:1;min-width:0;">
+          <div class="combo-wrap" id="combo-wrap-cprov" style="flex:1;min-width:0;">
+            <input type="text" id="c-proveedor" placeholder="Buscar o escribir proveedor..." autocomplete="off"
+              oninput="comboFilter('cprov')" onfocus="comboOpen('cprov')"
+              onblur="setTimeout(()=>comboClose('cprov'),150)"
+              onkeydown="comboKey(event,'cprov')">
+            <div class="combo-dropdown" id="combo-drop-cprov"></div>
+          </div>
           <input type="text" id="c-nif" placeholder="NIF/CIF" style="flex:0 0 130px;min-width:0;">
         </div>
       </div>
@@ -899,7 +974,14 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
           <input type="date" id="res-det-hasta" onchange="populateResSelector()">
         </div>
         <div class="form-group" style="flex:2;min-width:180px;"><label>Proyecto</label>
-          <select id="res-selector" onchange="renderResumen()"><option value="">— Seleccionar —</option></select>
+          <div class="combo-wrap" id="combo-wrap-reselector">
+            <input type="text" id="res-selector-input" placeholder="Buscar proyecto..." autocomplete="off"
+              oninput="comboFilter('reselector')" onfocus="comboOpen('reselector')"
+              onblur="setTimeout(()=>comboClose('reselector'),150)"
+              onkeydown="comboKey(event,'reselector')">
+            <input type="hidden" id="res-selector">
+            <div class="combo-dropdown" id="combo-drop-reselector"></div>
+          </div>
         </div>
       </div>
       <div class="filter-bar" id="res-listado-filters" style="display:none;">
@@ -2473,11 +2555,11 @@ function renderProyectos(){
       <td data-m="Estado" class="m-row2">${estadoBadge}</td>
       <td data-m="Proyecto" class="m-full"><strong>${p.nombre}</strong></td>
       <td data-m="Cliente" class="m-full2">${p.cliente}${p.nif?' &nbsp;<span style="color:var(--muted2);font-size:.72rem">('+p.nif+')</span>':''}</td>
-      <td data-m="V.Prev">${fmt(p.venta)}</td>
-      <td data-m="V.Real" class="mp">${fmt(ventasReal)}</td>
-      <td data-m="C.Prev">${fmt(p.coste)}</td>
-      <td data-m="C.Real" class="mp">${fmt(costesReal)}</td>
-      <td data-m="M.Prev" class="${mp>=0?'mp':'mn'}">${fmt(mp)}</td>
+      <td data-m="V.Prev" class="m-row2">${fmt(p.venta)}</td>
+      <td data-m="V.Real" class="m-row2 mp">${fmt(ventasReal)}</td>
+      <td data-m="C.Prev" class="m-row3">${fmt(p.coste)}</td>
+      <td data-m="C.Real" class="m-row3 mp">${fmt(costesReal)}</td>
+      <td data-m="M.Prev" class="m-row3 ${mp>=0?'mp':'mn'}">${fmt(mp)}</td>
       <td data-m="M.Real" class="m-row3 ${mr>=0?'mp':'mn'}">${fmt(mr)}</td>
       <td data-m="M.%" class="m-row3 ${mr>=0?'mp':'mn'}">${fmtPct(mrpct)}</td>
       <td class="m-actions" style="white-space:nowrap">${toggleBtn}
@@ -2510,14 +2592,146 @@ function nextVentaNum(serie){
   return`${serie}-${String((nums.length?Math.max(...nums):0)+1).padStart(3,'0')}`;
 }
 function onVentaSerieChange(){document.getElementById('v-num').value=nextVentaNum(document.getElementById('v-serie').value);calcVenta();}
+
+// ─── SEARCHABLE COMBOBOX ENGINE ──────────────────────────────────────────
+// Each combo has: input#combo-wrap-{id} > input[text]#{id}-input + input[hidden]#{id} + div.combo-dropdown#{id}-drop
+// Items: [{value, label, sub}]
+const _combos = {};   // id -> {items, selectedValue}
+
+function comboInit(id, items){
+  // items: [{value, label, sub?}]
+  _combos[id] = {items, selectedValue:''};
+  comboRender(id, items);
+}
+
+function comboRender(id, filtered){
+  const drop = document.getElementById('combo-drop-'+id);
+  if(!drop) return;
+  drop.innerHTML = filtered.length
+    ? filtered.map((item,i) =>
+        `<div class="combo-option" data-value="${item.value}" data-idx="${i}"
+          onmousedown="comboSelect('${id}','${item.value}','${item.label.replace(/'/g,"\\'")}')">
+          ${item.label}
+          ${item.sub ? `<div class="sub">${item.sub}</div>` : ''}
+        </div>`
+      ).join('')
+    : '<div class="combo-option" style="color:var(--muted);cursor:default;">Sin resultados</div>';
+}
+
+function comboFilter(id){
+  const input = document.getElementById(id==='vcliente'?'v-cliente-input':id==='vproyecto'?'v-proyecto-input':'c-proveedor');
+  if(!input) return;
+  const q = input.value.toLowerCase();
+  const combo = _combos[id];
+  if(!combo) return;
+  const filtered = q ? combo.items.filter(item =>
+    item.label.toLowerCase().includes(q) || (item.sub||'').toLowerCase().includes(q)
+  ) : combo.items;
+  comboRender(id, filtered);
+  // Clear hidden value if user is typing something new
+  const hidden = document.getElementById(id==='vcliente'?'v-cliente':id==='vproyecto'?'v-proyecto':null);
+  if(hidden) hidden.value = '';
+  // Special: when cliente changes, refresh project list
+  if(id === 'vcliente') refreshVProyecto();
+}
+
+function comboOpen(id){
+  const drop = document.getElementById('combo-drop-'+id);
+  if(drop) drop.classList.add('open');
+  comboFilter(id);
+}
+
+function comboClose(id){
+  const drop = document.getElementById('combo-drop-'+id);
+  if(drop) drop.classList.remove('open');
+}
+
+function comboSelect(id, value, label){
+  const inputId = id==='vcliente' ? 'v-cliente-input' : id==='vproyecto' ? 'v-proyecto-input' : 'c-proveedor';
+  const hiddenId = id==='vcliente' ? 'v-cliente' : id==='vproyecto' ? 'v-proyecto' : null;
+  const input = document.getElementById(inputId);
+  if(input) input.value = label;
+  if(hiddenId){
+    const hidden = document.getElementById(hiddenId);
+    if(hidden) hidden.value = value;
+  }
+  if(_combos[id]) _combos[id].selectedValue = value;
+  comboClose(id);
+  // Special: when cliente selected, refresh project dropdown
+  if(id === 'vcliente'){
+    // Also fill NIF if proveedor
+    refreshVProyecto();
+  }
+  // If proveedor: fill NIF
+  if(id === 'cprov'){
+    const prov = _proveedoresList.find(p => p.nombre === value || (p.nif && p.nif === value));
+    if(prov){
+      const nifEl = document.getElementById('c-nif');
+      if(nifEl) nifEl.value = prov.nif || '';
+    }
+  }
+  // If resumen selector: trigger render
+  if(id === 'reselector'){
+    renderResumen();
+  }
+}
+
+function comboKey(e, id){
+  const drop = document.getElementById('combo-drop-'+id);
+  if(!drop || !drop.classList.contains('open')) return;
+  const opts = drop.querySelectorAll('.combo-option[data-value]');
+  const active = drop.querySelector('.combo-option.active');
+  let idx = active ? parseInt(active.dataset.idx||0) : -1;
+  if(e.key === 'ArrowDown'){ e.preventDefault(); idx = Math.min(idx+1, opts.length-1); }
+  else if(e.key === 'ArrowUp'){ e.preventDefault(); idx = Math.max(idx-1, 0); }
+  else if(e.key === 'Enter' && active){ e.preventDefault(); active.dispatchEvent(new Event('mousedown')); return; }
+  else if(e.key === 'Escape'){ comboClose(id); return; }
+  else return;
+  opts.forEach(o => o.classList.remove('active'));
+  if(opts[idx]) opts[idx].classList.add('active');
+}
+
+function comboGetValue(id){
+  const hiddenId = id==='vcliente' ? 'v-cliente' : id==='vproyecto' ? 'v-proyecto' : null;
+  if(hiddenId){
+    const el = document.getElementById(hiddenId);
+    return el ? el.value : '';
+  }
+  // For proveedor, value is in the text input directly
+  const el = document.getElementById('c-proveedor');
+  return el ? el.value : '';
+}
+
+// Refresh proyecto dropdown filtered by selected cliente
+function refreshVProyecto(){
+  const clienteInput = document.getElementById('v-cliente-input');
+  const clienteVal = document.getElementById('v-cliente')?.value || clienteInput?.value || '';
+  const proyectos = getD('proyectos').filter(p =>
+    (p.estado||'abierto') === 'abierto' &&
+    (!clienteVal || p.cliente === clienteVal)
+  );
+  const items = proyectos.map(p => ({value:p.id, label:p.nombre, sub:p.cliente}));
+  comboInit('vproyecto', items);
+  // Clear current project selection
+  const hiddenP = document.getElementById('v-proyecto');
+  const inputP  = document.getElementById('v-proyecto-input');
+  if(hiddenP) hiddenP.value = '';
+  if(inputP)  inputP.value  = '';
+}
+
 function populateVentaDropdowns(){
   const proyectos=getD('proyectos');
-  const clientes=[...new Set(proyectos.map(p=>p.cliente))];
-  ['v-cliente','ev-cliente'].forEach(id=>{
+  const clientes=[...new Set(proyectos.map(p=>p.cliente))].sort((a,b)=>a.localeCompare(b,'es'));
+  // Searchable combobox for nueva factura
+  comboInit('vcliente', clientes.map(c=>({value:c, label:c})));
+  // Projects filtered by selected cliente (only open)
+  refreshVProyecto();
+  // Edit modal: still use plain selects
+  ['ev-cliente'].forEach(id=>{
     const el=document.getElementById(id);if(!el)return;
     el.innerHTML='<option value="">— Cliente —</option>'+clientes.map(c=>`<option value="${c}">${c}</option>`).join('');
   });
-  ['v-proyecto','ev-proyecto'].forEach(id=>{
+  ['ev-proyecto'].forEach(id=>{
     const el=document.getElementById(id);if(!el)return;
     el.innerHTML='<option value="">— Proyecto (opc.) —</option>'+proyectos.map(p=>`<option value="${p.id}">${p.nombre}</option>`).join('');
   });
@@ -2643,17 +2857,18 @@ function renderVentas(){
       :'<span class="clip-icon" title="Sin adjunto">&#x1F4CE;</span>';
     return`<tr style="cursor:pointer" onclick="toggleVentaHist('${v.id}',this)">
       <td class="m-clip" style="width:24px">${clipV}</td>
-      <td data-m="Serie" class="m-row2"><span class="badge ${v.serie==='A'?'badge-blue':'badge-purple'}">${v.serie}</span></td>
-      <td data-m="Nº" class="m-full"><strong>${v.numero}</strong></td>
-      <td data-m="Fecha">${v.fecha}</td>
-      <td data-m="Cliente" class="m-full2"><strong>${v.cliente}</strong></td>
-      <td data-m="Proyecto">${proy?proy.nombre:'—'}</td>
-      <td data-m="Base">${fmt(v.base)}</td>
-      <td data-m="IVA">${v.serie==='A'?fmt(v.iva):'—'}</td>
+      <td data-m="Cliente" class="m-full"><strong>${v.cliente}</strong></td>
+      <td data-m="Factura" class="m-full2">${v.numero} &nbsp;<span style="color:var(--muted2);font-size:.72rem">${v.fecha} · ${v.serie==='A'?'IVA':'sin IVA'}</span></td>
+      <td data-m="Estado" class="m-row2">${est}</td>
       <td data-m="Total" class="m-row3"><strong>${fmt(v.total)}</strong></td>
+      <td data-m="Base" class="m-row3">${fmt(v.base)}</td>
+      <td data-m="IVA" class="m-row3">${v.serie==='A'?fmt(v.iva):'—'}</td>
       <td data-m="Cobrado" class="m-row3 mp">${fmt(cobrado)}</td>
       <td data-m="Pend." class="m-row3 ${pend>0?'mn':''}">${fmt(pend)}</td>
-      <td data-m="Estado" class="m-row2">${est}</td>
+      <td data-m="Serie" style="display:none">${v.serie}</td>
+      <td data-m="Nº" style="display:none">${v.numero}</td>
+      <td data-m="Fecha" style="display:none">${v.fecha}</td>
+      <td data-m="Proyecto" style="display:none">${proy?proy.nombre:'—'}</td>
       <td class="m-actions" onclick="event.stopPropagation()">${cobBtn} <button class="btn btn-ghost btn-xs" onclick="editVenta('${v.id}')">&#x270F;&#xFE0F;</button> <button class="btn btn-danger btn-xs" onclick="deleteVenta('${v.id}')">&#x1F5D1;&#xFE0F;</button></td>
     </tr>
     <tr id="hist-venta-${v.id}" class="hist-row" style="display:none">
@@ -2793,7 +3008,13 @@ function onCosteSerieChange(){
 }
 function onCosteTipoChange(){document.getElementById('c-proyecto-group').style.display=document.getElementById('c-tipo').value==='proyecto'?'flex':'none';}
 function populateCosteDropdowns(){
-  populateProveedorSelect('c-prov-select');
+  // Refresh proveedor combobox
+  _proveedoresList = getProveedores();
+  comboInit('cprov', _proveedoresList.map(p=>({
+    value: p.nombre,
+    label: p.nombre,
+    sub: p.nif || ''
+  })));
   populateProveedorSelect('ec-prov-select');
   const proyectos=getD('proyectos');
   const html='<option value="">— Seleccionar —</option>'+proyectos.map(p=>`<option value="${p.id}">${p.nombre}</option>`).join('');
@@ -2873,7 +3094,7 @@ function addCoste(data){
     document.getElementById('c-proyecto-group').style.display='none';
     onCosteSerieChange();
   }
-  renderCostes();populateProveedorSelect('c-prov-select');populateProveedorSelect('ec-prov-select');toast(`Factura ${numero} guardada.`);
+  renderCostes();populateCosteDropdowns();toast(`Factura ${numero} guardada.`);
 }
 function deleteCoste(id){
   const tienePagos = getD('pagos').some(p=>p.costeId===id);
@@ -2929,7 +3150,7 @@ async function saveEditCoste(){
   const ecFile=document.getElementById('ec-pdf-file')?.files[0];
   if(ecFile){try{if(cPdfId)deleteAttachment(cPdfId);const {base64,mimeType,name}=await readFileAsBase64(ecFile);cPdfId=await uploadAttachment(base64,name,mimeType);cPdfName=name;}catch(e){toast('Error PDF: '+e.message,'error');}}
   setD('costes',getD('costes').map(x=>x.id===id?{...x,proveedor,nif:nifProv,numfact,fecha,tipo,proyectoId,base,ivaPct,cuotaIva,irpfPct,retencion,total,pdfDriveId:cPdfId,pdfName:cPdfName}:x));
-  closeModal('modal-edit-coste');renderCostes();populateProveedorSelect('c-prov-select');populateProveedorSelect('ec-prov-select');toast('Actualizada.');
+  closeModal('modal-edit-coste');renderCostes();populateCosteDropdowns();toast('Actualizada.');
 }
 function getPagadoCoste(cid){return getD('pagos').filter(p=>p.costeId===cid).reduce((s,p)=>s+p.importe,0);}
 function getCostesFiltered(){
@@ -3352,21 +3573,37 @@ function populateResSelector(){
     });
   }
 
-  sel.innerHTML = '<option value="">— Seleccionar proyecto —</option>' +
-    proyectos.map(p => {
-      const cerrado = (p.estado||'abierto') === 'cerrado';
-      const label = (cerrado ? '🔒 ' : '') + p.nombre + ' — ' + p.cliente;
-      return `<option value="${p.id}" ${p.id===current?'selected':''}>${label}</option>`;
-    }).join('');
+  // Build combobox items
+  const items = proyectos.map(p => {
+    const cerrado = (p.estado||'abierto') === 'cerrado';
+    return {
+      value: p.id,
+      label: (cerrado ? '🔒 ' : '') + p.nombre,
+      sub: p.cliente + (p.nif ? ' · ' + p.nif : '')
+    };
+  });
+  comboInit('reselector', items);
 
-  // If current selection no longer in list, clear the detail view
-  if(current && !proyectos.find(p=>p.id===current)){
-    sel.value='';
+  // Restore previous selection if still valid
+  const stillValid = proyectos.find(p => p.id === current);
+  if(stillValid){
+    const inp = document.getElementById('res-selector-input');
+    const hidden = document.getElementById('res-selector');
+    if(hidden) hidden.value = current;
+    if(inp) inp.value = (stillValid.estado||'abierto')==='cerrado'
+      ? '🔒 ' + stillValid.nombre
+      : stillValid.nombre;
+  } else if(current){
+    // Current no longer matches — clear
+    const hidden = document.getElementById('res-selector');
+    const inp    = document.getElementById('res-selector-input');
+    if(hidden) hidden.value = '';
+    if(inp)    inp.value    = '';
     renderResumen();
   }
 }
 function renderResumen(){
-  const id=document.getElementById('res-selector').value;
+  const id=document.getElementById('res-selector')?.value||'';
   const cont=document.getElementById('res-content');
   if(!id){cont.innerHTML='<div class="empty-state"><div class="icon">📊</div><p>Selecciona un proyecto.</p></div>';return;}
   const p=getD('proyectos').find(x=>x.id===id);if(!p)return;
