@@ -529,25 +529,10 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
   }
   .bn-item.active{
     color:#fff;
-    border-top-color:transparent; /* no border line */
-    background:transparent;
+    border-top:2px solid var(--accent);
+    background:none;
   }
-  /* Liquid glass active indicator — circle behind the icon */
-  .bn-item.active .bn-icon{
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    width:36px;height:22px;
-    background:rgba(255,255,255,.18);
-    backdrop-filter:blur(8px);
-    -webkit-backdrop-filter:blur(8px);
-    border-radius:12px;
-    border:1px solid rgba(255,255,255,.22);
-    box-shadow:0 2px 8px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.25);
-  }
-  .bn-item:active .bn-icon{
-    background:rgba(255,255,255,.28);
-  }
+  .bn-item:active{opacity:.7;}
   .bn-icon{font-size:1.15rem;line-height:1;display:block;}
   .bn-label{
     font-size:.52rem;margin-top:2px;
@@ -2735,6 +2720,11 @@ function populateVentaDropdowns(){
     const el=document.getElementById(id);if(!el)return;
     el.innerHTML='<option value="">— Proyecto (opc.) —</option>'+proyectos.map(p=>`<option value="${p.id}">${p.nombre}</option>`).join('');
   });
+  // Comboify edit modal selects
+  setTimeout(()=>{
+    selectToCombo('ev-cliente','Buscar cliente...');
+    selectToCombo('ev-proyecto','Buscar proyecto...');
+  },0);
 }
 function calcVenta(){
   const serie=document.getElementById('v-serie').value;
@@ -2857,18 +2847,17 @@ function renderVentas(){
       :'<span class="clip-icon" title="Sin adjunto">&#x1F4CE;</span>';
     return`<tr style="cursor:pointer" onclick="toggleVentaHist('${v.id}',this)">
       <td class="m-clip" style="width:24px">${clipV}</td>
+      <td data-m="Serie"><span class="badge ${v.serie==='A'?'badge-blue':'badge-purple'}">${v.serie}</span></td>
+      <td data-m="Nº">${v.numero}</td>
       <td data-m="Cliente" class="m-full"><strong>${v.cliente}</strong></td>
-      <td data-m="Factura" class="m-full2">${v.numero} &nbsp;<span style="color:var(--muted2);font-size:.72rem">${v.fecha} · ${v.serie==='A'?'IVA':'sin IVA'}</span></td>
+      <td data-m="Factura" class="m-full2">${v.numero} &nbsp;<span style="color:var(--muted2);font-size:.72rem">${v.fecha}</span></td>
+      <td data-m="Base">${fmt(v.base)}</td>
+      <td data-m="IVA">${v.serie==='A'?fmt(v.iva):'—'}</td>
+      <td data-m="Proyecto">${proy?proy.nombre:'—'}</td>
+      <td data-m="Total" class="m-row2"><strong>${fmt(v.total)}</strong></td>
+      <td data-m="Cobrado" class="m-row2 mp">${fmt(cobrado)}</td>
+      <td data-m="Pend." class="m-row2 ${pend>0?'mn':''}">${fmt(pend)}</td>
       <td data-m="Estado" class="m-row2">${est}</td>
-      <td data-m="Total" class="m-row3"><strong>${fmt(v.total)}</strong></td>
-      <td data-m="Base" class="m-row3">${fmt(v.base)}</td>
-      <td data-m="IVA" class="m-row3">${v.serie==='A'?fmt(v.iva):'—'}</td>
-      <td data-m="Cobrado" class="m-row3 mp">${fmt(cobrado)}</td>
-      <td data-m="Pend." class="m-row3 ${pend>0?'mn':''}">${fmt(pend)}</td>
-      <td data-m="Serie" style="display:none">${v.serie}</td>
-      <td data-m="Nº" style="display:none">${v.numero}</td>
-      <td data-m="Fecha" style="display:none">${v.fecha}</td>
-      <td data-m="Proyecto" style="display:none">${proy?proy.nombre:'—'}</td>
       <td class="m-actions" onclick="event.stopPropagation()">${cobBtn} <button class="btn btn-ghost btn-xs" onclick="editVenta('${v.id}')">&#x270F;&#xFE0F;</button> <button class="btn btn-danger btn-xs" onclick="deleteVenta('${v.id}')">&#x1F5D1;&#xFE0F;</button></td>
     </tr>
     <tr id="hist-venta-${v.id}" class="hist-row" style="display:none">
@@ -2944,6 +2933,99 @@ function getIvaTotals(){
 }
 
 
+
+// ─── AUTO-COMBOBOX: wraps any <select> with a searchable input ────────────
+function selectToCombo(selectId, placeholder){
+  const sel = document.getElementById(selectId);
+  if(!sel || sel.dataset.comboified) return;
+  sel.dataset.comboified = '1';
+  sel.style.display = 'none';
+
+  const wrap = document.createElement('div');
+  wrap.className = 'combo-wrap';
+  wrap.id = 'combo-wrap-'+selectId;
+
+  const inp = document.createElement('input');
+  inp.type = 'text';
+  inp.id = selectId+'-combo-input';
+  inp.placeholder = placeholder || 'Buscar...';
+  inp.autocomplete = 'off';
+
+  const drop = document.createElement('div');
+  drop.className = 'combo-dropdown';
+  drop.id = 'combo-drop-'+selectId;
+
+  wrap.appendChild(inp);
+  wrap.appendChild(drop);
+  sel.parentNode.insertBefore(wrap, sel);
+
+  // Build items from select options
+  function buildItems(){
+    return Array.from(sel.options)
+      .filter(o => o.value !== '')
+      .map(o => ({value: o.value, label: o.text}));
+  }
+
+  function render(q){
+    const items = buildItems();
+    const filtered = q ? items.filter(i => i.label.toLowerCase().includes(q.toLowerCase())) : items;
+    drop.innerHTML = filtered.length
+      ? filtered.map(i =>
+          `<div class="combo-option" data-value="${i.value}">${i.label}</div>`
+        ).join('')
+      : '<div class="combo-option" style="color:var(--muted);cursor:default">Sin resultados</div>';
+    drop.querySelectorAll('.combo-option[data-value]').forEach(opt => {
+      opt.addEventListener('mousedown', () => {
+        sel.value = opt.dataset.value;
+        inp.value = opt.textContent.trim();
+        drop.classList.remove('open');
+        // Trigger change on original select
+        sel.dispatchEvent(new Event('change', {bubbles:true}));
+      });
+    });
+  }
+
+  inp.addEventListener('input', () => { render(inp.value); drop.classList.add('open'); });
+  inp.addEventListener('focus', () => { render(inp.value); drop.classList.add('open'); });
+  inp.addEventListener('blur',  () => setTimeout(() => drop.classList.remove('open'), 150));
+  inp.addEventListener('keydown', e => {
+    const opts = drop.querySelectorAll('.combo-option[data-value]');
+    const active = drop.querySelector('.combo-option.active');
+    let idx = active ? Array.from(opts).indexOf(active) : -1;
+    if(e.key==='ArrowDown'){ e.preventDefault(); idx=Math.min(idx+1,opts.length-1); }
+    else if(e.key==='ArrowUp'){ e.preventDefault(); idx=Math.max(idx-1,0); }
+    else if(e.key==='Enter'&&active){ e.preventDefault(); active.dispatchEvent(new Event('mousedown')); return; }
+    else if(e.key==='Escape'){ drop.classList.remove('open'); return; }
+    else return;
+    opts.forEach(o=>o.classList.remove('active'));
+    if(opts[idx]) opts[idx].classList.add('active');
+  });
+
+  // Sync: when select value changes externally, update input text
+  const observer = new MutationObserver(() => {
+    const opt = sel.options[sel.selectedIndex];
+    inp.value = (opt && opt.value) ? opt.text : '';
+  });
+  observer.observe(sel, {childList:true, attributes:true, attributeFilter:['value']});
+
+  // Also watch select.value property changes (for programmatic sets)
+  Object.defineProperty(sel, '_comboInputRef', {value: inp, writable:false});
+}
+
+// Sync select value → combo input (call after setting sel.value programmatically)
+function syncComboFromSelect(selectId){
+  const sel = document.getElementById(selectId);
+  if(!sel) return;
+  const inp = document.getElementById(selectId+'-combo-input');
+  if(!inp) return;
+  const opt = Array.from(sel.options).find(o => o.value === sel.value);
+  inp.value = opt ? opt.text : '';
+}
+
+// Call selectToCombo on a group of IDs
+function comboifySelects(ids, placeholder){
+  ids.forEach(id => selectToCombo(id, placeholder));
+}
 // ─── PROVEEDOR HISTORY ────────────────────────────────────────────────────
 function getProveedores(){
   // Build unique provider list from existing costes, keyed by NIF (or name)
@@ -3020,6 +3102,12 @@ function populateCosteDropdowns(){
   const html='<option value="">— Seleccionar —</option>'+proyectos.map(p=>`<option value="${p.id}">${p.nombre}</option>`).join('');
   ['c-proyecto','ec-proyecto'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=html;});
   populateFiscalDropdowns();
+  // Comboify project and provider selects
+  setTimeout(()=>{
+    selectToCombo('c-proyecto','Buscar proyecto...');
+    selectToCombo('ec-proyecto','Buscar proyecto...');
+    selectToCombo('ec-prov-select','Buscar proveedor...');
+  },0);
 }
 function calcCoste(){
   const serie=document.getElementById('c-serie').value;
@@ -3127,6 +3215,10 @@ function editCoste(id){
   if(document.getElementById('ec-pdf-file')) document.getElementById('ec-pdf-file').value='';
   renderPdfCurrent('ec-pdf-current', c.pdfDriveId, c.pdfName);
   openModal('modal-edit-coste');
+  setTimeout(()=>{
+    syncComboFromSelect('ec-prov-select');
+    syncComboFromSelect('ec-proyecto');
+  },50);
 }
 async function saveEditCoste(){
   const id=document.getElementById('ec-id').value;
@@ -3224,6 +3316,7 @@ function populateCobroDropdown(){
     const pend=v.total-getCobradoVenta(v.id);
     return pend>0?`<option value="${v.id}">${v.numero} — ${v.cliente} — Pend: ${fmt(pend)}</option>`:'';
   }).join('');
+  setTimeout(()=>selectToCombo('co-factura','Buscar factura...'),0);
 }
 function onCobroFacturaChange(){
   const id=document.getElementById('co-factura').value;
@@ -3431,6 +3524,7 @@ function populatePagoDropdown(){
     const pend=c.total-getPagadoCoste(c.id);
     return pend>0?`<option value="${c.id}">${c.numero} — ${c.proveedor} — Pend: ${fmt(pend)}</option>`:'';
   }).join('');
+  setTimeout(()=>selectToCombo('pa-factura','Buscar factura...'),0);
 }
 function onPagoFacturaChange(){
   const id=document.getElementById('pa-factura').value;
@@ -3646,13 +3740,14 @@ function renderResumen(){
               </div>
             </td></tr>`:'';
           return`<tr style="cursor:pointer" onclick="resToggleHist('res-hist-v-${v.id}',this)">
-            <td data-m="Serie" class="m-row2"><span class="badge ${v.serie==='A'?'badge-blue':'badge-purple'}">${v.serie}</span></td>
-            <td data-m="Nº" class="m-full"><strong>${v.numero}</strong></td>
+            <td data-m="Serie"><span class="badge ${v.serie==='A'?'badge-blue':'badge-purple'}">${v.serie}</span></td>
+            <td data-m="Nº">${v.numero}</td>
+            <td data-m="Cliente" class="m-full"><strong>${v.cliente||'—'}</strong></td>
+            <td data-m="Factura" class="m-full2">${v.numero} &nbsp;<span style="color:var(--muted2);font-size:.72rem">${v.fecha}</span></td>
             <td data-m="Fecha">${v.fecha}</td>
-            <td data-m="Cliente" class="m-full2">${v.cliente||'—'}</td>
-            <td data-m="Total" class="m-row3"><strong>${fmt(v.total)}</strong></td>
-            <td data-m="Cobrado" class="m-row3 mp">${fmt(cob)}</td>
-            <td data-m="Pend." class="m-row3 ${pend>0?'mn':''}">${fmt(pend)}</td>
+            <td data-m="Total" class="m-row2"><strong>${fmt(v.total)}</strong></td>
+            <td data-m="Cobrado" class="m-row2 mp">${fmt(cob)}</td>
+            <td data-m="Pend." class="m-row2 ${pend>0?'mn':''}">${fmt(pend)}</td>
             <td data-m="Estado" class="m-row2">${est}</td>
             <td class="m-actions" onclick="event.stopPropagation()">
               ${pend>0?`<button class="btn btn-success btn-xs" onclick="openQuickCobro('${v.id}')">&#x1F4B0; Cobrar</button>`:''}
@@ -4293,6 +4388,11 @@ function renderPdfForm(type, data){
   document.getElementById('pdf-form-content').innerHTML=
     `<div class="form-grid cols2" style="gap:10px;">${html}</div>`;
   document.getElementById('pdf-import-confirm').style.display='inline-flex';
+  // Comboify dynamic selects in PDF form
+  setTimeout(()=>{
+    selectToCombo('pdf-f-cliente','Buscar cliente...');
+    selectToCombo('pdf-f-proyecto','Buscar proyecto...');
+  },0);
 }
 
 function esc(s){return String(s||'').replace(/&/g,'\u0026amp;').replace(/"/g,'\u0026quot;').replace(/</g,'\u0026lt;').replace(/>/g,'\u0026gt;');}
