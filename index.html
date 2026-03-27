@@ -75,7 +75,18 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-body);display
 @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
 
 /* ── SIDEBAR ── */
-#sidebar{width:235px;min-width:235px;background:var(--sidebar);border-right:1px solid var(--border);display:flex;flex-direction:column;z-index:10;overflow-y:auto;}
+#sidebar{
+  width:235px;min-width:235px;background:var(--sidebar);
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;
+  overflow-y:auto;
+  /* Overlay by default — pinned on wide desktop via media query */
+  position:fixed;top:0;left:0;height:100vh;z-index:150;
+  transform:translateX(-100%);
+  transition:transform .22s ease;
+  box-shadow:4px 0 24px rgba(44,36,22,.2);
+}
+#sidebar.open{transform:translateX(0);}
 .sidebar-logo{padding:22px 20px 16px;border-bottom:1px solid var(--border);}
 .sidebar-logo .app-name{font-family:var(--font-head);font-size:1.1rem;font-weight:800;color:var(--text);letter-spacing:-.5px;}
 .sidebar-logo .app-sub{font-size:.68rem;color:var(--muted);margin-top:3px;letter-spacing:.5px;text-transform:uppercase;}
@@ -90,7 +101,9 @@ nav a .icon{font-size:.95rem;width:20px;text-align:center;}
 /* ── APP SHELL ── */
 #app-shell{display:none;flex:1;overflow:hidden;}
 #app-shell.show{display:flex;}
-#main{flex:1;overflow-y:auto;padding:28px 32px;padding-top:52px;}
+#main{flex:1;overflow-y:auto;padding:28px 32px;padding-top:52px;
+  /* No left margin by default — sidebar is overlay */
+}
 .page{display:none;} .page.active{display:block;}
 h1{font-family:var(--font-head);font-size:1.55rem;font-weight:800;color:var(--text);margin-bottom:5px;}
 .page-desc{color:var(--muted);font-size:.86rem;margin-bottom:22px;}
@@ -282,22 +295,33 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
   z-index:10;
 }
 #sidebar-close:hover{background:var(--card2);color:var(--text);}
-/* Desktop reset — mobile card classes are no-ops outside portrait mobile */
-.m-full, .m-row2, .m-actions, .m-clip { /* normal table cells on desktop */ }
-
-/* ── TABLET ≤900px ── */
-@media(max-width:900px){
-  #menu-toggle{display:flex;}
-  #sidebar-close{display:block;} /* show X inside sidebar when it's an overlay */
+/* ── WIDE DESKTOP ≥1100px: pin sidebar ── */
+@media(min-width:1100px){
   #sidebar{
-    position:fixed;top:0;left:0;height:100vh;z-index:150;
-    transform:translateX(-100%);transition:transform .22s ease;
-    box-shadow:4px 0 24px rgba(44,36,22,.2);
+    position:sticky;
+    top:0;
+    transform:none !important;
+    box-shadow:none;
+    height:100vh;
+    flex-shrink:0;
   }
-  #sidebar.open{transform:translateX(0);}
+  #sidebar-close{display:none !important;}
+  #menu-toggle{display:none !important;}
+  #sidebar-overlay{display:none !important;}
+  #topbar{left:235px;}
+  #main{padding-top:52px;}
+}
+
+/* Desktop reset — mobile card classes are no-ops outside portrait mobile */
+.m-full, .m-full2, .m-row2, .m-row3, .m-actions, .m-clip { /* normal table cells on desktop */ }
+
+/* ── TABLET / SMALL DESKTOP <1100px: overlay sidebar, hamburger ── */
+@media(max-width:1099px){
+  #menu-toggle{display:flex;}
+  #sidebar-close{display:block;}
   #sidebar-overlay.open{display:block;}
-  #main{padding:16px 14px 32px;padding-top:52px;}
   #topbar{left:0;border-left:none;padding-left:52px;}
+  #main{padding:16px 14px 32px;padding-top:52px;}
   .stats-row{grid-template-columns:repeat(2,1fr);}
   .stats-row.cols5{grid-template-columns:repeat(3,1fr);}
   .form-grid.cols4{grid-template-columns:repeat(2,1fr);}
@@ -652,9 +676,9 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
       <button class="btn btn-ghost" onclick="document.getElementById('proj-filter-estado').value='todos';renderProyectos()">Mostrar todos</button>
     </div>
     <div class="table-wrap mobile-cards"><table><thead><tr>
-      <th></th><th>Estado</th><th>Proyecto</th><th>Cliente</th><th>NIF</th>
-      <th>Venta Prev.</th><th>Venta Real</th><th>Coste Prev.</th><th>Coste Real</th>
-      <th>Margen Prev.</th><th>Margen Real</th><th>M.Real %</th><th>Acciones</th>
+      <th></th><th>Estado</th><th>Proyecto</th><th>Cliente</th>
+      <th>V.Prev.</th><th>V.Real</th><th>C.Prev.</th><th>C.Real</th>
+      <th>M.Prev.</th><th>M.Real</th><th>M.%</th><th>Acciones</th>
     </tr></thead>
     <tbody id="tbody-proyectos"></tbody></table>
     <div id="proj-empty" class="empty-state" style="display:none"><div class="icon">📁</div><p>No hay proyectos. ¡Crea el primero!</p></div></div>
@@ -705,7 +729,7 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
       <button class="btn btn-success" onclick="exportarVentas('excel')">⬇️ Excel</button>
       <button class="btn btn-success" onclick="exportarVentas('pdf')">🖨️ PDF</button>
     </div>
-    <div class="table-wrap"><table><thead><tr><th>Serie</th><th>Nº</th><th>Fecha</th><th>Cliente</th><th>Proyecto</th><th>Base</th><th>IVA</th><th>Total</th><th>Cobrado</th><th>Pendiente</th><th>Estado</th><th>Acc.</th></tr></thead>
+    <div class="table-wrap"><table><thead><tr><th></th><th>Serie</th><th>Nº</th><th>Fecha</th><th>Cliente</th><th>Proyecto</th><th>Base</th><th>IVA</th><th>Total</th><th>Cobrado</th><th>Pend.</th><th>Estado</th><th>Acc.</th></tr></thead>
     <tbody id="tbody-ventas"></tbody></table>
     <div id="ventas-empty" class="empty-state" style="display:none"><div class="icon">🧾</div><p>No hay facturas emitidas.</p></div></div>
   </div>
@@ -776,7 +800,7 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
       <button class="btn btn-success" onclick="exportarCostes('excel')">⬇️ Excel</button>
       <button class="btn btn-success" onclick="exportarCostes('pdf')">🖨️ PDF</button>
     </div>
-    <div class="table-wrap mobile-cards" id="tw-costes"><table><thead><tr><th></th><th>Serie</th><th>Nº</th><th>Proveedor</th><th>NIF</th><th>Nº Prov.</th><th>Fecha</th><th>Tipo</th><th>Proyecto</th><th>Base</th><th>IVA%</th><th>Cuota IVA</th><th>IRPF%</th><th>Retención</th><th>Total</th><th>Pagado</th><th>Pend.</th><th>Estado</th><th>Acc.</th></tr></thead>
+    <div class="table-wrap mobile-cards" id="tw-costes"><table><thead><tr><th></th><th>Serie</th><th>Nº</th><th>Proveedor</th><th>Nº Prov.</th><th>Fecha</th><th>Tipo</th><th>Base</th><th>IRPF%</th><th>Ret.</th><th>Total</th><th>Pagado</th><th>Pend.</th><th>Estado</th><th>Acc.</th></tr></thead>
     <tbody id="tbody-costes"></tbody></table>
     <div id="costes-empty" class="empty-state" style="display:none"><div class="icon">📥</div><p>No hay facturas recibidas.</p></div></div>
   </div>
@@ -2446,20 +2470,16 @@ function renderProyectos(){
       :'<span class="clip-icon" title="Sin adjunto">&#x1F4CE;</span>';
     return`<tr>
       <td class="m-clip" style="width:24px">${clipP}</td>
+      <td data-m="Estado" class="m-row2">${estadoBadge}</td>
       <td data-m="Proyecto" class="m-full"><strong>${p.nombre}</strong></td>
       <td data-m="Cliente" class="m-full2">${p.cliente}${p.nif?' &nbsp;<span style="color:var(--muted2);font-size:.72rem">('+p.nif+')</span>':''}</td>
-      <td data-m="Estado" class="m-row2">${estadoBadge}</td>
-      <td data-m="V.Prev" class="m-row2">${fmt(p.venta)}</td>
-      <td data-m="V.Real" class="m-row2 mp">${fmt(ventasReal)}</td>
-      <td data-m="Venta Prev." style="display:none">${fmt(p.venta)}</td>
-      <td data-m="Venta Real" class="mp" style="display:none">${fmt(ventasReal)}</td>
-      <td data-m="Coste Prev." style="display:none">${fmt(p.coste)}</td>
-      <td data-m="Coste Real" class="mp" style="display:none">${fmt(costesReal)}</td>
-      <td data-m="M.Prev" class="${mp>=0?'mp':'mn'}" style="display:none">${fmt(mp)} <small>(${fmtPct(mppct)})</small></td>
+      <td data-m="V.Prev">${fmt(p.venta)}</td>
+      <td data-m="V.Real" class="mp">${fmt(ventasReal)}</td>
+      <td data-m="C.Prev">${fmt(p.coste)}</td>
+      <td data-m="C.Real" class="mp">${fmt(costesReal)}</td>
+      <td data-m="M.Prev" class="${mp>=0?'mp':'mn'}">${fmt(mp)}</td>
       <td data-m="M.Real" class="m-row3 ${mr>=0?'mp':'mn'}">${fmt(mr)}</td>
-      <td data-m="M.Real%" class="m-row3 ${mr>=0?'mp':'mn'}">${fmtPct(mrpct)}</td>
-      <td data-m="C.Prev" class="m-row3">${fmt(p.coste)}</td>
-      <td data-m="C.Real" class="m-row3 mp">${fmt(costesReal)}</td>
+      <td data-m="M.%" class="m-row3 ${mr>=0?'mp':'mn'}">${fmtPct(mrpct)}</td>
       <td class="m-actions" style="white-space:nowrap">${toggleBtn}
         <button class="btn btn-ghost btn-xs" onclick="editProyecto('${p.id}')">&#x270F;&#xFE0F;</button>
         <button class="btn btn-danger btn-xs" onclick="deleteProyecto('${p.id}')">&#x1F5D1;&#xFE0F;</button>
@@ -2623,18 +2643,17 @@ function renderVentas(){
       :'<span class="clip-icon" title="Sin adjunto">&#x1F4CE;</span>';
     return`<tr style="cursor:pointer" onclick="toggleVentaHist('${v.id}',this)">
       <td class="m-clip" style="width:24px">${clipV}</td>
-      <td data-m="Cliente" class="m-full"><strong>${v.cliente}</strong></td>
-      <td data-m="Factura" class="m-full2">${v.numero} &nbsp;<span style="color:var(--muted2);font-size:.72rem">${v.fecha} &nbsp;${v.serie==='A'?'':'· Sin IVA'}</span></td>
-      <td data-m="Estado" class="m-row2">${est}</td>
       <td data-m="Serie" class="m-row2"><span class="badge ${v.serie==='A'?'badge-blue':'badge-purple'}">${v.serie}</span></td>
-      <td data-m="Proyecto" class="m-row2">${proy?proy.nombre:'—'}</td>
+      <td data-m="Nº" class="m-full"><strong>${v.numero}</strong></td>
+      <td data-m="Fecha">${v.fecha}</td>
+      <td data-m="Cliente" class="m-full2"><strong>${v.cliente}</strong></td>
+      <td data-m="Proyecto">${proy?proy.nombre:'—'}</td>
+      <td data-m="Base">${fmt(v.base)}</td>
+      <td data-m="IVA">${v.serie==='A'?fmt(v.iva):'—'}</td>
       <td data-m="Total" class="m-row3"><strong>${fmt(v.total)}</strong></td>
-      <td data-m="Base" class="m-row3">${fmt(v.base)}</td>
-      <td data-m="IVA" class="m-row3">${v.serie==='A'?fmt(v.iva):'—'}</td>
       <td data-m="Cobrado" class="m-row3 mp">${fmt(cobrado)}</td>
       <td data-m="Pend." class="m-row3 ${pend>0?'mn':''}">${fmt(pend)}</td>
-      <td data-m="Nº" style="display:none">${v.numero}</td>
-      <td data-m="Fecha" style="display:none">${v.fecha}</td>
+      <td data-m="Estado" class="m-row2">${est}</td>
       <td class="m-actions" onclick="event.stopPropagation()">${cobBtn} <button class="btn btn-ghost btn-xs" onclick="editVenta('${v.id}')">&#x270F;&#xFE0F;</button> <button class="btn btn-danger btn-xs" onclick="deleteVenta('${v.id}')">&#x1F5D1;&#xFE0F;</button></td>
     </tr>
     <tr id="hist-venta-${v.id}" class="hist-row" style="display:none">
@@ -2957,16 +2976,12 @@ function renderCostes(){
       <td data-m="Serie"><span class="badge ${c.serie==='A'?'badge-blue':'badge-purple'}">${c.serie}</span></td>
       <td data-m="Nº">${c.numero}</td>
       <td data-m="Proveedor" class="m-full"><strong>${c.proveedor}</strong></td>
-      <td data-m="NIF" style="color:var(--muted);font-size:.8rem">${c.nif||'—'}</td>
       <td data-m="Nº Prov.">${c.numfact||'—'}</td>
       <td data-m="Fecha">${c.fecha}</td>
       <td data-m="Tipo"><span class="badge ${c.tipo==='proyecto'?'badge-purple':'badge-blue'}">${c.tipo==='proyecto'?'Proy.':'Gral.'}</span></td>
-      <td data-m="Proyecto">${proy?proy.nombre:'—'}</td>
       <td data-m="Base">${fmt(c.base)}</td>
-      <td data-m="IVA%" class="m-row2">${c.serie==='A'?ivaDetail:'—'}</td>
-      <td data-m="Cuota IVA">${c.serie==='A'?fmt(c.cuotaIva||0):'—'}</td>
       <td data-m="IRPF%">${(c.irpfPct||0)>0?c.irpfPct+'%':'—'}</td>
-      <td data-m="Retención">${(c.irpfPct||0)>0?fmt(c.retencion||0):'—'}</td>
+      <td data-m="Ret.">${(c.irpfPct||0)>0?fmt(c.retencion||0):'—'}</td>
       <td data-m="Total" class="m-row2"><strong>${fmt(c.total)}</strong></td>
       <td data-m="Pagado" class="mp">${fmt(pagado)}</td>
       <td data-m="Pend." class="m-row2 ${pend>0?'mn':''}">${fmt(pend)}</td>
@@ -2974,7 +2989,7 @@ function renderCostes(){
       <td class="m-actions" onclick="event.stopPropagation()">${pagBtn} <button class="btn btn-ghost btn-xs" onclick="editCoste('${c.id}')">&#x270F;&#xFE0F;</button> <button class="btn btn-danger btn-xs" onclick="deleteCoste('${c.id}')">&#x1F5D1;&#xFE0F;</button></td>
     </tr>
     <tr id="hist-coste-${c.id}" class="hist-row" style="display:none">
-      <td colspan="17"><div class="hist-inner" id="hist-coste-inner-${c.id}"></div></td>
+      <td colspan="15"><div class="hist-inner" id="hist-coste-inner-${c.id}"></div></td>
     </tr>`;
   }).join('');
 }
