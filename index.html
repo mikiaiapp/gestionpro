@@ -1445,33 +1445,40 @@ function loadAjustesStatus(){
 }
 
 function showPage(id,el){
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('nav a, .bn-item').forEach(a=>a.classList.remove('active'));
-  document.getElementById('page-'+id).classList.add('active');
-  if(el) el.classList.add('active');
-  // Sync bottom nav — mark active and scroll into view
-  const bn = document.getElementById('bottom-nav');
-  if(bn){
-    bn.querySelectorAll('.bn-item').forEach(a=>{
-      const isActive = a.dataset.page === id;
-      a.classList.toggle('active', isActive);
-      if(isActive){
-        // Scroll active item into center of nav bar
-        const navW = bn.offsetWidth;
-        const itemL = a.offsetLeft;
-        const itemW = a.offsetWidth;
-        bn.scrollTo({left: itemL - navW/2 + itemW/2, behavior:'smooth'});
-      }
-    });
+  try{
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+    document.querySelectorAll('nav a, .bn-item').forEach(a=>a.classList.remove('active'));
+    const target=document.getElementById('page-'+id);
+    if(!target){ console.error('Página no encontrada: page-'+id); return; }
+    target.classList.add('active');
+    if(el) el.classList.add('active');
+    
+    // Sync bottom nav
+    const bn = document.getElementById('bottom-nav');
+    if(bn){
+      bn.querySelectorAll('.bn-item').forEach(a=>{
+        const isActive = a.dataset.page === id;
+        a.classList.toggle('active', isActive);
+        if(isActive){
+          const navW = bn.offsetWidth;
+          const itemL = a.offsetLeft;
+          const itemW = a.offsetWidth;
+          bn.scrollTo({left: itemL - navW/2 + itemW/2, behavior:'smooth'});
+        }
+      });
+    }
+    closeSidebar();
+    if(id==='ventas'){populateVentaDropdowns();renderVentas();}
+    if(id==='costes'){populateCosteDropdowns();renderCostes();}
+    if(id==='clientes'){renderClientes();}
+    if(id==='cobros'){populateCobroDropdown();renderCobros();}
+    if(id==='pagos'){populatePagoDropdown();renderPagos();}
+    if(id==='resumen'){populateResSelector();renderResumen();renderResListado();}
+    if(id==='ajustes'){loadAjustesStatus();renderFiscalTags();}
+  }catch(e){
+    console.error('Error al mostrar página:', e);
+    toast('Error al cargar la página: '+e.message, 'error');
   }
-  closeSidebar(); // auto-close on mobile
-  if(id==='ventas'){populateVentaDropdowns();renderVentas();}
-  if(id==='costes'){populateCosteDropdowns();renderCostes();}
-  if(id==='clientes'){renderClientes();}
-  if(id==='cobros'){populateCobroDropdown();renderCobros();}
-  if(id==='pagos'){populatePagoDropdown();renderPagos();}
-  if(id==='resumen'){populateResSelector();renderResumen();renderResListado();}
-  if(id==='ajustes'){loadAjustesStatus();renderFiscalTags();}
 }
 
 function toggleSidebar(){
@@ -1649,7 +1656,7 @@ function fetchUserInfo(){
 function signOut(){
   if(!confirm('¿Cerrar sesión?'))return;
   accessToken=null;folderId=null;fileId=null;
-  DB={proyectos:[],ventas:[],costes:[],cobros:[],pagos:[],logo:'',tiposIva:[...DEFAULT_IVA],tiposIrpf:[...DEFAULT_IRPF],defaultIvaPct:21,defaultIrpfPct:0};
+  DB={proyectos:[],ventas:[],costes:[],cobros:[],pagos:[],clientes:[],emisor:{},logo:'',tiposIva:[...DEFAULT_IVA],tiposIrpf:[...DEFAULT_IRPF],defaultIvaPct:21,defaultIrpfPct:0};
   document.getElementById('login-screen').style.display='flex';
   document.getElementById('topbar').classList.remove('show');
   document.getElementById('app-shell').classList.remove('show');
@@ -1693,12 +1700,13 @@ async function loadFromDrive(){
       DB.costes=parsed.costes||[];
       DB.cobros=parsed.cobros||[];
       DB.pagos=parsed.pagos||[];
+      DB.clientes=parsed.clientes||[];
+      DB.emisor=parsed.emisor||{};
       DB.logo=parsed.logo||'';
       DB.tiposIva=parsed.tiposIva||[...DEFAULT_IVA];
       DB.tiposIrpf=parsed.tiposIrpf||[...DEFAULT_IRPF];
       DB.defaultIvaPct=parsed.defaultIvaPct??21;
       DB.defaultIrpfPct=parsed.defaultIrpfPct??0;
-      // Config keys stored in Drive for cross-device sync
       if(parsed.clientId){ CLIENT_ID=parsed.clientId; localStorage.setItem('gp_client_id',parsed.clientId); }
       if(parsed.geminiKey){ GEMINI_KEY=parsed.geminiKey; localStorage.setItem('gp_gemini_key',parsed.geminiKey); }
     }
@@ -1918,486 +1926,20 @@ function renderAll(){
   if(DB.logo)applyLogo(DB.logo);
 }
 
-// ═══════════════════════════════════════════
-// LOGIN STEP NAVIGATION
-// ═══════════════════════════════════════════
-function validateClientId(){ /* removed — CLIENT_ID hardcoded */ }
-
-function setupClientId(){ /* removed — CLIENT_ID hardcoded */ }
-
-function goToStep2(){ /* removed — CLIENT_ID hardcoded */ }
-
-function goToStep1(){ /* removed — CLIENT_ID hardcoded */ }
-
-// Show config step for NEW USERS who don't have Gemini key yet
-// Called after successful first login
-function showFirstRunConfig(){
-  // Show a non-blocking toast/banner instead of interrupting the flow
-  if(!GEMINI_KEY){
-    setTimeout(()=>{
-      toast('Consejo: configura una API Key de Gemini en Ajustes para importar facturas PDF automáticamente.', '', 6000);
-    }, 2000);
-  }
-}
 
 
-function setLoginError(msg){
-  let el=document.getElementById('login-error-msg');
-  if(!el){
-    el=document.createElement('div');
-    el.id='login-error-msg';
-    el.style.cssText='margin-top:12px;background:rgba(192,57,43,.1);border:1px solid rgba(192,57,43,.3);border-radius:8px;padding:10px 14px;font-size:.8rem;color:#c0392b;text-align:left;line-height:1.5;';
-    document.getElementById('login-step-2').appendChild(el);
-  }
-  el.style.display=msg?'block':'none';
-  el.innerHTML=msg||'';
-}
-
-function setLoginLoading(loading){
-  const btn=document.querySelector('.btn-google');
-  if(!btn)return;
-  if(loading){
-    btn.disabled=true;
-    btn.innerHTML='<div style="width:18px;height:18px;border:2px solid #ccc;border-top-color:#333;border-radius:50%;animation:spin .7s linear infinite;"></div> Conectando con Google...';
-  } else {
-    btn.disabled=false;
-    btn.innerHTML='<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width:22px"> Entrar con Google';
-  }
-}
-
-function waitForGoogle(cb, attempts){
-  attempts = attempts || 0;
-  if(window.google && window.google.accounts && window.google.accounts.oauth2){
-    cb(); return;
-  }
-  if(attempts > 60){ // 6 seconds
-    setLoginLoading(false);
-    // Check if the script element exists and what state it's in
-    const existingScript = document.querySelector('script[src*="accounts.google.com/gsi"]');
-    const scriptState = existingScript ? 'script tag exists' : 'no script tag found';
-    setLoginError(
-      'Google Sign-In no se pudo cargar (' + scriptState + ').<br><br>' +
-      '<strong>Soluciones:</strong><br>' +
-      '1. Abre la consola del navegador (F12 → Console) y busca errores en rojo relacionados con "gsi" o "accounts.google.com"<br>' +
-      '2. Desactiva bloqueadores de anuncios (uBlock, AdBlock) para esta página<br>' +
-      '3. Prueba en modo incógnito (Ctrl+Shift+N)<br>' +
-      '4. Prueba en otro navegador (Chrome recomendado)<br><br>' +
-      '<button onclick="retryLoadGSI()" style="background:var(--accent);color:#fff;border:none;border-radius:6px;padding:8px 16px;cursor:pointer;font-family:var(--font-body);font-size:.84rem;">Reintentar carga</button>'
-    );
-    return;
-  }
-  setTimeout(() => waitForGoogle(cb, attempts + 1), 100);
-}
-
-function retryLoadGSI(){
-  setLoginError('');
-  setLoginLoading(true);
-  // Remove existing script tag and reload
-  const old = document.querySelector('script[src*="accounts.google.com/gsi"]');
-  if(old) old.remove();
-  delete window.google;
-  const s = document.createElement('script');
-  s.src = 'https://accounts.google.com/gsi/client?t=' + Date.now();
-  s.onload = () => {
-    setLoginLoading(false);
-    setLoginError('Script de Google cargado. Pulsa "Entrar con Google" de nuevo.');
-  };
-  s.onerror = (e) => {
-    setLoginLoading(false);
-    setLoginError(
-      'El script de Google sigue sin cargar. El navegador o la red están bloqueando accounts.google.com.<br><br>' +
-      'Prueba en modo incógnito o en otro navegador.'
-    );
-  };
-  document.head.appendChild(s);
-}
-
-function signIn(){
-  setLoginError('');
-  if(!CLIENT_ID){
-    setLoginError('Introduce primero el Client ID de Google. Pulsa "Editar" para configurarlo.');
-    return;
-  }
-  setLoginLoading(true);
-  waitForGoogle(()=>{
-    try{
-      const client = google.accounts.oauth2.initTokenClient({
-        client_id: CLIENT_ID,
-        scope: SCOPES,
-        callback: (resp) => {
-          setLoginLoading(false);
-          if(resp.error){
-            let msg = 'Error: <strong>' + resp.error + '</strong>';
-            if(resp.error === 'access_denied')
-              msg = 'Acceso denegado. Tu cuenta debe estar en la lista de "Usuarios de prueba" en Google Cloud Console.<br>' +
-                    '<a href="https://console.cloud.google.com" target="_blank" style="color:var(--accent)">Ir a Google Cloud Console →</a><br><br>' +
-                    'Ruta: APIs y servicios → Pantalla de consentimiento → Usuarios de prueba → + Add users';
-            else if(resp.error === 'invalid_client')
-              msg = 'Client ID no válido o URL no autorizada.<br><br>' +
-                    'Verifica en Google Cloud Console que:<br>' +
-                    '1. El Client ID es correcto<br>' +
-                    '2. <strong>https://mikiaiapp.github.io</strong> está en "Orígenes de JavaScript autorizados"';
-            else if(resp.error === 'popup_closed_by_user')
-              msg = 'Ventana cerrada. Vuelve a pulsar "Entrar con Google".';
-            else if(resp.error === 'popup_blocked_by_browser')
-              msg = 'El navegador bloqueó la ventana emergente.<br>Busca el icono de popup bloqueado en la barra de direcciones y permite las ventanas emergentes para esta página.';
-            setLoginError(msg);
-            return;
-          }
-          accessToken = resp.access_token;
-          fetchUserInfo();
-        },
-        error_callback: (err) => {
-          setLoginLoading(false);
-          setLoginError('Error al iniciar sesión: ' + (err.message || err.type || JSON.stringify(err)));
-        }
-      });
-      client.requestAccessToken({prompt:'select_account'});
-    } catch(e){
-      setLoginLoading(false);
-      setLoginError('Error al inicializar Google Sign-In: ' + e.message);
-    }
-  });
-}
-
-function fetchUserInfo(){
-  fetch('https://www.googleapis.com/oauth2/v2/userinfo',{
-    headers:{Authorization:'Bearer '+accessToken}
-  })
-  .then(r=>{
-    if(r.status===401){
-      // Token rejected by userinfo - still try to proceed with Drive
-      // The token might only have drive scope
-      console.warn('Userinfo 401 - proceeding without profile data');
-      return null;
-    }
-    if(!r.ok) throw new Error('HTTP '+r.status);
-    return r.json();
-  })
-  .then(u=>{
-    if(u){
-      document.getElementById('user-name').textContent=u.name||u.email||'Usuario';
-      if(u.picture) document.getElementById('user-avatar').src=u.picture;
-    } else {
-      document.getElementById('user-name').textContent='Usuario conectado';
-    }
-    document.getElementById('login-screen').style.display='none';
-    document.getElementById('topbar').classList.add('show');
-    document.getElementById('app-shell').classList.add('show');
-    initDriveData();
-  })
-  .catch(e=>{
-    setLoginLoading(false);
-    setLoginError('Error al obtener datos de usuario: '+e.message+
-      '<br><br>Prueba a recargar la página (F5) e iniciar sesión de nuevo.');
-  });
-}
-
-function signOut(){
-  if(!confirm('¿Cerrar sesión?'))return;
-  accessToken=null;folderId=null;fileId=null;
-  DB={proyectos:[],ventas:[],costes:[],cobros:[],pagos:[],logo:'',tiposIva:[...DEFAULT_IVA],tiposIrpf:[...DEFAULT_IRPF],defaultIvaPct:21,defaultIrpfPct:0};
-  document.getElementById('login-screen').style.display='flex';
-  document.getElementById('topbar').classList.remove('show');
-  document.getElementById('app-shell').classList.remove('show');
-}
-
-// ═══════════════════════════════════════════
-// GOOGLE DRIVE
-// ═══════════════════════════════════════════
-function driveH(){return{Authorization:'Bearer '+accessToken,'Content-Type':'application/json'};}
-
-async function getOrCreateFolder(){
-  const q=encodeURIComponent(`name='${DRIVE_FOLDER}' and mimeType='application/vnd.google-apps.folder' and trashed=false`);
-  const r=await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)`,{headers:driveH()});
-  const d=await r.json();
-  if(d.files&&d.files.length)return d.files[0].id;
-  const cr=await fetch('https://www.googleapis.com/drive/v3/files',{method:'POST',headers:driveH(),body:JSON.stringify({name:DRIVE_FOLDER,mimeType:'application/vnd.google-apps.folder'})});
-  return(await cr.json()).id;
-}
-
-async function getOrCreateFile(fId){
-  const q=encodeURIComponent(`name='${DRIVE_FILE}' and '${fId}' in parents and trashed=false`);
-  const r=await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)`,{headers:driveH()});
-  const d=await r.json();
-  if(d.files&&d.files.length)return{id:d.files[0].id,isNew:false};
-  const meta={name:DRIVE_FILE,parents:[fId]};
-  const cr=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{
-    method:'POST',
-    headers:{Authorization:'Bearer '+accessToken,'Content-Type':'multipart/related; boundary=gp_boundary'},
-    body:`--gp_boundary\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(meta)}\r\n--gp_boundary\r\nContent-Type: application/json\r\n\r\n{}\r\n--gp_boundary--`
-  });
-  return{id:(await cr.json()).id,isNew:true};
-}
-
-async function loadFromDrive(){
-  const r=await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,{headers:{Authorization:'Bearer '+accessToken}});
-  try{
-    const parsed=JSON.parse(await r.text());
-    if(parsed&&typeof parsed==='object'){
-      DB.proyectos=parsed.proyectos||[];
-      DB.ventas=parsed.ventas||[];
-      DB.costes=parsed.costes||[];
-      DB.cobros=parsed.cobros||[];
-      DB.pagos=parsed.pagos||[];
-      DB.logo=parsed.logo||'';
-      DB.tiposIva=parsed.tiposIva||[...DEFAULT_IVA];
-      DB.tiposIrpf=parsed.tiposIrpf||[...DEFAULT_IRPF];
-      DB.defaultIvaPct=parsed.defaultIvaPct??21;
-      DB.defaultIrpfPct=parsed.defaultIrpfPct??0;
-      // Config keys stored in Drive for cross-device sync
-      if(parsed.clientId){ CLIENT_ID=parsed.clientId; localStorage.setItem('gp_client_id',parsed.clientId); }
-      if(parsed.geminiKey){ GEMINI_KEY=parsed.geminiKey; localStorage.setItem('gp_gemini_key',parsed.geminiKey); }
-    }
-  }catch(e){}
-}
-
-async function saveToDrive(){
-  if(!fileId||!accessToken)return;
-  setSyncStatus('syncing','Guardando...');
-  try{
-    const form=new FormData();
-    form.append('metadata',new Blob([JSON.stringify({name:DRIVE_FILE})],{type:'application/json'}));
-    const dbWithConfig={...DB, clientId:CLIENT_ID||'', geminiKey:GEMINI_KEY||''};
-    form.append('file',new Blob([JSON.stringify(dbWithConfig)],{type:'application/json'}));
-    await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart`,{
-      method:'PATCH',headers:{Authorization:'Bearer '+accessToken},body:form
-    });
-    const now=new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
-    setSyncStatus('ok','Guardado '+now);
-  }catch(e){setSyncStatus('error','Error al guardar');toast('Error al guardar en Drive.','error');}
-}
-
-function scheduleSave(){
-  setSyncStatus('syncing','Pendiente...');
-  clearTimeout(saveTimeout);
-  saveTimeout=setTimeout(()=>saveToDrive(),1500);
-}
-
-async function getOrCreateBackupFolder(parentId){
-  const q=encodeURIComponent(`name='${BACKUP_FOLDER}' and '${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`);
-  const r=await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)`,{headers:driveH()});
-  const d=await r.json();
-  if(d.files&&d.files.length)return d.files[0].id;
-  const cr=await fetch('https://www.googleapis.com/drive/v3/files',{method:'POST',headers:driveH(),
-    body:JSON.stringify({name:BACKUP_FOLDER,mimeType:'application/vnd.google-apps.folder',parents:[parentId]})});
-  return(await cr.json()).id;
-}
-
-async function createAutoBackup(){
-  try{
-    const today=todayStr();
-    const lastBackup=localStorage.getItem('gp_last_backup');
-    if(lastBackup===today)return; // already backed up today
-    const backupFolderId=await getOrCreateBackupFolder(folderId);
-    // List existing backups
-    const q=encodeURIComponent(`'${backupFolderId}' in parents and trashed=false`);
-    const r=await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,createdTime)&orderBy=createdTime`,{headers:driveH()});
-    const d=await r.json();
-    const backups=(d.files||[]).sort((a,b)=>a.createdTime.localeCompare(b.createdTime));
-    // Delete oldest if > MAX_BACKUPS-1
-    while(backups.length>=MAX_BACKUPS){
-      const old=backups.shift();
-      await fetch(`https://www.googleapis.com/drive/v3/files/${old.id}`,{method:'DELETE',headers:driveH()});
-    }
-    // Create new backup
-    const backupName=`backup_${today}.json`;
-    const form=new FormData();
-    form.append('metadata',new Blob([JSON.stringify({name:backupName,parents:[backupFolderId]})],{type:'application/json'}));
-    const dbWithConfigB={...DB, clientId:CLIENT_ID||'', geminiKey:GEMINI_KEY||''};
-    form.append('file',new Blob([JSON.stringify(dbWithConfigB)],{type:'application/json'}));
-    await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{
-      method:'POST',headers:{Authorization:'Bearer '+accessToken},body:form
-    });
-    localStorage.setItem('gp_last_backup',today);
-    console.log('Auto-backup created: '+backupName);
-  }catch(e){console.warn('Auto-backup failed:',e);}
-}
-
-async function listBackups(){
-  try{
-    const backupFolderId=await getOrCreateBackupFolder(folderId);
-    const q=encodeURIComponent(`'${backupFolderId}' in parents and trashed=false`);
-    const r=await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,createdTime)&orderBy=createdTime desc`,{headers:driveH()});
-    const d=await r.json();
-    return{files:d.files||[],backupFolderId};
-  }catch(e){return{files:[],backupFolderId:null};}
-}
-
-async function showRestoreModal(){
-  openModal('modal-restore-backup');
-  const list=document.getElementById('restore-backup-list');
-  list.innerHTML='<div style="color:var(--muted);font-size:.86rem;">Cargando copias...</div>';
-  const{files}=await listBackups();
-  if(!files.length){
-    list.innerHTML='<div style="color:var(--muted);font-size:.86rem;">No hay copias de seguridad disponibles.</div>';
-    return;
-  }
-  list.innerHTML=files.map(f=>`
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--card2);border:1px solid var(--border);border-radius:8px;margin-bottom:8px;">
-      <div>
-        <div style="font-weight:600;font-size:.86rem;">${f.name}</div>
-        <div style="font-size:.76rem;color:var(--muted);">${new Date(f.createdTime).toLocaleString('es-ES')}</div>
-      </div>
-      <button class="btn btn-warn btn-sm" onclick="restoreFromBackup('${f.id}','${f.name}')">Restaurar</button>
-    </div>`).join('');
-}
-
-async function restoreFromBackup(fileId,name){
-  if(!confirm(`¿Restaurar la copia "${name}"? Los datos actuales serán reemplazados.`))return;
-  closeModal('modal-restore-backup');
-  showSyncOverlay('Restaurando copia de seguridad...');
-  try{
-    const r=await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,{headers:{Authorization:'Bearer '+accessToken}});
-    const parsed=JSON.parse(await r.text());
-    if(parsed&&typeof parsed==='object'){
-      DB.proyectos=parsed.proyectos||[];DB.ventas=parsed.ventas||[];
-      DB.costes=parsed.costes||[];DB.cobros=parsed.cobros||[];DB.pagos=parsed.pagos||[];
-      DB.logo=parsed.logo||'';DB.tiposIva=parsed.tiposIva||[...DEFAULT_IVA];
-      DB.tiposIrpf=parsed.tiposIrpf||[...DEFAULT_IRPF];
-      DB.defaultIvaPct=parsed.defaultIvaPct??21;DB.defaultIrpfPct=parsed.defaultIrpfPct??0;
-    }
-    await saveToDrive();
-    hideSyncOverlay();renderAll();
-    toast('Datos restaurados desde '+name);
-  }catch(e){hideSyncOverlay();toast('Error al restaurar.','error');}
-}
 
 
-// ─── ATTACHMENT (PDF) FUNCTIONS ──────────────────────────────────────────
-// attachFolderId declared above
-
-async function getOrCreateAttachFolder(){
-  if(attachFolderId) return attachFolderId;
-  const q=encodeURIComponent(`name='${ATTACH_FOLDER}' and '${folderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`);
-  const r=await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)`,{headers:driveH()});
-  const d=await r.json();
-  if(d.files&&d.files.length){attachFolderId=d.files[0].id;return attachFolderId;}
-  const cr=await fetch('https://www.googleapis.com/drive/v3/files',{
-    method:'POST',headers:driveH(),
-    body:JSON.stringify({name:ATTACH_FOLDER,mimeType:'application/vnd.google-apps.folder',parents:[folderId]})
-  });
-  attachFolderId=(await cr.json()).id;
-  return attachFolderId;
-}
-
-async function uploadAttachment(base64,filename,mimeType){
-  // Returns Drive file id
-  const afId=await getOrCreateAttachFolder();
-  const meta={name:filename,parents:[afId]};
-  const boundary='gp_attach_boundary';
-  const body=[
-    '--'+boundary,
-    'Content-Type: application/json',
-    '',
-    JSON.stringify(meta),
-    '--'+boundary,
-    'Content-Type: '+mimeType,
-    'Content-Transfer-Encoding: base64',
-    '',
-    base64,
-    '--'+boundary+'--'
-  ].join('\r\n');
-  const r=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{
-    method:'POST',
-    headers:{Authorization:'Bearer '+accessToken,'Content-Type':'multipart/related; boundary='+boundary},
-    body
-  });
-  const d=await r.json();
-  return d.id||null;
-}
-
-async function deleteAttachment(driveFileId){
-  if(!driveFileId||!accessToken) return;
-  await fetch(`https://www.googleapis.com/drive/v3/files/${driveFileId}`,{
-    method:'DELETE',headers:{Authorization:'Bearer '+accessToken}
-  });
-}
-
-function getAttachUrl(driveFileId){
-  return `https://drive.google.com/file/d/${driveFileId}/view`;
-}
-
-// Read a file input as base64
-function readFileAsBase64(file){
-  return new Promise((res,rej)=>{
-    const r=new FileReader();
-    r.onload=e=>res({base64:e.target.result.split(',')[1],mimeType:file.type,name:file.name});
-    r.onerror=rej;
-    r.readAsDataURL(file);
-  });
-}
-
-async function initDriveData(){
-  showSyncOverlay('Conectando con Google Drive...');
-  try{
-    folderId=await getOrCreateFolder();
-    showSyncOverlay('Buscando datos...');
-    const{id,isNew}=await getOrCreateFile(folderId);
-    fileId=id;
-    if(!isNew){showSyncOverlay('Cargando datos...');await loadFromDrive();}
-    hideSyncOverlay();
-    renderAll();
-    setSyncStatus('ok','Conectado');
-    toast('Datos cargados ✓');
-    // Auto backup (transparent, after a short delay)
-    setTimeout(()=>createAutoBackup(),3000);
-  }catch(e){
-    hideSyncOverlay();
-    toast('Error Drive: '+e.message,'error');
-    setSyncStatus('error','Error');
-    renderAll();
-  }
-}
-
-function showSyncOverlay(msg){document.getElementById('sync-msg').textContent=msg;document.getElementById('sync-overlay').classList.add('show');}
-function hideSyncOverlay(){document.getElementById('sync-overlay').classList.remove('show');}
-async function forceSave(){await saveToDrive();toast('Guardado en Drive.');}
-async function forceLoad(){showSyncOverlay('Recargando...');await loadFromDrive();hideSyncOverlay();renderAll();toast('Datos recargados.');}
-
-function renderAll(){
-  renderProyectos();
-  populateFiscalDropdowns();
-  const today=todayStr();
-  ['v-fecha','c-fecha','co-fecha','pa-fecha'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=today;});
-  onVentaSerieChange();
-  onCosteSerieChange();
-  if(DB.logo)applyLogo(DB.logo);
-  loadEmisorData();
-}
-
-// ═══════════════════════════════════════════
-// LOGIN STEP NAVIGATION
-// ═══════════════════════════════════════════
-function validateClientId(val){
-  if(!val||val.length<20){return'El Client ID es demasiado corto.';}
-  if(!val.includes('googleusercontent.com')&&!val.includes('.apps.')){
-    return'El Client ID debe contener "googleusercontent.com". Cópialo exactamente desde Google Cloud Console.';
-  }
-  return null; // valid
-}
-
-function setupClientId(){
-  const val=document.getElementById('login-client-id').value.trim();
-  const err=validateClientId(val);
-  const hint=document.getElementById('step1-error');
-  if(err){
-    if(hint){hint.textContent=err;hint.style.display='block';}
-    else alert(err);
-    return;
-  }
-  if(hint)hint.style.display='none';
-  CLIENT_ID=val;localStorage.setItem('gp_client_id',val);goToStep2();
-}
-
-function goToStep2(){
-  document.getElementById('login-step-1').classList.remove('active');
-  document.getElementById('login-step-2').classList.add('active');
-  // Always show the Client ID in the editable field directly (no readonly/toggle complexity)
-  const inp=document.getElementById('login-client-id-2');
-  if(inp){inp.value=CLIENT_ID||'';inp.style.display='block';}
-  const ro=document.getElementById('clientid-readonly');
-  if(ro)ro.textContent=CLIENT_ID||'';
+function openEmitirDesdeCliente(nombre){
+  showPage('ventas');
+  setTimeout(()=>{
+    const hidden = document.getElementById('v-cliente');
+    const input = document.getElementById('v-cliente-input');
+    if(hidden) hidden.value = nombre;
+    if(input) input.value = nombre;
+    refreshVProyecto();
+    toast('Preparado para emitir a '+nombre);
+  }, 50);
 }
 
 function goToStep1(){
@@ -2560,6 +2102,7 @@ function renderClientes(){
       <td data-m="Facturado">${fmt(totalFact)}</td>
       <td data-m="Pendiente" class="${pend>0?'mn':''}">${fmt(pend)}</td>
       <td class="m-actions">
+        <button class="btn btn-success btn-xs" title="Emitir Factura" onclick="openEmitirDesdeCliente('${c.nombre}')">&#x1F4C4;</button>
         <button class="btn btn-ghost btn-xs" onclick="editCliente('${c.id}')">&#x270F;&#xFE0F;</button>
         <button class="btn btn-danger btn-xs" onclick="deleteCliente('${c.id}')">&#x1F5D1;&#xFE0F;</button>
       </td>
