@@ -1,3 +1,4 @@
+<!-- VERIFICACIÓN: ARCHIVO ACTUALIZADO POR ANTIGRAVITY - 2026-04-13 21:18 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -633,7 +634,7 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
 
 <!-- ══════════ TOP BAR ══════════ -->
 <div id="topbar">
-  <div class="sync-status"><div class="sync-dot" id="sync-dot"></div><span id="sync-label">Sincronizado</span> <span style="font-size:10px; opacity:0.5; margin-left:5px;">v2.1</span></div>
+  <div class="sync-status"><div class="sync-dot" id="sync-dot"></div><span id="sync-label">Sincronizado</span></div>
   <img class="user-avatar" id="user-avatar" src="" alt="">
   <span class="user-name" id="user-name"></span>
   <button class="btn-signout" onclick="signOut()">Cerrar sesión</button>
@@ -2070,64 +2071,44 @@ function addCliente(){
   renderClientes(); toast('Cliente guardado.');
 }
 function renderClientes(){
-  try {
-    const clientes = getD('clientes');
-    const search = (document.getElementById('cl-filter-search')?.value || '').toLowerCase();
-    const filtered = clientes.filter(c => c.nombre.toLowerCase().includes(search) || (c.nif && c.nif.toLowerCase().includes(search)));
-    
-    const elTotal = document.getElementById('st-cl-total');
-    if(elTotal) elTotal.textContent = clientes.length;
-    
-    const proyActivos = getD('proyectos').filter(p => (p.estado||'abierto') === 'abierto').length;
-    const elProy = document.getElementById('st-cl-proy');
-    if(elProy) elProy.textContent = proyActivos;
-    
-    const totalV = getD('ventas').reduce((s,v) => s + (v.total||0), 0);
-    const totalC = getD('cobros').reduce((s,c) => s + (c.importe||0), 0);
-    const elDeuda = document.getElementById('st-cl-deuda');
-    if(elDeuda) elDeuda.textContent = fmt(totalV - totalC);
-    
-    const tbody = document.getElementById('tbody-clientes');
-    const empty = document.getElementById('clientes-empty');
-    if(!tbody) return;
-    if(!filtered.length){ tbody.innerHTML = ''; if(empty) empty.style.display = 'block'; return; }
-    if(empty) empty.style.display = 'none';
-    
-    const proyectos = getD('proyectos');
-    const ventas = getD('ventas');
-    const cobros = getD('cobros');
-    
-    tbody.innerHTML = filtered.map(c => {
-      const clProys = proyectos.filter(p => p.cliente === c.nombre);
-      const clVentas = ventas.filter(v => v.cliente === c.nombre);
-      const totalFact = clVentas.reduce((s,v) => s+(v.total||0), 0);
-      
-      // Calculate debt per client safely
-      let totalCob = 0;
-      if(clVentas.length > 0) {
-        const vIds = new Set(clVentas.map(v => v.id));
-        totalCob = cobros.filter(cob => vIds.has(cob.ventaId)).reduce((s,cob) => s+(cob.importe||0), 0);
-      }
-      
-      const pend = totalFact - totalCob;
-      return `<tr>
-        <td class="m-full"><strong>${c.nombre}</strong></td>
-        <td data-m="NIF">${c.nif||'—'}</td>
-        <td data-m="Email">${c.email||'—'}</td>
-        <td data-m="Tel.">${c.tel||'—'}</td>
-        <td data-m="Proys."><span class="badge badge-blue">${clProys.length}</span></td>
-        <td data-m="Facturado">${fmt(totalFact)}</td>
-        <td data-m="Pendiente" class="${pend>0?'mn':''}">${fmt(pend)}</td>
-        <td class="m-actions">
-          <button class="btn btn-success btn-xs" title="Emitir Factura" onclick="openEmitirDesdeCliente('${c.nombre}')">&#x1F4C4;</button>
-          <button class="btn btn-ghost btn-xs" onclick="editCliente('${c.id}')">&#x270F;&#xFE0F;</button>
-          <button class="btn btn-danger btn-xs" onclick="deleteCliente('${c.id}')">&#x1F5D1;&#xFE0F;</button>
-        </td>
-      </tr>`;
-    }).join('');
-  } catch(e) {
-    console.error('Error en renderClientes:', e);
-  }
+  const clientes = getD('clientes');
+  const search = (document.getElementById('cl-filter-search')?.value || '').toLowerCase();
+  const filtered = clientes.filter(c => c.nombre.toLowerCase().includes(search) || (c.nif && c.nif.toLowerCase().includes(search)));
+  document.getElementById('st-cl-total').textContent = clientes.length;
+  const proyActivos = getD('proyectos').filter(p => (p.estado||'abierto') === 'abierto').length;
+  document.getElementById('st-cl-proy').textContent = proyActivos;
+  const totalV = getD('ventas').reduce((s,v) => s + v.total, 0);
+  const totalC = getD('cobros').reduce((s,c) => s + c.importe, 0);
+  document.getElementById('st-cl-deuda').textContent = fmt(totalV - totalC);
+  const tbody = document.getElementById('tbody-clientes');
+  const empty = document.getElementById('clientes-empty');
+  if(!tbody) return;
+  if(!filtered.length){ tbody.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+  const proyectos = getD('proyectos');
+  const ventas = getD('ventas');
+  const cobros = getD('cobros');
+  tbody.innerHTML = filtered.map(c => {
+    const clProys = proyectos.filter(p => p.cliente === c.nombre);
+    const clVentas = ventas.filter(v => v.cliente === c.nombre);
+    const totalFact = clVentas.reduce((s,v) => s+v.total, 0);
+    const totalCob = cobros.filter(cob => clVentas.some(v => v.id === cob.ventaId)).reduce((s,cob) => s+cob.importe, 0);
+    const pend = totalFact - totalCob;
+    return `<tr>
+      <td class="m-full"><strong>${c.nombre}</strong></td>
+      <td data-m="NIF">${c.nif||'—'}</td>
+      <td data-m="Email">${c.email||'—'}</td>
+      <td data-m="Tel.">${c.tel||'—'}</td>
+      <td data-m="Proys."><span class="badge badge-blue">${clProys.length}</span></td>
+      <td data-m="Facturado">${fmt(totalFact)}</td>
+      <td data-m="Pendiente" class="${pend>0?'mn':''}">${fmt(pend)}</td>
+      <td class="m-actions">
+        <button class="btn btn-success btn-xs" title="Emitir Factura" onclick="openEmitirDesdeCliente('${c.nombre}')">&#x1F4C4;</button>
+        <button class="btn btn-ghost btn-xs" onclick="editCliente('${c.id}')">&#x270F;&#xFE0F;</button>
+        <button class="btn btn-danger btn-xs" onclick="deleteCliente('${c.id}')">&#x1F5D1;&#xFE0F;</button>
+      </td>
+    </tr>`;
+  }).join('');
 }
 function deleteCliente(id){
   const c = getD('clientes').find(x => x.id === id);
@@ -2319,15 +2300,7 @@ function nextVentaNum(serie){
   const nums=getD('ventas').filter(v=>v.serie===serie).map(v=>parseInt(v.numero.split('-')[1]||0));
   return`${serie}-${String((nums.length?Math.max(...nums):0)+1).padStart(3,'0')}`;
 }
-function onVentaSerieChange(){
-  const serie = document.getElementById('v-serie').value;
-  document.getElementById('v-num').value = nextVentaNum(serie);
-  const ivaSection = document.getElementById('v-iva-section');
-  const baseGroup = document.getElementById('v-base-group');
-  if(ivaSection) ivaSection.style.display = serie === 'A' ? 'block' : 'none';
-  if(baseGroup) baseGroup.style.display = serie === 'B' ? 'grid' : 'none';
-  calcVenta();
-}
+function onVentaSerieChange(){document.getElementById('v-num').value=nextVentaNum(document.getElementById('v-serie').value);calcVenta();}
 
 // ─── SEARCHABLE COMBOBOX ENGINE ──────────────────────────────────────────
 // Each combo has: input#combo-wrap-{id} > input[text]#{id}-input + input[hidden]#{id} + div.combo-dropdown#{id}-drop
@@ -4804,11 +4777,11 @@ window.addEventListener('DOMContentLoaded', () => {
   <a data-page="ventas" class="bn-item" onclick="showPage('ventas',this)">
     <span class="bn-icon">🧾</span><span class="bn-label">Ventas</span>
   </a>
-  <a data-page="clientes" class="bn-item" onclick="showPage('clientes',this)">
-    <span class="bn-icon">👥</span><span class="bn-label">Clientes</span>
-  </a>
   <a data-page="costes" class="bn-item" onclick="showPage('costes',this)">
     <span class="bn-icon">📥</span><span class="bn-label">Costes</span>
+  </a>
+  <a data-page="clientes" class="bn-item" onclick="showPage('clientes',this)">
+    <span class="bn-icon">👥</span><span class="bn-label">Clientes</span>
   </a>
   <a data-page="cobros" class="bn-item" onclick="showPage('cobros',this)">
     <span class="bn-icon">💰</span><span class="bn-label">Cobros</span>
