@@ -658,6 +658,7 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
     <a onclick="showPage('ventas',this)"><span class="icon">🧾</span> Ventas</a>
     <a onclick="showPage('costes',this)"><span class="icon">📥</span> Costes</a>
     <span class="nav-label">Gestión</span>
+    <a onclick="showPage('clientes',this)"><span class="icon">👥</span> Clientes</a>
     <a onclick="showPage('cobros',this)"><span class="icon">💰</span> Cobros</a>
     <a onclick="showPage('pagos',this)"><span class="icon">💸</span> Pagos</a>
     <span class="nav-label">Análisis</span>
@@ -757,13 +758,23 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
           <div class="combo-dropdown" id="combo-drop-vproyecto"></div>
         </div>
       </div>
-      <div class="form-group"><label>Base Imponible (€)</label><input type="text" inputmode="decimal" id="v-base" placeholder="0.00" step="0.01" oninput="calcVenta()"></div>
-      <div class="form-group"><label>IVA (21%)</label><input type="text" id="v-iva" readonly class="computed"></div>
-      <div class="form-group"><label>Total Factura</label><input type="text" id="v-total" readonly class="computed"></div>
+    <div class="form-grid cols4" id="v-base-group" style="display:none;margin-top:12px;">
+      <div class="form-group"><label>Base Imponible (€)</label><input type="text" inputmode="decimal" id="v-base" placeholder="0.00" oninput="calcVenta()"></div>
     </div>
-    <div class="btn-group">
+    <!-- Ventas IVA Lines -->
+    <div id="v-iva-section" style="margin-top:12px;">
+      <div style="font-size:.78rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;">Líneas de IVA</div>
+      <table class="iva-lines" id="v-iva-lines">
+        <thead><tr><th style="width:35%">Base Imponible (€)</th><th style="width:22%">Tipo IVA</th><th style="width:25%">Cuota IVA (€)</th><th style="width:10%"></th></tr></thead>
+        <tbody id="v-iva-tbody"></tbody>
+      </table>
+      <button class="btn btn-ghost btn-sm" onclick="addVIvaLine()" style="margin-bottom:10px;">+ Añadir línea de IVA</button>
+      <div class="iva-totals" id="v-iva-totals"></div>
     </div>
-    <div class="form-grid cols4" style="margin-top:4px;margin-bottom:0">
+    <div class="form-grid cols4" style="margin-top:4px;">
+      <div class="form-group" id="v-irpf-group"><label>Retención IRPF</label><select id="v-irpf-tipo" onchange="calcVenta()"></select></div>
+      <div class="form-group"><label>Retención (€)</label><input type="text" id="v-irpf" readonly class="computed-red"></div>
+      <div class="form-group"><label>Total Factura (€)</label><input type="text" id="v-total" readonly class="computed"></div>
       <div class="form-group"><label>Adjuntar PDF</label>
         <input type="file" id="v-pdf-file" accept=".pdf" style="padding:6px;background:var(--card2);border:1px solid var(--border);border-radius:8px;font-size:.82rem;">
       </div>
@@ -867,6 +878,35 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
     <div class="table-wrap mobile-cards" id="tw-costes"><table><thead><tr><th></th><th>Serie</th><th>Nº</th><th>Proveedor</th><th>Nº Prov.</th><th>Fecha</th><th>Tipo</th><th>Base</th><th>Total</th><th>Pagado</th><th>Pend.</th><th>Estado</th><th>Acc.</th></tr></thead>
     <tbody id="tbody-costes"></tbody></table>
     <div id="costes-empty" class="empty-state" style="display:none"><div class="icon">📥</div><p>No hay facturas recibidas.</p></div></div>
+  </div>
+</div>
+
+<!-- ══ CLIENTES ══ -->
+<div class="page" id="page-clientes">
+  <h1>Clientes</h1><p class="page-desc">Mantenimiento de la base de datos de clientes para facturación electrónica.</p>
+  <div class="stats-row cols3">
+    <div class="stat-card"><div class="label">Total Clientes</div><div class="value blue" id="st-cl-total">0</div></div>
+    <div class="stat-card"><div class="label">Proyectos Activos</div><div class="value purple" id="st-cl-proy">0</div></div>
+    <div class="stat-card"><div class="label">Deuda Total</div><div class="value orange" id="st-cl-deuda">0,00 €</div></div>
+  </div>
+  <div class="section-box">
+    <h2>➕ Nuevo Cliente</h2>
+    <div class="form-grid cols4">
+      <div class="form-group" style="grid-column:span 2"><label>Nombre o Razón Social</label><input type="text" id="cl-nombre" placeholder="Ej: Aceros S.A."></div>
+      <div class="form-group"><label>NIF / CIF</label><input type="text" id="cl-nif" placeholder="A12345678"></div>
+      <div class="form-group"><label>Teléfono</label><input type="text" id="cl-tel" placeholder="600000000"></div>
+      <div class="form-group" style="grid-column:span 2"><label>Dirección Fiscal</label><input type="text" id="cl-dir" placeholder="Calle, Número, CP, Localidad"></div>
+      <div class="form-group" style="grid-column:span 2"><label>Email de Facturación</label><input type="email" id="cl-email" placeholder="facturas@cliente.com"></div>
+    </div>
+    <button class="btn btn-primary" onclick="addCliente()">✓ Guardar Cliente</button>
+  </div>
+  <div class="section-box">
+    <h2>📋 Listado de Clientes</h2>
+    <div class="filter-bar">
+      <div class="form-group" style="flex:1"><label>Buscar</label><input type="text" id="cl-filter-search" placeholder="Nombre, NIF..." oninput="renderClientes()"></div>
+    </div>
+    <div class="table-wrap mobile-cards"><table><thead><tr><th>Cliente</th><th>NIF</th><th>Email</th><th>Teléfono</th><th>Proyectos</th><th>Facturado</th><th>Pendiente</th><th>Acc.</th></tr></thead><tbody id="tbody-clientes"></tbody></table></div>
+    <div id="clientes-empty" class="empty-state" style="display:none"><div class="icon">👥</div><p>No hay clientes registrados.</p></div>
   </div>
 </div>
 
@@ -990,7 +1030,22 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
 
 <!-- ══ AJUSTES ══ -->
 <div class="page" id="page-ajustes">
-  <h1>Ajustes</h1><p class="page-desc">Google Drive, logotipo, tipos fiscales y copias de seguridad.</p>
+  <h1>Ajustes</h1><p class="page-desc">Google Drive, emisor, tipos fiscales y copias de seguridad.</p>
+
+  <!-- Datos del Emisor -->
+  <div class="section-box">
+    <h2>👤 Mis Datos (Emisor)</h2>
+    <p style="color:var(--muted);font-size:.85rem;margin-bottom:14px;">Estos datos aparecerán en la cabecera de tus facturas emitidas.</p>
+    <div class="form-grid cols2">
+      <div class="form-group" style="grid-column:span 2"><label>Nombre o Razón Social</label><input type="text" id="cfg-emisor-nombre"></div>
+      <div class="form-group"><label>NIF / CIF</label><input type="text" id="cfg-emisor-nif"></div>
+      <div class="form-group"><label>Teléfono</label><input type="text" id="cfg-emisor-tel"></div>
+      <div class="form-group" style="grid-column:span 2"><label>Dirección Fiscal</label><input type="text" id="cfg-emisor-dir"></div>
+    </div>
+    <div class="btn-group">
+      <button class="btn btn-primary" onclick="saveEmisorData()">💾 Guardar Datos</button>
+    </div>
+  </div>
 
   <!-- Google Drive -->
   <div class="section-box" style="border-color:rgba(160,108,0,.2);background:rgba(160,108,0,.02);">
@@ -1109,8 +1164,12 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
       <div class="form-group"><label>Fecha</label><input type="date" id="ev-fecha"></div>
       <div class="form-group"><label>Cliente</label><select id="ev-cliente"></select></div>
       <div class="form-group"><label>Proyecto</label><select id="ev-proyecto"></select></div>
+      <div class="form-group"><label>Serie</label><select id="ev-serie" onchange="calcVentaEdit()"><option value="A">A</option><option value="B">B</option></select></div>
       <div class="form-group"><label>Base Imponible (€)</label><input type="text" inputmode="decimal" id="ev-base" oninput="calcVentaEdit()"></div>
-      <div class="form-group"><label>IVA</label><input type="text" id="ev-iva" readonly class="computed"></div>
+      <div id="ev-iva-row" class="form-group"><label>Tipo IVA</label><select id="ev-iva-tipo" onchange="calcVentaEdit()"></select></div>
+      <div id="ev-iva-cuota-row" class="form-group"><label>IVA</label><input type="text" id="ev-iva" readonly class="computed"></div>
+      <div class="form-group"><label>Retención IRPF</label><select id="ev-irpf-tipo" onchange="calcVentaEdit()"></select></div>
+      <div class="form-group"><label>Retención (€)</label><input type="text" id="ev-irpf" readonly class="computed-red"></div>
       <div class="form-group"><label>Total</label><input type="text" id="ev-total" readonly class="computed"></div>
     </div>
     <div id="ev-pdf-section" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
@@ -1191,6 +1250,20 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
   </div>
 </div>
 
+<!-- Editar Cliente -->
+<div class="modal-overlay" id="modal-edit-cliente">
+  <div class="modal"><h3>✏️ Editar Cliente</h3><input type="hidden" id="ecl-id">
+    <div class="form-grid cols2">
+      <div class="form-group" style="grid-column:span 2"><label>Nombre o Razón Social</label><input type="text" id="ecl-nombre"></div>
+      <div class="form-group"><label>NIF / CIF</label><input type="text" id="ecl-nif"></div>
+      <div class="form-group"><label>Teléfono</label><input type="text" id="ecl-tel"></div>
+      <div class="form-group" style="grid-column:span 2"><label>Dirección Fiscal</label><input type="text" id="ecl-dir"></div>
+      <div class="form-group" style="grid-column:span 2"><label>Email de Facturación</label><input type="email" id="ecl-email"></div>
+    </div>
+    <div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal('modal-edit-cliente')">Cancelar</button><button class="btn btn-primary" onclick="saveEditCliente()">✓ Guardar Cambios</button></div>
+  </div>
+</div>
+
 <!-- PDF Import Modal -->
 <div class="modal-overlay" id="modal-pdf-import">
   <div class="modal modal-wide">
@@ -1265,7 +1338,8 @@ const DEFAULT_IVA  = [0, 4, 10, 21];
 const DEFAULT_IRPF = [0, 1, 11, 15];
 
 let DB = {
-  proyectos:[], ventas:[], costes:[], cobros:[], pagos:[],
+  proyectos:[], ventas:[], costes:[], cobros:[], pagos:[], clientes:[],
+  emisor:{},
   logo:'',
   tiposIva: [...DEFAULT_IVA],
   tiposIrpf: [...DEFAULT_IRPF],
@@ -1393,6 +1467,7 @@ function showPage(id,el){
   closeSidebar(); // auto-close on mobile
   if(id==='ventas'){populateVentaDropdowns();renderVentas();}
   if(id==='costes'){populateCosteDropdowns();renderCostes();}
+  if(id==='clientes'){renderClientes();}
   if(id==='cobros'){populateCobroDropdown();renderCobros();}
   if(id==='pagos'){populatePagoDropdown();renderPagos();}
   if(id==='resumen'){populateResSelector();renderResumen();renderResListado();}
@@ -2288,6 +2363,7 @@ function renderAll(){
   onVentaSerieChange();
   onCosteSerieChange();
   if(DB.logo)applyLogo(DB.logo);
+  loadEmisorData();
 }
 
 // ═══════════════════════════════════════════
@@ -2362,8 +2438,8 @@ function populateFiscalDropdowns(){
   const defIva = DB.defaultIvaPct ?? 21;
   const defIrpf = DB.defaultIrpfPct ?? 0;
 
-  // IVA selects: costes form and edit modal
-  ['c-iva-tipo','ec-iva-tipo'].forEach(id=>{
+  // IVA selects: edit modals
+  ['ec-iva-tipo','ev-iva-tipo'].forEach(id=>{
     const el = document.getElementById(id);
     if(!el) return;
     const cur = el.value || defIva;
@@ -2372,8 +2448,8 @@ function populateFiscalDropdowns(){
     ).join('');
   });
 
-  // IRPF selects: costes form and edit modal
-  ['c-irpf-tipo','ec-irpf-tipo'].forEach(id=>{
+  // IRPF selects: forms and edit modals
+  ['c-irpf-tipo','ec-irpf-tipo','v-irpf-tipo','ev-irpf-tipo'].forEach(id=>{
     const el = document.getElementById(id);
     if(!el) return;
     const cur = el.value || defIrpf;
@@ -2383,8 +2459,9 @@ function populateFiscalDropdowns(){
       ).join('');
   });
 
-  // Also update IVA lines table defaults
+  // Also update IVA lines tables
   if(typeof renderIvaLines === 'function') renderIvaLines();
+  if(typeof renderVIvaLines === 'function') renderVIvaLines();
 }
 
 function setDefaultIva(v){DB.defaultIvaPct=v;scheduleSave();renderFiscalTags();populateFiscalDropdowns();toast('IVA por defecto: '+v+'%');}
@@ -2433,6 +2510,105 @@ function calcMargenEdit(){
   el.value=`${fmt(m)}  (${fmtPct(pct)})`;
   el.style.color=m>=0?'var(--green)':'var(--red)';
 }
+// ─── CLIENTES ──────────────────────────────────────────────────────────
+function addCliente(){
+  const nombre = document.getElementById('cl-nombre').value.trim();
+  const nif = document.getElementById('cl-nif').value.trim();
+  const tel = document.getElementById('cl-tel').value.trim();
+  const dir = document.getElementById('cl-dir').value.trim();
+  const email = document.getElementById('cl-email').value.trim();
+  if(!nombre){ toast('El nombre es obligatorio.','error'); return; }
+  const clientes = getD('clientes');
+  if(clientes.some(c => c.nombre.toLowerCase() === nombre.toLowerCase())){
+    toast('Ya existe un cliente con ese nombre.','error'); return;
+  }
+  clientes.push({id: genId(), nombre, nif, tel, dir, email});
+  setD('clientes', clientes);
+  ['cl-nombre','cl-nif','cl-tel','cl-dir','cl-email'].forEach(id => document.getElementById(id).value = '');
+  renderClientes(); toast('Cliente guardado.');
+}
+function renderClientes(){
+  const clientes = getD('clientes');
+  const search = (document.getElementById('cl-filter-search')?.value || '').toLowerCase();
+  const filtered = clientes.filter(c => c.nombre.toLowerCase().includes(search) || (c.nif && c.nif.toLowerCase().includes(search)));
+  document.getElementById('st-cl-total').textContent = clientes.length;
+  const proyActivos = getD('proyectos').filter(p => (p.estado||'abierto') === 'abierto').length;
+  document.getElementById('st-cl-proy').textContent = proyActivos;
+  const totalV = getD('ventas').reduce((s,v) => s + v.total, 0);
+  const totalC = getD('cobros').reduce((s,c) => s + c.importe, 0);
+  document.getElementById('st-cl-deuda').textContent = fmt(totalV - totalC);
+  const tbody = document.getElementById('tbody-clientes');
+  const empty = document.getElementById('clientes-empty');
+  if(!tbody) return;
+  if(!filtered.length){ tbody.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+  const proyectos = getD('proyectos');
+  const ventas = getD('ventas');
+  const cobros = getD('cobros');
+  tbody.innerHTML = filtered.map(c => {
+    const clProys = proyectos.filter(p => p.cliente === c.nombre);
+    const clVentas = ventas.filter(v => v.cliente === c.nombre);
+    const totalFact = clVentas.reduce((s,v) => s+v.total, 0);
+    const totalCob = cobros.filter(cob => clVentas.some(v => v.id === cob.ventaId)).reduce((s,cob) => s+cob.importe, 0);
+    const pend = totalFact - totalCob;
+    return `<tr>
+      <td class="m-full"><strong>${c.nombre}</strong></td>
+      <td data-m="NIF">${c.nif||'—'}</td>
+      <td data-m="Email">${c.email||'—'}</td>
+      <td data-m="Tel.">${c.tel||'—'}</td>
+      <td data-m="Proys."><span class="badge badge-blue">${clProys.length}</span></td>
+      <td data-m="Facturado">${fmt(totalFact)}</td>
+      <td data-m="Pendiente" class="${pend>0?'mn':''}">${fmt(pend)}</td>
+      <td class="m-actions">
+        <button class="btn btn-ghost btn-xs" onclick="editCliente('${c.id}')">&#x270F;&#xFE0F;</button>
+        <button class="btn btn-danger btn-xs" onclick="deleteCliente('${c.id}')">&#x1F5D1;&#xFE0F;</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+function deleteCliente(id){
+  const c = getD('clientes').find(x => x.id === id);
+  if(!c) return;
+  const hasP = getD('proyectos').some(p => p.cliente === c.nombre);
+  const hasV = getD('ventas').some(v => v.cliente === c.nombre);
+  if(hasP || hasV){ toast('No se puede eliminar: tiene proyectos o facturas asociadas.','error'); return; }
+  if(!confirm(`¿Eliminar cliente ${c.nombre}?`)) return;
+  setD('clientes', getD('clientes').filter(x => x.id !== id));
+  renderClientes(); toast('Cliente eliminado.','error');
+}
+function editCliente(id){
+  const c = getD('clientes').find(x => x.id === id);
+  if(!c) return;
+  document.getElementById('ecl-id').value = id;
+  document.getElementById('ecl-nombre').value = c.nombre;
+  document.getElementById('ecl-nif').value = c.nif || '';
+  document.getElementById('ecl-tel').value = c.tel || '';
+  document.getElementById('ecl-dir').value = c.dir || '';
+  document.getElementById('ecl-email').value = c.email || '';
+  openModal('modal-edit-cliente');
+}
+function saveEditCliente(){
+  const id = document.getElementById('ecl-id').value;
+  const nombre = document.getElementById('ecl-nombre').value.trim();
+  const nif = document.getElementById('ecl-nif').value.trim();
+  const tel = document.getElementById('ecl-tel').value.trim();
+  const dir = document.getElementById('ecl-dir').value.trim();
+  const email = document.getElementById('ecl-email').value.trim();
+  if(!nombre){ toast('El nombre es obligatorio.','error'); return; }
+  const clientes = getD('clientes');
+  const idx = clientes.findIndex(c => c.id === id);
+  if(idx === -1) return;
+  const oldName = clientes[idx].nombre;
+  clientes[idx] = {id, nombre, nif, tel, dir, email};
+  if(oldName !== nombre){
+    setD('proyectos', getD('proyectos').map(p => p.cliente === oldName ? {...p, cliente: nombre} : p));
+    setD('ventas', getD('ventas').map(v => v.cliente === oldName ? {...v, cliente: nombre} : v));
+  }
+  setD('clientes', clientes);
+  closeModal('modal-edit-cliente');
+  renderClientes(); toast('Cliente actualizado.');
+}
+
 async function addProyecto(data){
   const d=data||{};
   const nombre=(d.nombre||document.getElementById('proj-nombre').value).trim();
@@ -2731,13 +2907,14 @@ function refreshVProyecto(){
 }
 
 function populateVentaDropdowns(){
-  const proyectos=getD('proyectos');
-  const clientes=[...new Set(proyectos.map(p=>p.cliente))].sort((a,b)=>a.localeCompare(b,'es'));
-  // Searchable combobox for nueva factura
+  const proyectos = getD('proyectos');
+  const masterClientes = getD('clientes').map(c => c.nombre);
+  const derivedClientes = [...new Set(proyectos.map(p => p.cliente))];
+  const clientes = [...new Set([...masterClientes, ...derivedClientes])].sort((a,b)=>a.localeCompare(b,'es'));
+  
   comboInit('vcliente', clientes.map(c=>({value:c, label:c})));
-  // Projects filtered by selected cliente (only open)
   refreshVProyecto();
-  // Edit modal: still use plain selects
+  
   ['ev-cliente'].forEach(id=>{
     const el=document.getElementById(id);if(!el)return;
     el.innerHTML='<option value="">— Cliente —</option>'+clientes.map(c=>`<option value="${c}">${c}</option>`).join('');
@@ -2746,26 +2923,90 @@ function populateVentaDropdowns(){
     const el=document.getElementById(id);if(!el)return;
     el.innerHTML='<option value="">— Proyecto (opc.) —</option>'+proyectos.map(p=>`<option value="${p.id}">${p.nombre}</option>`).join('');
   });
-  // Comboify edit modal selects
   setTimeout(()=>{
     selectToCombo('ev-cliente','Buscar cliente...');
     selectToCombo('ev-proyecto','Buscar proyecto...');
   },0);
 }
+// ─── VENTAS IVA LINES ───
+let vIvaLines = [];
+function initVIvaLines(lines){
+  vIvaLines = lines && lines.length ? lines.map(l=>({...l})) : [{base:0, ivaPct: DB.defaultIvaPct||21, cuota:0}];
+  renderVIvaLines();
+}
+function addVIvaLine(){
+  vIvaLines.push({base:0, ivaPct: DB.defaultIvaPct||21, cuota:0});
+  renderVIvaLines();
+}
+function removeVIvaLine(i){
+  if(vIvaLines.length<=1) return;
+  vIvaLines.splice(i,1);
+  renderVIvaLines(); calcVenta();
+}
+function updateVIvaLine(i, field, val){
+  if(field==='base') vIvaLines[i].base=fnum(val);
+  if(field==='ivaPct') vIvaLines[i].ivaPct=fnum(val);
+  vIvaLines[i].cuota=vIvaLines[i].base * vIvaLines[i].ivaPct/100;
+  renderVIvaLines(); calcVenta();
+}
+function renderVIvaLines(){
+  const tbody=document.getElementById('v-iva-tbody'); if(!tbody) return;
+  const ivaTypes=(DB.tiposIva||[0,4,10,21]);
+  tbody.innerHTML=vIvaLines.map((line,i)=>`
+    <tr>
+      <td><input type="text" inputmode="decimal" value="${fmtInput(line.base)}"
+        onblur="updateVIvaLine(${i},'base',this.value)" style="padding:6px 8px;font-size:.84rem;width:100%;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--text);"></td>
+      <td><select onchange="updateVIvaLine(${i},'ivaPct',this.value)" style="padding:6px 8px;font-size:.84rem;width:100%;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--text);">
+        ${ivaTypes.map(t=>`<option value="${t}" ${t===line.ivaPct?'selected':''}>${t}%</option>`).join('')}
+      </select></td>
+      <td><input type="text" value="${fmtInput(line.cuota)}" readonly style="padding:6px 8px;font-size:.84rem;width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--green);font-weight:600;"></td>
+      <td><button class="del-iva" onclick="removeVIvaLine(${i})" title="Eliminar línea">&#x2715;</button></td>
+    </tr>`).join('');
+  const totalBase=vIvaLines.reduce((s,l)=>s+l.base,0);
+  const totalCuota=vIvaLines.reduce((s,l)=>s+l.cuota,0);
+  const tot=document.getElementById('v-iva-totals');
+  if(tot) tot.innerHTML=`Base total: <strong>${fmt(totalBase)}</strong> &nbsp;|&nbsp; Cuota IVA total: <strong>${fmt(totalCuota)}</strong>`;
+}
+function getVIvaTotals(){
+  return {
+    base: vIvaLines.reduce((s,l)=>s+l.base,0),
+    cuotaIva: vIvaLines.reduce((s,l)=>s+l.cuota,0),
+    lines: vIvaLines.map(l=>({...l}))
+  };
+}
+
 function calcVenta(){
   const serie=document.getElementById('v-serie').value;
-  const base=fnum(document.getElementById('v-base').value);
-  const iva=serie==='A'?base*0.21:0;
-  document.getElementById('v-iva').value=serie==='A'?fmt(iva):'Sin IVA';
-  document.getElementById('v-total').value=base?fmt(base+iva):'';
+  const irpfPct=fnum(document.getElementById('v-irpf-tipo')?.value||0);
+  if(serie==='B'){
+    const base=fnum(document.getElementById('v-base').value);
+    const retencion=base*irpfPct/100;
+    document.getElementById('v-irpf').value=irpfPct>0?fmt(retencion):'—';
+    document.getElementById('v-total').value=base?fmt(base-retencion):'';
+    return;
+  }
+  const tot=getVIvaTotals();
+  const retencion=tot.base*irpfPct/100;
+  document.getElementById('v-irpf').value=irpfPct>0?fmt(retencion):'—';
+  document.getElementById('v-total').value=tot.base?fmt(tot.base+tot.cuotaIva-retencion):'';
 }
 function calcVentaEdit(){
   const id=document.getElementById('ev-id').value;
-  const v=getD('ventas').find(x=>x.id===id);if(!v)return;
+  const v=getD('ventas').find(x=>x.id===id); if(!v) return;
+  const serie=document.getElementById('ev-serie').value;
   const base=fnum(document.getElementById('ev-base').value);
-  const iva=v.serie==='A'?base*0.21:0;
-  document.getElementById('ev-iva').value=v.serie==='A'?fmt(iva):'Sin IVA';
-  document.getElementById('ev-total').value=fmt(base+iva);
+  const ivaPct=serie==='A'?fnum(document.getElementById('ev-iva-tipo').value):0;
+  const irpfPct=fnum(document.getElementById('ev-irpf-tipo').value);
+  const cuota=base*ivaPct/100;
+  const ret=base*irpfPct/100;
+  const total=base+cuota-ret;
+  
+  if(document.getElementById('ev-iva-row')) document.getElementById('ev-iva-row').style.display=serie==='A'?'block':'none';
+  if(document.getElementById('ev-iva-cuota-row')) document.getElementById('ev-iva-cuota-row').style.display=serie==='A'?'block':'none';
+  
+  document.getElementById('ev-iva').value=serie==='A'?fmt(cuota):'Sin IVA';
+  document.getElementById('ev-irpf').value=irpfPct>0?fmt(ret):'—';
+  document.getElementById('ev-total').value=fmt(total);
 }
 async function addVenta(data){
   const d=data||{};
@@ -2774,30 +3015,49 @@ async function addVenta(data){
   const fecha=d.fecha||document.getElementById('v-fecha').value;
   const cliente=d.cliente||document.getElementById('v-cliente').value;
   const proyectoId=d.proyectoId||document.getElementById('v-proyecto').value;
-  const base=fnum(d.base||document.getElementById('v-base').value);
+  
+  let base, cuotaIva, ivaPct, irpfPct, ivaLinesData;
+  if(data){
+    base = fnum(d.base); ivaPct = fnum(d.ivaPct); irpfPct = fnum(d.irpfPct);
+    cuotaIva = d.cuotaIva !== undefined ? d.cuotaIva : base*ivaPct/100;
+    ivaLinesData = d.ivaLines || null;
+  } else {
+    if(serie==='B'){
+      base = fnum(document.getElementById('v-base').value);
+      ivaPct = 0; cuotaIva = 0; ivaLinesData = null;
+    } else {
+      const tot = getVIvaTotals();
+      base = tot.base; cuotaIva = tot.cuotaIva; ivaLinesData = tot.lines;
+      ivaPct = ivaLinesData.length === 1 ? ivaLinesData[0].ivaPct : 0;
+    }
+    irpfPct = fnum(document.getElementById('v-irpf-tipo')?.value||0);
+  }
+
   if(!fecha){toast('La fecha es obligatoria.','error');return;}
   if(!cliente){toast('Selecciona un cliente.','error');return;}
   if(base<=0){toast('La base debe ser mayor que 0.','error');return;}
   if(getD('ventas').find(v=>v.numero===numero)){toast('Ya existe esa factura.','error');return;}
-  if(proyectoId&&isProyectoCerrado(proyectoId)){toast('⚠️ El proyecto está cerrado. Reabre el proyecto para imputar facturas.','error');return;}
-  const iva=serie==='A'?base*0.21:0;
-  // Handle PDF attachment
-  let pdfDriveId=data?.pdfDriveId||null;
-  let pdfName=data?.pdfName||null;
+  
+  const retencion= (data && d.retencion !== undefined) ? d.retencion : base*irpfPct/100;
+  const total    = (data && d.total     !== undefined) ? d.total     : base+cuotaIva-retencion;
+  
+  let pdfDriveId=d.pdfDriveId||null;
+  let pdfName=d.pdfName||null;
   const pdfFile=!data&&document.getElementById('v-pdf-file')?.files[0];
   if(pdfFile){
     try{
-      toast('Subiendo PDF adjunto...');
+      toast('Subiendo PDF...');
       const{base64,mimeType,name}=await readFileAsBase64(pdfFile);
       pdfDriveId=await uploadAttachment(base64,name,mimeType);
       pdfName=name;
     }catch(e){toast('Error al subir PDF: '+e.message,'error');}
   }
   const ventas=getD('ventas');
-  ventas.push({id:genId(),serie,numero,fecha,cliente,proyectoId,base,iva,total:base+iva,pdfDriveId,pdfName});
+  ventas.push({id:genId(),serie,numero,fecha,cliente,proyectoId,base,ivaPct,cuotaIva,irpfPct,retencion,total,ivaLines:ivaLinesData,pdfDriveId,pdfName});
   setD('ventas',ventas);
   if(!data){
-    ['v-base','v-iva','v-total','v-fecha'].forEach(id=>document.getElementById(id).value='');
+    vIvaLines = [];
+    ['v-base','v-irpf','v-total'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
     if(document.getElementById('v-pdf-file'))document.getElementById('v-pdf-file').value='';
     onVentaSerieChange();
   }
@@ -2815,27 +3075,67 @@ function deleteVenta(id){
 function editVenta(id){
   const v=getD('ventas').find(x=>x.id===id);if(!v)return;
   populateVentaDropdowns();
+  populateFiscalDropdowns();
   document.getElementById('ev-id').value=id;
   document.getElementById('ev-fecha').value=v.fecha;
   document.getElementById('ev-cliente').value=v.cliente;
   document.getElementById('ev-proyecto').value=v.proyectoId||'';
+  document.getElementById('ev-serie').value=v.serie;
   document.getElementById('ev-base').value=fmtInput(v.base);
-  document.getElementById('ev-iva').value=v.serie==='A'?fmt(v.iva):'Sin IVA';
-  document.getElementById('ev-total').value=fmt(v.total);
+  document.getElementById('ev-iva-tipo').value=v.ivaPct||0;
+  document.getElementById('ev-irpf-tipo').value=v.irpfPct||0;
+  calcVentaEdit();
+  renderPdfCurrent('ev-pdf-current', v.pdfDriveId, v.pdfName);
   openModal('modal-edit-venta');
 }
-async function saveEditVenta(){
+function saveEditVenta(){
   const id=document.getElementById('ev-id').value;
-  const v=getD('ventas').find(x=>x.id===id);if(!v)return;
-  const fecha=document.getElementById('ev-fecha').value;
-  const cliente=document.getElementById('ev-cliente').value;
-  const proyectoId=document.getElementById('ev-proyecto').value;
+  const ventas=getD('ventas');
+  const idx=ventas.findIndex(x=>x.id===id);if(idx===-1)return;
+  const v=ventas[idx];
+  
+  const serie=document.getElementById('ev-serie').value;
   const base=fnum(document.getElementById('ev-base').value);
-  if(!fecha||!cliente||base<=0){toast('Completa todos los campos.','error');return;}
-  const iva=v.serie==='A'?base*0.21:0;
-  setD('ventas',getD('ventas').map(x=>x.id===id?{...x,fecha,cliente,proyectoId,base,iva,total:base+iva}:x));
-  closeModal('modal-edit-venta');renderVentas();toast('Actualizada.');
+  const ivaPct=serie==='A'?fnum(document.getElementById('ev-iva-tipo').value):0;
+  const irpfPct=fnum(document.getElementById('ev-irpf-tipo').value);
+  
+  v.fecha=document.getElementById('ev-fecha').value;
+  v.cliente=document.getElementById('ev-cliente').value;
+  v.proyectoId=document.getElementById('ev-proyecto').value;
+  v.serie=serie;
+  v.base=base;
+  v.ivaPct=ivaPct;
+  v.irpfPct=irpfPct;
+  v.cuotaIva=base*ivaPct/100;
+  v.retencion=base*irpfPct/100;
+  v.total=base+v.cuotaIva-v.retencion;
+  
+  // PDF update logic
+  processPdfFileInput('ev-pdf-file').then(res=>{
+    if(res){ v.pdfDriveId=res.driveId; v.pdfName=res.pdfName; }
+    else if(_removedDriveId===v.pdfDriveId){ v.pdfDriveId=null; v.pdfName=null; }
+    setD('ventas',ventas);
+    closeModal('modal-edit-venta');
+    renderVentas(); toast('Cambios guardados.');
+  });
 }
+function loadEmisorData(){
+  const e = DB.emisor || {};
+  document.getElementById('cfg-emisor-nombre').value = e.nombre || '';
+  document.getElementById('cfg-emisor-nif').value = e.nif || '';
+  document.getElementById('cfg-emisor-tel').value = e.tel || '';
+  document.getElementById('cfg-emisor-dir').value = e.dir || '';
+}
+function saveEmisorData(){
+  DB.emisor = {
+    nombre: document.getElementById('cfg-emisor-nombre').value.trim(),
+    nif: document.getElementById('cfg-emisor-nif').value.trim(),
+    tel: document.getElementById('cfg-emisor-tel').value.trim(),
+    dir: document.getElementById('cfg-emisor-dir').value.trim(),
+  };
+  saveToDrive(); toast('Datos del emisor guardados.');
+}
+
 function getCobradoVenta(vid){return getD('cobros').filter(c=>c.ventaId===vid).reduce((s,c)=>s+c.importe,0);}
 function getVentasFiltered(){
   const serie=document.getElementById('v-filter-serie').value;
