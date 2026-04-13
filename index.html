@@ -3234,7 +3234,10 @@ function addCoste(data){
   setD('costes',costes);
   if(!data){
     ivaLines = [];
-    ['c-proveedor','c-numfact','c-fecha','c-base','c-iva','c-irpf','c-total'].forEach(id=>document.getElementById(id).value='');
+    ['c-proveedor','c-numfact','c-fecha','c-base','c-irpf','c-total'].forEach(id=>{
+      const el = document.getElementById(id);
+      if(el) el.value = '';
+    });
     document.getElementById('c-tipo').value='general';
     document.getElementById('c-proyecto-group').style.display='none';
     // Reset NIF field lock
