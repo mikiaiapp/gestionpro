@@ -822,6 +822,14 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
       <div class="form-group"><label>Tipo de Gasto</label><select id="c-tipo" onchange="onCosteTipoChange()"><option value="general">Gasto General</option><option value="proyecto">Proyecto</option></select></div>
       <div class="form-group" id="c-proyecto-group" style="display:none"><label>Proyecto</label><select id="c-proyecto"><option value="">— Seleccionar —</option></select></div>
     </div>
+    <div id="c-base-group" style="display:none; margin-bottom: 12px;">
+      <div class="form-grid cols4">
+        <div class="form-group">
+          <label>Base Imponible (€)</label>
+          <input type="text" inputmode="decimal" id="c-base" placeholder="0.00" oninput="calcCoste()">
+        </div>
+      </div>
+    </div>
     <!-- IVA Lines -->
     <div id="c-iva-section">
       <div style="font-size:.78rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;">Líneas de IVA</div>
@@ -3108,9 +3116,12 @@ function onCosteSerieChange(){
   const serie=document.getElementById('c-serie').value;
   document.getElementById('c-num').value=nextCosteNum(serie);
   const ivaSection=document.getElementById('c-iva-section');
+  const baseGroup=document.getElementById('c-base-group');
   const irpfGroup=document.getElementById('c-irpf-group');
-  if(ivaSection)ivaSection.style.display=serie==='A'?'block':'none';
-  if(irpfGroup)irpfGroup.style.display=serie==='A'?'flex':'none';
+  if(ivaSection) ivaSection.style.display=serie==='A'?'block':'none';
+  if(baseGroup)  baseGroup.style.display=serie==='B'?'block':'none';
+  // Show IRPF for both A and B, as both can have retentions
+  if(irpfGroup)  irpfGroup.style.display='flex';
   if(serie==='A'&&!ivaLines.length) initIvaLines([]);
   calcCoste();
 }
@@ -3139,12 +3150,11 @@ function calcCoste(){
   const serie=document.getElementById('c-serie').value;
   const irpfPct=fnum(document.getElementById('c-irpf-tipo')?.value||0);
   if(serie==='B'){
-    // Serie B: single base, no IVA
-    const base=fnum((document.getElementById('c-iva-tbody')?.querySelector('input')||{value:0}).value);
-    const tot=getIvaTotals();
-    const retencion=tot.base*irpfPct/100;
+    // Serie B: single base from the dedicated input
+    const base=fnum(document.getElementById('c-base').value);
+    const retencion=base*irpfPct/100;
     document.getElementById('c-irpf').value=irpfPct>0?fmt(retencion):'—';
-    document.getElementById('c-total').value=tot.base?fmt(tot.base-retencion):'';
+    document.getElementById('c-total').value=base?fmt(base-retencion):'';
     return;
   }
   const tot=getIvaTotals();
@@ -3182,27 +3192,48 @@ function addCoste(data){
   const fecha=d.fecha||document.getElementById('c-fecha').value;
   const tipo=d.tipo||document.getElementById('c-tipo').value;
   const proyectoId=tipo==='proyecto'?(d.proyectoId||document.getElementById('c-proyecto').value):'';
-  const base=fnum(d.base||document.getElementById('c-base').value);
-  const ivaPct=serie==='A'?fnum(d.ivaPct||document.getElementById('c-iva-tipo').value):0;
-  const irpfPct=serie==='A'?fnum(d.irpfPct||document.getElementById('c-irpf-tipo').value):0;
+  let base, cuotaIva, ivaPct, irpfPct, ivaLinesData;
+  if(data){
+    base = fnum(d.base);
+    ivaPct = fnum(d.ivaPct);
+    irpfPct = fnum(d.irpfPct);
+    cuotaIva = d.cuotaIva !== undefined ? d.cuotaIva : base*ivaPct/100;
+    ivaLinesData = d.ivaLines || null;
+  } else {
+    if(serie==='B'){
+      base = fnum(document.getElementById('c-base').value);
+      ivaPct = 0;
+      cuotaIva = 0;
+      ivaLinesData = null;
+    } else {
+      const tot = getIvaTotals();
+      base = tot.base;
+      cuotaIva = tot.cuotaIva;
+      ivaLinesData = tot.lines;
+      ivaPct = ivaLinesData.length === 1 ? ivaLinesData[0].ivaPct : 0;
+    }
+    irpfPct = fnum(document.getElementById('c-irpf-tipo')?.value||0);
+  }
+
   if(!proveedor){toast('El proveedor es obligatorio.','error');return;}
   if(!fecha){toast('La fecha es obligatoria.','error');return;}
   if(base<=0){toast('La base debe ser mayor que 0.','error');return;}
   if(tipo==='proyecto'&&!proyectoId){toast('Selecciona un proyecto.','error');return;}
   if(proyectoId&&isProyectoCerrado(proyectoId)){toast('⚠️ El proyecto está cerrado. Reabre el proyecto para imputar facturas.','error');return;}
+
   // Use values from data if provided (import from PDF), else calculate from fields
-  const cuotaIva = d.cuotaIva !== undefined ? d.cuotaIva : base*ivaPct/100;
-  const retencion= d.retencion !== undefined ? d.retencion : base*irpfPct/100;
-  const total    = d.total     !== undefined ? d.total     : base+cuotaIva-retencion;
-  const ivaLinesData = d.ivaLines || null;
+  const retencion= (data && d.retencion !== undefined) ? d.retencion : base*irpfPct/100;
+  const total    = (data && d.total     !== undefined) ? d.total     : base+cuotaIva-retencion;
   const pdfDriveId   = d.pdfDriveId || null;
   const pdfName      = d.pdfName    || null;
+
   const costes=getD('costes');
   costes.push({id:genId(),serie,numero,proveedor,nif:nifProv,numfact,fecha,tipo,proyectoId,
     base,ivaPct,cuotaIva,irpfPct,retencion,total,
     ivaLines:ivaLinesData,pdfDriveId,pdfName});
   setD('costes',costes);
   if(!data){
+    ivaLines = [];
     ['c-proveedor','c-numfact','c-fecha','c-base','c-iva','c-irpf','c-total'].forEach(id=>document.getElementById(id).value='');
     document.getElementById('c-tipo').value='general';
     document.getElementById('c-proyecto-group').style.display='none';
