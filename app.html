@@ -624,6 +624,7 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
 <div id="login-screen">
   <div class="login-box">
     <div class="logo-wrap">📊</div>
+    <span style="font-size:10px;color:var(--muted2);font-weight:600;background:var(--card2);padding:2px 4px;border-radius:4px;margin-right:10px;">v2.6</span>
     <h1>GestiónPro</h1>
     <p class="login-desc">Control de proyectos, ventas, costes y márgenes.<br>Datos guardados en tu Google Drive.</p>
     <button class="btn-google" onclick="signIn()" style="margin-top:8px;">
@@ -643,7 +644,7 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
   <div class="sync-status"><div class="sync-dot" id="sync-dot"></div><span id="sync-label">Sincronizado</span></div>
   <img class="user-avatar" id="user-avatar" src="" alt="">
   <span class="user-name" id="user-name"></span>
-  <span style="font-size:10px;color:var(--muted2);font-weight:600;background:var(--card2);padding:2px 4px;border-radius:4px;margin-right:10px;">v2.4</span>
+  <span style="font-size:10px;color:var(--muted2);font-weight:600;background:var(--card2);padding:2px 4px;border-radius:4px;margin-right:10px;">v2.5</span>
   <button class="btn-signout" onclick="signOut()">Cerrar sesión</button>
 </div>
 
@@ -1484,11 +1485,15 @@ function loadAjustesStatus(){
 
 function showPage(id,el){
   try{
-    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(p=>{
+      p.classList.remove('active');
+      p.style.setProperty('display', 'none', 'important');
+    });
     document.querySelectorAll('nav a, .bn-item').forEach(a=>a.classList.remove('active'));
     const target=document.getElementById('page-'+id);
     if(!target){ console.error('Página no encontrada: page-'+id); return; }
     target.classList.add('active');
+    target.style.display = 'block';
     if(el) el.classList.add('active');
     
     // Sync bottom nav
