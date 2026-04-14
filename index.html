@@ -111,7 +111,8 @@ nav a .icon{font-size:.95rem;width:20px;text-align:center;}
 #main{flex:1;overflow-y:auto;padding:28px 32px;padding-top:52px;
   /* No left margin by default — sidebar is overlay */
 }
-.page{display:none;} .page.active{display:block;}
+.page{display:none; transition: opacity .2s ease;} 
+.page.active{display:block !important; visibility:visible !important; opacity:1 !important;}
 h1{font-family:var(--font-head);font-size:1.55rem;font-weight:800;color:var(--text);margin-bottom:5px;}
 .page-desc{color:var(--muted);font-size:.86rem;margin-bottom:22px;}
 
@@ -644,7 +645,7 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
   <div class="sync-status"><div class="sync-dot" id="sync-dot"></div><span id="sync-label">Sincronizado</span></div>
   <img class="user-avatar" id="user-avatar" src="" alt="">
   <span class="user-name" id="user-name"></span>
-  <span style="font-size:10px;color:var(--muted2);font-weight:600;background:var(--card2);padding:2px 4px;border-radius:4px;margin-right:10px;">v2.5</span>
+  <span style="font-size:10px;color:var(--muted2);font-weight:600;background:var(--card2);padding:2px 4px;border-radius:4px;margin-right:10px;">v2.6</span>
   <button class="btn-signout" onclick="signOut()">Cerrar sesión</button>
 </div>
 
@@ -679,6 +680,63 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
   </nav>
 </aside>
 <main id="main">
+
+<!-- ══ CLIENTES (Movido al inicio v2.6) ══ -->
+<div class="page" id="sec-clientes">
+  <h1>Clientes</h1><p class="page-desc">Mantenimiento de la base de datos de clientes para facturación electrónica.</p>
+  <div class="stats-row cols3">
+    <div class="stat-card"><div class="label">Total Clientes</div><div class="value blue" id="st-cl-total">0</div></div>
+    <div class="stat-card"><div class="label">Proyectos Activos</div><div class="value purple" id="st-cl-proy">0</div></div>
+    <div class="stat-card"><div class="label">Deuda Total</div><div class="value orange" id="st-cl-deuda">0,00 €</div></div>
+  </div>
+  <div class="section-box">
+    <h2>➕ Nuevo Cliente</h2>
+    <div class="form-grid cols4">
+      <div class="form-group" style="grid-column:span 2"><label>Nombre o Razón Social</label><input type="text" id="cl-nombre" placeholder="Ej: Aceros S.A."></div>
+      <div class="form-group"><label>NIF / CIF</label><input type="text" id="cl-nif" placeholder="A12345678"></div>
+      <div class="form-group"><label>Teléfono</label><input type="text" id="cl-tel" placeholder="600000000"></div>
+      <div class="form-group" style="grid-column:span 2"><label>Dirección Fiscal</label><input type="text" id="cl-dir" placeholder="Calle, Número, CP, Localidad"></div>
+      <div class="form-group" style="grid-column:span 2"><label>Email de Facturación</label><input type="email" id="cl-email" placeholder="facturas@cliente.com"></div>
+    </div>
+    <button class="btn btn-primary" onclick="addCliente()">✓ Guardar Cliente</button>
+  </div>
+  <div class="section-box">
+    <h2>📋 Listado de Clientes</h2>
+    <div class="filter-bar">
+      <div class="form-group" style="flex:1"><label>Buscar</label><input type="text" id="cl-filter-search" placeholder="Nombre, NIF..." oninput="renderClientes()"></div>
+    </div>
+    <div class="table-wrap mobile-cards"><table><thead><tr><th>Cliente</th><th>NIF</th><th>Email</th><th>Teléfono</th><th>Proyectos</th><th>Facturado</th><th>Pendiente</th><th>Acc.</th></tr></thead><tbody id="tbody-clientes"></tbody></table></div>
+    <div id="clientes-empty" class="empty-state" style="display:none"><div class="icon">👥</div><p>No hay clientes registrados.</p></div>
+  </div>
+</div>
+
+<!-- ══ PROVEEDORES (Movido al inicio v2.6) ══ -->
+<div class="page" id="sec-proveedores">
+  <h1>Proveedores</h1><p class="page-desc">Mantenimiento de la base de datos de proveedores para facturación de costes.</p>
+  <div class="stats-row cols3">
+    <div class="stat-card"><div class="label">Total Proveedores</div><div class="value blue" id="st-pr-total">0</div></div>
+    <div class="stat-card"><div class="label">Gastos mes</div><div class="value purple" id="st-pr-mes">0,00 €</div></div>
+    <div class="stat-card"><div class="label">Pendiente Pago</div><div class="value orange" id="st-pr-deuda">0,00 €</div></div>
+  </div>
+  <div class="section-box">
+    <h2>➕ Nuevo Proveedor</h2>
+    <div class="form-grid cols4">
+      <div class="form-group" style="grid-column:span 2"><label>Nombre o Razón Social</label><input type="text" id="pr-nombre" placeholder="Ej: Energía S.A."></div>
+      <div class="form-group"><label>NIF / CIF</label><input type="text" id="pr-nif" placeholder="B88776655"></div>
+      <div class="form-group"><label>Teléfono</label><input type="text" id="pr-tel" placeholder="912345678"></div>
+      <div class="form-group" style="grid-column:span 2"><label>Email Contacto</label><input type="email" id="pr-email" placeholder="comercial@proveedor.com"></div>
+    </div>
+    <button class="btn btn-primary" onclick="addProveedor()">✓ Guardar Proveedor</button>
+  </div>
+  <div class="section-box">
+    <h2>📋 Listado de Proveedores</h2>
+    <div class="filter-bar">
+      <div class="form-group" style="flex:1"><label>Buscar</label><input type="text" id="pr-filter-search" placeholder="Nombre, NIF..." oninput="renderProveedores()"></div>
+    </div>
+    <div class="table-wrap mobile-cards"><table><thead><tr><th>Proveedor</th><th>NIF</th><th>Email</th><th>Teléfono</th><th>Gastos</th><th>Pendiente</th><th>Acc.</th></tr></thead><tbody id="tbody-proveedores"></tbody></table></div>
+    <div id="proveedores-empty" class="empty-state" style="display:none"><div class="icon">🏭</div><p>No hay proveedores registrados.</p></div>
+  </div>
+</div>
 
 <!-- ══ PROYECTOS ══ -->
 <div class="page active" id="page-proyectos">
@@ -892,62 +950,7 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
   </div>
 </div>
 
-<!-- ══ CLIENTES ══ -->
-<div class="page" id="page-clientes">
-  <h1>Clientes</h1><p class="page-desc">Mantenimiento de la base de datos de clientes para facturación electrónica.</p>
-  <div class="stats-row cols3">
-    <div class="stat-card"><div class="label">Total Clientes</div><div class="value blue" id="st-cl-total">0</div></div>
-    <div class="stat-card"><div class="label">Proyectos Activos</div><div class="value purple" id="st-cl-proy">0</div></div>
-    <div class="stat-card"><div class="label">Deuda Total</div><div class="value orange" id="st-cl-deuda">0,00 €</div></div>
-  </div>
-  <div class="section-box">
-    <h2>➕ Nuevo Cliente</h2>
-    <div class="form-grid cols4">
-      <div class="form-group" style="grid-column:span 2"><label>Nombre o Razón Social</label><input type="text" id="cl-nombre" placeholder="Ej: Aceros S.A."></div>
-      <div class="form-group"><label>NIF / CIF</label><input type="text" id="cl-nif" placeholder="A12345678"></div>
-      <div class="form-group"><label>Teléfono</label><input type="text" id="cl-tel" placeholder="600000000"></div>
-      <div class="form-group" style="grid-column:span 2"><label>Dirección Fiscal</label><input type="text" id="cl-dir" placeholder="Calle, Número, CP, Localidad"></div>
-      <div class="form-group" style="grid-column:span 2"><label>Email de Facturación</label><input type="email" id="cl-email" placeholder="facturas@cliente.com"></div>
-    </div>
-    <button class="btn btn-primary" onclick="addCliente()">✓ Guardar Cliente</button>
-  </div>
-  <div class="section-box">
-    <h2>📋 Listado de Clientes</h2>
-    <div class="filter-bar">
-      <div class="form-group" style="flex:1"><label>Buscar</label><input type="text" id="cl-filter-search" placeholder="Nombre, NIF..." oninput="renderClientes()"></div>
-    </div>
-    <div class="table-wrap mobile-cards"><table><thead><tr><th>Cliente</th><th>NIF</th><th>Email</th><th>Teléfono</th><th>Proyectos</th><th>Facturado</th><th>Pendiente</th><th>Acc.</th></tr></thead><tbody id="tbody-clientes"></tbody></table></div>
-    <div id="clientes-empty" class="empty-state" style="display:none"><div class="icon">👥</div><p>No hay clientes registrados.</p></div>
-  </div>
-</div>
 
-<!-- ══ PROVEEDORES ══ -->
-<div class="page" id="page-proveedores">
-  <h1>Proveedores</h1><p class="page-desc">Mantenimiento de la base de datos de proveedores para facturación de costes.</p>
-  <div class="stats-row cols3">
-    <div class="stat-card"><div class="label">Total Proveedores</div><div class="value blue" id="st-pr-total">0</div></div>
-    <div class="stat-card"><div class="label">Gastos mes</div><div class="value purple" id="st-pr-mes">0,00 €</div></div>
-    <div class="stat-card"><div class="label">Pendiente Pago</div><div class="value orange" id="st-pr-deuda">0,00 €</div></div>
-  </div>
-  <div class="section-box">
-    <h2>➕ Nuevo Proveedor</h2>
-    <div class="form-grid cols4">
-      <div class="form-group" style="grid-column:span 2"><label>Nombre o Razón Social</label><input type="text" id="pr-nombre" placeholder="Ej: Energía S.A."></div>
-      <div class="form-group"><label>NIF / CIF</label><input type="text" id="pr-nif" placeholder="B88776655"></div>
-      <div class="form-group"><label>Teléfono</label><input type="text" id="pr-tel" placeholder="912345678"></div>
-      <div class="form-group" style="grid-column:span 2"><label>Email Contacto</label><input type="email" id="pr-email" placeholder="comercial@proveedor.com"></div>
-    </div>
-    <button class="btn btn-primary" onclick="addProveedor()">✓ Guardar Proveedor</button>
-  </div>
-  <div class="section-box">
-    <h2>📋 Listado de Proveedores</h2>
-    <div class="filter-bar">
-      <div class="form-group" style="flex:1"><label>Buscar</label><input type="text" id="pr-filter-search" placeholder="Nombre, NIF..." oninput="renderProveedores()"></div>
-    </div>
-    <div class="table-wrap mobile-cards"><table><thead><tr><th>Proveedor</th><th>NIF</th><th>Email</th><th>Teléfono</th><th>Gastos</th><th>Pendiente</th><th>Acc.</th></tr></thead><tbody id="tbody-proveedores"></tbody></table></div>
-    <div id="proveedores-empty" class="empty-state" style="display:none"><div class="icon">🏭</div><p>No hay proveedores registrados.</p></div>
-  </div>
-</div>
 
 <!-- ══ COBROS ══ -->
 <div class="page" id="page-cobros">
@@ -1490,8 +1493,12 @@ function showPage(id,el){
       p.style.setProperty('display', 'none', 'important');
     });
     document.querySelectorAll('nav a, .bn-item').forEach(a=>a.classList.remove('active'));
-    const target=document.getElementById('page-'+id);
-    if(!target){ console.error('Página no encontrada: page-'+id); return; }
+    // 2. Select Target (v2.6 use sec- or page-)
+    let target = document.getElementById('sec-' + id) || document.getElementById('page-' + id);
+    if (!target) {
+      toast("Error: Sección '" + id + "' no encontrada.", "error");
+      return;
+    }
     target.classList.add('active');
     target.style.display = 'block';
     if(el) el.classList.add('active');
