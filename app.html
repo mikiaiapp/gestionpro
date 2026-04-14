@@ -17,6 +17,12 @@
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <!-- Google Sign-In: loaded eagerly -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
+<script>
+window.onerror = function(msg, url, line) {
+  setTimeout(() => { if(typeof toast === 'function') toast("Error: " + msg, "error"); }, 500);
+  return false;
+};
+</script>
 <style>
 /* ═══════════════════════════════════════════
    TEMA: BEIGE/ARENA CÁLIDO
@@ -659,8 +665,10 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
     <a class="active" onclick="showPage('proyectos',this)"><span class="icon">📁</span> Proyectos</a>
     <a onclick="showPage('ventas',this)"><span class="icon">🧾</span> Ventas</a>
     <a onclick="showPage('costes',this)"><span class="icon">📥</span> Costes</a>
-    <span class="nav-label">Gestión</span>
+    <span class="nav-label">MAESTROS</span>
     <a onclick="showPage('clientes',this)"><span class="icon">👥</span> Clientes</a>
+    <a onclick="showPage('proveedores',this)"><span class="icon">🏭</span> Proveedores</a>
+    <span class="nav-label">Gestión</span>
     <a onclick="showPage('cobros',this)"><span class="icon">💰</span> Cobros</a>
     <a onclick="showPage('pagos',this)"><span class="icon">💸</span> Pagos</a>
     <span class="nav-label">Análisis</span>
@@ -910,6 +918,12 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
     <div class="table-wrap mobile-cards"><table><thead><tr><th>Cliente</th><th>NIF</th><th>Email</th><th>Teléfono</th><th>Proyectos</th><th>Facturado</th><th>Pendiente</th><th>Acc.</th></tr></thead><tbody id="tbody-clientes"></tbody></table></div>
     <div id="clientes-empty" class="empty-state" style="display:none"><div class="icon">👥</div><p>No hay clientes registrados.</p></div>
   </div>
+</div>
+
+<!-- ══ PROVEEDORES ══ -->
+<div class="page" id="page-proveedores">
+  <h1>Proveedores</h1><p class="page-desc">Mantenimiento de proveedores para facturación de costes.</p>
+  <div class="empty-state"><div class="icon">🏭</div><p>Módulo de Proveedores en desarrollo.</p></div>
 </div>
 
 <!-- ══ COBROS ══ -->
