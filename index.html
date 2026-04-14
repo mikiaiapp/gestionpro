@@ -625,7 +625,7 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
 <div id="login-screen">
   <div class="login-box">
     <div class="logo-wrap">📊</div>
-    <span style="font-size:10px;color:var(--muted2);font-weight:600;background:var(--card2);padding:2px 4px;border-radius:4px;margin-right:10px;">v2.6</span>
+    <span style="font-size:10px;color:var(--muted2);font-weight:600;background:var(--card2);padding:2px 4px;border-radius:4px;margin-right:10px;">v2.7</span>
     <h1>GestiónPro</h1>
     <p class="login-desc">Control de proyectos, ventas, costes y márgenes.<br>Datos guardados en tu Google Drive.</p>
     <button class="btn-google" onclick="signIn()" style="margin-top:8px;">
@@ -645,7 +645,7 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
   <div class="sync-status"><div class="sync-dot" id="sync-dot"></div><span id="sync-label">Sincronizado</span></div>
   <img class="user-avatar" id="user-avatar" src="" alt="">
   <span class="user-name" id="user-name"></span>
-  <span style="font-size:10px;color:var(--muted2);font-weight:600;background:var(--card2);padding:2px 4px;border-radius:4px;margin-right:10px;">v2.6</span>
+  <span style="font-size:10px;color:var(--muted2);font-weight:600;background:var(--card2);padding:2px 4px;border-radius:4px;margin-right:10px;">v2.7</span>
   <button class="btn-signout" onclick="signOut()">Cerrar sesión</button>
 </div>
 
@@ -695,7 +695,10 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
       <div class="form-group" style="grid-column:span 2"><label>Nombre o Razón Social</label><input type="text" id="cl-nombre" placeholder="Ej: Aceros S.A."></div>
       <div class="form-group"><label>NIF / CIF</label><input type="text" id="cl-nif" placeholder="A12345678"></div>
       <div class="form-group"><label>Teléfono</label><input type="text" id="cl-tel" placeholder="600000000"></div>
-      <div class="form-group" style="grid-column:span 2"><label>Dirección Fiscal</label><input type="text" id="cl-dir" placeholder="Calle, Número, CP, Localidad"></div>
+      <div class="form-group" style="grid-column:span 2"><label>Dirección Fiscal</label><input type="text" id="cl-dir" placeholder="Calle, Número..."></div>
+      <div class="form-group"><label>Población</label><input type="text" id="cl-pob" placeholder="Ciudad"></div>
+      <div class="form-group"><label>Código Postal</label><input type="text" id="cl-cp" placeholder="08000"></div>
+      <div class="form-group"><label>Provincia</label><input type="text" id="cl-prov" placeholder="Provincia"></div>
       <div class="form-group" style="grid-column:span 2"><label>Email de Facturación</label><input type="email" id="cl-email" placeholder="facturas@cliente.com"></div>
     </div>
     <button class="btn btn-primary" onclick="addCliente()">✓ Guardar Cliente</button>
@@ -724,7 +727,15 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
       <div class="form-group" style="grid-column:span 2"><label>Nombre o Razón Social</label><input type="text" id="pr-nombre" placeholder="Ej: Energía S.A."></div>
       <div class="form-group"><label>NIF / CIF</label><input type="text" id="pr-nif" placeholder="B88776655"></div>
       <div class="form-group"><label>Teléfono</label><input type="text" id="pr-tel" placeholder="912345678"></div>
-      <div class="form-group" style="grid-column:span 2"><label>Email Contacto</label><input type="email" id="pr-email" placeholder="comercial@proveedor.com"></div>
+      <div class="form-group" style="grid-column:span 2"><label>Dirección (Calle/Nº)</label><input type="text" id="pr-dir"></div>
+      <div class="form-group"><label>Provincia</label>
+        <select id="pr-provincia" onchange="onProvinciaChange('pr')">
+          <option value="">— Seleccionar —</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Población</label><input type="text" id="pr-poblacion" placeholder="Ciudad"></div>
+      <div class="form-group"><label>Código Postal</label><input type="text" id="pr-cp" placeholder="08000"></div>
+      <div class="form-group" style="grid-column:span 2"><label>Email Contacto</label><input type="email" id="pr-email"></div>
     </div>
     <button class="btn btn-primary" onclick="addProveedor()">✓ Guardar Proveedor</button>
   </div>
@@ -751,8 +762,16 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
     <h2>➕ Nuevo Proyecto</h2>
     <div class="form-grid">
       <div class="form-group" style="grid-column:span 2"><label>Nombre del Proyecto</label><input type="text" id="proj-nombre" placeholder="Ej: Instalación Eléctrica Nave A"></div>
-      <div class="form-group"><label>Cliente</label><input type="text" id="proj-cliente" placeholder="Nombre del cliente"></div>
-      <div class="form-group"><label>NIF / CIF Cliente</label><input type="text" id="proj-nif" placeholder="B12345678"></div>
+      <div class="form-group"><label>Cliente</label>
+        <div class="combo-wrap" id="combo-wrap-pcliente">
+          <input type="text" id="p-cliente-input" placeholder="Buscar cliente..." autocomplete="off"
+            oninput="comboFilter('pcliente')" onfocus="comboOpen('pcliente')"
+            onblur="setTimeout(()=>comboClose('pcliente'),150)"
+            onkeydown="comboKey(event,'pcliente')">
+          <input type="hidden" id="p-cliente">
+          <div class="combo-dropdown" id="combo-drop-pcliente"></div>
+        </div>
+      </div>
       <div class="form-group"><label>Valor de Venta (€)</label><input type="text" inputmode="decimal" id="proj-venta" placeholder="0.00" step="0.01" oninput="calcMargenForm()"></div>
       <div class="form-group"><label>Coste Previsto (€)</label><input type="text" inputmode="decimal" id="proj-coste" placeholder="0.00" step="0.01" oninput="calcMargenForm()"></div>
       <div class="form-group"><label>Margen Previsto</label><input type="text" id="proj-margen-prev" readonly class="computed" placeholder="—"></div>
@@ -764,7 +783,7 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
         <input type="file" id="proj-pdf-file" accept=".pdf" style="padding:6px;background:var(--card2);border:1px solid var(--border);border-radius:8px;font-size:.82rem;">
       </div>
     </div>
-    <div class="btn-group" style="margin-top:12px;">
+    <div class="btn-group" style="margin-top:12px; justify-content: center;">
       <button class="btn btn-primary" onclick="addProyecto()">✓ Guardar Proyecto</button>
       <button class="btn btn-warn" onclick="openPdfImport('proyecto')">📄 Importar desde PDF</button>
     </div>
@@ -827,30 +846,22 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
           <div class="combo-dropdown" id="combo-drop-vproyecto"></div>
         </div>
       </div>
-    <div class="form-grid cols4" id="v-base-group" style="display:none;margin-top:12px;">
-      <div class="form-group"><label>Base Imponible (€)</label><input type="text" inputmode="decimal" id="v-base" placeholder="0.00" oninput="calcVenta()"></div>
-    </div>
-    <!-- Ventas IVA Lines -->
-    <div id="v-iva-section" style="margin-top:12px;">
-      <div style="font-size:.78rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;">Líneas de IVA</div>
-      <table class="iva-lines" id="v-iva-lines">
-        <thead><tr><th style="width:35%">Base Imponible (€)</th><th style="width:22%">Tipo IVA</th><th style="width:25%">Cuota IVA (€)</th><th style="width:10%"></th></tr></thead>
-        <tbody id="v-iva-tbody"></tbody>
-      </table>
-      <button class="btn btn-ghost btn-sm" onclick="addVIvaLine()" style="margin-bottom:10px;">+ Añadir línea de IVA</button>
-      <div class="iva-totals" id="v-iva-totals"></div>
-    </div>
-    <div class="form-grid cols4" style="margin-top:4px;">
-      <div class="form-group" id="v-irpf-group"><label>Retención IRPF</label><select id="v-irpf-tipo" onchange="calcVenta()"></select></div>
-      <div class="form-group"><label>Retención (€)</label><input type="text" id="v-irpf" readonly class="computed-red"></div>
-      <div class="form-group"><label>Total Factura (€)</label><input type="text" id="v-total" readonly class="computed"></div>
-      <div class="form-group"><label>Adjuntar PDF</label>
-        <input type="file" id="v-pdf-file" accept=".pdf" style="padding:6px;background:var(--card2);border:1px solid var(--border);border-radius:8px;font-size:.82rem;">
+    <div id="v-simplified-calc" style="margin-top:12px;">
+      <div class="form-grid cols4">
+        <div class="form-group" style="grid-column:span 2"><label>Base Imponible (€)</label><input type="text" inputmode="decimal" id="v-base-simple" placeholder="0.00" oninput="calcVentaSimple()"></div>
+        <div class="form-group"><label id="v-iva-label">IVA (21%)</label><input type="text" id="id-v-iva-calc" readonly class="computed"></div>
+        <div class="form-group"><label>Total Factura (€)</label><input type="text" id="v-total-simple" readonly class="computed"></div>
       </div>
     </div>
-    <div class="btn-group" style="margin-top:12px;">
-      <button class="btn btn-primary" onclick="addVenta()">✓ Guardar Factura</button>
-      <button class="btn btn-warn" onclick="openPdfImport('venta')">📄 Importar desde PDF</button>
+    
+    <div class="form-grid cols4" style="margin-top:4px;">
+      <div class="form-group" style="grid-column:span 2"><label>Adjuntar PDF (opcional si ya existe)</label>
+        <input type="file" id="v-pdf-file" accept=".pdf" style="padding:6px;background:var(--card2);border:1px solid var(--border);border-radius:8px;font-size:.82rem;">
+      </div>
+      <div class="form-group" style="grid-column:span 2; display:flex; align-items:flex-end; gap:10px;">
+        <button class="btn btn-primary" onclick="addVentaSimple()" id="btn-save-venta" style="flex:1">✓ Guardar Factura</button>
+        <button class="btn btn-warn" onclick="openPdfImport('venta')" style="flex:1">📄 Importar PDF</button>
+      </div>
     </div>
   </div>
   <div class="section-box">
@@ -870,7 +881,7 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
 </div>
 
 <!-- ══ COSTES ══ -->
-<div class="page" id="page-costes">
+<div class="page" id="sec-costes">
   <h1>Costes — Facturas Recibidas</h1><p class="page-desc">IVA múltiple y retención IRPF. Haz clic en 💸 para registrar un pago directamente.</p>
   <div class="stats-row cols5">
     <div class="stat-card"><div class="label">Serie A</div><div class="value blue" id="st-c-a">0</div></div>
@@ -1082,7 +1093,20 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
       <div class="form-group" style="grid-column:span 2"><label>Nombre o Razón Social</label><input type="text" id="cfg-emisor-nombre"></div>
       <div class="form-group"><label>NIF / CIF</label><input type="text" id="cfg-emisor-nif"></div>
       <div class="form-group"><label>Teléfono</label><input type="text" id="cfg-emisor-tel"></div>
-      <div class="form-group" style="grid-column:span 2"><label>Dirección Fiscal</label><input type="text" id="cfg-emisor-dir"></div>
+      <div class="form-group" style="grid-column:span 2"><label>Dirección Fiscal (Calle)</label><input type="text" id="cfg-emisor-dir"></div>
+      <div class="form-group"><label>Provincia</label>
+        <select id="cfg-emisor-prov" onchange="onProvinciaChange('cfg-emisor')">
+          <option value="">— Seleccionar —</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Población</label>
+        <div class="combo-wrap" id="combo-wrap-cfg-emisor-pob">
+          <input type="text" id="cfg-emisor-pob" placeholder="Buscar municipio..." onfocus="comboOpen('cfg-emisor-pob')" oninput="comboFilter('cfg-emisor-pob')">
+          <div class="combo-dropdown" id="combo-drop-cfg-emisor-pob"></div>
+        </div>
+      </div>
+      <div class="form-group"><label>Código Postal</label><input type="text" id="cfg-emisor-cp"></div>
+      <div class="form-group" style="grid-column:span 2"><label>IBAN (Cuenta de pago)</label><input type="text" id="cfg-emisor-iban" placeholder="ES00 0000..."></div>
     </div>
     <div class="btn-group">
       <button class="btn btn-primary" onclick="saveEmisorData()">💾 Guardar Datos</button>
@@ -1145,16 +1169,18 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
     </div>
   </div>
 
-  <!-- Logo -->
+  <!-- Texto Legal Fijo -->
   <div class="section-box">
-    <h2>🖼️ Logotipo</h2>
-    <div class="form-group" style="max-width:380px;margin-bottom:14px;"><label>Imagen (PNG, JPG, SVG)</label><input type="file" id="logo-input" accept="image/*" style="padding:8px;background:var(--card2);border:1px solid var(--border);border-radius:8px;"></div>
-    <div class="btn-group">
-      <button class="btn btn-primary" onclick="saveLogo()">💾 Guardar</button>
-      <button class="btn btn-danger" onclick="removeLogo()">🗑 Quitar</button>
+    <h2>⚖️ Pie de Página / Texto Legal</h2>
+    <p style="color:var(--muted);font-size:.85rem;margin-bottom:14px;">Este texto aparecerá al final de todas tus facturas y presupuestos.</p>
+    <div class="form-group">
+      <textarea id="cfg-legal-footer" rows="5" style="width:100%;padding:12px;background:var(--card2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:.9rem;"></textarea>
     </div>
-    <div id="logo-preview-wrap" style="margin-top:14px;display:none;"><img id="logo-preview" style="max-height:100px;border-radius:8px;border:1px solid var(--border);padding:8px;background:var(--card);"></div>
+    <div class="btn-group" style="margin-top:10px;">
+      <button class="btn btn-primary" onclick="saveLegalFooter()">💾 Guardar Texto</button>
+    </div>
   </div>
+
 
   <!-- Drive Ops -->
   <div class="section-box">
@@ -1299,7 +1325,19 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
       <div class="form-group" style="grid-column:span 2"><label>Nombre o Razón Social</label><input type="text" id="ecl-nombre"></div>
       <div class="form-group"><label>NIF / CIF</label><input type="text" id="ecl-nif"></div>
       <div class="form-group"><label>Teléfono</label><input type="text" id="ecl-tel"></div>
-      <div class="form-group" style="grid-column:span 2"><label>Dirección Fiscal</label><input type="text" id="ecl-dir"></div>
+      <div class="form-group" style="grid-column:span 2"><label>Dirección (Calle/Nº)</label><input type="text" id="ecl-dir"></div>
+      <div class="form-group"><label>Provincia</label>
+        <select id="ecl-provincia" onchange="onProvinciaChange('ecl')">
+          <option value="">— Seleccionar —</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Población</label>
+        <div class="combo-wrap" id="combo-wrap-ecl-pob">
+          <input type="text" id="ecl-poblacion" placeholder="Buscar municipio..." onfocus="comboOpen('ecl-pob')" oninput="comboFilter('ecl-pob')">
+          <div class="combo-dropdown" id="combo-drop-ecl-pob"></div>
+        </div>
+      </div>
+      <div class="form-group"><label>Código Postal</label><input type="text" id="ecl-cp"></div>
       <div class="form-group" style="grid-column:span 2"><label>Email de Facturación</label><input type="email" id="ecl-email"></div>
     </div>
     <div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal('modal-edit-cliente')">Cancelar</button><button class="btn btn-primary" onclick="saveEditCliente()">✓ Guardar Cambios</button></div>
@@ -1379,10 +1417,13 @@ let pdfExtracted   = {};
 const DEFAULT_IVA  = [0, 4, 10, 21];
 const DEFAULT_IRPF = [0, 1, 11, 15];
 
+// ─── GEOGRAPHY DATA ──────────────────────────────────────────────────
+const PROVINCIAS = ["Álava", "Albacete", "Alicante", "Almería", "Asturias", "Ávila", "Badajoz", "Barcelona", "Burgos", "Cáceres", "Cádiz", "Cantabria", "Castellón", "Ciudad Real", "Córdoba", "Cuenca", "Gerona", "Granada", "Guadalajara", "Guipúzcoa", "Huelva", "Huesca", "Islas Baleares", "Jaén", "La Coruña", "La Rioja", "Las Palmas", "León", "Lérida", "Lugo", "Madrid", "Málaga", "Murcia", "Navarra", "Orense", "Palencia", "Pontevedra", "Salamanca", "Santa Cruz de Tenerife", "Segovia", "Sevilla", "Soria", "Tarragona", "Teruel", "Toledo", "Valencia", "Valladolid", "Vizcaya", "Zamora", "Zaragoza", "Ceuta", "Melilla"];
+
 let DB = {
-  proyectos:[], ventas:[], costes:[], cobros:[], pagos:[], clientes:[],
+  proyectos:[], ventas:[], costes:[], cobros:[], pagos:[], clientes:[], proveedores:[],
   emisor:{},
-  logo:'',
+  footerLegal: 'El presente presupuesto no contempla IVA.',
   tiposIva: [...DEFAULT_IVA],
   tiposIrpf: [...DEFAULT_IRPF],
   defaultIvaPct: 21,
@@ -1524,8 +1565,8 @@ function showPage(id,el){
     if(id==='proveedores'){renderProveedores();}
     if(id==='cobros'){populateCobroDropdown();renderCobros();}
     if(id==='pagos'){populatePagoDropdown();renderPagos();}
-    if(id==='resumen'){populateResSelector();renderResumen();renderResListado();}
-    if(id==='ajustes'){loadAjustesStatus();renderFiscalTags();}
+    if(id==='ajustes'){loadEmisorData();loadAjustesStatus();if(DB.logo)applyLogo(DB.logo);}
+    if(id==='resumen'){populateResSelector();if(typeof renderResumen==='function')renderResumen();if(typeof renderResListado==='function')renderResListado();}
   }catch(e){
     console.error('Error al mostrar página:', e);
     toast('Error al cargar la página: '+e.message, 'error');
@@ -1976,6 +2017,8 @@ function renderAll(){
   onVentaSerieChange();
   onCosteSerieChange();
   if(DB.logo)applyLogo(DB.logo);
+  initGeoDropdowns();
+  hookCPInputs();
 }
 
 
@@ -2110,15 +2153,19 @@ function addCliente(){
   const nif = document.getElementById('cl-nif').value.trim();
   const tel = document.getElementById('cl-tel').value.trim();
   const dir = document.getElementById('cl-dir').value.trim();
+  const pob = document.getElementById('cl-poblacion').value.trim();
+  const cp = document.getElementById('cl-cp').value.trim();
+  const prov = document.getElementById('cl-provincia').value;
   const email = document.getElementById('cl-email').value.trim();
   if(!nombre){ toast('El nombre es obligatorio.','error'); return; }
   const clientes = getD('clientes');
   if(clientes.some(c => c.nombre.toLowerCase() === nombre.toLowerCase())){
     toast('Ya existe un cliente con ese nombre.','error'); return;
   }
-  clientes.push({id: genId(), nombre, nif, tel, dir, email});
+  clientes.push({id: genId(), nombre, nif, tel, dir, pob, cp, prov, email});
   setD('clientes', clientes);
-  ['cl-nombre','cl-nif','cl-tel','cl-dir','cl-email'].forEach(id => document.getElementById(id).value = '');
+  ['cl-nombre','cl-nif','cl-tel','cl-dir','cl-poblacion','cl-cp','cl-email'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('cl-provincia').value = '';
   renderClientes(); toast('Cliente guardado.');
 }
 function renderClientes(){
@@ -2170,7 +2217,7 @@ function renderClientes(){
       const pend = totalFact - totalCob;
 
       return `<tr>
-        <td class="m-full"><strong>${nom}</strong></td>
+        <td class="m-full"><strong>${nom}</strong><div style="font-size:.72rem;color:var(--muted)">${c.pob||''}${c.prov?', '+c.prov:''}</div></td>
         <td data-m="NIF">${nif || '—'}</td>
         <td data-m="Email">${c.email || '—'}</td>
         <td data-m="Tel.">${c.tel || '—'}</td>
@@ -2207,6 +2254,9 @@ function editCliente(id){
   document.getElementById('ecl-nif').value = c.nif || '';
   document.getElementById('ecl-tel').value = c.tel || '';
   document.getElementById('ecl-dir').value = c.dir || '';
+  document.getElementById('ecl-provincia').value = c.prov || '';
+  document.getElementById('ecl-poblacion').value = c.pob || '';
+  document.getElementById('ecl-cp').value = c.cp || '';
   document.getElementById('ecl-email').value = c.email || '';
   openModal('modal-edit-cliente');
 }
@@ -2216,13 +2266,16 @@ function saveEditCliente(){
   const nif = document.getElementById('ecl-nif').value.trim();
   const tel = document.getElementById('ecl-tel').value.trim();
   const dir = document.getElementById('ecl-dir').value.trim();
+  const pob = document.getElementById('ecl-poblacion').value.trim();
+  const cp = document.getElementById('ecl-cp').value.trim();
+  const prov = document.getElementById('ecl-provincia').value;
   const email = document.getElementById('ecl-email').value.trim();
   if(!nombre){ toast('El nombre es obligatorio.','error'); return; }
   const clientes = getD('clientes');
   const idx = clientes.findIndex(c => c.id === id);
   if(idx === -1) return;
   const oldName = clientes[idx].nombre;
-  clientes[idx] = {id, nombre, nif, tel, dir, email};
+  clientes[idx] = {id, nombre, nif, tel, dir, pob, cp, prov, email};
   if(oldName !== nombre){
     setD('proyectos', getD('proyectos').map(p => p.cliente === oldName ? {...p, cliente: nombre} : p));
     setD('ventas', getD('ventas').map(v => v.cliente === oldName ? {...v, cliente: nombre} : v));
@@ -2235,13 +2288,23 @@ function saveEditCliente(){
 async function addProyecto(data){
   const d=data||{};
   const nombre=(d.nombre||document.getElementById('proj-nombre').value).trim();
-  const cliente=(d.cliente||document.getElementById('proj-cliente').value).trim();
-  const nif=(d.nif||document.getElementById('proj-nif')?.value||'').trim();
+  
+  // v2.7: Get client from new searchable combo
+  const clienteId = document.getElementById('p-cliente')?.value;
+  const clienteRaw = document.getElementById('p-cliente-input')?.value.trim();
+  const masterClientes = getD('clientes');
+  const selCliente = masterClientes.find(c => c.id === clienteId || c.nombre === clienteRaw);
+  
+  const cliente = selCliente ? selCliente.nombre : clienteRaw;
+  const nif = selCliente ? (selCliente.nif || '') : '';
+  
   const venta=fnum(d.venta||document.getElementById('proj-venta').value);
   const coste=fnum(d.coste||document.getElementById('proj-coste').value);
+  
   if(!nombre){toast('El nombre es obligatorio.','error');return;}
   if(!cliente){toast('El cliente es obligatorio.','error');return;}
   if(venta<=0){toast('La venta debe ser mayor que 0.','error');return;}
+
   // Handle PDF attachment
   let pdfDriveId=data?.pdfDriveId||null;
   let pdfName=data?.pdfName||null;
@@ -2258,7 +2321,7 @@ async function addProyecto(data){
   p.push({id:genId(),nombre,cliente,nif,venta,coste,fecha:new Date().toISOString(),pdfDriveId,pdfName});
   setD('proyectos',p);
   if(!data){
-    ['proj-nombre','proj-cliente','proj-nif','proj-venta','proj-coste','proj-margen-prev'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+    ['proj-nombre','p-cliente-input','p-cliente','proj-venta','proj-coste','proj-margen-prev'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
     if(document.getElementById('proj-pdf-file'))document.getElementById('proj-pdf-file').value='';
   }
   renderProyectos();toast('Proyecto guardado.');
@@ -2379,7 +2442,10 @@ function nextVentaNum(serie){
   const nums=getD('ventas').filter(v=>v.serie===serie).map(v=>parseInt(v.numero.split('-')[1]||0));
   return`${serie}-${String((nums.length?Math.max(...nums):0)+1).padStart(3,'0')}`;
 }
-function onVentaSerieChange(){document.getElementById('v-num').value=nextVentaNum(document.getElementById('v-serie').value);calcVenta();}
+function onVentaSerieChange(){
+  document.getElementById('v-num').value=nextVentaNum(document.getElementById('v-serie').value);
+  calcVentaSimple();
+}
 
 // ─── SEARCHABLE COMBOBOX ENGINE ──────────────────────────────────────────
 // Each combo has: input#combo-wrap-{id} > input[text]#{id}-input + input[hidden]#{id} + div.combo-dropdown#{id}-drop
@@ -2463,27 +2529,21 @@ function comboSelect(id, value, label){
   }
   if(_combos[id]) _combos[id].selectedValue = value;
   comboClose(id);
-  // Special: when cliente selected, refresh project dropdown
-  if(id === 'vcliente'){
-    // Also fill NIF if proveedor
-    refreshVProyecto();
-  }
-  // If proveedor: fill NIF and lock it
-  if(id === 'cprov'){
-    const prov = _proveedoresList.find(p => p.nombre === value || (p.nif && p.nif === value));
-    const nifEl = document.getElementById('c-nif');
-    if(prov && nifEl){
-      nifEl.value = prov.nif || '';
-      nifEl.readOnly = true;
-      nifEl.style.background = 'var(--bg)';
-      nifEl.style.color = 'var(--muted)';
-      nifEl.title = 'NIF vinculado al proveedor. Borra el nombre para editarlo.';
+  if(id === 'vcliente') refreshVProyecto();
+  if(id === 'vproyecto' && value){
+    // v2.7: Auto-select client when project is chosen
+    const proj = getD('proyectos').find(p => p.id === value);
+    if(proj){
+      const clienteInput = document.getElementById('v-cliente-input');
+      if(clienteInput) {
+        clienteInput.value = proj.cliente;
+        // Also update hidden if exists
+        const hiddenC = document.getElementById('v-cliente');
+        if(hiddenC) hiddenC.value = proj.cliente;
+      }
     }
   }
-  // If resumen selector: trigger render
-  if(id === 'reselector'){
-    renderResumen();
-  }
+  if(id === 'reselector') renderResumen();
 }
 
 function comboKey(e, id){
@@ -2501,18 +2561,6 @@ function comboKey(e, id){
   if(opts[idx]) opts[idx].classList.add('active');
 }
 
-function comboGetValue(id){
-  const hiddenId = id==='vcliente' ? 'v-cliente' : id==='vproyecto' ? 'v-proyecto' : null;
-  if(hiddenId){
-    const el = document.getElementById(hiddenId);
-    return el ? el.value : '';
-  }
-  // For proveedor, value is in the text input directly
-  const el = document.getElementById('c-proveedor');
-  return el ? el.value : '';
-}
-
-// Refresh proyecto dropdown filtered by selected cliente
 function refreshVProyecto(){
   const clienteInput = document.getElementById('v-cliente-input');
   const clienteVal = document.getElementById('v-cliente')?.value || clienteInput?.value || '';
@@ -2522,7 +2570,6 @@ function refreshVProyecto(){
   );
   const items = proyectos.map(p => ({value:p.id, label:p.nombre, sub:p.cliente}));
   comboInit('vproyecto', items);
-  // Clear current project selection
   const hiddenP = document.getElementById('v-proyecto');
   const inputP  = document.getElementById('v-proyecto-input');
   if(hiddenP) hiddenP.value = '';
@@ -2530,26 +2577,88 @@ function refreshVProyecto(){
 }
 
 function populateVentaDropdowns(){
-  const proyectos = getD('proyectos');
-  const masterClientes = getD('clientes').map(c => c.nombre);
-  const derivedClientes = [...new Set(proyectos.map(p => p.cliente))];
-  const clientes = [...new Set([...masterClientes, ...derivedClientes])].sort((a,b)=>a.localeCompare(b,'es'));
+  const proyectos = getD('proyectos').filter(p => (p.estado||'abierto') === 'abierto');
+  // En Ventas, el selector de clientes ahora solo muestra aquellos con proyectos abiertos
+  const clientsWithProjects = [...new Set(proyectos.map(p => p.cliente))].filter(Boolean);
   
-  comboInit('vcliente', clientes.map(c=>({value:c, label:c})));
-  refreshVProyecto();
+  const combos = clientsWithProjects.map(c => ({value: c, label: c}));
+  comboInit('vcliente', combos);
   
-  ['ev-cliente'].forEach(id=>{
-    const el=document.getElementById(id);if(!el)return;
-    el.innerHTML='<option value="">— Cliente —</option>'+clientes.map(c=>`<option value="${c}">${c}</option>`).join('');
-  });
-  ['ev-proyecto'].forEach(id=>{
-    const el=document.getElementById(id);if(!el)return;
-    el.innerHTML='<option value="">— Proyecto (opc.) —</option>'+proyectos.map(p=>`<option value="${p.id}">${p.nombre}</option>`).join('');
-  });
-  setTimeout(()=>{
-    selectToCombo('ev-cliente','Buscar cliente...');
-    selectToCombo('ev-proyecto','Buscar proyecto...');
-  },0);
+  // Selector de proyectos para filtrar cliente luego
+  const projItems = proyectos.map(p => ({value: p.id, label: p.nombre, sub: p.cliente}));
+  comboInit('vproyecto', projItems);
+  
+  // Maestros globales para el resto de la app
+  comboInit('pcliente', getD('clientes').map(c => ({value: c.id, label: c.nombre}))); 
+}
+
+function calcVentaSimple() {
+  const serie = document.getElementById('v-serie')?.value || 'A';
+  const base = fnum(document.getElementById('v-base-simple')?.value || 0);
+  const ivaVal = (serie === 'A') ? Math.round(base * 21) / 100 : 0;
+  const total = base + ivaVal;
+  const elIva = document.getElementById('id-v-iva-calc');
+  const elTotal = document.getElementById('v-total-simple');
+  if (elIva) elIva.value = fmt(ivaVal);
+  if (elTotal) elTotal.value = fmt(total);
+}
+
+function addVentaSimple() {
+  const serie = document.getElementById('v-serie').value;
+  const fecha = document.getElementById('v-fecha').value;
+  const base = fnum(document.getElementById('v-base-simple').value);
+  const clienteName = document.getElementById('v-cliente-input').value.trim();
+  const proyId = document.getElementById('v-proyecto').value;
+
+  if (!fecha || !base || !clienteName) {
+    toast('Fecha, Importe y Cliente son obligatorios.', 'error');
+    return;
+  }
+
+  ensureEntityExists('clientes', clienteName);
+
+  const iva = (serie === 'A') ? Math.round(base * 21) / 100 : 0;
+  const nextNum = nextVentaNum(serie);
+
+  const v = {
+    id: genId(),
+    serie,
+    numero: nextNum,
+    fecha,
+    cliente: clienteName,
+    proyectoId: proyId,
+    base,
+    cuotaIva: iva,
+    total: base + iva,
+    pagado: 0,
+    estado: 'pendiente'
+  };
+
+  const sales = getD('ventas');
+  sales.push(v);
+  setD('ventas', sales);
+  toast('¡Factura guardada!');
+  showPage('ventas');
+}
+
+function ensureEntityExists(type, name, nif) {
+  const list = getD(type) || [];
+  const exists = list.find(x => 
+    (nif && x.nif && x.nif.replace(/\W/g,'') === nif.replace(/\W/g,'')) || 
+    (x.nombre.toLowerCase() === name.toLowerCase())
+  );
+
+  if (!exists && name.length > 2) {
+    const label = type === 'clientes' ? 'cliente' : 'proveedor';
+    if (confirm(`El ${label} "${name}" [${nif || 'Sin NIF'}] no está registrado. ¿Deseas darlo de alta ahora?`)) {
+      const newItem = { id: genId(), nombre: name, nif: nif || '', tel: '', dir: '', email: '' };
+      list.push(newItem);
+      setD(type, list);
+      toast(`${label.charAt(0).toUpperCase() + label.slice(1)} añadido.`);
+      return newItem;
+    }
+  }
+  return exists;
 }
 // ─── VENTAS IVA LINES ───
 let vIvaLines = [];
@@ -2599,20 +2708,104 @@ function getVIvaTotals(){
 }
 
 function calcVenta(){
-  const serie=document.getElementById('v-serie').value;
-  const irpfPct=fnum(document.getElementById('v-irpf-tipo')?.value||0);
-  if(serie==='B'){
-    const base=fnum(document.getElementById('v-base').value);
-    const retencion=base*irpfPct/100;
-    document.getElementById('v-irpf').value=irpfPct>0?fmt(retencion):'—';
-    document.getElementById('v-total').value=base?fmt(base-retencion):'';
-    return;
-  }
-  const tot=getVIvaTotals();
-  const retencion=tot.base*irpfPct/100;
-  document.getElementById('v-irpf').value=irpfPct>0?fmt(retencion):'—';
-  document.getElementById('v-total').value=tot.base?fmt(tot.base+tot.cuotaIva-retencion):'';
+  // Old logic for backward compatibility in modals if needed (kept but simplified)
+  const totals = getVIvaTotals();
+  const irpfTipo = fnum(document.getElementById('v-irpf-tipo')?.value || 0);
+  const irpf = totals.base * irpfTipo / 100;
+  if(document.getElementById('v-irpf')) document.getElementById('v-irpf').value = fmt(irpf);
+  if(document.getElementById('v-total')) document.getElementById('v-total').value = fmt(totals.base + totals.cuotaIva - irpf);
 }
+
+// v2.7 New Simplified logic (Main form)
+function calcVentaSimple() {
+  const serie = document.getElementById('v-serie')?.value || 'A';
+  const base = fnum(document.getElementById('v-base-simple')?.value || 0);
+  const ivaPct = (serie === 'A') ? 21 : 0;
+  const ivaVal = base * ivaPct / 100;
+  const total = base + ivaVal;
+  
+  if(document.getElementById('v-iva-label')) document.getElementById('v-iva-label').textContent = `IVA (${ivaPct}%)`;
+  if(document.getElementById('v-iva-val')) document.getElementById('v-iva-val').value = fmt(ivaVal);
+  if(document.getElementById('v-total-simple')) document.getElementById('v-total-simple').value = fmt(total);
+}
+
+async function addVentaSimple() {
+  try {
+    const btn = document.getElementById('btn-save-venta');
+    if(btn) btn.disabled = true;
+    
+    const serie = document.getElementById('v-serie').value;
+    const num = document.getElementById('v-num').value;
+    const fecha = document.getElementById('v-fecha').value;
+    
+    // Client lookup
+    const clienteId = document.getElementById('v-cliente').value;
+    const clienteRaw = document.getElementById('v-cliente-input').value.trim();
+    const masterClientes = getD('clientes');
+    const selCliente = masterClientes.find(c => c.id === clienteId) || masterClientes.find(c => c.nombre === clienteRaw);
+    const cliente = selCliente ? selCliente.nombre : clienteRaw;
+    
+    // Project lookup
+    const proyectoId = document.getElementById('v-proyecto').value;
+    const proyecto = getD('proyectos').find(p => p.id === proyectoId);
+    
+    const base = fnum(document.getElementById('v-base-simple').value);
+    const ivaPct = (serie === 'A') ? 21 : 0;
+    const ivaVal = base * ivaPct / 100;
+    
+    if(!fecha) { toast('La fecha es obligatoria.','warn'); if(btn) btn.disabled=false; return; }
+    if(!cliente) { toast('El cliente es obligatorio.','warn'); if(btn) btn.disabled=false; return; }
+    if(base <= 0) { toast('Introduce una base imponible válida.','warn'); if(btn) btn.disabled=false; return; }
+
+    // PDF attachment
+    let pdfDriveId=null; let pdfName=null;
+    const pdfFile = document.getElementById('v-pdf-file').files[0];
+    if(pdfFile) {
+      toast('Subiendo PDF...');
+      const {base64, mimeType, name} = await readFileAsBase64(pdfFile);
+      pdfDriveId = await uploadAttachment(base64, name, mimeType);
+      pdfName = name;
+    }
+
+    const ventas = getD('ventas');
+    const v = {
+      id: genId(),
+      serie, numero: num, fecha, 
+      cliente,
+      nif: selCliente ? (selCliente.nif || '') : (proyecto ? proyecto.nif : ''),
+      proyectoId: proyectoId || null,
+      proyectoNombre: proyecto ? proyecto.nombre : '',
+      base, 
+      ivaPct,
+      cuotaIva: ivaVal,
+      irpfPct: 0, retencion: 0,
+      total: base + ivaVal,
+      ivaLines: [{base, ivaPct, cuota: ivaVal}],
+      pdfDriveId, pdfName
+    };
+    
+    ventas.push(v);
+    setD('ventas', ventas);
+    
+    // Reset Form
+    ['v-cliente-input','v-cliente','v-proyecto-input','v-proyecto','v-base-simple','v-iva-val','v-total-simple'].forEach(id => {
+      const el = document.getElementById(id); if(el) el.value = '';
+    });
+    document.getElementById('v-pdf-file').value = '';
+    
+    onVentaSerieChange(); 
+    renderVentas();
+    toast('Factura guardada correctamente.');
+    if(btn) btn.disabled = false;
+    
+  } catch (err) {
+    console.error(err);
+    toast("Error al guardar: " + err.message, "error");
+    const btn = document.getElementById('btn-save-venta');
+    if(btn) btn.disabled = false;
+  }
+}
+
 function calcVentaEdit(){
   const id=document.getElementById('ev-id').value;
   const v=getD('ventas').find(x=>x.id===id); if(!v) return;
@@ -2748,15 +2941,31 @@ function loadEmisorData(){
   document.getElementById('cfg-emisor-nif').value = e.nif || '';
   document.getElementById('cfg-emisor-tel').value = e.tel || '';
   document.getElementById('cfg-emisor-dir').value = e.dir || '';
+  document.getElementById('cfg-emisor-pob').value = e.pob || '';
+  document.getElementById('cfg-emisor-cp').value = e.cp || '';
+  document.getElementById('cfg-emisor-prov').value = e.prov || '';
+  document.getElementById('cfg-emisor-iban').value = e.iban || '';
+  const leg = document.getElementById('cfg-legal-footer');
+  if(leg) leg.value = DB.footerLegal || 'El presente presupuesto no contempla IVA.';
 }
+
 function saveEmisorData(){
   DB.emisor = {
     nombre: document.getElementById('cfg-emisor-nombre').value.trim(),
     nif: document.getElementById('cfg-emisor-nif').value.trim(),
     tel: document.getElementById('cfg-emisor-tel').value.trim(),
     dir: document.getElementById('cfg-emisor-dir').value.trim(),
+    pob: document.getElementById('cfg-emisor-pob').value.trim(),
+    cp: document.getElementById('cfg-emisor-cp').value.trim(),
+    prov: document.getElementById('cfg-emisor-prov').value.trim(),
+    iban: document.getElementById('cfg-emisor-iban').value.trim()
   };
-  saveToDrive(); toast('Datos del emisor guardados.');
+  scheduleSave(); toast('Datos del emisor guardados.');
+}
+
+function saveLegalFooter(){
+  DB.footerLegal = document.getElementById('cfg-legal-footer').value;
+  scheduleSave(); toast('Pie de página guardado.');
 }
 
 function getCobradoVenta(vid){return getD('cobros').filter(c=>c.ventaId===vid).reduce((s,c)=>s+c.importe,0);}
@@ -2794,6 +3003,7 @@ function renderVentas(){
     const clipV=v.pdfDriveId
       ?`<a href="${getAttachUrl(v.pdfDriveId)}" target="_blank" class="clip-icon has-doc" title="${v.pdfName||'Ver PDF'}">&#x1F4CE;</a>`
       :'<span class="clip-icon" title="Sin adjunto">&#x1F4CE;</span>';
+    const printBtn=`<button class="btn btn-ghost btn-xs" title="Imprimir PDF" onclick="printVentaPDF('${v.id}')">&#x1F5A8;&#xFE0F;</button>`;
     return`<tr style="cursor:pointer" onclick="toggleVentaHist('${v.id}',this)">
       <td style="width:24px">${clipV}</td>
       <td><span class="badge ${v.serie==='A'?'badge-blue':'badge-purple'}">${v.serie}</span></td>
@@ -2807,7 +3017,7 @@ function renderVentas(){
       <td class="mp">${fmt(cobrado)}</td>
       <td class="${pend>0?'mn':''}">${fmt(pend)}</td>
       <td>${est}</td>
-      <td onclick="event.stopPropagation()">${cobBtn}<button class="btn btn-ghost btn-xs" onclick="editVenta('${v.id}')">&#x270F;&#xFE0F;</button><button class="btn btn-danger btn-xs" onclick="deleteVenta('${v.id}')">&#x1F5D1;&#xFE0F;</button></td>
+      <td onclick="event.stopPropagation()">${printBtn}${cobBtn}<button class="btn btn-ghost btn-xs" onclick="editVenta('${v.id}')">&#x270F;&#xFE0F;</button><button class="btn btn-danger btn-xs" onclick="deleteVenta('${v.id}')">&#x1F5D1;&#xFE0F;</button></td>
       <td class="m-full m-only"><strong>${v.cliente}</strong></td>
       <td class="m-full2 m-only">${v.numero}&nbsp;<span style="color:var(--muted2);font-size:.72rem">${v.fecha}&nbsp;·&nbsp;${v.serie==='A'?'IVA':'Sin IVA'}</span></td>
       <td class="m-row2 m-only" data-m="Proyecto">${proy?proy.nombre:'—'}</td>
@@ -2815,7 +3025,7 @@ function renderVentas(){
       <td class="m-row2 m-only mp" data-m="Cobrado">${fmt(cobrado)}</td>
       <td class="m-row2 m-only ${pend>0?'mn':''}" data-m="Pend.">${fmt(pend)}</td>
       <td class="m-row2 m-only" data-m="Estado">${est}</td>
-      <td class="m-actions m-only" onclick="event.stopPropagation()">${cobBtn}<button class="btn btn-ghost btn-xs" onclick="editVenta('${v.id}')">&#x270F;&#xFE0F;</button><button class="btn btn-danger btn-xs" onclick="deleteVenta('${v.id}')">&#x1F5D1;&#xFE0F;</button></td>
+      <td class="m-actions m-only" onclick="event.stopPropagation()">${printBtn}${cobBtn}<button class="btn btn-ghost btn-xs" onclick="editVenta('${v.id}')">&#x270F;&#xFE0F;</button><button class="btn btn-danger btn-xs" onclick="deleteVenta('${v.id}')">&#x1F5D1;&#xFE0F;</button></td>
     </tr>
     <tr id="hist-venta-${v.id}" class="hist-row" style="display:none">
       <td colspan="13"><div class="hist-inner" id="hist-venta-inner-${v.id}"></div></td>
@@ -2985,15 +3195,15 @@ function comboifySelects(ids, placeholder){
 }
 // ─── PROVEEDOR HISTORY ────────────────────────────────────────────────────
 function getProveedores(){
-  // Build unique provider list from existing costes, keyed by NIF (or name)
+  // Returns providers from Master database, fallback to costes history if empty
+  const masters = getD('proveedores');
+  if(masters.length) return masters.map(p=>({nombre:p.nombre, nif:p.nif}));
+  
   const map = new Map();
   getD('costes').forEach(c=>{
     if(!c.proveedor) return;
-    // Use index starting from 0 as the unique key — simple and collision-free
-    const nif = (c.nif||'').trim();
-    const nombre = c.proveedor.trim();
-    const key = nif || nombre;
-    if(!map.has(key)) map.set(key, {nif, nombre});
+    const key = (c.nif||'').trim() || c.proveedor.trim();
+    if(!map.has(key)) map.set(key, {nif:c.nif, nombre:c.proveedor});
   });
   return [...map.values()].sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));
 }
@@ -4851,16 +5061,19 @@ function addProveedor(){
   const nombre = document.getElementById('pr-nombre').value.trim();
   const nif = document.getElementById('pr-nif').value.trim();
   const tel = document.getElementById('pr-tel').value.trim();
+  const dir = document.getElementById('pr-dir').value.trim();
+  const pob = document.getElementById('pr-poblacion').value.trim();
+  const cp = document.getElementById('pr-cp').value.trim();
+  const prov = document.getElementById('pr-provincia').value;
   const email = document.getElementById('pr-email').value.trim();
   if(!nombre){ toast('El nombre es obligatorio.','error'); return; }
   const providers = getD('proveedores');
-  providers.push({id: 'pr-'+Date.now(), nombre, nif, tel, email});
+  providers.push({id: 'pr-'+Date.now(), nombre, nif, tel, dir, pob, cp, prov, email});
   setD('proveedores', providers);
-  document.getElementById('pr-nombre').reset ? document.getElementById('pr-nombre').value='' : null;
-  ['pr-nombre','pr-nif','pr-tel','pr-email'].forEach(id=>{
-    const el = document.getElementById(id);
-    if(el) el.value='';
+  ['pr-nombre','pr-nif','pr-tel','pr-dir','pr-poblacion','pr-cp','pr-email'].forEach(id=>{
+    const el = document.getElementById(id); if(el) el.value='';
   });
+  document.getElementById('pr-provincia').value = '';
   renderProveedores(); toast('Proveedor guardado.');
 }
 
@@ -4905,7 +5118,7 @@ function renderProveedores(){
       const pend = tG - tP;
 
       return `<tr>
-        <td class="m-full"><strong>${nom}</strong></td>
+        <td class="m-full"><strong>${nom}</strong><div style="font-size:.70rem;color:var(--muted)">${p.pob||''}${p.prov?', '+p.prov:''}</div></td>
         <td data-m="NIF">${p.nif || '—'}</td>
         <td data-m="Email" class="m-full">${p.email || '—'}</td>
         <td data-m="Tel.">${p.tel || '—'}</td>
@@ -4926,6 +5139,128 @@ function deleteProveedor(id){
   if(!confirm(`¿Eliminar proveedor ${p.nombre}?`)) return;
   setD('proveedores', getD('proveedores').filter(x => x.id !== id));
   renderProveedores(); toast('Proveedor eliminado.');
+}
+// ─── GENERATOR: PDF VENTA (Format Cristina Moya) ──────────────────────
+async function printVentaPDF(id) {
+  const v = getD('ventas').find(x => x.id === id);
+  if (!v) return;
+  const e = DB.emisor || {};
+  // Search client in masters for full address data
+  const c = getD('clientes').find(x => x.nif === v.nif) || getD('clientes').find(x => x.nombre === v.cliente);
+  
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+
+  // 1. Logo & Emisor (Left)
+  if (DB.logo) {
+    try { doc.addImage(DB.logo, 'PNG', 14, 10, 35, 0); } catch (err) { console.error('Logo error', err); }
+  }
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.text(e.nombre || 'CRISTINA MOYA', 14, 45);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(80);
+  doc.text(`NIF: ${e.nif || ''}`, 14, 50);
+  doc.text(`${e.dir || ''}`, 14, 54);
+  doc.text(`${e.cp || ''} ${e.pob || ''} (${e.prov || ''})`, 14, 58);
+  if (e.iban) {
+    doc.setFont('helvetica', 'bold');
+    doc.text(`IBAN: ${e.iban}`, 14, 65);
+    doc.setFont('helvetica', 'normal');
+  }
+
+  // 2. Cliente (Right)
+  doc.setFontSize(9);
+  doc.setTextColor(0);
+  doc.setFont('helvetica', 'bold');
+  doc.text('FACTURAR A:', 120, 45);
+  doc.setFont('helvetica', 'normal');
+  doc.text(v.cliente || '', 120, 50);
+  if (c) {
+    doc.text(`NIF: ${c.nif || ''}`, 120, 54);
+    doc.text(c.dir || '', 120, 58);
+    doc.text(`${c.cp || ''} ${c.pob || ''} (${c.prov || ''})`, 120, 62);
+  }
+
+  // 3. Info Factura (Center-Right Top)
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`FACTURA Nº: ${v.serie}-${v.numero}`, 120, 20);
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Fecha: ${v.fecha}`, 120, 26);
+
+  // 4. Table (jsPDF-AutoTable)
+  const head = [['DESCRIPCIÓN', 'BASE IMPONIBLE', 'IVA', ' TOTAL']];
+  const proy = getD('proyectos').find(p => p.id === v.proyectoId);
+  const items = [[
+    proy ? `Servicios realizados para el proyecto: ${proy.nombre}` : (v.descripcion || 'Servicios profesionales contratados'),
+    fmt(v.base),
+    v.serie==='A' ? fmt(v.iva) : '—',
+    fmt(v.total)
+  ]];
+
+  doc.autoTable({
+    startY: 75,
+    head: head,
+    body: items,
+    theme: 'grid',
+    headStyles: { fillColor: [245, 245, 245], textColor: [0, 0, 0], lineWidth: 0.1, fontStyle: 'bold' },
+    styles: { fontSize: 9, cellPadding: 5 },
+    columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' } }
+  });
+
+  // 5. Total
+  const finalY = doc.lastAutoTable.finalY + 10;
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`TOTAL FACTURA:`, 140, finalY + 5);
+  doc.text(fmt(v.total), 196, finalY + 5, { align: 'right' });
+
+  // 6. Footer Legal
+  const footerText = DB.footerLegal || 'El presente presupuesto no contempla IVA.';
+  const footerLines = doc.splitTextToSize(footerText, 180);
+  doc.setFontSize(7.5);
+  doc.setTextColor(150);
+  doc.setFont('helvetica', 'italic');
+  doc.text(footerLines, 14, 278);
+
+  doc.save(`Factura_${v.id}.pdf`);
+}
+
+function fmtDate(d){ if(!d) return ''; const [y,m,day]=d.split('-'); return `${day}/${m}/${y}`; }
+
+// ─── GEOGRAPHY LOGIC ──────────────────────────────────────────────────
+function initGeoDropdowns(){
+  const opts = '<option value="">— Seleccionar —</option>' + PROVINCIAS.map(p=>`<option value="${p}">${p}</option>`).join('');
+  document.querySelectorAll('select[id$="provincia"], select[id$="-prov"]').forEach(s=> { s.innerHTML = opts; });
+}
+
+async function onProvinciaChange(prefix){ console.log('Provincia cambiada:', prefix); }
+
+async function lookupCP(cp, prefix){
+  if(!cp || cp.length < 5) return;
+  try {
+    const r = await fetch(`https://api.zippopotam.us/es/${cp}`);
+    if(!r.ok) return;
+    const data = await r.json();
+    if(data.places && data.places.length > 0){
+      const p = data.places[0];
+      const provEl = document.getElementById(prefix+'-provincia') || document.getElementById(prefix+'-prov');
+      const pobEl = document.getElementById(prefix+'-poblacion') || document.getElementById(prefix+'-pob');
+      if(provEl) provEl.value = p['state'];
+      if(pobEl) pobEl.value = p['place name'];
+      toast('📍 Dirección auto-completada por CP');
+    }
+  } catch(e){ console.error('CP lookup failed', e); }
+}
+
+function hookCPInputs(){
+  ['cl-cp','pv-cp','cfg-emisor-cp','ecl-cp','pr-cp'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.onblur = (e)=> lookupCP(e.target.value, id.split('-')[0]==='cfg'?'cfg-emisor':id.split('-')[0]);
+  });
 }
 </script>
 
