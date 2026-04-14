@@ -643,7 +643,7 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
   <div class="sync-status"><div class="sync-dot" id="sync-dot"></div><span id="sync-label">Sincronizado</span></div>
   <img class="user-avatar" id="user-avatar" src="" alt="">
   <span class="user-name" id="user-name"></span>
-  <span style="font-size:10px;color:var(--muted2);font-weight:600;background:var(--card2);padding:2px 4px;border-radius:4px;margin-right:10px;">v2.2</span>
+  <span style="font-size:10px;color:var(--muted2);font-weight:600;background:var(--card2);padding:2px 4px;border-radius:4px;margin-right:10px;">v2.4</span>
   <button class="btn-signout" onclick="signOut()">Cerrar sesión</button>
 </div>
 
@@ -661,19 +661,19 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
     <div class="app-sub">Control de Proyectos</div>
   </div>
   <nav>
-    <span class="nav-label">Principal</span>
-    <a class="active" onclick="showPage('proyectos',this)"><span class="icon">📁</span> Proyectos</a>
-    <a onclick="showPage('ventas',this)"><span class="icon">🧾</span> Ventas</a>
-    <a onclick="showPage('costes',this)"><span class="icon">📥</span> Costes</a>
     <span class="nav-label">MAESTROS</span>
     <a onclick="showPage('clientes',this)"><span class="icon">👥</span> Clientes</a>
     <a onclick="showPage('proveedores',this)"><span class="icon">🏭</span> Proveedores</a>
-    <span class="nav-label">Gestión</span>
+    <span class="nav-label">GENERAL</span>
+    <a class="active" onclick="showPage('proyectos',this)"><span class="icon">📁</span> Proyectos</a>
+    <a onclick="showPage('ventas',this)"><span class="icon">🧾</span> Ventas</a>
+    <a onclick="showPage('costes',this)"><span class="icon">📥</span> Costes</a>
+    <span class="nav-label">GESTIÓN</span>
     <a onclick="showPage('cobros',this)"><span class="icon">💰</span> Cobros</a>
     <a onclick="showPage('pagos',this)"><span class="icon">💸</span> Pagos</a>
-    <span class="nav-label">Análisis</span>
+    <span class="nav-label">ANÁLISIS</span>
     <a onclick="showPage('resumen',this)"><span class="icon">📊</span> Resumen Proyecto</a>
-    <span class="nav-label">Sistema</span>
+    <span class="nav-label">SISTEMA</span>
     <a onclick="showPage('ajustes',this)"><span class="icon">⚙️</span> Ajustes</a>
   </nav>
 </aside>
@@ -922,8 +922,30 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
 
 <!-- ══ PROVEEDORES ══ -->
 <div class="page" id="page-proveedores">
-  <h1>Proveedores</h1><p class="page-desc">Mantenimiento de proveedores para facturación de costes.</p>
-  <div class="empty-state"><div class="icon">🏭</div><p>Módulo de Proveedores en desarrollo.</p></div>
+  <h1>Proveedores</h1><p class="page-desc">Mantenimiento de la base de datos de proveedores para facturación de costes.</p>
+  <div class="stats-row cols3">
+    <div class="stat-card"><div class="label">Total Proveedores</div><div class="value blue" id="st-pr-total">0</div></div>
+    <div class="stat-card"><div class="label">Gastos mes</div><div class="value purple" id="st-pr-mes">0,00 €</div></div>
+    <div class="stat-card"><div class="label">Pendiente Pago</div><div class="value orange" id="st-pr-deuda">0,00 €</div></div>
+  </div>
+  <div class="section-box">
+    <h2>➕ Nuevo Proveedor</h2>
+    <div class="form-grid cols4">
+      <div class="form-group" style="grid-column:span 2"><label>Nombre o Razón Social</label><input type="text" id="pr-nombre" placeholder="Ej: Energía S.A."></div>
+      <div class="form-group"><label>NIF / CIF</label><input type="text" id="pr-nif" placeholder="B88776655"></div>
+      <div class="form-group"><label>Teléfono</label><input type="text" id="pr-tel" placeholder="912345678"></div>
+      <div class="form-group" style="grid-column:span 2"><label>Email Contacto</label><input type="email" id="pr-email" placeholder="comercial@proveedor.com"></div>
+    </div>
+    <button class="btn btn-primary" onclick="addProveedor()">✓ Guardar Proveedor</button>
+  </div>
+  <div class="section-box">
+    <h2>📋 Listado de Proveedores</h2>
+    <div class="filter-bar">
+      <div class="form-group" style="flex:1"><label>Buscar</label><input type="text" id="pr-filter-search" placeholder="Nombre, NIF..." oninput="renderProveedores()"></div>
+    </div>
+    <div class="table-wrap mobile-cards"><table><thead><tr><th>Proveedor</th><th>NIF</th><th>Email</th><th>Teléfono</th><th>Gastos</th><th>Pendiente</th><th>Acc.</th></tr></thead><tbody id="tbody-proveedores"></tbody></table></div>
+    <div id="proveedores-empty" class="empty-state" style="display:none"><div class="icon">🏭</div><p>No hay proveedores registrados.</p></div>
+  </div>
 </div>
 
 <!-- ══ COBROS ══ -->
@@ -1487,6 +1509,7 @@ function showPage(id,el){
     if(id==='ventas'){populateVentaDropdowns();renderVentas();}
     if(id==='costes'){populateCosteDropdowns();renderCostes();}
     if(id==='clientes'){renderClientes();}
+    if(id==='proveedores'){renderProveedores();}
     if(id==='cobros'){populateCobroDropdown();renderCobros();}
     if(id==='pagos'){populatePagoDropdown();renderPagos();}
     if(id==='resumen'){populateResSelector();renderResumen();renderResListado();}
@@ -1672,7 +1695,7 @@ function fetchUserInfo(){
 function signOut(){
   if(!confirm('¿Cerrar sesión?'))return;
   accessToken=null;folderId=null;fileId=null;
-  DB={proyectos:[],ventas:[],costes:[],cobros:[],pagos:[],clientes:[],emisor:{},logo:'',tiposIva:[...DEFAULT_IVA],tiposIrpf:[...DEFAULT_IRPF],defaultIvaPct:21,defaultIrpfPct:0};
+  DB={proyectos:[],ventas:[],costes:[],cobros:[],pagos:[],clientes:[],proveedores:[],emisor:{},logo:'',tiposIva:[...DEFAULT_IVA],tiposIrpf:[...DEFAULT_IRPF],defaultIvaPct:21,defaultIrpfPct:0};
   document.getElementById('login-screen').style.display='flex';
   document.getElementById('topbar').classList.remove('show');
   document.getElementById('app-shell').classList.remove('show');
@@ -1717,6 +1740,7 @@ async function loadFromDrive(){
       DB.cobros=parsed.cobros||[];
       DB.pagos=parsed.pagos||[];
       DB.clientes=parsed.clientes||[];
+      DB.proveedores=parsed.proveedores||[];
       DB.emisor=parsed.emisor||{};
       DB.logo=parsed.logo||'';
       DB.tiposIva=parsed.tiposIva||[...DEFAULT_IVA];
@@ -4810,6 +4834,87 @@ window.addEventListener('DOMContentLoaded', () => {
   GEMINI_KEY = localStorage.getItem('gp_gemini_key') || '';
   // CLIENT_ID is hardcoded — login screen shows directly
 });
+// ══════════ PROVEEDORES ══════════
+function addProveedor(){
+  const nombre = document.getElementById('pr-nombre').value.trim();
+  const nif = document.getElementById('pr-nif').value.trim();
+  const tel = document.getElementById('pr-tel').value.trim();
+  const email = document.getElementById('pr-email').value.trim();
+  if(!nombre){ toast('El nombre es obligatorio.','error'); return; }
+  const providers = getD('proveedores');
+  providers.push({id: 'pr-'+Date.now(), nombre, nif, tel, email});
+  setD('proveedores', providers);
+  document.getElementById('pr-nombre').reset ? document.getElementById('pr-nombre').value='' : null;
+  ['pr-nombre','pr-nif','pr-tel','pr-email'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.value='';
+  });
+  renderProveedores(); toast('Proveedor guardado.');
+}
+
+function renderProveedores(){
+  try {
+    const providers = getD('proveedores') || [];
+    const empty = document.getElementById('proveedores-empty');
+    const tbody = document.getElementById('tbody-proveedores');
+    if(!tbody || !empty) return;
+
+    const search = (document.getElementById('pr-filter-search')?.value || '').toLowerCase();
+    const filtered = providers.filter(p => 
+      (p.nombre || '').toLowerCase().includes(search) || 
+      (p.nif || '').toLowerCase().includes(search)
+    );
+
+    const costes = getD('costes') || [];
+    const pagos = getD('pagos') || [];
+    
+    const elTotal = document.getElementById('st-pr-total');
+    if(elTotal) elTotal.textContent = providers.length;
+    
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    const gMes = costes.filter(c => new Date(c.fecha) >= firstDay).reduce((s,c)=>s+(parseFloat(c.total)||0), 0);
+    const elMes = document.getElementById('st-pr-mes');
+    if(elMes) elMes.textContent = fmt(gMes);
+
+    const totalC = costes.reduce((s,c)=>s+(parseFloat(c.total)||0), 0);
+    const totalP = pagos.reduce((s,p)=>s+(parseFloat(p.importe)||0), 0);
+    const elDeuda = document.getElementById('st-pr-deuda');
+    if(elDeuda) elDeuda.textContent = fmt(totalC - totalP);
+
+    if(!filtered.length){ tbody.innerHTML = ''; empty.style.display = 'block'; return; }
+    empty.style.display = 'none';
+
+    tbody.innerHTML = filtered.map(p => {
+      const nom = p.nombre || 'Sin nombre';
+      const pC = costes.filter(c => c.proveedor === nom);
+      const tG = pC.reduce((s,c) => s + (parseFloat(c.total)||0), 0);
+      const tP = pagos.filter(pag => pC.some(c => c.id === pag.costeId)).reduce((s,pa)=>s+(parseFloat(pa.importe)||0), 0);
+      const pend = tG - tP;
+
+      return `<tr>
+        <td class="m-full"><strong>${nom}</strong></td>
+        <td data-m="NIF">${p.nif || '—'}</td>
+        <td data-m="Email" class="m-full">${p.email || '—'}</td>
+        <td data-m="Tel.">${p.tel || '—'}</td>
+        <td data-m="Gastos">${fmt(tG)}</td>
+        <td data-m="Pendiente" class="${pend > 0.01 ? 'mn' : ''}">${fmt(pend)}</td>
+        <td class="m-actions">
+          <button class="btn btn-danger btn-xs" onclick="deleteProveedor('${p.id}')">&#x1F5D1;&#xFE0F;</button>
+        </td>
+      </tr>`;
+    }).join('');
+  } catch(e) { console.error('Error en renderProveedores:', e); }
+}
+
+function deleteProveedor(id){
+  const p = getD('proveedores').find(x => x.id === id);
+  if(!p) return;
+  if(getD('costes').some(c => c.proveedor === p.nombre)){ toast('No se puede eliminar: tiene facturas asociadas.','error'); return; }
+  if(!confirm(`¿Eliminar proveedor ${p.nombre}?`)) return;
+  setD('proveedores', getD('proveedores').filter(x => x.id !== id));
+  renderProveedores(); toast('Proveedor eliminado.');
+}
 </script>
 
 <!-- ══ BOTTOM NAV (móvil portrait) ══ -->
