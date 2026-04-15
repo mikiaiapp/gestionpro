@@ -1,35 +1,27 @@
-# GestiónPro v3.0 (Versión Profesional)
+# 📁 GestiónPro v3.0 (Versión Profesional)
 
-Bienvenido a la nueva era de **GestiónPro**. Este repositorio ha sido saneado y migrado de un archivo monolítico de 5.000 líneas a una arquitectura modular basada en **Next.js 14**, **TypeScript** y **Tailwind CSS**.
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fmikiaiapp%2Fgestionpro)
 
-## 🚀 Cómo empezar
+Esta es la versión profesional de **GestiónPro**, diseñada para ser rápida, segura y accesible desde cualquier dispositivo (Móvil, Tablet o PC).
 
-Dado que el entorno actual no tiene Node.js configurado en el PATH, sigue estos pasos una vez lo tengas instalado:
+## 🚀 Instalación en 1 minuto (Para niños)
 
-1.  **Instalar Dependencias**:
-    ```bash
-    npm install
-    ```
+### Opción A: Quiero usarlo en mi móvil ahora mismo
+1. Haz clic en el botón azul de arriba **"Deploy with Vercel"**.
+2. Conéctate con tu cuenta de GitHub.
+3. ¡Listo! Ya tienes tu dirección web propia para entrar desde el móvil.
 
-2.  **Lanzar Entorno de Desarrollo**:
-    ```bash
-    npm run dev
-    ```
-
-3.  **Acceder a la App**:
-    Abre [http://localhost:3000](http://localhost:3000) en tu navegador.
-
-## 📁 Nueva Estructura
-
--   `/src/app`: Rutas y páginas de la aplicación (App Router).
--   `/src/components`: Componentes UI reutilizables (Sidebar, Cards, etc.).
--   `/legacy`: Contiene la versión anterior (`index.html`) para referencia de datos y lógica.
-
-## 🛡️ Siguientes Pasos (Saneamiento)
-
-1.  **Migración de Datos**: Implementar la conexión con Supabase (PostgreSQL) para alojar los datos que antes estaban en el archivo JSON.
-2.  **Lógica de Negocio**: Portar las funciones de cálculo de IVA e IRPF desde `legacy/index.html` a la nueva estructura en `src/lib`.
-3.  **PDFs**: Configurar una librería moderna para generación de facturas en el servidor.
+### Opción B: Quiero usarlo en mi ordenador (Local)
+1. Descarga este repositorio.
+2. Haz doble clic en el archivo `install.bat`.
+3. Espera a que termine y sigue las instrucciones en pantalla.
 
 ---
-*Desarrollado con ❤️ por Antigravity para Miguel Ángel.*
+
+## 📁 Estructura del Proyecto
+-   `/src`: El código moderno de la aplicación.
+-   `/legacy`: Tu versión antigua por si necesitas consultar algo.
+-   `install.bat`: El asistente mágico de instalación.
+
+---
+*Hecho para que gestionar sea tan fácil como jugar.*
