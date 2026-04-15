@@ -17,6 +17,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <!-- Google Sign-In: loaded eagerly -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
+<!-- jsPDF and AutoTable for invoicing -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
 <script>
 window.onerror = function(msg, url, line) {
   setTimeout(() => { if(typeof toast === 'function') toast("Error: " + msg, "error"); }, 500);
@@ -581,6 +584,17 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
     border-top:none;
     flex:none;
   }
+  /* ── COMBOPICKER (Searchable Select) ── */
+  .combo-wrap { position: relative; width: 100%; }
+  .combo-wrap input { width: 100%; padding: 10px 14px; background: var(--card2); border: 1px solid var(--border); border-radius: 9px; color: var(--text); font-family: var(--font-body); font-size: .84rem; outline: none; transition: all .15s; }
+  .combo-wrap input:focus { border-color: var(--accent); background: #fff; box-shadow: 0 0 0 3px rgba(91,127,166,0.1); }
+  .combo-dropdown { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: #fff; border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow-lg); z-index: 1000; max-height: 220px; overflow-y: auto; display: none; padding: 6px; }
+  .combo-dropdown.open { display: block; animation: comboFade .15s ease-out; }
+  @keyframes comboFade { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+  .combo-option { padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: .84rem; display: flex; flex-direction: column; gap: 2px; transition: all .1s; }
+  .combo-option:hover, .combo-option.active { background: var(--bg); color: var(--accent); }
+  .combo-option .sub { font-size: .72rem; color: var(--muted); }
+  .combo-option:hover .sub { color: var(--accent); opacity: .8; }
   .mobile-cards tbody td[data-m]::before{display:none;}
   .mobile-cards tbody td.m-actions{justify-content:flex-start;border-top:none;margin-top:0;}
   /* Stats */
@@ -695,11 +709,15 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
       <div class="form-group" style="grid-column:span 2"><label>Nombre o Razón Social</label><input type="text" id="cl-nombre" placeholder="Ej: Aceros S.A."></div>
       <div class="form-group"><label>NIF / CIF</label><input type="text" id="cl-nif" placeholder="A12345678"></div>
       <div class="form-group"><label>Teléfono</label><input type="text" id="cl-tel" placeholder="600000000"></div>
-      <div class="form-group" style="grid-column:span 2"><label>Dirección Fiscal</label><input type="text" id="cl-dir" placeholder="Calle, Número..."></div>
-      <div class="form-group"><label>Población</label><input type="text" id="cl-pob" placeholder="Ciudad"></div>
+      
+      <div class="form-group"><label>Dirección Fiscal</label><input type="text" id="cl-dir" placeholder="Calle, Nº..."></div>
       <div class="form-group"><label>Código Postal</label><input type="text" id="cl-cp" placeholder="08000"></div>
-      <div class="form-group"><label>Provincia</label><input type="text" id="cl-prov" placeholder="Provincia"></div>
-      <div class="form-group" style="grid-column:span 2"><label>Email de Facturación</label><input type="email" id="cl-email" placeholder="facturas@cliente.com"></div>
+      <div class="form-group"><label>Población</label><input type="text" id="cl-poblacion" placeholder="Ciudad"></div>
+      <div class="form-group"><label>Provincia</label>
+        <select id="cl-provincia"><option value="">— Seleccionar —</option></select>
+      </div>
+      
+      <div class="form-group" style="grid-column:span 4"><label>Email de Facturación</label><input type="email" id="cl-email" placeholder="facturas@cliente.com"></div>
     </div>
     <button class="btn btn-primary" onclick="addCliente()">✓ Guardar Cliente</button>
   </div>
@@ -727,15 +745,15 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
       <div class="form-group" style="grid-column:span 2"><label>Nombre o Razón Social</label><input type="text" id="pr-nombre" placeholder="Ej: Energía S.A."></div>
       <div class="form-group"><label>NIF / CIF</label><input type="text" id="pr-nif" placeholder="B88776655"></div>
       <div class="form-group"><label>Teléfono</label><input type="text" id="pr-tel" placeholder="912345678"></div>
-      <div class="form-group" style="grid-column:span 2"><label>Dirección (Calle/Nº)</label><input type="text" id="pr-dir"></div>
-      <div class="form-group"><label>Provincia</label>
-        <select id="pr-provincia" onchange="onProvinciaChange('pr')">
-          <option value="">— Seleccionar —</option>
-        </select>
-      </div>
-      <div class="form-group"><label>Población</label><input type="text" id="pr-poblacion" placeholder="Ciudad"></div>
+      
+      <div class="form-group"><label>Dirección Fiscal</label><input type="text" id="pr-dir" placeholder="Calle, Nº..."></div>
       <div class="form-group"><label>Código Postal</label><input type="text" id="pr-cp" placeholder="08000"></div>
-      <div class="form-group" style="grid-column:span 2"><label>Email Contacto</label><input type="email" id="pr-email"></div>
+      <div class="form-group"><label>Población</label><input type="text" id="pr-poblacion" placeholder="Ciudad"></div>
+      <div class="form-group"><label>Provincia</label>
+        <select id="pr-provincia"><option value="">— Seleccionar —</option></select>
+      </div>
+      
+      <div class="form-group" style="grid-column:span 4"><label>Email de Contacto</label><input type="email" id="pr-email"></div>
     </div>
     <button class="btn btn-primary" onclick="addProveedor()">✓ Guardar Proveedor</button>
   </div>
@@ -822,45 +840,39 @@ input[inputmode="decimal"]:focus{border-color:var(--accent);}
   </div>
   <div class="section-box">
     <h2>➕ Nueva Factura Emitida</h2>
-    <div class="form-grid cols4">
-      <div class="form-group"><label>Serie</label><select id="v-serie" onchange="onVentaSerieChange()"><option value="A">Serie A (IVA)</option><option value="B">Serie B (sin IVA)</option></select></div>
-      <div class="form-group"><label>Nº Factura</label><input type="text" id="v-num" readonly></div>
-      <div class="form-group"><label>Fecha</label><input type="date" id="v-fecha"></div>
-      <div class="form-group"><label>Cliente</label>
+    <div class="form-grid" style="display:grid; grid-template-columns: repeat(12, 1fr); gap:15px;">
+      <!-- Fila 1 -->
+      <div class="form-group" style="grid-column: span 2;"><label>Serie</label><select id="v-serie" onchange="onVentaSerieChange()"><option value="A">Serie A (IVA)</option><option value="B">Serie B (sin IVA)</option></select></div>
+      <div class="form-group" style="grid-column: span 2;"><label>Nº Factura</label><input type="text" id="v-num" readonly></div>
+      <div class="form-group" style="grid-column: span 3;"><label>Fecha</label><input type="date" id="v-fecha"></div>
+      <div class="form-group" style="grid-column: span 5;"><label>Cliente</label>
         <div class="combo-wrap" id="combo-wrap-vcliente">
-          <input type="text" id="v-cliente-input" placeholder="Buscar cliente..." autocomplete="off"
-            oninput="comboFilter('vcliente')" onfocus="comboOpen('vcliente')"
-            onblur="setTimeout(()=>comboClose('vcliente'),150)"
-            onkeydown="comboKey(event,'vcliente')">
-          <input type="hidden" id="v-cliente">
+          <input type="text" id="v-cliente-combo-input" placeholder="Buscar cliente..." autocomplete="off" oninput="comboFilter('vcliente')" onfocus="comboOpen('vcliente')" onblur="setTimeout(()=>comboClose('vcliente'),150)" onkeydown="comboKey(event,'vcliente')">
+          <input type="hidden" id="vcliente">
           <div class="combo-dropdown" id="combo-drop-vcliente"></div>
         </div>
       </div>
-      <div class="form-group"><label>Proyecto</label>
+      
+      <!-- Fila 2 -->
+      <div class="form-group" style="grid-column: span 4;"><label>Proyecto</label>
         <div class="combo-wrap" id="combo-wrap-vproyecto">
-          <input type="text" id="v-proyecto-input" placeholder="Buscar proyecto..." autocomplete="off"
-            oninput="comboFilter('vproyecto')" onfocus="comboOpen('vproyecto')"
-            onblur="setTimeout(()=>comboClose('vproyecto'),150)"
-            onkeydown="comboKey(event,'vproyecto')">
-          <input type="hidden" id="v-proyecto">
+          <input type="text" id="vproyecto-combo-input" placeholder="Buscar proyecto..." autocomplete="off" oninput="comboFilter('vproyecto')" onfocus="comboOpen('vproyecto')" onblur="setTimeout(()=>comboClose('vproyecto'),150)" onkeydown="comboKey(event,'vproyecto')">
+          <input type="hidden" id="vproyecto">
           <div class="combo-dropdown" id="combo-drop-vproyecto"></div>
         </div>
       </div>
-    <div id="v-simplified-calc" style="margin-top:12px;">
-      <div class="form-grid cols4">
-        <div class="form-group" style="grid-column:span 2"><label>Base Imponible (€)</label><input type="text" inputmode="decimal" id="v-base-simple" placeholder="0.00" oninput="calcVentaSimple()"></div>
-        <div class="form-group"><label id="v-iva-label">IVA (21%)</label><input type="text" id="id-v-iva-calc" readonly class="computed"></div>
-        <div class="form-group"><label>Total Factura (€)</label><input type="text" id="v-total-simple" readonly class="computed"></div>
+      <div class="form-group" style="grid-column: span 4;"><label id="v-iva-label">Base Imp. (21% IVA)</label><input type="text" inputmode="decimal" id="v-base-simple" placeholder="0.00" oninput="calcVentaSimple()"></div>
+      <div class="form-group" style="grid-column: span 4;"><label>Total Factura (€)</label><input type="text" id="v-total-simple" readonly class="computed" style="font-weight:bold;color:var(--green);font-size:1.1rem;"></div>
+      
+      <!-- Fila 3 -->
+      <div class="form-group" style="grid-column: span 4;"><label>Adjuntar PDF (Opcional)</label>
+        <input type="file" id="v-pdf-file" accept=".pdf" style="padding:6px; background:var(--card2); border:1px solid var(--border); border-radius:8px; font-size:.82rem; width:100%;">
       </div>
-    </div>
-    
-    <div class="form-grid cols4" style="margin-top:4px;">
-      <div class="form-group" style="grid-column:span 2"><label>Adjuntar PDF (opcional si ya existe)</label>
-        <input type="file" id="v-pdf-file" accept=".pdf" style="padding:6px;background:var(--card2);border:1px solid var(--border);border-radius:8px;font-size:.82rem;">
+      <div class="form-group" style="grid-column: span 4; display:flex; align-items:flex-end;">
+        <button class="btn btn-primary" onclick="addVentaSimple()" id="btn-save-venta" style="width:100%; height:42px;">✓ Guardar Factura</button>
       </div>
-      <div class="form-group" style="grid-column:span 2; display:flex; align-items:flex-end; gap:10px;">
-        <button class="btn btn-primary" onclick="addVentaSimple()" id="btn-save-venta" style="flex:1">✓ Guardar Factura</button>
-        <button class="btn btn-warn" onclick="openPdfImport('venta')" style="flex:1">📄 Importar PDF</button>
+      <div class="form-group" style="grid-column: span 4; display:flex; align-items:flex-end;">
+        <button class="btn btn-warn" onclick="openPdfImport('venta')" style="width:100%; height:42px;">📄 Importar PDF</button>
       </div>
     </div>
   </div>
@@ -1559,13 +1571,14 @@ function showPage(id,el){
       });
     }
     closeSidebar();
+    if(id==='proyectos'){populateProyectosDropdowns();renderProyectos();}
     if(id==='ventas'){populateVentaDropdowns();renderVentas();}
     if(id==='costes'){populateCosteDropdowns();renderCostes();}
-    if(id==='clientes'){renderClientes();}
-    if(id==='proveedores'){renderProveedores();}
+    if(id==='clientes'){renderClientes(); initGeoDropdowns();}
+    if(id==='proveedores'){renderProveedores(); initGeoDropdowns();}
     if(id==='cobros'){populateCobroDropdown();renderCobros();}
     if(id==='pagos'){populatePagoDropdown();renderPagos();}
-    if(id==='ajustes'){loadEmisorData();loadAjustesStatus();if(DB.logo)applyLogo(DB.logo);}
+    if(id==='ajustes'){loadEmisorData();loadAjustesStatus();if(DB.logo)applyLogo(DB.logo); initGeoDropdowns();}
     if(id==='resumen'){populateResSelector();if(typeof renderResumen==='function')renderResumen();if(typeof renderResListado==='function')renderResListado();}
   }catch(e){
     console.error('Error al mostrar página:', e);
@@ -2483,22 +2496,17 @@ function comboFilter(id){
     item.label.toLowerCase().includes(q) || (item.sub||'').toLowerCase().includes(q)
   ) : combo.items;
   comboRender(id, filtered);
-  // Clear hidden value if user is typing something new
-  const hidden = document.getElementById(id==='vcliente'?'v-cliente':id==='vproyecto'?'v-proyecto':null);
-  if(hidden) hidden.value = '';
-  // Special: when cliente changes, refresh project list
-  if(id === 'vcliente') refreshVProyecto();
-  // Unlock NIF if proveedor field is cleared
-  if(id === 'cprov'){
-    const nifEl = document.getElementById('c-nif');
-    const inp = document.getElementById('c-proveedor');
-    if(nifEl && inp && !inp.value.trim()){
-      nifEl.readOnly = false;
-      nifEl.style.background = '';
-      nifEl.style.color = '';
-      nifEl.title = '';
-    }
-  }
+}
+
+function comboSet(id, value, label){
+  const hidden = document.getElementById(id);
+  const input = document.getElementById(id+'-input');
+  if(hidden) hidden.value = value;
+  if(input) input.value = label || value;
+  
+  if(id==='vcliente'){ refreshVProyecto(); }
+  if(id==='vproyecto'){ onVentaProyectoChange(value); }
+  if(id==='cproy'){ onCosteProyectoChange(value); }
 }
 
 function comboOpen(id){
@@ -2513,37 +2521,16 @@ function comboClose(id){
 }
 
 function comboSelect(id, value, label){
-  // Map comboId → {inputId, hiddenId}
-  const map = {
-    'vcliente':   {inputId:'v-cliente-input',   hiddenId:'v-cliente'},
-    'vproyecto':  {inputId:'v-proyecto-input',   hiddenId:'v-proyecto'},
-    'cprov':      {inputId:'c-proveedor',         hiddenId:null},
-    'reselector': {inputId:'res-selector-input',  hiddenId:'res-selector'},
-  };
-  const ids = map[id] || {inputId:null, hiddenId:null};
-  const input = ids.inputId ? document.getElementById(ids.inputId) : null;
+  const input = document.getElementById(id+'-combo-input');
   if(input) input.value = label;
-  if(ids.hiddenId){
-    const hidden = document.getElementById(ids.hiddenId);
-    if(hidden) hidden.value = value;
-  }
+  const hidden = document.getElementById(id);
+  if(hidden) hidden.value = value;
   if(_combos[id]) _combos[id].selectedValue = value;
   comboClose(id);
+  
   if(id === 'vcliente') refreshVProyecto();
-  if(id === 'vproyecto' && value){
-    // v2.7: Auto-select client when project is chosen
-    const proj = getD('proyectos').find(p => p.id === value);
-    if(proj){
-      const clienteInput = document.getElementById('v-cliente-input');
-      if(clienteInput) {
-        clienteInput.value = proj.cliente;
-        // Also update hidden if exists
-        const hiddenC = document.getElementById('v-cliente');
-        if(hiddenC) hiddenC.value = proj.cliente;
-      }
-    }
-  }
-  if(id === 'reselector') renderResumen();
+  if(id === 'vproyecto') onVentaProyectoChange(value);
+  if(id === 'cproy') onCosteProyectoChange(value);
 }
 
 function comboKey(e, id){
@@ -2551,7 +2538,7 @@ function comboKey(e, id){
   if(!drop || !drop.classList.contains('open')) return;
   const opts = drop.querySelectorAll('.combo-option[data-value]');
   const active = drop.querySelector('.combo-option.active');
-  let idx = active ? parseInt(active.dataset.idx||0) : -1;
+  let idx = active ? Array.from(opts).indexOf(active) : -1;
   if(e.key === 'ArrowDown'){ e.preventDefault(); idx = Math.min(idx+1, opts.length-1); }
   else if(e.key === 'ArrowUp'){ e.preventDefault(); idx = Math.max(idx-1, 0); }
   else if(e.key === 'Enter' && active){ e.preventDefault(); active.dispatchEvent(new Event('mousedown')); return; }
@@ -2562,161 +2549,29 @@ function comboKey(e, id){
 }
 
 function refreshVProyecto(){
-  const clienteInput = document.getElementById('v-cliente-input');
-  const clienteVal = document.getElementById('v-cliente')?.value || clienteInput?.value || '';
-  const proyectos = getD('proyectos').filter(p =>
-    (p.estado||'abierto') === 'abierto' &&
-    (!clienteVal || p.cliente === clienteVal)
+  const clienteVal = document.getElementById('v-cliente')?.value || '';
+  const proyectos = getD('proyectos').filter(p => 
+    (p.estado||'abierto') === 'abierto' && (!clienteVal || p.cliente === clienteVal)
   );
-  const items = proyectos.map(p => ({value:p.id, label:p.nombre, sub:p.cliente}));
-  comboInit('vproyecto', items);
-  const hiddenP = document.getElementById('v-proyecto');
-  const inputP  = document.getElementById('v-proyecto-input');
-  if(hiddenP) hiddenP.value = '';
-  if(inputP)  inputP.value  = '';
+  comboInit('vproyecto', proyectos.map(p => ({value:p.id, label:p.nombre, sub:p.cliente})));
 }
 
-function populateVentaDropdowns(){
-  const proyectos = getD('proyectos').filter(p => (p.estado||'abierto') === 'abierto');
-  // En Ventas, el selector de clientes ahora solo muestra aquellos con proyectos abiertos
-  const clientsWithProjects = [...new Set(proyectos.map(p => p.cliente))].filter(Boolean);
-  
-  const combos = clientsWithProjects.map(c => ({value: c, label: c}));
-  comboInit('vcliente', combos);
-  
-  // Selector de proyectos para filtrar cliente luego
+function populateVentaDropdowns() {
+  const proyectos = getD('proyectos');
+  const clientes = getD('clientes').map(c => ({value: c.nombre, label: c.nombre, sub: c.nif}));
+  comboInit('vcliente', clientes);
   const projItems = proyectos.map(p => ({value: p.id, label: p.nombre, sub: p.cliente}));
   comboInit('vproyecto', projItems);
-  
-  // Maestros globales para el resto de la app
-  comboInit('pcliente', getD('clientes').map(c => ({value: c.id, label: c.nombre}))); 
 }
 
-function calcVentaSimple() {
-  const serie = document.getElementById('v-serie')?.value || 'A';
-  const base = fnum(document.getElementById('v-base-simple')?.value || 0);
-  const ivaVal = (serie === 'A') ? Math.round(base * 21) / 100 : 0;
-  const total = base + ivaVal;
-  const elIva = document.getElementById('id-v-iva-calc');
-  const elTotal = document.getElementById('v-total-simple');
-  if (elIva) elIva.value = fmt(ivaVal);
-  if (elTotal) elTotal.value = fmt(total);
+function populateCosteDropdowns(){
+  const proyectos = getD('proyectos');
+  const proveedores = getD('proveedores').map(p => ({value: p.nombre, label: p.nombre, sub: p.nif}));
+  comboInit('cprov', proveedores);
+  comboInit('cproy', proyectos.map(p=>({value: p.id, label: p.nombre, sub: p.cliente})));
+  populateFiscalDropdowns();
 }
 
-function addVentaSimple() {
-  const serie = document.getElementById('v-serie').value;
-  const fecha = document.getElementById('v-fecha').value;
-  const base = fnum(document.getElementById('v-base-simple').value);
-  const clienteName = document.getElementById('v-cliente-input').value.trim();
-  const proyId = document.getElementById('v-proyecto').value;
-
-  if (!fecha || !base || !clienteName) {
-    toast('Fecha, Importe y Cliente son obligatorios.', 'error');
-    return;
-  }
-
-  ensureEntityExists('clientes', clienteName);
-
-  const iva = (serie === 'A') ? Math.round(base * 21) / 100 : 0;
-  const nextNum = nextVentaNum(serie);
-
-  const v = {
-    id: genId(),
-    serie,
-    numero: nextNum,
-    fecha,
-    cliente: clienteName,
-    proyectoId: proyId,
-    base,
-    cuotaIva: iva,
-    total: base + iva,
-    pagado: 0,
-    estado: 'pendiente'
-  };
-
-  const sales = getD('ventas');
-  sales.push(v);
-  setD('ventas', sales);
-  toast('¡Factura guardada!');
-  showPage('ventas');
-}
-
-function ensureEntityExists(type, name, nif) {
-  const list = getD(type) || [];
-  const exists = list.find(x => 
-    (nif && x.nif && x.nif.replace(/\W/g,'') === nif.replace(/\W/g,'')) || 
-    (x.nombre.toLowerCase() === name.toLowerCase())
-  );
-
-  if (!exists && name.length > 2) {
-    const label = type === 'clientes' ? 'cliente' : 'proveedor';
-    if (confirm(`El ${label} "${name}" [${nif || 'Sin NIF'}] no está registrado. ¿Deseas darlo de alta ahora?`)) {
-      const newItem = { id: genId(), nombre: name, nif: nif || '', tel: '', dir: '', email: '' };
-      list.push(newItem);
-      setD(type, list);
-      toast(`${label.charAt(0).toUpperCase() + label.slice(1)} añadido.`);
-      return newItem;
-    }
-  }
-  return exists;
-}
-// ─── VENTAS IVA LINES ───
-let vIvaLines = [];
-function initVIvaLines(lines){
-  vIvaLines = lines && lines.length ? lines.map(l=>({...l})) : [{base:0, ivaPct: DB.defaultIvaPct||21, cuota:0}];
-  renderVIvaLines();
-}
-function addVIvaLine(){
-  vIvaLines.push({base:0, ivaPct: DB.defaultIvaPct||21, cuota:0});
-  renderVIvaLines();
-}
-function removeVIvaLine(i){
-  if(vIvaLines.length<=1) return;
-  vIvaLines.splice(i,1);
-  renderVIvaLines(); calcVenta();
-}
-function updateVIvaLine(i, field, val){
-  if(field==='base') vIvaLines[i].base=fnum(val);
-  if(field==='ivaPct') vIvaLines[i].ivaPct=fnum(val);
-  vIvaLines[i].cuota=vIvaLines[i].base * vIvaLines[i].ivaPct/100;
-  renderVIvaLines(); calcVenta();
-}
-function renderVIvaLines(){
-  const tbody=document.getElementById('v-iva-tbody'); if(!tbody) return;
-  const ivaTypes=(DB.tiposIva||[0,4,10,21]);
-  tbody.innerHTML=vIvaLines.map((line,i)=>`
-    <tr>
-      <td><input type="text" inputmode="decimal" value="${fmtInput(line.base)}"
-        onblur="updateVIvaLine(${i},'base',this.value)" style="padding:6px 8px;font-size:.84rem;width:100%;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--text);"></td>
-      <td><select onchange="updateVIvaLine(${i},'ivaPct',this.value)" style="padding:6px 8px;font-size:.84rem;width:100%;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--text);">
-        ${ivaTypes.map(t=>`<option value="${t}" ${t===line.ivaPct?'selected':''}>${t}%</option>`).join('')}
-      </select></td>
-      <td><input type="text" value="${fmtInput(line.cuota)}" readonly style="padding:6px 8px;font-size:.84rem;width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--green);font-weight:600;"></td>
-      <td><button class="del-iva" onclick="removeVIvaLine(${i})" title="Eliminar línea">&#x2715;</button></td>
-    </tr>`).join('');
-  const totalBase=vIvaLines.reduce((s,l)=>s+l.base,0);
-  const totalCuota=vIvaLines.reduce((s,l)=>s+l.cuota,0);
-  const tot=document.getElementById('v-iva-totals');
-  if(tot) tot.innerHTML=`Base total: <strong>${fmt(totalBase)}</strong> &nbsp;|&nbsp; Cuota IVA total: <strong>${fmt(totalCuota)}</strong>`;
-}
-function getVIvaTotals(){
-  return {
-    base: vIvaLines.reduce((s,l)=>s+l.base,0),
-    cuotaIva: vIvaLines.reduce((s,l)=>s+l.cuota,0),
-    lines: vIvaLines.map(l=>({...l}))
-  };
-}
-
-function calcVenta(){
-  // Old logic for backward compatibility in modals if needed (kept but simplified)
-  const totals = getVIvaTotals();
-  const irpfTipo = fnum(document.getElementById('v-irpf-tipo')?.value || 0);
-  const irpf = totals.base * irpfTipo / 100;
-  if(document.getElementById('v-irpf')) document.getElementById('v-irpf').value = fmt(irpf);
-  if(document.getElementById('v-total')) document.getElementById('v-total').value = fmt(totals.base + totals.cuotaIva - irpf);
-}
-
-// v2.7 New Simplified logic (Main form)
 function calcVentaSimple() {
   const serie = document.getElementById('v-serie')?.value || 'A';
   const base = fnum(document.getElementById('v-base-simple')?.value || 0);
@@ -2738,14 +2593,7 @@ async function addVentaSimple() {
     const num = document.getElementById('v-num').value;
     const fecha = document.getElementById('v-fecha').value;
     
-    // Client lookup
-    const clienteId = document.getElementById('v-cliente').value;
-    const clienteRaw = document.getElementById('v-cliente-input').value.trim();
-    const masterClientes = getD('clientes');
-    const selCliente = masterClientes.find(c => c.id === clienteId) || masterClientes.find(c => c.nombre === clienteRaw);
-    const cliente = selCliente ? selCliente.nombre : clienteRaw;
-    
-    // Project lookup
+    const cliente = document.getElementById('v-cliente').value;
     const proyectoId = document.getElementById('v-proyecto').value;
     const proyecto = getD('proyectos').find(p => p.id === proyectoId);
     
@@ -2757,7 +2605,6 @@ async function addVentaSimple() {
     if(!cliente) { toast('El cliente es obligatorio.','warn'); if(btn) btn.disabled=false; return; }
     if(base <= 0) { toast('Introduce una base imponible válida.','warn'); if(btn) btn.disabled=false; return; }
 
-    // PDF attachment
     let pdfDriveId=null; let pdfName=null;
     const pdfFile = document.getElementById('v-pdf-file').files[0];
     if(pdfFile) {
@@ -2772,7 +2619,7 @@ async function addVentaSimple() {
       id: genId(),
       serie, numero: num, fecha, 
       cliente,
-      nif: selCliente ? (selCliente.nif || '') : (proyecto ? proyecto.nif : ''),
+      nif: proyecto ? proyecto.nif : '',
       proyectoId: proyectoId || null,
       proyectoNombre: proyecto ? proyecto.nombre : '',
       base, 
@@ -2787,7 +2634,6 @@ async function addVentaSimple() {
     ventas.push(v);
     setD('ventas', ventas);
     
-    // Reset Form
     ['v-cliente-input','v-cliente','v-proyecto-input','v-proyecto','v-base-simple','v-iva-val','v-total-simple'].forEach(id => {
       const el = document.getElementById(id); if(el) el.value = '';
     });
@@ -2882,7 +2728,7 @@ async function addVenta(data){
 function deleteVenta(id){
   const tieneCobros = getD('cobros').some(c=>c.ventaId===id);
   if(tieneCobros){
-    toast('No se puede eliminar: la factura tiene cobros registrados. Elimínalos primero.','error',5000);return;
+    toast('No se puede eliminar: la factura tiene cobros registrados. Elimínalas primero.','error',5000);return;
   }
   if(!confirm('¿Eliminar factura emitida?'))return;
   setD('ventas',getD('ventas').filter(v=>v.id!==id));
@@ -3099,96 +2945,6 @@ function getIvaTotals(){
   };
 }
 
-
-
-// ─── AUTO-COMBOBOX: wraps any <select> with a searchable input ────────────
-function selectToCombo(selectId, placeholder){
-  const sel = document.getElementById(selectId);
-  if(!sel || sel.dataset.comboified) return;
-  sel.dataset.comboified = '1';
-  sel.style.display = 'none';
-
-  const wrap = document.createElement('div');
-  wrap.className = 'combo-wrap';
-  wrap.id = 'combo-wrap-'+selectId;
-
-  const inp = document.createElement('input');
-  inp.type = 'text';
-  inp.id = selectId+'-combo-input';
-  inp.placeholder = placeholder || 'Buscar...';
-  inp.autocomplete = 'off';
-
-  const drop = document.createElement('div');
-  drop.className = 'combo-dropdown';
-  drop.id = 'combo-drop-'+selectId;
-
-  wrap.appendChild(inp);
-  wrap.appendChild(drop);
-  sel.parentNode.insertBefore(wrap, sel);
-
-  // Build items from select options
-  function buildItems(){
-    return Array.from(sel.options)
-      .filter(o => o.value !== '')
-      .map(o => ({value: o.value, label: o.text}));
-  }
-
-  function render(q){
-    const items = buildItems();
-    const filtered = q ? items.filter(i => i.label.toLowerCase().includes(q.toLowerCase())) : items;
-    drop.innerHTML = filtered.length
-      ? filtered.map(i =>
-          `<div class="combo-option" data-value="${i.value}">${i.label}</div>`
-        ).join('')
-      : '<div class="combo-option" style="color:var(--muted);cursor:default">Sin resultados</div>';
-    drop.querySelectorAll('.combo-option[data-value]').forEach(opt => {
-      opt.addEventListener('mousedown', () => {
-        sel.value = opt.dataset.value;
-        inp.value = opt.textContent.trim();
-        drop.classList.remove('open');
-        // Trigger change on original select
-        sel.dispatchEvent(new Event('change', {bubbles:true}));
-      });
-    });
-  }
-
-  inp.addEventListener('input', () => { render(inp.value); drop.classList.add('open'); });
-  inp.addEventListener('focus', () => { render(inp.value); drop.classList.add('open'); });
-  inp.addEventListener('blur',  () => setTimeout(() => drop.classList.remove('open'), 150));
-  inp.addEventListener('keydown', e => {
-    const opts = drop.querySelectorAll('.combo-option[data-value]');
-    const active = drop.querySelector('.combo-option.active');
-    let idx = active ? Array.from(opts).indexOf(active) : -1;
-    if(e.key==='ArrowDown'){ e.preventDefault(); idx=Math.min(idx+1,opts.length-1); }
-    else if(e.key==='ArrowUp'){ e.preventDefault(); idx=Math.max(idx-1,0); }
-    else if(e.key==='Enter'&&active){ e.preventDefault(); active.dispatchEvent(new Event('mousedown')); return; }
-    else if(e.key==='Escape'){ drop.classList.remove('open'); return; }
-    else return;
-    opts.forEach(o=>o.classList.remove('active'));
-    if(opts[idx]) opts[idx].classList.add('active');
-  });
-
-  // Sync: when select value changes externally, update input text
-  const observer = new MutationObserver(() => {
-    const opt = sel.options[sel.selectedIndex];
-    inp.value = (opt && opt.value) ? opt.text : '';
-  });
-  observer.observe(sel, {childList:true, attributes:true, attributeFilter:['value']});
-
-  // Also watch select.value property changes (for programmatic sets)
-  Object.defineProperty(sel, '_comboInputRef', {value: inp, writable:false});
-}
-
-// Sync select value → combo input (call after setting sel.value programmatically)
-function syncComboFromSelect(selectId){
-  const sel = document.getElementById(selectId);
-  if(!sel) return;
-  const inp = document.getElementById(selectId+'-combo-input');
-  if(!inp) return;
-  const opt = Array.from(sel.options).find(o => o.value === sel.value);
-  inp.value = opt ? opt.text : '';
-}
-
 // Call selectToCombo on a group of IDs
 function comboifySelects(ids, placeholder){
   ids.forEach(id => selectToCombo(id, placeholder));
@@ -3259,25 +3015,17 @@ function onCosteSerieChange(){
   calcCoste();
 }
 function onCosteTipoChange(){document.getElementById('c-proyecto-group').style.display=document.getElementById('c-tipo').value==='proyecto'?'flex':'none';}
+function populateProyectosDropdowns(){
+  const clientes = getD('clientes').map(c => ({value: c.nombre, label: c.nombre, sub: c.nif}));
+  comboInit('p-cliente', clientes);
+}
+
 function populateCosteDropdowns(){
-  // Refresh proveedor combobox
-  _proveedoresList = getProveedores();
-  comboInit('cprov', _proveedoresList.map(p=>({
-    value: p.nombre,
-    label: p.nombre,
-    sub: p.nif || ''
-  })));
-  populateProveedorSelect('ec-prov-select');
-  const proyectos=getD('proyectos');
-  const html='<option value="">— Seleccionar —</option>'+proyectos.map(p=>`<option value="${p.id}">${p.nombre}</option>`).join('');
-  ['c-proyecto','ec-proyecto'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=html;});
+  const proyectos = getD('proyectos');
+  const proveedores = getD('proveedores').map(p => ({value: p.nombre, label: p.nombre, sub: p.nif}));
+  comboInit('cprov', proveedores);
+  comboInit('cproy', proyectos.map(p=>({value: p.id, label: p.nombre, sub: p.cliente})));
   populateFiscalDropdowns();
-  // Comboify project and provider selects
-  setTimeout(()=>{
-    selectToCombo('c-proyecto','Buscar proyecto...');
-    selectToCombo('ec-proyecto','Buscar proyecto...');
-    selectToCombo('ec-prov-select','Buscar proveedor...');
-  },0);
 }
 function calcCoste(){
   const serie=document.getElementById('c-serie').value;
@@ -3506,19 +3254,28 @@ function clearCosteFilter(){['c-filter-serie','c-filter-tipo'].forEach(id=>docum
 // COBROS
 // ═══════════════════════════════════════════
 function populateCobroDropdown(){
-  const ventas=getD('ventas');
-  const sel=document.getElementById('co-factura');
-  sel.innerHTML='<option value="">— Seleccionar —</option>'+ventas.map(v=>{
-    const pend=v.total-getCobradoVenta(v.id);
-    return pend>0?`<option value="${v.id}">${v.numero} — ${v.cliente} — Pend: ${fmt(pend)}</option>`:'';
-  }).join('');
-  setTimeout(()=>selectToCombo('co-factura','Buscar factura...'),0);
+  const ventas = getVentasPendientes();
+  const items = ventas.map(v => ({
+    value: v.id,
+    label: `${v.serie}-${v.numero} | ${v.cliente}`,
+    sub: fmt(v.total - getCobradoVenta(v.id))
+  }));
+  comboInit('coventa', items);
 }
+
+function getVentasPendientes(){
+  return getD('ventas').filter(v => (v.total - getCobradoVenta(v.id)) > 0.01);
+}
+
 function onCobroFacturaChange(){
-  const id=document.getElementById('co-factura').value;
+  const id=document.getElementById('coventa').value;
   if(!id){document.getElementById('co-pendiente-disp').value='';return;}
   const v=getD('ventas').find(x=>x.id===id);
-  document.getElementById('co-pendiente-disp').value=fmt(v.total-getCobradoVenta(id));
+  if(v){
+    const pend=v.total-getCobradoVenta(v.id);
+    document.getElementById('co-pendiente-disp').value=fmt(pend);
+    document.getElementById('co-importe').value=fmtInput(pend);
+  }
 }
 function addCobro(ventaId, fecha, importe, forma){
   // Called from both form and quick modal
@@ -3714,14 +3471,19 @@ function renderCobros(){
 // PAGOS
 // ═══════════════════════════════════════════
 function populatePagoDropdown(){
-  const costes=getD('costes');
-  const sel=document.getElementById('pa-factura');
-  sel.innerHTML='<option value="">— Seleccionar —</option>'+costes.map(c=>{
-    const pend=c.total-getPagadoCoste(c.id);
-    return pend>0?`<option value="${c.id}">${c.numero} — ${c.proveedor} — Pend: ${fmt(pend)}</option>`:'';
-  }).join('');
-  setTimeout(()=>selectToCombo('pa-factura','Buscar factura...'),0);
+  const costes = getCostesPendientes();
+  const items = costes.map(c => ({
+    value: c.id,
+    label: `${c.facturaNum || 's/n'} | ${c.proveedor}`,
+    sub: fmt(c.total - getPagadoCoste(c.id))
+  }));
+  comboInit('pacoste', items);
 }
+
+function getCostesPendientes(){
+  return getD('costes').filter(c => (c.total - getPagadoCoste(c.id)) > 0.01);
+}
+
 function onPagoFacturaChange(){
   const id=document.getElementById('pa-factura').value;
   if(!id){document.getElementById('pa-pendiente-disp').value='';return;}
@@ -3829,68 +3591,9 @@ function switchResTab(tab){
   if(tab==='listado')renderResListado();
 }
 function populateResSelector(){
-  const sel = document.getElementById('res-selector');
-  const filtroEstado  = document.getElementById('res-det-estado')?.value  || 'abierto';
-  const filtroDesde   = document.getElementById('res-det-desde')?.value   || '';
-  const filtroHasta   = document.getElementById('res-det-hasta')?.value   || '';
-  const current       = sel.value; // preserve selection if still matches
-
-  let proyectos = getD('proyectos');
-
-  // Filter by estado
-  if(filtroEstado !== 'todos'){
-    proyectos = proyectos.filter(p => (p.estado||'abierto') === filtroEstado);
-  }
-
-  // Filter by date range (based on fecha of associated ventas/costes, or project creation)
-  if(filtroDesde || filtroHasta){
-    proyectos = proyectos.filter(p => {
-      // Use earliest factura date or project fecha
-      const ventas = getD('ventas').filter(v => v.proyectoId === p.id);
-      const costes = getD('costes').filter(c => c.proyectoId === p.id);
-      const fechas = [
-        ...(ventas.map(v => v.fecha)),
-        ...(costes.map(c => c.fecha)),
-        p.fecha ? p.fecha.slice(0,10) : ''
-      ].filter(Boolean).sort();
-      // Project is included if ANY of its dates fall within range
-      if(!fechas.length) return true; // no dates — show anyway
-      const firstDate = fechas[0];
-      const lastDate  = fechas[fechas.length-1];
-      if(filtroDesde && lastDate  < filtroDesde) return false;
-      if(filtroHasta && firstDate > filtroHasta) return false;
-      return true;
-    });
-  }
-
-  // Build combobox items
-  const items = proyectos.map(p => {
-    const cerrado = (p.estado||'abierto') === 'cerrado';
-    return {
-      value: p.id,
-      label: (cerrado ? '🔒 ' : '') + p.nombre,
-      sub: p.cliente + (p.nif ? ' · ' + p.nif : '')
-    };
-  });
+  const proyectos = getD('proyectos');
+  const items = proyectos.map(p => ({value: p.id, label: p.nombre, sub: p.cliente}));
   comboInit('reselector', items);
-
-  // Restore previous selection if still valid
-  const stillValid = proyectos.find(p => p.id === current);
-  if(stillValid){
-    const inp = document.getElementById('res-selector-input');
-    const hidden = document.getElementById('res-selector');
-    if(hidden) hidden.value = current;
-    if(inp) inp.value = (stillValid.estado||'abierto')==='cerrado'
-      ? '🔒 ' + stillValid.nombre
-      : stillValid.nombre;
-  } else if(current){
-    // Current no longer matches — clear
-    const hidden = document.getElementById('res-selector');
-    const inp    = document.getElementById('res-selector-input');
-    if(hidden) hidden.value = '';
-    if(inp)    inp.value    = '';
-    renderResumen();
-  }
 }
 function renderResumen(){
   const id=document.getElementById('res-selector')?.value||'';
@@ -5077,6 +4780,86 @@ function addProveedor(){
   renderProveedores(); toast('Proveedor guardado.');
 }
 
+async function printVentaPDF(id) {
+  const v = getD('ventas').find(x => x.id === id);
+  if (!v) { toast('Factura no encontrada.', 'error'); return; }
+  
+  const emisor = getD('emisor') || {};
+  const { jsPDF } = window.jspdf;
+  if(!jsPDF) { toast('Error: Librería PDF no cargada.', 'error'); return; }
+  const doc = new jsPDF();
+  
+  // 1. Logo (si existe)
+  if(emisor.logo){
+    try { doc.addImage(emisor.logo, 'PNG', 140, 10, 50, 20); } catch(e){}
+  }
+
+  // 2. Datos Emisor
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text(emisor.nombre || 'CRISTINA MOYA', 14, 20);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text([
+    emisor.nif || '',
+    emisor.dir || '',
+    `${emisor.cp || ''} ${emisor.poblacion || ''} (${emisor.provincia || ''})`,
+    emisor.email || ''
+  ], 14, 28);
+
+  // 3. Datos Factura y Cliente
+  doc.setDrawColor(200);
+  doc.line(14, 52, 196, 52);
+  
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`FACTURA: ${v.serie}-${v.numero}`, 14, 62);
+  doc.text('CLIENTE:', 110, 62);
+  
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Fecha: ${fmtDate(v.fecha)}`, 14, 68);
+  doc.text([
+    v.cliente || '',
+    v.nif || '',
+    v.proyectoNombre ? `Proyecto: ${v.proyectoNombre}` : ''
+  ], 110, 68);
+
+  // 4. Tabla (jsPDF-AutoTable)
+  const items = [[
+    'Concepto Facturación',
+    `${fmt(v.base)}`,
+    `${v.ivaPct || 21}%`,
+    `${fmt(v.total)}`
+  ]];
+
+  doc.autoTable({
+    startY: 85,
+    head: [['Descripción', 'Base Imponible', 'IVA', 'Total']],
+    body: items,
+    theme: 'grid',
+    headStyles: { fillColor: [245, 245, 245], textColor: [0, 0, 0], lineWidth: 0.1, fontStyle: 'bold' },
+    styles: { fontSize: 9, cellPadding: 5 },
+    columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' } }
+  });
+
+  // 5. Total
+  const finalY = doc.lastAutoTable.finalY + 10;
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`TOTAL FACTURA:`, 110, finalY + 5);
+  doc.text(fmt(v.total), 196, finalY + 5, { align: 'right' });
+
+  // 6. Footer Legal
+  const footerText = DB.footerLegal || 'El presente presupuesto no contempla IVA.';
+  const footerLines = doc.splitTextToSize(footerText, 180);
+  doc.setFontSize(7.5);
+  doc.setTextColor(150);
+  doc.setFont('helvetica', 'italic');
+  doc.text(footerLines, 14, 278);
+
+  doc.save(`Factura_${v.id}.pdf`);
+}
+
 function renderProveedores(){
   try {
     const providers = getD('proveedores') || [];
@@ -5226,6 +5009,7 @@ async function printVentaPDF(id) {
   doc.setFont('helvetica', 'italic');
   doc.text(footerLines, 14, 278);
 
+  // Generate blob and open (or save)
   doc.save(`Factura_${v.id}.pdf`);
 }
 
