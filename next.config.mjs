@@ -1,9 +1,15 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: true,
+  // Configuración para permitir despliegue en GitHub Pages o Vercel
+  // Si usas GitHub Pages, descomenta la línea 'output: export'
+  // output: 'export', 
+  
   images: {
-    domains: ['drive.google.com'],
+    unoptimized: true, // Necesario para despliegues estáticos y Drive
   },
+  
+  // Si despliegas en mikiaiapp.github.io/gestionpro/, activa esta línea:
+  // basePath: '/gestionpro',
 };
 
 export default nextConfig;
