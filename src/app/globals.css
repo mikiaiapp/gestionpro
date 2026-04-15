@@ -3,21 +3,23 @@
 @tailwind utilities;
 
 :root {
-  --background: #0a0a0b;
-  --foreground: #ffffff;
-  --card-bg: rgba(255, 255, 255, 0.03);
-  --border: rgba(255, 255, 255, 0.08);
+  --background: #f4f0ea;
+  --foreground: #2c2416;
+  --card-bg: #faf7f3;
+  --sidebar-bg: #ede8e0;
+  --border: #d6cfc4;
   --accent: #5b7fa6;
+  --accent-foreground: #ffffff;
+  --muted: #7a6e60;
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: 'Inter', sans-serif;
 }
 
 @layer components {
   .glass-card {
-    @apply bg-[var(--card-bg)] border border-[var(--border)] backdrop-blur-md rounded-2xl;
+    @apply bg-[var(--card-bg)] border border-[var(--border)] rounded-xl shadow-sm;
   }
 }

@@ -12,13 +12,17 @@ const config: Config = {
         background: "var(--background)",
         foreground: "var(--foreground)",
         primary: {
-          DEFAULT: "#5b7fa6",
-          foreground: "#ffffff",
+          DEFAULT: "var(--accent)",
+          foreground: "var(--accent-foreground)",
         },
         card: {
-          DEFAULT: "rgba(255, 255, 255, 0.05)",
-          foreground: "#ffffff",
+          DEFAULT: "var(--card-bg)",
+          foreground: "var(--foreground)",
         },
+      },
+      fontFamily: {
+        sans: ["var(--font-dm-sans)"],
+        head: ["var(--font-syne)"],
       },
       backgroundImage: {
         "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",

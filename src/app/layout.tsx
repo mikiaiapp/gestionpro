@@ -1,8 +1,15 @@
-import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Syne, DM_Sans } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"] });
+const syne = Syne({ 
+  subsets: ["latin"],
+  variable: '--font-syne',
+});
+
+const dmSans = DM_Sans({ 
+  subsets: ["latin"],
+  variable: '--font-dm-sans',
+});
 
 export const metadata: Metadata = {
   title: "GestiónPro | Gestión Profesional",
@@ -16,8 +23,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es">
-      <body className={inter.className}>
-        <main className="min-h-screen bg-black overflow-x-hidden">
+      <body className={`${dmSans.variable} ${syne.variable} font-sans antialiased text-[var(--foreground)] bg-[var(--background)]`}>
+        <main className="min-h-screen container-fluid pl-0">
           {children}
         </main>
       </body>
