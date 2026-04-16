@@ -27,6 +27,11 @@ export default function AjustesPage() {
 
   const fetchAjustes = async () => {
     if (!supabase) return;
+    setLoading(true);
+    
+    // Fail-safe: liberar la UI en 2 segundos si hay lag
+    const timeout = setTimeout(() => setLoading(false), 2000);
+
     try {
       // Intentar cargar perfil (ID 1 es el fijo)
       const { data: perfil } = await supabase.from("perfil_negocio").select("*").eq("id", 1).maybeSingle();
@@ -44,6 +49,7 @@ export default function AjustesPage() {
     } catch (e: any) {
       console.error("Error cargando ajustes:", e.message);
     } finally {
+      clearTimeout(timeout);
       setLoading(false);
     }
   };
