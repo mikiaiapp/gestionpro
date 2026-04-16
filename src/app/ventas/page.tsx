@@ -263,8 +263,12 @@ export default function VentasPage() {
                 <p className="text-[var(--muted)] font-medium">Gestión y emisión de facturas profesionales.</p>
               </div>
               <button 
-                onClick={() => {
-                  fetchData();
+                onClick={async () => {
+                  // Propone un número base antes de consultar para que nunca salga vacío
+                  const currentYear = new Date().getFullYear();
+                  if (!numFactura) setNumFactura(`${currentYear}-001`);
+                  
+                  await fetchData();
                   setIsEditorOpen(true);
                 }} 
                 className="flex items-center gap-2 px-6 py-3 rounded-xl bg-[var(--accent)] text-white font-bold hover:shadow-lg transition-all active:scale-[0.98]"
