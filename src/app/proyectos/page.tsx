@@ -15,8 +15,9 @@ export default function ProyectosPage() {
   // Formulario
   const [nombre, setNombre] = useState("");
   const [clienteId, setClienteId] = useState("");
-  const [estado, setEstado] = useState("En Curso");
+  const [estado] = useState("Abierto");
   const [presupuesto, setPresupuesto] = useState("");
+  const [costePrevisto, setCostePrevisto] = useState("");
 
   useEffect(() => {
     fetchData();
@@ -53,7 +54,8 @@ export default function ProyectosPage() {
         nombre,
         cliente_id: clienteId || null,
         estado,
-        presupuesto: parseFloat(presupuesto) || 0
+        presupuesto: parseFloat(presupuesto) || 0,
+        coste_previsto: parseFloat(costePrevisto) || 0
       }]);
 
     if (error) {
@@ -62,6 +64,7 @@ export default function ProyectosPage() {
       setNombre("");
       setClienteId("");
       setPresupuesto("");
+      setCostePrevisto("");
       setIsModalOpen(false);
       fetchData();
     }
@@ -123,25 +126,24 @@ export default function ProyectosPage() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[11px] font-bold text-[var(--muted)] uppercase mb-1">Estado</label>
-                    <select 
-                      value={estado}
-                      onChange={(e) => setEstado(e.target.value)}
-                      className="w-full p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)] font-bold"
-                    >
-                      <option value="Abierto">Abierto</option>
-                      <option value="En Curso">En Curso</option>
-                      <option value="Finalizado">Finalizado</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-[var(--muted)] uppercase mb-1">Presupuesto (€)</label>
+                    <label className="block text-[11px] font-bold text-[var(--muted)] uppercase mb-1">Presupuesto Venta (€)</label>
                     <input 
                       type="number" 
                       step="0.01"
                       value={presupuesto} 
                       onChange={(e) => setPresupuesto(e.target.value)}
-                      className="w-full p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)]"
+                      className="w-full p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)] font-bold text-green-700"
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-[var(--muted)] uppercase mb-1">Coste Previsto (€)</label>
+                    <input 
+                      type="number" 
+                      step="0.01"
+                      value={costePrevisto} 
+                      onChange={(e) => setCostePrevisto(e.target.value)}
+                      className="w-full p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)] font-bold text-red-700"
                       placeholder="0.00"
                     />
                   </div>
