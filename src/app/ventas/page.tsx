@@ -2,25 +2,31 @@
 
 import { useEffect, useState } from "react";
 import { Sidebar } from "@/components/Sidebar";
-import { Receipt, Plus, Search, MoreHorizontal, Loader2, TrendingUp } from "lucide-react";
+import { Receipt, Plus, Search, MoreHorizontal, Loader2, Trash2, Save, FileText } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+
+interface LineaFactura {
+  unidades: number;
+  descripcion: string;
+  precio_unitario: number;
+}
 
 export default function VentasPage() {
   const [ventas, setVentas] = useState<any[]>([]);
   const [clientes, setClientes] = useState<any[]>([]);
   const [proyectos, setProyectos] = useState<any[]>([]);
+  const [formasCobro, setFormasCobro] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
 
-  // Formulario
+  // Estados del Editor
   const [serie, setSerie] = useState("A");
   const [numFactura, setNumFactura] = useState("");
   const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
   const [clienteId, setClienteId] = useState("");
   const [proyectoId, setProyectoId] = useState("");
-  const [baseImponible, setBaseImponible] = useState("");
-  const [tipoIva, setTipoIva] = useState(21);
+  const [formaCobroId, setFormaCobroId] = useState("");
+  const [lineas, setLineas] = useState<LineaFactura[]>([{ unidades: 1, descripcion: "", precio_unitario: 0 }]);
 
   useEffect(() => {
     fetchData();
@@ -29,47 +35,87 @@ export default function VentasPage() {
   const fetchData = async () => {
     if (!supabase) return;
     setLoading(true);
-    
-    const { data: vts } = await supabase
-      .from("ventas")
-      .select("*, clientes(nombre), proyectos(nombre)")
-      .order("fecha", { ascending: false });
-
+    const { data: vts } = await supabase.from("ventas").select("*, clientes(nombre), proyectos(nombre)").order("fecha", { ascending: false });
     const { data: clis } = await supabase.from("clientes").select("id, nombre").order("nombre");
-    const { data: projs } = await supabase.from("proyectos").select("id, nombre").order("nombre");
+    const { data: projs } = await supabase.from("proyectos").select("id, nombre, descripcion").order("nombre");
+    const { data: fbc } = await supabase.from("formas_cobro").select("*").order("nombre");
 
     setVentas(vts || []);
     setClientes(clis || []);
     setProyectos(projs || []);
+    setFormasCobro(fbc || []);
+
+    // Sugerir siguiente número de factura (Lógica simple: año + contador)
+    if (vts && vts.length > 0) {
+      const lastNum = vts[0].num_factura;
+      // Aquí podrías implementar una lógica más robusta de incremento
+    } else {
+      setNumFactura(`${new Date().getFullYear()}-001`);
+    }
+
     setLoading(false);
   };
 
-  const totalBase = parseFloat(baseImponible) || 0;
-  const cuotaIva = serie === "A" ? totalBase * (tipoIva / 100) : 0;
-  const totalFactura = totalBase + cuotaIva;
+  const addLinea = () => setLineas([...lineas, { unidades: 1, descripcion: "", precio_unitario: 0 }]);
+  const removeLinea = (index: number) => setLineas(lineas.filter((_, i) => i !== index));
+  
+  const updateLinea = (index: number, field: keyof LineaFactura, value: any) => {
+    const newLineas = [...lineas];
+    newLineas[index] = { ...newLineas[index], [field]: value };
+    setLineas(newLineas);
+  };
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!supabase) return;
+  // Al seleccionar proyecto, podemos traer su descripción
+  const handleProyectoChange = (id: string) => {
+    setProyectoId(id);
+    const proj = proyectos.find(p => p.id === id);
+    if (proj && lineas.length === 1 && lineas[0].descripcion === "") {
+      updateLinea(0, "descripcion", proj.descripcion || proj.nombre);
+    }
+    // También autoseleccionar cliente si el proyecto lo tiene
+    if (proj?.cliente_id) setClienteId(proj.cliente_id);
+  };
 
-    const { error } = await supabase
-      .from("ventas")
-      .insert([{
-        serie,
-        num_factura: numFactura,
-        fecha,
-        cliente_id: clienteId || null,
-        proyecto_id: proyectoId || null,
-        base_imponible: totalBase,
-        iva_pct: serie === "A" ? tipoIva : 0,
-        iva_importe: cuotaIva,
-        total: totalFactura
-      }]);
+  const baseImponible = lineas.reduce((acc, l) => acc + (l.unidades * l.precio_unitario), 0);
+  const cuotaIva = serie === "A" ? baseImponible * 0.21 : 0;
+  const totalFactura = baseImponible + cuotaIva;
 
-    if (error) {
-      alert("Error: " + error.message);
+  const handleSaveInvoice = async () => {
+    if (!clienteId || !numFactura) {
+      alert("Faltan datos obligatorios (Cliente, Nº Factura)");
+      return;
+    }
+
+    const { data: venta, error: vError } = await supabase.from("ventas").insert([{
+      serie,
+      num_factura: numFactura,
+      fecha,
+      cliente_id: clienteId,
+      proyecto_id: proyectoId || null,
+      forma_cobro_id: formaCobroId || null,
+      base_imponible: baseImponible,
+      iva_pct: serie === "A" ? 21 : 0,
+      total: totalFactura
+    }]).select().single();
+
+    if (vError) {
+      alert("Error al guardar cabecera: " + vError.message);
+      return;
+    }
+
+    const lineasToInsert = lineas.map(l => ({
+      venta_id: venta.id,
+      unidades: l.unidades,
+      descripcion: l.descripcion,
+      precio_unitario: l.precio_unitario
+    }));
+
+    const { error: lError } = await supabase.from("venta_lineas").insert(lineasToInsert);
+
+    if (lError) {
+      alert("Error al guardar líneas: " + lError.message);
     } else {
-      setIsModalOpen(false);
+      setIsEditorOpen(false);
       fetchData();
     }
   };
@@ -78,168 +124,161 @@ export default function VentasPage() {
     <div className="flex bg-[var(--background)] min-h-screen">
       <Sidebar />
       <div className="flex-1 p-8 overflow-y-auto">
-        <header className="flex justify-between items-center mb-10">
-          <div>
-            <h1 className="text-3xl font-bold font-head tracking-tight mb-1 text-[var(--foreground)]">Ventas</h1>
-            <p className="text-[var(--muted)] font-medium">Facturación emitida y control de ingresos.</p>
-          </div>
-          <button 
-            onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--accent)] text-white font-bold hover:shadow-lg transition-all active:scale-[0.98]"
-          >
-            <Plus size={18} />
-            Nueva Factura
-          </button>
-        </header>
+        {!isEditorOpen ? (
+          <>
+            <header className="flex justify-between items-center mb-10">
+              <div>
+                <h1 className="text-3xl font-bold font-head tracking-tight mb-1 text-[var(--foreground)]">Facturación</h1>
+                <p className="text-[var(--muted)] font-medium">Gestión y emisión de facturas profesionales.</p>
+              </div>
+              <button onClick={() => setIsEditorOpen(true)} className="flex items-center gap-2 px-6 py-3 rounded-xl bg-[var(--accent)] text-white font-bold hover:shadow-lg transition-all active:scale-[0.98]">
+                <Plus size={18} /> Crear Factura
+              </button>
+            </header>
 
-        {isModalOpen && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-lg border border-[var(--border)] animate-in fade-in zoom-in duration-200">
-              <h2 className="text-xl font-bold font-head mb-6">🧾 Registrar Venta</h2>
-              <form onSubmit={handleSave} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[11px] font-bold text-[var(--muted)] uppercase mb-1">Serie</label>
-                    <select value={serie} onChange={(e) => setSerie(e.target.value)} className="w-full p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)]">
-                      <option value="A">Serie A (Con IVA)</option>
-                      <option value="B">Serie B (Sin IVA)</option>
-                    </select>
+            <div className="glass-card bg-white shadow-sm border-[var(--border)] overflow-hidden">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-[#fcfaf7] border-b border-[var(--border)]">
+                      <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">Factura</th>
+                      <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">Fecha</th>
+                      <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">Cliente</th>
+                      <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Total</th>
+                      <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[var(--border)]">
+                    {ventas.map(v => (
+                      <tr key={v.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 font-bold">{v.serie}-{v.num_factura}</td>
+                        <td className="px-6 py-4 text-sm text-[var(--muted)]">{new Date(v.fecha).toLocaleDateString()}</td>
+                        <td className="px-6 py-4 text-sm">{v.clientes?.nombre}</td>
+                        <td className="px-6 py-4 text-right font-bold text-[var(--accent)]">{new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(v.total)}</td>
+                        <td className="px-6 py-4 text-right"><MoreHorizontal size={18} className="text-gray-400 cursor-pointer" /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+            </div>
+          </>
+        ) : (
+          <div className="max-w-5xl mx-auto animate-in slide-in-from-bottom-4 duration-300">
+            <div className="flex items-center justify-between mb-8">
+              <h2 className="text-2xl font-bold font-head flex items-center gap-2">
+                <FileText className="text-[var(--accent)]" /> Editor de Factura
+              </h2>
+              <div className="flex gap-3">
+                <button onClick={() => setIsEditorOpen(false)} className="px-5 py-2 text-sm font-bold text-gray-500 hover:bg-gray-100 rounded-lg">Cancelar</button>
+                <button onClick={handleSaveInvoice} className="flex items-center gap-2 px-6 py-2 bg-[var(--accent)] text-white rounded-lg font-bold shadow-md hover:shadow-lg transition-all">
+                  <Save size={18} /> Guardar y Emitir
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl shadow-xl border border-[var(--border)] p-8">
+              {/* CABECERA EDITOR */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 pb-8 border-b border-dashed border-gray-200">
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Serie</label>
+                  <select value={serie} onChange={(e) => setSerie(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200 bg-gray-50 font-bold focus:bg-white transition-colors">
+                    <option value="A">Serie A (IVA)</option>
+                    <option value="B">Serie B (sin IVA)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Nº Factura</label>
+                  <input type="text" value={numFactura} onChange={(e) => setNumFactura(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200 bg-gray-50 font-mono focus:bg-white" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Fecha</label>
+                  <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200 bg-gray-50 focus:bg-white" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Forma de Pago</label>
+                  <select value={formaCobroId} onChange={(e) => setFormaCobroId(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200 bg-gray-50 focus:bg-white">
+                    <option value="">— Seleccionar —</option>
+                    {formasCobro.map(f => <option key={f.id} value={f.id}>{f.nombre}</option>)}
+                  </select>
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Proyecto Asociado</label>
+                  <select value={proyectoId} onChange={(e) => handleProyectoChange(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200 bg-gray-50 focus:bg-white">
+                    <option value="">— Selección opcional —</option>
+                    {proyectos.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+                  </select>
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Cliente</label>
+                  <select value={clienteId} onChange={(e) => setClienteId(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200 bg-gray-50 focus:bg-white font-bold">
+                    <option value="">— Obligatorio —</option>
+                    {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              {/* CUERPO - LÍNEAS */}
+              <div className="mb-8">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="text-left">
+                      <th className="w-20 pb-3 text-[10px] font-bold text-gray-400 uppercase">Ud.</th>
+                      <th className="pb-3 text-[10px] font-bold text-gray-400 uppercase">Descripción / Concepto</th>
+                      <th className="w-32 pb-3 text-[10px] font-bold text-gray-400 uppercase text-right">Precio Ud.</th>
+                      <th className="w-32 pb-3 text-[10px] font-bold text-gray-400 uppercase text-right">Total</th>
+                      <th className="w-10"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {lineas.map((linea, idx) => (
+                      <tr key={idx} className="group">
+                        <td className="py-2 pr-4">
+                          <input type="number" value={linea.unidades} onChange={(e) => updateLinea(idx, "unidades", parseFloat(e.target.value))} className="w-full p-2 rounded-lg border border-gray-100 hover:border-gray-200 focus:bg-blue-50 transition-colors text-center font-bold" />
+                        </td>
+                        <td className="py-2 pr-4">
+                          <textarea rows={1} value={linea.descripcion} onChange={(e) => updateLinea(idx, "descripcion", e.target.value)} className="w-full p-2 rounded-lg border border-gray-100 hover:border-gray-200 focus:bg-blue-50 transition-colors text-sm resize-none overflow-hidden" placeholder="Describe el servicio o producto..." />
+                        </td>
+                        <td className="py-2 pr-4">
+                          <input type="number" value={linea.precio_unitario} onChange={(e) => updateLinea(idx, "precio_unitario", parseFloat(e.target.value))} className="w-full p-2 rounded-lg border border-gray-100 hover:border-gray-200 focus:bg-blue-50 transition-colors text-right font-mono" />
+                        </td>
+                        <td className="py-2 text-right font-bold text-gray-700 font-mono">
+                          {new Intl.NumberFormat('es-ES', { minimumFractionDigits: 2 }).format(linea.unidades * linea.precio_unitario)}
+                        </td>
+                        <td className="py-2 text-center">
+                          {lineas.length > 1 && (
+                            <button onClick={() => removeLinea(idx)} className="p-1.5 text-red-300 hover:text-red-500 hover:bg-red-50 rounded-md transition-all">
+                              <Trash2 size={16} />
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <button onClick={addLinea} className="mt-4 flex items-center gap-2 text-sm font-bold text-[var(--accent)] hover:underline">
+                  <Plus size={16} /> Añadir nueva línea
+                </button>
+              </div>
+
+              {/* PIE - TOTALES */}
+              <div className="flex justify-end pt-8 border-t border-gray-100">
+                <div className="w-80 space-y-3">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-400">Base Imponible:</span>
+                    <span className="font-mono font-bold">{new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(baseImponible)}</span>
                   </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-[var(--muted)] uppercase mb-1">Nº Factura</label>
-                    <input type="text" value={numFactura} onChange={(e) => setNumFactura(e.target.value)} className="w-full p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)]" placeholder="Ej: 2024-001" />
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-400">IVA ({serie === "A" ? 21 : 0}%):</span>
+                    <span className="font-mono font-bold border-b border-gray-200 pb-1">{new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(cuotaIva)}</span>
+                  </div>
+                  <div className="flex justify-between text-xl font-bold pt-1 bg-gray-50 p-4 rounded-2xl">
+                    <span className="text-gray-700">Total Factura:</span>
+                    <span className="text-[var(--accent)]">{new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(totalFactura)}</span>
                   </div>
                 </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[11px] font-bold text-[var(--muted)] uppercase mb-1">Fecha</label>
-                    <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className="w-full p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)]" />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-[var(--muted)] uppercase mb-1">Base Imponible (€)</label>
-                    <input type="number" step="0.01" value={baseImponible} onChange={(e) => setBaseImponible(e.target.value)} className="w-full p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)] font-bold" placeholder="0.00" />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[11px] font-bold text-[var(--muted)] uppercase mb-1">Cliente</label>
-                    <select value={clienteId} onChange={(e) => setClienteId(e.target.value)} className="w-full p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)]">
-                      <option value="">— Seleccionar —</option>
-                      {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-[var(--muted)] uppercase mb-1">Proyecto</label>
-                    <select value={proyectoId} onChange={(e) => setProyectoId(e.target.value)} className="w-full p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)]">
-                      <option value="">— Sin proyecto —</option>
-                      {proyectos.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="bg-[var(--background)] p-4 rounded-xl border border-[var(--border)] mt-4">
-                   <div className="flex justify-between text-sm mb-1">
-                      <span className="text-[var(--muted)]">Base Imponible:</span>
-                      <span className="font-mono">{new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(totalBase)}</span>
-                   </div>
-                   <div className="flex justify-between text-sm mb-1">
-                      <span className="text-[var(--muted)]">IVA ({serie === "A" ? tipoIva : 0}%):</span>
-                      <span className="font-mono">{new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(cuotaIva)}</span>
-                   </div>
-                   <div className="flex justify-between text-lg font-bold border-t border-[var(--border)] pt-2 mt-2">
-                      <span className="text-[var(--foreground)]">TOTAL:</span>
-                      <span className="text-[var(--accent)]">{new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(totalFactura)}</span>
-                   </div>
-                </div>
-
-                <div className="flex gap-3 mt-6">
-                  <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-2.5 text-sm font-bold text-[var(--muted)] hover:bg-[var(--background)] rounded-lg transition-colors border border-[var(--border)]">Cancelar</button>
-                  <button type="submit" className="flex-1 py-2.5 text-sm font-bold bg-[var(--accent)] text-white rounded-lg shadow-md hover:shadow-lg transition-all">Guardar Factura</button>
-                </div>
-              </form>
+              </div>
             </div>
           </div>
         )}
-
-        <div className="glass-card bg-white shadow-sm border-[var(--border)] overflow-hidden">
-          <div className="p-4 border-b border-[var(--border)] flex justify-between items-center bg-[#fafafa]">
-            <div className="relative w-72">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]" size={16} />
-              <input 
-                type="text" 
-                placeholder="Buscar por factura o cliente..." 
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)] transition-colors"
-              />
-            </div>
-          </div>
-          
-          <div className="overflow-x-auto min-h-[300px] flex flex-col">
-            {loading ? (
-              <div className="flex-1 flex flex-col items-center justify-center p-20 text-[var(--muted)] gap-3">
-                <Loader2 className="animate-spin" size={32} />
-                <p className="text-sm font-medium">Cargando facturas...</p>
-              </div>
-            ) : ventas.length === 0 ? (
-              <div className="flex-1 flex flex-col items-center justify-center p-20 text-[var(--muted)] gap-4 text-center">
-                <div className="w-16 h-16 rounded-full bg-[var(--background)] flex items-center justify-center">
-                  <Receipt size={32} className="opacity-20" />
-                </div>
-                <div>
-                  <p className="font-bold text-[var(--foreground)]">No hay facturas emitidas</p>
-                  <p className="text-sm">Registra tu primera venta para empezar el seguimiento.</p>
-                </div>
-              </div>
-            ) : (
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-[#fcfaf7] border-b border-[var(--border)]">
-                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">Fecha</th>
-                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">Factura</th>
-                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">Cliente / Proyecto</th>
-                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Total</th>
-                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[var(--border)]">
-                  {ventas.map((v) => (
-                    <tr key={v.id} className="hover:bg-[#fcfaf7] transition-colors group">
-                      <td className="px-6 py-4 text-sm font-medium text-[var(--muted)]">
-                        {new Date(v.fecha).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4">
-                         <div className="flex items-center gap-1.5">
-                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${v.serie === 'A' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
-                              {v.serie}
-                            </span>
-                            <span className="font-bold text-[var(--foreground)]">{v.num_factura}</span>
-                         </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="font-medium text-[var(--foreground)] text-sm">{v.clientes?.nombre || 'Particular'}</div>
-                        <div className="text-[10px] text-[var(--muted)] flex items-center gap-1">
-                           <TrendingUp size={10} />
-                           {v.proyectos?.nombre || 'Sin proyecto'}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-right font-mono text-sm font-bold text-[var(--green)]">
-                        {new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(v.total || 0)}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <button className="p-2 hover:bg-[var(--background)] rounded-lg transition-colors text-[var(--muted)]">
-                          <MoreHorizontal size={18} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        </div>
       </div>
     </div>
   );
