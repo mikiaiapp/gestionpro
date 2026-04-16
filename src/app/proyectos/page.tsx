@@ -195,7 +195,10 @@ export default function ProyectosPage() {
                     <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">Proyecto</th>
                     <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">Cliente</th>
                     <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">Estado</th>
-                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Presupuesto</th>
+                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Presup. Venta</th>
+                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Coste Prev.</th>
+                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Margen Prev.</th>
+                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">%</th>
                     <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Acciones</th>
                   </tr>
                 </thead>
@@ -220,8 +223,19 @@ export default function ProyectosPage() {
                           {p.estado}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-right font-mono text-sm font-bold text-[var(--accent)]">
+                      <td className="px-6 py-4 text-right font-mono text-sm font-bold text-green-700">
                         {new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(p.presupuesto || 0)}
+                      </td>
+                      <td className="px-6 py-4 text-right font-mono text-sm font-bold text-red-700">
+                        {new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(p.coste_previsto || 0)}
+                      </td>
+                      <td className={`px-6 py-4 text-right font-mono text-sm font-bold ${(p.presupuesto - (p.coste_previsto || 0)) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(p.presupuesto - (p.coste_previsto || 0))}
+                      </td>
+                      <td className={`px-6 py-4 text-right font-mono text-[10px] font-bold ${(p.presupuesto - (p.coste_previsto || 0)) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {p.presupuesto > 0 
+                          ? (((p.presupuesto - (p.coste_previsto || 0)) / p.presupuesto) * 100).toFixed(1) + '%' 
+                          : '0%'}
                       </td>
                       <td className="px-6 py-4 text-right">
                         <button className="p-2 hover:bg-[var(--background)] rounded-lg transition-colors text-[var(--muted)]">
