@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Sidebar } from "@/components/Sidebar";
-import { CreditCard, Plus, Search, MoreHorizontal, Loader2, Download, Factory } from "lucide-react";
+import { CreditCard, Plus, Search, MoreHorizontal, Loader2, Download, Factory, Save, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 export default function PagosPage() {

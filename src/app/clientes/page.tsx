@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Sidebar } from "@/components/Sidebar";
-import { Users, Plus, Search, MoreHorizontal, Loader2, ChevronDown } from "lucide-react";
+import { Users, Plus, Search, MoreHorizontal, Loader2, ChevronDown, Save, Trash2, FileText } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { PROVINCIAS_ESPANOLAS, getProvinciaPorCP } from "@/lib/geoData";
 

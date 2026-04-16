@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Sidebar } from "@/components/Sidebar";
-import { HandCoins, Plus, Search, MoreHorizontal, Loader2, Receipt } from "lucide-react";
+import { HandCoins, Plus, Search, MoreHorizontal, Loader2, Receipt, Save, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 export default function CobrosPage() {

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Sidebar } from "@/components/Sidebar";
-import { Download, Plus, Search, MoreHorizontal, Loader2, Factory, FolderKanban, FileText, Sparkles, X, Upload } from "lucide-react";
+import { Download, Plus, Search, MoreHorizontal, Loader2, Factory, FolderKanban, FileText, Sparkles, X, Upload, Save, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 export default function CostesPage() {
