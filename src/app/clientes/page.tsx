@@ -33,14 +33,17 @@ export default function ClientesPage() {
   // Cargar todos los municipios al inicio para rapidez
   useEffect(() => {
     const initGeo = async () => {
+      setLoadingGeo(true);
       try {
-        const response = await fetch("https://raw.githubusercontent.com/frontid/Comunidades-Autonomas-Provincias-y-Municipios-Espana/master/municipios.json");
+        const response = await fetch("https://raw.githubusercontent.com/frontid/ComunidadesProvinciasPoblaciones/master/poblaciones.json");
         if (response.ok) {
           const data = await response.json();
           setTodosLosMunicipios(data);
         }
       } catch (e) {
         console.error("Error cargando base geo");
+      } finally {
+        setLoadingGeo(false);
       }
     };
     initGeo();
@@ -52,10 +55,10 @@ export default function ClientesPage() {
       const resp = getProvinciaPorCP(cp);
       if (resp) {
         setProvincia(resp.nombre);
-        // Filtrar municipios de esa provincia inmediatamente
+        // Filtrar municipios de esa provincia inmediatamente (usando parent_code y label)
         const filtrados = todosLosMunicipios
-          .filter(m => m.id_prov === resp.id)
-          .map(m => m.nm);
+          .filter(m => parseInt(m.parent_code, 10) === parseInt(resp.id, 10))
+          .map(m => m.label);
         setMunicipiosSugeridos(filtrados);
       }
       buscarMunicipioPorCP(cp);
@@ -81,15 +84,15 @@ export default function ClientesPage() {
       // Comparación flexible de ID (como número para evitar líos de ceros a la izquierda)
       const targetId = parseInt(provData.id, 10);
       filtrados = todosLosMunicipios
-        .filter(m => parseInt(m.id_prov, 10) === targetId)
-        .map(m => m.nm);
+        .filter(m => parseInt(m.parent_code, 10) === targetId)
+        .map(m => m.label);
     } 
     
     // Si no hay nada por ID, intentamos por nombre de provincia (fallback)
     if (filtrados.length === 0) {
       filtrados = todosLosMunicipios
         .filter(m => m.provincia && normalize(m.provincia) === provNorm)
-        .map(m => m.nm);
+        .map(m => m.label);
     }
 
     setMunicipiosSugeridos(filtrados);
@@ -281,9 +284,7 @@ export default function ClientesPage() {
                              }
                           </div>
                         )}
-                      </div>
-
-                      <div className="relative">
+                                      <div className="relative">
                         <input 
                           type="text" 
                           autoComplete="off"
@@ -295,29 +296,34 @@ export default function ClientesPage() {
                             setShowMunList(true);
                           }}
                           className="w-full p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)]"
-                          placeholder="Municipio..."
+                          placeholder={loadingGeo ? "Cargando..." : "Municipio..."}
+                          disabled={loadingGeo}
                         />
+                        {loadingGeo && (
+                          <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-[var(--muted)]" size={14} />
+                        )}
                          {showMunList && municipiosSugeridos.length > 0 && (
                           <div className="absolute z-[110] left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white border border-[var(--border)] rounded-xl shadow-2xl py-2">
                              {municipiosSugeridos
                                .filter(m => !poblacion || m.toLowerCase().includes(poblacion.toLowerCase()))
                                .map((m, idx) => (
-                                 <button
-                                   key={idx}
-                                   type="button"
-                                   onClick={() => {
-                                     setPoblacion(m);
-                                     setShowMunList(false);
-                                   }}
-                                   className="w-full text-left px-4 py-2 hover:bg-[var(--accent)]/10 text-sm"
-                                 >
-                                   {m}
-                                 </button>
-                               ))
+                                  <button
+                                    key={idx}
+                                    type="button"
+                                    onClick={() => {
+                                      setPoblacion(m);
+                                      setShowMunList(false);
+                                    }}
+                                    className="w-full text-left px-4 py-2 hover:bg-[var(--accent)]/10 text-sm"
+                                  >
+                                    {m}
+                                  </button>
+                                ))
                              }
                           </div>
                         )}
                       </div>
+       </div>
                     </div>
                   </div>
                 </div>
