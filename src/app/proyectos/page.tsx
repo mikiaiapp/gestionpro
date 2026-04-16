@@ -26,22 +26,26 @@ export default function ProyectosPage() {
   const fetchData = async () => {
     if (!supabase) return;
     setLoading(true);
-    
-    // Cargar Proyectos (con join a clientes)
-    const { data: projs, error: errP } = await supabase
-      .from("proyectos")
-      .select("*, clientes(nombre)")
-      .order("created_at", { ascending: false });
+    try {
+      // Cargar Proyectos (con join a clientes)
+      const { data: projs, error: errP } = await supabase
+        .from("proyectos")
+        .select("*, clientes(nombre)")
+        .order("created_at", { ascending: false });
 
-    // Cargar Clientes para el selector
-    const { data: clis, error: errC } = await supabase
-      .from("clientes")
-      .select("id, nombre")
-      .order("nombre");
+      // Cargar Clientes para el selector
+      const { data: clis, error: errC } = await supabase
+        .from("clientes")
+        .select("id, nombre")
+        .order("nombre");
 
-    if (!errP) setProyectos(projs || []);
-    if (!errC) setClientes(clis || []);
-    setLoading(false);
+      if (!errP) setProyectos(projs || []);
+      if (!errC) setClientes(clis || []);
+    } catch (e: any) {
+      console.error("Error sincronizando proyectos:", e.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleCreate = async (e: React.FormEvent) => {
