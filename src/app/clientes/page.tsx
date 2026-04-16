@@ -78,18 +78,22 @@ export default function ClientesPage() {
     
     let filtrados: string[] = [];
     if (provData) {
+      // Comparación flexible de ID (como número para evitar líos de ceros a la izquierda)
+      const targetId = parseInt(provData.id, 10);
       filtrados = todosLosMunicipios
-        .filter(m => m.id_prov === provData.id)
+        .filter(m => parseInt(m.id_prov, 10) === targetId)
         .map(m => m.nm);
-    } else {
-      // Fallback por nombre de provincia en el JSON
+    } 
+    
+    // Si no hay nada por ID, intentamos por nombre de provincia (fallback)
+    if (filtrados.length === 0) {
       filtrados = todosLosMunicipios
-        .filter(m => normalize(m.provincia || "") === provNorm)
+        .filter(m => m.provincia && normalize(m.provincia) === provNorm)
         .map(m => m.nm);
     }
 
     setMunicipiosSugeridos(filtrados);
-    console.log("Municipios filtrados para:", provincia, filtrados.length);
+    console.log(`Municipios para ${provincia}:`, filtrados.length);
   }, [provincia, todosLosMunicipios]);
 
   const buscarMunicipioPorCP = async (codigo: string) => {
