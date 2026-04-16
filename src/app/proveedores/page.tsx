@@ -31,17 +31,20 @@ export default function ProveedoresPage() {
     fetchProveedores();
   }, [supabase]);
 
-  // Cargar municipios al inicio
+  // Cargar todos los municipios al inicio para rapidez
   useEffect(() => {
     const initGeo = async () => {
+      setLoadingGeo(true);
       try {
-        const response = await fetch("https://raw.githubusercontent.com/frontid/Comunidades-Autonomas-Provincias-y-Municipios-Espana/master/municipios.json");
+        const response = await fetch("https://raw.githubusercontent.com/frontid/ComunidadesProvinciasPoblaciones/master/poblaciones.json");
         if (response.ok) {
           const data = await response.json();
           setTodosLosMunicipios(data);
         }
       } catch (e) {
-        console.error("Error geo");
+        console.error("Error cargando base geo");
+      } finally {
+        setLoadingGeo(false);
       }
     };
     initGeo();
@@ -53,28 +56,47 @@ export default function ProveedoresPage() {
       const resp = getProvinciaPorCP(cp);
       if (resp) {
         setProvincia(resp.nombre);
+        // Filtrar municipios de esa provincia inmediatamente (usando parent_code y label)
         const filtrados = todosLosMunicipios
-          .filter(m => m.id_prov === resp.id)
-          .map(m => m.nm);
+          .filter(m => parseInt(m.parent_code, 10) === parseInt(resp.id, 10))
+          .map(m => m.label);
         setMunicipiosSugeridos(filtrados);
       }
       buscarMunicipioPorCP(cp);
     }
   }, [cp, todosLosMunicipios]);
 
-  // Cargar Municipios al cambiar Provincia
+  // Cargar Municipios al cambiar Provincia manualmente
   useEffect(() => {
-    if (provincia && todosLosMunicipios.length > 0) {
-      const provData = PROVINCIAS_ESPANOLAS.find(p => p.nombre === provincia);
-      if (provData) {
-        const filtrados = todosLosMunicipios
-          .filter(m => m.id_prov === provData.id)
-          .map(m => m.nm);
-        setMunicipiosSugeridos(filtrados);
-      }
-    } else {
+    if (!provincia || todosLosMunicipios.length === 0) {
       setMunicipiosSugeridos([]);
+      return;
     }
+
+    // Normalizar nombres para comparación robusta (quitar tildes, etc)
+    const normalize = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    const provNorm = normalize(provincia);
+
+    // Buscar el ID de la provincia primero
+    const provData = PROVINCIAS_ESPANOLAS.find(p => normalize(p.nombre) === provNorm);
+    
+    let filtrados: string[] = [];
+    if (provData) {
+      // Comparación flexible de ID (como número para evitar líos de ceros a la izquierda)
+      const targetId = parseInt(provData.id, 10);
+      filtrados = todosLosMunicipios
+        .filter(m => parseInt(m.parent_code, 10) === targetId)
+        .map(m => m.label);
+    } 
+    
+    // Si no hay nada por ID, intentamos por nombre de provincia (fallback)
+    if (filtrados.length === 0) {
+      filtrados = todosLosMunicipios
+        .filter(m => m.provincia && normalize(m.provincia) === provNorm)
+        .map(m => m.label);
+    }
+
+    setMunicipiosSugeridos(filtrados);
   }, [provincia, todosLosMunicipios]);
 
   const buscarMunicipioPorCP = async (codigo: string) => {
@@ -303,19 +325,19 @@ export default function ProveedoresPage() {
                   </div>
                 </div>
 
-                <div className="flex gap-3 mt-6">
+                <div className="flex gap-3 mt-8">
                   <button 
                     type="button"
                     onClick={() => setIsModalOpen(false)}
-                    className="flex-1 py-2.5 text-sm font-bold text-[var(--muted)] hover:bg-[var(--background)] rounded-lg transition-colors border border-[var(--border)]"
+                    className="flex-1 py-3 text-sm font-bold text-[var(--muted)] hover:bg-gray-100 rounded-xl transition-all border border-[var(--border)]"
                   >
                     Cancelar
                   </button>
                   <button 
                     type="submit"
-                    className="flex-1 py-2.5 text-sm font-bold bg-[var(--accent)] text-white rounded-lg shadow-md hover:shadow-lg transition-all"
+                    className="flex-1 py-3 text-sm font-bold bg-[var(--accent)] text-white rounded-xl shadow-lg hover:shadow-xl hover:translate-y-[-1px] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                   >
-                    Guardar
+                    Guardar Proveedor
                   </button>
                 </div>
               </form>
