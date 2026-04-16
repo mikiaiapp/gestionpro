@@ -20,48 +20,62 @@ export default function ClientesPage() {
   const [cp, setCp] = useState("");
   const [poblacion, setPoblacion] = useState("");
   const [provincia, setProvincia] = useState("");
+  const [todosLosMunicipios, setTodosLosMunicipios] = useState<any[]>([]);
   const [municipiosSugeridos, setMunicipiosSugeridos] = useState<string[]>([]);
   const [showProvList, setShowProvList] = useState(false);
   const [showMunList, setShowMunList] = useState(false);
+  const [loadingGeo, setLoadingGeo] = useState(false);
 
   useEffect(() => {
     fetchClientes();
   }, [supabase]);
 
+  // Cargar todos los municipios al inicio para rapidez
+  useEffect(() => {
+    const initGeo = async () => {
+      try {
+        const response = await fetch("https://raw.githubusercontent.com/frontid/Comunidades-Autonomas-Provincias-y-Municipios-Espana/master/municipios.json");
+        if (response.ok) {
+          const data = await response.json();
+          setTodosLosMunicipios(data);
+        }
+      } catch (e) {
+        console.error("Error cargando base geo");
+      }
+    };
+    initGeo();
+  }, []);
+
   // Inteligencia de Código Postal
   useEffect(() => {
     if (cp.length === 5) {
       const resp = getProvinciaPorCP(cp);
-      if (resp) setProvincia(resp.nombre);
+      if (resp) {
+        setProvincia(resp.nombre);
+        // Filtrar municipios de esa provincia inmediatamente
+        const filtrados = todosLosMunicipios
+          .filter(m => m.id_prov === resp.id)
+          .map(m => m.nm);
+        setMunicipiosSugeridos(filtrados);
+      }
       buscarMunicipioPorCP(cp);
     }
-  }, [cp]);
+  }, [cp, todosLosMunicipios]);
 
-  // Cargar Municipios al cambiar Provincia
+  // Cargar Municipios al cambiar Provincia manualmente
   useEffect(() => {
-    if (provincia) {
+    if (provincia && todosLosMunicipios.length > 0) {
       const provData = PROVINCIAS_ESPANOLAS.find(p => p.nombre === provincia);
       if (provData) {
-        fetchMunicipios(provData.id);
+        const filtrados = todosLosMunicipios
+          .filter(m => m.id_prov === provData.id)
+          .map(m => m.nm);
+        setMunicipiosSugeridos(filtrados);
       }
     } else {
       setMunicipiosSugeridos([]);
     }
-  }, [provincia]);
-
-  const fetchMunicipios = async (idProv: string) => {
-    try {
-      // API de El Tiempo (Oficial para municipios de España)
-      const response = await fetch(`https://www.el-tiempo.net/api/json/v1/provincias/${idProv}/municipios`);
-      if (response.ok) {
-        const data = await response.json();
-        const nombres = data.municipios.map((m: any) => m.NOMBRE);
-        setMunicipiosSugeridos(nombres);
-      }
-    } catch (error) {
-       console.error("Error cargando municipios de provincia");
-    }
-  };
+  }, [provincia, todosLosMunicipios]);
 
   const buscarMunicipioPorCP = async (codigo: string) => {
     try {

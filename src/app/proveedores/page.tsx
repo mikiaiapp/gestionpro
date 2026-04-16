@@ -20,6 +20,7 @@ export default function ProveedoresPage() {
   const [cp, setCp] = useState("");
   const [poblacion, setPoblacion] = useState("");
   const [provincia, setProvincia] = useState("");
+  const [todosLosMunicipios, setTodosLosMunicipios] = useState<any[]>([]);
   const [municipiosSugeridos, setMunicipiosSugeridos] = useState<string[]>([]);
 
   // Controladores de lista custom
@@ -30,39 +31,51 @@ export default function ProveedoresPage() {
     fetchProveedores();
   }, [supabase]);
 
+  // Cargar municipios al inicio
+  useEffect(() => {
+    const initGeo = async () => {
+      try {
+        const response = await fetch("https://raw.githubusercontent.com/frontid/Comunidades-Autonomas-Provincias-y-Municipios-Espana/master/municipios.json");
+        if (response.ok) {
+          const data = await response.json();
+          setTodosLosMunicipios(data);
+        }
+      } catch (e) {
+        console.error("Error geo");
+      }
+    };
+    initGeo();
+  }, []);
+
   // Inteligencia de Código Postal
   useEffect(() => {
     if (cp.length === 5) {
       const resp = getProvinciaPorCP(cp);
-      if (resp) setProvincia(resp.nombre);
+      if (resp) {
+        setProvincia(resp.nombre);
+        const filtrados = todosLosMunicipios
+          .filter(m => m.id_prov === resp.id)
+          .map(m => m.nm);
+        setMunicipiosSugeridos(filtrados);
+      }
       buscarMunicipioPorCP(cp);
     }
-  }, [cp]);
+  }, [cp, todosLosMunicipios]);
 
   // Cargar Municipios al cambiar Provincia
   useEffect(() => {
-    if (provincia) {
+    if (provincia && todosLosMunicipios.length > 0) {
       const provData = PROVINCIAS_ESPANOLAS.find(p => p.nombre === provincia);
       if (provData) {
-        fetchMunicipios(provData.id);
+        const filtrados = todosLosMunicipios
+          .filter(m => m.id_prov === provData.id)
+          .map(m => m.nm);
+        setMunicipiosSugeridos(filtrados);
       }
     } else {
       setMunicipiosSugeridos([]);
     }
-  }, [provincia]);
-
-  const fetchMunicipios = async (idProv: string) => {
-    try {
-      const response = await fetch(`https://www.el-tiempo.net/api/json/v1/provincias/${idProv}/municipios`);
-      if (response.ok) {
-        const data = await response.json();
-        const nombres = data.municipios.map((m: any) => m.NOMBRE);
-        setMunicipiosSugeridos(nombres);
-      }
-    } catch (error) {
-       console.error("Error cargando municipios");
-    }
-  };
+  }, [provincia, todosLosMunicipios]);
 
   const buscarMunicipioPorCP = async (codigo: string) => {
     try {
@@ -263,7 +276,7 @@ export default function ProveedoresPage() {
                             setShowMunList(true);
                           }}
                           className="w-full p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)]"
-                          placeholder="Municipio..."
+                          placeholder={todosLosMunicipios.length === 0 ? "Cargando..." : "Municipio..."}
                         />
                          {showMunList && municipiosSugeridos.length > 0 && (
                           <div className="absolute z-[110] left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white border border-[var(--border)] rounded-xl shadow-2xl py-2">
