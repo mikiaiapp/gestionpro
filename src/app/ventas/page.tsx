@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Sidebar } from "@/components/Sidebar";
-import { Receipt, Plus, Search, MoreHorizontal, Loader2, Trash2, Save, FileText } from "lucide-react";
+import { Receipt, Plus, Search, MoreHorizontal, Loader2, Trash2, Save, FileText, Download, Printer } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 interface LineaFactura {
@@ -16,6 +16,7 @@ export default function VentasPage() {
   const [clientes, setClientes] = useState<any[]>([]);
   const [proyectos, setProyectos] = useState<any[]>([]);
   const [formasCobro, setFormasCobro] = useState<any[]>([]);
+  const [perfil, setPerfil] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
 
@@ -35,15 +36,17 @@ export default function VentasPage() {
   const fetchData = async () => {
     if (!supabase) return;
     setLoading(true);
-    const { data: vts } = await supabase.from("ventas").select("*, clientes(nombre), proyectos(nombre)").order("fecha", { ascending: false });
-    const { data: clis } = await supabase.from("clientes").select("id, nombre").order("nombre");
+    const { data: vts } = await supabase.from("ventas").select("*, clientes(*), proyectos(nombre), venta_lineas(*)").order("fecha", { ascending: false });
+    const { data: clis } = await supabase.from("clientes").select("*").order("nombre");
     const { data: projs } = await supabase.from("proyectos").select("id, nombre, descripcion").order("nombre");
     const { data: fbc } = await supabase.from("formas_cobro").select("*").order("nombre");
+    const { data: perf } = await supabase.from("perfil_negocio").select("*").single();
 
     setVentas(vts || []);
     setClientes(clis || []);
     setProyectos(projs || []);
     setFormasCobro(fbc || []);
+    setPerfil(perf);
 
     // Sugerir siguiente número de factura (Lógica simple: año + contador)
     if (vts && vts.length > 0) {
@@ -120,6 +123,122 @@ export default function VentasPage() {
     }
   };
 
+  const downloadInvoice = (venta: any) => {
+    if (!perfil) {
+      alert("Configura primero tus datos de empresa en Ajustes.");
+      return;
+    }
+
+    const fmt = (n: number) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(n);
+    const lineasHtml = (venta.venta_lineas || []).map((l: any) => `
+      <tr>
+        <td style="padding: 12px 0; border-bottom: 1px solid #eee;">${l.unidades}</td>
+        <td style="padding: 12px 0; border-bottom: 1px solid #eee;">${l.descripcion}</td>
+        <td style="padding: 12px 0; border-bottom: 1px solid #eee; text-align: right;">${fmt(l.precio_unitario)}</td>
+        <td style="padding: 12px 0; border-bottom: 1px solid #eee; text-align: right; font-weight: bold;">${fmt(l.total)}</td>
+      </tr>
+    `).join('');
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>Factura ${venta.serie}-${venta.num_factura}</title>
+        <style>
+          body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #333; margin: 0; padding: 40px; line-height: 1.6; }
+          .header { display: flex; justify-content: space-between; margin-bottom: 60px; }
+          .logo { max-height: 80px; }
+          .invoice-item { font-size: 32px; font-weight: bold; color: #2563eb; }
+          .details { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-bottom: 40px; }
+          .section-title { font-size: 10px; font-weight: bold; text-transform: uppercase; color: #999; margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 4px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th { text-align: left; font-size: 10px; text-transform: uppercase; color: #999; padding-bottom: 12px; border-bottom: 2px solid #333; }
+          .totals { margin-top: 40px; width: 300px; margin-left: auto; }
+          .total-row { display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px; }
+          .total-final { font-size: 20px; font-weight: bold; color: #2563eb; margin-top: 12px; border-top: 2px solid #2563eb; padding-top: 12px; }
+          .footer { margin-top: 100px; padding-top: 20px; border-top: 1px solid #eee; font-size: 10px; color: #666; text-align: center; }
+          @media print { body { padding: 0; } .no-print { display: none; } }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div>
+            ${perfil.logo_url ? `<img src="${perfil.logo_url}" class="logo">` : `<div style="font-size: 24px; font-weight: bold; color: #2563eb;">${perfil.nombre}</div>`}
+          </div>
+          <div style="text-align: right;">
+            <div class="invoice-item">FACTURA</div>
+            <div style="font-weight: bold;">${venta.serie}-${venta.num_factura}</div>
+            <div style="color: #666;">Fecha: ${new Date(venta.fecha).toLocaleDateString()}</div>
+          </div>
+        </div>
+
+        <div class="details">
+          <div>
+            <div class="section-title">Emisor</div>
+            <div style="font-weight: bold;">${perfil.nombre}</div>
+            <div>${perfil.nif}</div>
+            <div>${perfil.direccion || ''}</div>
+          </div>
+          <div>
+            <div class="section-title">Cliente</div>
+            <div style="font-weight: bold;">${venta.clientes?.nombre}</div>
+            <div>${venta.clientes?.nif}</div>
+            <div>${venta.clientes?.direccion || ''}</div>
+            <div>${venta.clientes?.codigo_postal || ''} ${venta.clientes?.poblacion || ''}</div>
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th width="10%">Cant.</th>
+              <th width="60%">Descripción</th>
+              <th width="15%" style="text-align: right;">Precio</th>
+              <th width="15%" style="text-align: right;">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${lineasHtml}
+          </tbody>
+        </table>
+
+        <div class="totals">
+          <div class="total-row">
+            <span>Base Imponible:</span>
+            <span>${fmt(venta.base_imponible)}</span>
+          </div>
+          <div class="total-row">
+            <span>IVA (${venta.iva_pct}%):</span>
+            <span>${fmt(venta.base_imponible * (venta.iva_pct / 100))}</span>
+          </div>
+          <div class="total-row total-final">
+            <span>TOTAL:</span>
+            <span>${fmt(venta.total)}</span>
+          </div>
+        </div>
+
+        <div class="footer">
+          <div style="font-weight: bold; margin-bottom: 4px;">Información de Pago</div>
+          <div>Forma de Cobro: <strong>${formasCobro.find(f => f.id === venta.forma_cobro_id)?.nombre || 'Transferencia'}</strong></div>
+          <div>Cuenta para el ingreso (IBAN): <strong>${perfil.cuenta_bancaria}</strong></div>
+          <div style="margin-top: 20px; color: #999;">Gracias por su confianza. Documento emitido mediante GestiónPro.</div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const win = window.open('', '_blank');
+    if (win) {
+      win.document.write(html);
+      win.document.close();
+      setTimeout(() => {
+        win.print();
+        // win.close(); // Opcional: cerrar tras imprimir
+      }, 500);
+    }
+  };
+
   return (
     <div className="flex bg-[var(--background)] min-h-screen">
       <Sidebar />
@@ -150,11 +269,24 @@ export default function VentasPage() {
                   <tbody className="divide-y divide-[var(--border)]">
                     {ventas.map(v => (
                       <tr key={v.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 font-bold">{v.serie}-{v.num_factura}</td>
+                        <td className="px-6 py-4 text-sm font-bold">{v.serie}-{v.num_factura}</td>
                         <td className="px-6 py-4 text-sm text-[var(--muted)]">{new Date(v.fecha).toLocaleDateString()}</td>
                         <td className="px-6 py-4 text-sm">{v.clientes?.nombre}</td>
                         <td className="px-6 py-4 text-right font-bold text-[var(--accent)]">{new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(v.total)}</td>
-                        <td className="px-6 py-4 text-right"><MoreHorizontal size={18} className="text-gray-400 cursor-pointer" /></td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex justify-end gap-2">
+                            <button 
+                              onClick={() => downloadInvoice(v)}
+                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                              title="Descargar PDF"
+                            >
+                              <Download size={18} />
+                            </button>
+                            <button className="p-2 text-gray-400 hover:bg-gray-50 rounded-lg transition-colors">
+                              <MoreHorizontal size={18} />
+                            </button>
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
