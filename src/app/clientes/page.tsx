@@ -21,6 +21,8 @@ export default function ClientesPage() {
   const [poblacion, setPoblacion] = useState("");
   const [provincia, setProvincia] = useState("");
   const [municipiosSugeridos, setMunicipiosSugeridos] = useState<string[]>([]);
+  const [showProvList, setShowProvList] = useState(false);
+  const [showMunList, setShowMunList] = useState(false);
 
   useEffect(() => {
     fetchClientes();
@@ -212,35 +214,77 @@ export default function ClientesPage() {
                         placeholder="C.P."
                       />
                       
-                      <input 
-                        type="text" 
-                        autoComplete="off"
-                        value={provincia} 
-                        list="provincias-list"
-                        onChange={(e) => setProvincia(e.target.value)}
-                        className="p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)]"
-                        placeholder="Escribe provincia..."
-                      />
-                      <datalist id="provincias-list">
-                        {PROVINCIAS_ESPANOLAS.map(p => (
-                          <option key={p.id} value={p.nombre} />
-                        ))}
-                      </datalist>
+                      <div className="relative">
+                        <input 
+                          type="text" 
+                          autoComplete="off"
+                          value={provincia} 
+                          onFocus={() => setShowProvList(true)}
+                          onBlur={() => setTimeout(() => setShowProvList(false), 200)}
+                          onChange={(e) => {
+                            setProvincia(e.target.value);
+                            setShowProvList(true);
+                          }}
+                          className="w-full p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)]"
+                          placeholder="Provincia..."
+                        />
+                        {showProvList && (
+                          <div className="absolute z-[110] left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white border border-[var(--border)] rounded-xl shadow-2xl py-2">
+                             {PROVINCIAS_ESPANOLAS
+                               .filter(p => !provincia || p.nombre.toLowerCase().includes(provincia.toLowerCase()))
+                               .map(p => (
+                                 <button
+                                   key={p.id}
+                                   type="button"
+                                   onClick={() => {
+                                     setProvincia(p.nombre);
+                                     setShowProvList(false);
+                                   }}
+                                   className="w-full text-left px-4 py-2 hover:bg-[var(--accent)]/10 text-sm"
+                                 >
+                                   {p.nombre}
+                                 </button>
+                               ))
+                             }
+                          </div>
+                        )}
+                      </div>
 
-                      <input 
-                        type="text" 
-                        autoComplete="off"
-                        value={poblacion} 
-                        list="municipios-list"
-                        onChange={(e) => setPoblacion(e.target.value)}
-                        className="p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)]"
-                        placeholder="Escribe municipio..."
-                      />
-                      <datalist id="municipios-list">
-                         {municipiosSugeridos.map((m, idx) => (
-                           <option key={idx} value={m} />
-                         ))}
-                      </datalist>
+                      <div className="relative">
+                        <input 
+                          type="text" 
+                          autoComplete="off"
+                          value={poblacion} 
+                          onFocus={() => setShowMunList(true)}
+                          onBlur={() => setTimeout(() => setShowMunList(false), 200)}
+                          onChange={(e) => {
+                            setPoblacion(e.target.value);
+                            setShowMunList(true);
+                          }}
+                          className="w-full p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)]"
+                          placeholder="Municipio..."
+                        />
+                         {showMunList && municipiosSugeridos.length > 0 && (
+                          <div className="absolute z-[110] left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white border border-[var(--border)] rounded-xl shadow-2xl py-2">
+                             {municipiosSugeridos
+                               .filter(m => !poblacion || m.toLowerCase().includes(poblacion.toLowerCase()))
+                               .map((m, idx) => (
+                                 <button
+                                   key={idx}
+                                   type="button"
+                                   onClick={() => {
+                                     setPoblacion(m);
+                                     setShowMunList(false);
+                                   }}
+                                   className="w-full text-left px-4 py-2 hover:bg-[var(--accent)]/10 text-sm"
+                                 >
+                                   {m}
+                                 </button>
+                               ))
+                             }
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
