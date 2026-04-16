@@ -1,30 +1,6 @@
-/**
- * Utility for formatting currency and numbers in Spanish locale (es-ES)
- * 1.000,00 €
- */
-
 export const formatCurrency = (amount: number): string => {
-  return new Intl.NumberFormat('es-ES', {
-    style: 'currency',
-    currency: 'EUR',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  }).format(amount || 0);
-};
-
-export const formatNumber = (num: number): string => {
-  return new Intl.NumberFormat('es-ES', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  }).format(num || 0);
-};
-
-/**
- * Strips formatting to get a raw number (e.g. for database)
- */
-export const parseRawNumber = (str: string): number => {
-  if (!str) return 0;
-  // Replace thousands dots, then change comma to dot
-  const clean = str.replace(/\./g, '').replace(',', '.');
-  return parseFloat(clean) || 0;
+  // Forzamos el formato con puntos y comas manualmente por seguridad extrema
+  const parts = (amount || 0).toFixed(2).split('.');
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return `${parts.join(',')} €`;
 };

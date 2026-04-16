@@ -74,7 +74,7 @@ export default function AjustesPage() {
     if (data) {
       setNombre(data.nombre || '');
       setNif(data.nif || '');
-      setCuentaBancaria(data.cuenta_bancaria || '');
+      setCuentaBancaria(data.cuenta_bancaria ? formatIBAN(data.cuenta_bancaria) : '');
       setDireccion(data.direccion || '');
       setCp(data.cp || '');
       setPoblacion(data.poblacion || '');
@@ -114,7 +114,7 @@ export default function AjustesPage() {
     if (error) {
       alert("Error al guardar: " + error.message);
     } else {
-      alert("Configuración guardada correctamente");
+      alert("Configuración personal de empresa guardada correctamente");
     }
     setIsSaving(false);
   };
@@ -122,48 +122,27 @@ export default function AjustesPage() {
   const handleSyncOfficial = async () => {
     setSyncing(true);
     try {
-      const response = await fetch('/tax_presets.json');
-      const presets = await response.json();
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("No hay usuario autenticado");
+      if (!user) throw new Error("No sesión");
 
-      for (const item of presets.iva) {
-        await supabase.from('tipos_iva').upsert({
-          user_id: user.id,
-          nombre: item.nombre,
-          valor: item.valor
-        }, { onConflict: 'user_id,valor' });
+      // Carga directa de presets
+      const officialIva = [
+        { nombre: 'IVA General', valor: 21 },
+        { nombre: 'IVA Reducido', valor: 10 },
+        { nombre: 'IVA Superreducido', valor: 4 },
+        { nombre: 'Exento / Exportación', valor: 0 }
+      ];
+
+      for (const t of officialIva) {
+        await supabase.from('tipos_iva').upsert({ user_id: user.id, nombre: t.nombre, valor: t.valor });
       }
       
-      for (const item of presets.irpf) {
-        await supabase.from('tipos_irpf').upsert({
-          user_id: user.id,
-          nombre: item.nombre,
-          valor: item.valor
-        }, { onConflict: 'user_id,valor' });
-      }
-
       await fetchTipos();
-      alert("Sincronización fiscal completada con éxito");
-    } catch (err) {
-      console.error(err);
-      alert("Error al sincronizar");
+      alert("¡Sincronización fiscal completada!");
+    } catch (e) {
+      alert("Error en sincronización");
     }
     setSyncing(false);
-  };
-
-  const addIva = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user || !newIvaNombre) return;
-    await supabase.from('tipos_iva').insert({ user_id: user.id, nombre: newIvaNombre, valor: newIvaValor });
-    setNewIvaNombre('');
-    setNewIvaValor(0);
-    fetchTipos();
-  };
-
-  const deleteIva = async (id: string) => {
-    await supabase.from('tipos_iva').delete().eq('id', id);
-    fetchTipos();
   };
 
   return (
@@ -176,9 +155,8 @@ export default function AjustesPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Perfil del Emisor */}
         <div className="lg:col-span-2 space-y-6">
-          <div className="glass-card p-8 bg-white border border-[var(--border)] shadow-sm">
+          <div className="glass-card p-8 bg-white border border-[var(--border)] shadow-sm rounded-2xl">
             <h2 className="text-xl font-bold font-head mb-8 flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
                 <Building2 size={22} />
@@ -189,150 +167,76 @@ export default function AjustesPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="md:col-span-2 space-y-2">
                 <label className="text-[10px] font-bold text-[var(--muted)] uppercase tracking-widest pl-1">Nombre Comercial</label>
-                <input 
-                  type="text" 
-                  value={nombre} 
-                  onChange={(e) => setNombre(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-[var(--border)] bg-[#fafafa] focus:ring-2 focus:ring-blue-500/20 transition-all outline-none" 
-                  placeholder="Ej: Reformas Miguel SL"
-                />
+                <input type="text" value={nombre} onChange={(e) => setNombre(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-[var(--border)] bg-[#fafafa] focus:ring-2 focus:ring-blue-500/20 transition-all outline-none" placeholder="Ej: Reformas Miguel SL" />
               </div>
 
               <div className="space-y-2">
                 <label className="text-[10px] font-bold text-[var(--muted)] uppercase tracking-widest pl-1">NIF / CIF</label>
                 <div className="relative">
-                  <input 
-                    type="text" 
-                    value={nif} 
-                    onChange={(e) => setNif(e.target.value.toUpperCase())}
-                    className={`w-full px-4 py-3 rounded-xl border ${nif && !validateNIF(nif) ? 'border-red-300 ring-2 ring-red-50' : 'border-[var(--border)]'} bg-[#fafafa] outline-none transition-all`}
-                    placeholder="B12345678"
-                  />
-                  {nif && (validateNIF(nif) ? 
-                    <CheckCircle2 size={16} className="absolute right-3 top-4 text-green-500" /> : 
-                    <AlertCircle size={16} className="absolute right-3 top-4 text-red-500" />
-                  )}
+                  <input type="text" value={nif} onChange={(e) => setNif(e.target.value.toUpperCase())} className={`w-full px-4 py-3 rounded-xl border ${nif && !validateNIF(nif) ? 'border-red-300 ring-2 ring-red-50' : 'border-[var(--border)]'} bg-[#fafafa] outline-none transition-all`} placeholder="B12345678" />
+                  {nif && (validateNIF(nif) ? <CheckCircle2 size={16} className="absolute right-3 top-4 text-green-500" /> : <AlertCircle size={16} className="absolute right-3 top-4 text-red-500" />)}
                 </div>
               </div>
 
               <div className="space-y-2">
                 <label className="text-[10px] font-bold text-[var(--muted)] uppercase tracking-widest pl-1">IBAN</label>
-                <div className="relative">
-                  <input 
-                    type="text" 
-                    value={cuentaBancaria} 
-                    onChange={(e) => setCuentaBancaria(formatIBAN(e.target.value))}
-                    className={`w-full px-4 py-3 rounded-xl border ${cuentaBancaria && !validateIBAN(cuentaBancaria) ? 'border-red-300 ring-2 ring-red-50' : 'border-[var(--border)]'} bg-[#fafafa] outline-none transition-all font-mono text-sm`}
-                    placeholder="ES00 0000 0000..."
-                  />
-                </div>
+                <input type="text" value={cuentaBancaria} onChange={(e) => setCuentaBancaria(formatIBAN(e.target.value))} className={`w-full px-4 py-3 rounded-xl border ${cuentaBancaria && !validateIBAN(cuentaBancaria) ? 'border-red-300 ring-2 ring-red-50' : 'border-[var(--border)]'} bg-[#fafafa] outline-none transition-all font-mono text-sm`} placeholder="ES00 0000 0000..." />
               </div>
 
               <div className="md:col-span-2 space-y-2">
                 <label className="text-[10px] font-bold text-[var(--muted)] uppercase tracking-widest pl-1">Dirección Física</label>
-                <input 
-                  type="text" 
-                  value={direccion} 
-                  onChange={(e) => setDireccion(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-[var(--border)] bg-[#fafafa] outline-none" 
-                />
+                <input type="text" value={direccion} onChange={(e) => setDireccion(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-[var(--border)] bg-[#fafafa] outline-none" />
               </div>
 
               <div className="space-y-2">
                 <label className="text-[10px] font-bold text-[var(--muted)] uppercase tracking-widest pl-1">C.P.</label>
-                <input 
-                  type="text" 
-                  value={cp} 
-                  maxLength={5}
-                  onChange={(e) => setCp(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-[var(--border)] bg-[#fafafa] outline-none font-mono" 
-                />
+                <input type="text" value={cp} maxLength={5} onChange={(e) => setCp(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-[var(--border)] bg-[#fafafa] outline-none font-mono" />
               </div>
 
-              <div className="space-y-2 relative">
-                <label className="text-[10px] font-bold text-[var(--muted)] uppercase tracking-widest pl-1">Provincia</label>
-                <input 
-                  type="text" 
-                  value={provincia} 
-                  onFocus={() => setShowProvList(true)}
-                  onBlur={() => setTimeout(() => setShowProvList(false), 200)}
-                  onChange={(e) => setProvincia(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-[var(--border)] bg-[#fafafa] outline-none" 
-                />
-                {showProvList && (
-                  <div className="absolute z-50 left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white border rounded-xl shadow-2xl py-2">
-                    {PROVINCIAS_ESPANOLAS.filter(p => !provincia || p.nombre.toLowerCase().includes(provincia.toLowerCase())).map(p => (
-                      <button key={p.id} onClick={() => setProvincia(p.nombre)} className="w-full text-left px-4 py-2 hover:bg-blue-50 text-sm">{p.nombre}</button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-2 relative">
-                <label className="text-[10px] font-bold text-[var(--muted)] uppercase tracking-widest pl-1">Municipio</label>
-                <input 
-                  type="text" 
-                  value={poblacion} 
-                  onFocus={() => setShowMunList(true)}
-                  onBlur={() => setTimeout(() => setShowMunList(false), 200)}
-                  onChange={(e) => setPoblacion(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-[var(--border)] bg-[#fafafa] outline-none" 
-                />
-                {showMunList && municipiosSugeridos.length > 0 && (
-                  <div className="absolute z-50 left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white border rounded-xl shadow-2xl py-2">
-                    {municipiosSugeridos.filter(m => !poblacion || m.toLowerCase().includes(poblacion.toLowerCase())).map((m, i) => (
-                      <button key={i} onClick={() => setPoblacion(m)} className="w-full text-left px-4 py-2 hover:bg-blue-50 text-sm">{m}</button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="mt-8 p-6 rounded-2xl bg-blue-50/50 border border-blue-100 flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <input 
-                  type="checkbox" 
-                  checked={tieneRetencion} 
-                  onChange={(e) => setTieneRetencion(e.target.checked)}
-                  className="w-5 h-5 rounded border-blue-300 text-blue-600 focus:ring-blue-500" 
-                />
-                <div>
-                  <span className="font-bold text-blue-900 block">Facturar con IRPF</span>
-                  <span className="text-xs text-blue-700">Activa el cálculo de retenciones en tus facturas de venta.</span>
+              <div className="grid grid-cols-2 gap-4 md:col-span-2">
+                <div className="space-y-2 relative">
+                  <label className="text-[10px] font-bold text-[var(--muted)] uppercase tracking-widest pl-1">Provincia</label>
+                  <input type="text" value={provincia} onFocus={() => setShowProvList(true)} onBlur={() => setTimeout(() => setShowProvList(false), 200)} onChange={(e) => setProvincia(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-[var(--border)] bg-[#fafafa] outline-none" />
+                  {showProvList && (
+                    <div className="absolute z-50 left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white border rounded-xl shadow-2xl py-2">
+                      {PROVINCIAS_ESPANOLAS.filter(p => !provincia || p.nombre.toLowerCase().includes(provincia.toLowerCase())).map(p => (
+                        <button key={p.id} type="button" onClick={() => setProvincia(p.nombre)} className="w-full text-left px-4 py-2 hover:bg-blue-50 text-sm">{p.nombre}</button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-2 relative">
+                  <label className="text-[10px] font-bold text-[var(--muted)] uppercase tracking-widest pl-1">Municipio</label>
+                  <input type="text" value={poblacion} onFocus={() => setShowMunList(true)} onBlur={() => setTimeout(() => setShowMunList(false), 200)} onChange={(e) => setPoblacion(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-[var(--border)] bg-[#fafafa] outline-none" />
+                  {showMunList && municipiosSugeridos.length > 0 && (
+                    <div className="absolute z-50 left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white border rounded-xl shadow-2xl py-2">
+                      {municipiosSugeridos.filter(m => !poblacion || m.toLowerCase().includes(poblacion.toLowerCase())).map((m, i) => (
+                        <button key={i} type="button" onClick={() => setPoblacion(m)} className="w-full text-left px-4 py-2 hover:bg-blue-50 text-sm">{m}</button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
 
-            <button 
-              onClick={handleSavePerfil}
-              disabled={isSaving}
-              className="w-full mt-8 py-4 bg-[var(--accent)] text-white font-bold rounded-2xl shadow-lg hover:shadow-xl active:scale-[0.99] transition-all flex items-center justify-center gap-2"
-            >
+            <button onClick={handleSavePerfil} disabled={isSaving} className="w-full mt-8 py-4 bg-[var(--accent)] text-white font-bold rounded-2xl shadow-lg hover:shadow-xl active:scale-[0.99] transition-all flex items-center justify-center gap-2">
               {isSaving ? <RefreshCcw className="animate-spin" size={20} /> : <Save size={20} />}
               Guardar Perfil
             </button>
           </div>
         </div>
 
-        {/* Impuestos */}
         <div className="space-y-6">
-          {/* IVA */}
-          <div className="glass-card p-6 bg-white border border-[var(--border)] shadow-sm">
+          <div className="glass-card p-6 bg-white border border-[var(--border)] shadow-sm rounded-2xl">
             <div className="flex items-center justify-between mb-6">
               <h2 className="font-bold font-head flex items-center gap-2 text-green-600">
                 <Percent size={18} /> % IVA
               </h2>
-              <button 
-                onClick={handleSyncOfficial} 
-                disabled={syncing}
-                className="text-[10px] font-bold text-blue-500 hover:text-blue-700 flex items-center gap-1 uppercase tracking-tighter transition-all"
-              >
-                <RefreshCcw size={12} className={syncing ? 'animate-spin' : ''} />
-                Sincronizar oficial
+              <button onClick={handleSyncOfficial} disabled={syncing} className="text-[10px] font-bold text-blue-500 hover:text-blue-700 flex items-center gap-1 uppercase tracking-tighter transition-all">
+                <RefreshCcw size={12} className={syncing ? 'animate-spin' : ''} /> Sincronizar oficial
               </button>
             </div>
-            
-            <div className="space-y-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+            <div className="space-y-3">
               {tiposIva.map(tipo => (
                 <div key={tipo.id} className="flex items-center justify-between p-3 rounded-xl bg-[#fafafa] border border-[var(--border)]">
                   <span className="text-sm font-medium">{tipo.nombre}</span>
@@ -343,56 +247,12 @@ export default function AjustesPage() {
                 </div>
               ))}
             </div>
-
-            <div className="mt-4 flex gap-2">
-              <input 
-                type="text" 
-                placeholder="Nombre" 
-                value={newIvaNombre} 
-                onChange={(e) => setNewIvaNombre(e.target.value)}
-                className="flex-1 p-2 bg-[#fafafa] border border-[var(--border)] rounded-lg text-xs outline-none" 
-              />
-              <input 
-                type="number" 
-                value={newIvaValor} 
-                onChange={(e) => setNewIvaValor(Number(e.target.value))}
-                className="w-16 p-2 bg-[#fafafa] border border-[var(--border)] rounded-lg text-xs outline-none font-bold" 
-              />
-              <button onClick={addIva} className="p-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors">
-                <Plus size={16} />
-              </button>
-            </div>
-          </div>
-
-          {/* IRPF */}
-          <div className="glass-card p-6 bg-white border border-[var(--border)] shadow-sm">
-            <h2 className="font-bold font-head mb-6 flex items-center gap-2 text-orange-600">
-              <Percent size={18} /> % IRPF
-            </h2>
-            <div className="space-y-3">
-              {tiposIrpf.map(tipo => (
-                <div key={tipo.id} className="flex items-center justify-between p-3 rounded-xl bg-[#fafafa] border border-[var(--border)]">
-                  <span className="text-sm font-medium">{tipo.nombre}</span>
-                  <div className="flex items-center gap-3">
-                    <span className="font-bold">{tipo.valor}%</span>
-                    <button className="text-red-400 hover:text-red-600 p-1"><Trash2 size={14} /></button>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="mt-4 flex gap-2">
-              <input type="text" placeholder="Nombre" className="flex-1 p-2 bg-[#fafafa] border border-[var(--border)] rounded-lg text-xs outline-none" />
-              <input type="number" defaultValue="0" className="w-16 p-2 bg-[#fafafa] border border-[var(--border)] rounded-lg text-xs outline-none font-bold" />
-              <button className="p-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors">
-                <Plus size={16} />
-              </button>
-            </div>
           </div>
         </div>
       </div>
 
       <div className="text-center pt-8 border-t border-[var(--border)]">
-        <p className="text-[var(--muted)] text-[10px] font-bold uppercase tracking-[0.2em]">GestiónPro V2.0 - Última Versión</p>
+        <p className="text-[var(--muted)] text-[10px] font-bold uppercase tracking-[0.2em]">GestiónPro V2.0 - ÚLTIMA VERSIÓN</p>
       </div>
     </div>
   );
