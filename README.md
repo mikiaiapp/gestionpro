@@ -6,11 +6,12 @@ GestiónPro es una plataforma SaaS de gestión empresarial moderna y profesional
 
 ## ✨ Características Principales
 - 📑 **Invoicing & Budgets**: Gestión de facturas y presupuestos profesionales con exportación a PDF.
-- 🏗️ **Project Advance Invoicing**: Sistema de facturación por hitos/porcentaje (Certificaciones de obra) con cálculo automático sobre el presupuesto del proyecto.
-- ⚖️ **Compliance Legal**: Preparada para la **Ley Crea y Crece** y la normativa **Veri*factu**, incluyendo identificadores de trazabilidad y códigos QR.
-- 🔒 **Integridad de Datos**: Bloqueos inteligentes para evitar saltos de numeración y eliminación de registros con dependencias activas.
-- 📊 **Análisis de Rentabilidad**: Resumen dinámico de márgenes por proyecto con comparativa de ventas vs costes reales.
-- 🤖 **AI Import**: Importación de facturas en PDF mediante **Google Gemini API**.
+- 🏗️ **Project Advance Invoicing**: Sistema de facturación por hitos/porcentaje con cálculo automático sobre el presupuesto.
+- 🤖 **AI-Powered Expenses**: Registro de facturas recibidas (gastos) de forma manual o mediante **importación automática de PDF** analizados con **Google Gemini AI**.
+- 📈 **Rentabilidad por Proyecto**: Panel de análisis dinámico que cruza ventas vs costes reales para obtener el margen neto de cada obra o servicio.
+- 📗 **Libros de IVA**: Generación automática de libros de IVA **Soportado** (Costes) e IVA **Repercutido** (Ventas) listos para la liquidación de impuestos.
+- ⚖️ **Compliance Legal**: Preparada para la **Ley Crea y Crece** y normativa **Veri*factu**, con trazabilidad digital y códigos QR.
+- 🔒 **Integridad de Datos**: Bloqueos inteligentes para mantener correlatividad numérica y evitar borrados accidentales de datos con dependencias.
 - 📍 **Geo-Intelligence**: Autocompletado de municipios y provincias por Código Postal.
 
 ## 🚀 Guía Detallada de Instalación

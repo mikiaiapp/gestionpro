@@ -218,6 +218,32 @@ export default function CostesPage() {
     else fetchData();
   };
 
+  const downloadLibroIVA = () => {
+    const headers = ["Fecha", "Serie", "Nº Interno", "Factura Proveedor", "NIF Prov", "Proveedor", "Base Imponible", "IVA (%)", "Cuota IVA", "Total"];
+    const rows = costes.map(c => [
+      new Date(c.fecha).toLocaleDateString(),
+      c.serie,
+      c.num_interno,
+      c.num_factura_proveedor,
+      c.proveedores?.nif || "",
+      c.proveedores?.nombre || "",
+      c.base_imponible.toFixed(2).replace('.', ','),
+      c.iva_pct,
+      c.iva_importe.toFixed(2).replace('.', ','),
+      c.total.toFixed(2).replace('.', ',')
+    ]);
+
+    const csvContent = [headers, ...rows].map(e => e.join(";")).join("\n");
+    const blob = new Blob(["\ufeff" + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Libro_IVA_Soportado_${new Date().getFullYear()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="flex bg-[var(--background)] min-h-screen">
       <Sidebar />
@@ -228,20 +254,27 @@ export default function CostesPage() {
             <p className="text-[var(--muted)] font-medium">Gestión de facturas recibidas y gastos de empresa.</p>
           </div>
           <div className="flex gap-3">
-             <button 
-                onClick={() => setIsAiModalOpen(true)}
+              <button 
+                onClick={downloadLibroIVA}
                 className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white border border-[var(--border)] text-gray-700 font-bold hover:shadow-md transition-all active:scale-[0.98]"
               >
-                <Sparkles size={18} className="text-purple-500" />
-                Importar PDF
+                <Download size={18} className="text-green-600" />
+                Libro IVA
               </button>
               <button 
-                onClick={openAddModal}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--accent)] text-white font-bold hover:shadow-lg transition-all active:scale-[0.98]"
-              >
-                <Plus size={18} />
-                Nuevo Coste
-              </button>
+                 onClick={() => setIsAiModalOpen(true)}
+                 className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white border border-[var(--border)] text-gray-700 font-bold hover:shadow-md transition-all active:scale-[0.98]"
+               >
+                 <Sparkles size={18} className="text-purple-500" />
+                 Importar PDF
+               </button>
+               <button 
+                 onClick={openAddModal}
+                 className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--accent)] text-white font-bold hover:shadow-lg transition-all active:scale-[0.98]"
+               >
+                 <Plus size={18} />
+                 Nuevo Coste
+               </button>
           </div>
         </header>
 

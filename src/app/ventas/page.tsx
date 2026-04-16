@@ -359,6 +359,31 @@ export default function VentasPage() {
     }
   };
 
+  const downloadLibroIVA = () => {
+    const headers = ["Fecha", "Serie", "Factura", "NIF Cliente", "Cliente", "Base Imponible", "IVA (%)", "Cuota IVA", "Total"];
+    const rows = ventas.map(v => [
+      new Date(v.fecha).toLocaleDateString(),
+      v.serie,
+      v.num_factura,
+      v.clientes?.nif || "",
+      v.clientes?.nombre || "",
+      v.base_imponible.toFixed(2).replace('.', ','),
+      v.iva_pct,
+      (v.base_imponible * (v.iva_pct / 100)).toFixed(2).replace('.', ','),
+      v.total.toFixed(2).replace('.', ',')
+    ]);
+
+    const csvContent = [headers, ...rows].map(e => e.join(";")).join("\n");
+    const blob = new Blob(["\ufeff" + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Libro_IVA_Repercutido_${new Date().getFullYear()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="flex bg-[var(--background)] min-h-screen">
       <Sidebar />
@@ -370,21 +395,30 @@ export default function VentasPage() {
                 <h1 className="text-3xl font-bold font-head tracking-tight mb-1 text-[var(--foreground)]">Facturación</h1>
                 <p className="text-[var(--muted)] font-medium">Gestión y emisión de facturas profesionales.</p>
               </div>
-              <button 
-                onClick={async () => {
-                  setEditingId(null);
-                  setLineas([{ unidades: 1, descripcion: "", precio_unitario: 0 }]);
-                  // Propone un número base antes de consultar para que nunca salga vacío
-                  const currentYear = new Date().getFullYear();
-                  if (!numFactura) setNumFactura(`${currentYear}-001`);
-                  
-                  await fetchData();
-                  setIsEditorOpen(true);
-                }} 
-                className="flex items-center gap-2 px-6 py-3 rounded-xl bg-[var(--accent)] text-white font-bold hover:shadow-lg transition-all active:scale-[0.98]"
-              >
-                <Plus size={18} /> Crear Factura
-              </button>
+              <div className="flex gap-3">
+                <button 
+                  onClick={downloadLibroIVA}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white border border-[var(--border)] text-gray-700 font-bold hover:shadow-md transition-all active:scale-[0.98]"
+                >
+                  <Download size={18} className="text-green-600" />
+                  Libro IVA
+                </button>
+                <button 
+                  onClick={async () => {
+                    setEditingId(null);
+                    setLineas([{ unidades: 1, descripcion: "", precio_unitario: 0 }]);
+                    // Propone un número base antes de consultar para que nunca salga vacío
+                    const currentYear = new Date().getFullYear();
+                    if (!numFactura) setNumFactura(`${currentYear}-001`);
+                    
+                    await fetchData();
+                    setIsEditorOpen(true);
+                  }} 
+                  className="flex items-center gap-2 px-6 py-3 rounded-xl bg-[var(--accent)] text-white font-bold hover:shadow-lg transition-all active:scale-[0.98]"
+                >
+                  <Plus size={18} /> Crear Factura
+                </button>
+              </div>
             </header>
 
             <div className="glass-card bg-white shadow-sm border-[var(--border)] overflow-hidden">
