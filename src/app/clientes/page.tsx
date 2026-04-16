@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { Sidebar } from "@/components/Sidebar";
-import { Users, Plus, Search, MoreHorizontal, Loader2 } from "lucide-react";
+import { Users, Plus, Search, MoreHorizontal, Loader2, ChevronDown } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { PROVINCIAS_ESPANOLAS, getProvinciaPorCP } from "@/lib/geoData";
 
 export default function ClientesPage() {
   const [clientes, setClientes] = useState<any[]>([]);
@@ -27,21 +28,22 @@ export default function ClientesPage() {
   // Inteligencia de Código Postal
   useEffect(() => {
     if (cp.length === 5) {
-      buscarCP(cp);
+      const provinciaDetectada = getProvinciaPorCP(cp);
+      if (provinciaDetectada) setProvincia(provinciaDetectada);
+      buscarMunicipio(cp);
     }
   }, [cp]);
 
-  const buscarCP = async (codigo: string) => {
+  const buscarMunicipio = async (codigo: string) => {
     try {
       const response = await fetch(`https://api.zippopotam.us/es/${codigo}`);
       if (response.ok) {
         const data = await response.json();
         const place = data.places[0];
         setPoblacion(place['place name']);
-        setProvincia(place['state']);
       }
     } catch (error) {
-       console.error("Error buscando CP");
+       console.error("Error buscando municipio");
     }
   };
 
@@ -184,9 +186,14 @@ export default function ClientesPage() {
                         type="text" 
                         value={provincia} 
                         onChange={(e) => setProvincia(e.target.value)}
+                        list="provincias-list"
                         className="p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)]"
                         placeholder="Provincia"
                       />
+                      <datalist id="provincias-list">
+                        {PROVINCIAS_ESPANOLAS.map(p => <option key={p} value={p} />)}
+                      </datalist>
+                      
                       <input 
                         type="text" 
                         value={poblacion} 
