@@ -27,22 +27,25 @@ export default function AjustesPage() {
 
   const fetchAjustes = async () => {
     if (!supabase) return;
-    setLoading(true);
-    
-    // Aquí cargaríamos los datos del emisor (podrías tener una tabla 'config' o 'perfil')
-    const { data: perfil } = await supabase.from("perfil_negocio").select("*").single();
-    if (perfil) {
-       setNombre(perfil.nombre || "");
-       setNif(perfil.nif || "");
-       setCuentaBancaria(perfil.cuenta_bancaria || "");
-       setDireccion(perfil.direccion || "");
-       setGeminiKey(perfil.gemini_key || "");
-    }
+    try {
+      // Intentar cargar perfil (ID 1 es el fijo)
+      const { data: perfil } = await supabase.from("perfil_negocio").select("*").eq("id", 1).maybeSingle();
+      if (perfil) {
+        setNombre(perfil.nombre || "");
+        setNif(perfil.nif || "");
+        setCuentaBancaria(perfil.cuenta_bancaria || "");
+        setDireccion(perfil.direccion || "");
+        setGeminiKey(perfil.gemini_key || "");
+      }
 
-    const { data: fbc } = await supabase.from("formas_cobro").select("*").order("nombre");
-    setFormasCobro(fbc || []);
-    
-    setLoading(false);
+      // Cargar formas de cobro
+      const { data: fbc } = await supabase.from("formas_cobro").select("*").order("nombre");
+      setFormasCobro(fbc || []);
+    } catch (e: any) {
+      console.error("Error cargando ajustes:", e.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSavePerfil = async () => {
