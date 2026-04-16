@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { Sidebar } from "@/components/Sidebar";
-import { Users, Plus, Search, MoreHorizontal, Loader2 } from "lucide-react";
+import { Factory, Plus, Search, MoreHorizontal, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
-export default function ClientesPage() {
-  const [clientes, setClientes] = useState<any[]>([]);
+export default function ProveedoresPage() {
+  const [proveedores, setProveedores] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -21,7 +21,7 @@ export default function ClientesPage() {
   const [provincia, setProvincia] = useState("");
 
   useEffect(() => {
-    fetchClientes();
+    fetchProveedores();
   }, [supabase]);
 
   // Inteligencia de Código Postal
@@ -45,31 +45,31 @@ export default function ClientesPage() {
     }
   };
 
-  const fetchClientes = async () => {
+  const fetchProveedores = async () => {
     if (!supabase) {
       setLoading(false);
       return;
     }
     setLoading(true);
     const { data, error } = await supabase
-      .from("clientes")
+      .from("proveedores")
       .select("*")
       .order("nombre", { ascending: true });
 
     if (error) {
-      console.error("Error cargando clientes:", error);
+      console.error("Error cargando proveedores:", error);
     } else {
-      setClientes(data || []);
+      setProveedores(data || []);
     }
     setLoading(false);
   };
 
-  const handleAddCliente = async (e: React.FormEvent) => {
+  const handleAddProveedor = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nombre || !supabase) return;
 
     const { error } = await supabase
-      .from("clientes")
+      .from("proveedores")
       .insert([{ 
         nombre, 
         nif, 
@@ -91,13 +91,13 @@ export default function ClientesPage() {
       setPoblacion("");
       setProvincia("");
       setIsModalOpen(false);
-      fetchClientes();
+      fetchProveedores();
     }
   };
 
-  const filteredClientes = clientes.filter(c => 
-    c.nombre.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    c.nif?.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredProveedores = proveedores.filter(p => 
+    p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    p.nif?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -106,32 +106,32 @@ export default function ClientesPage() {
       <div className="flex-1 p-8 overflow-y-auto">
         <header className="flex justify-between items-center mb-10">
           <div>
-            <h1 className="text-3xl font-bold font-head tracking-tight mb-1 text-[var(--foreground)]">Clientes</h1>
-            <p className="text-[var(--muted)] font-medium">Base de datos centralizada en la nube.</p>
+            <h1 className="text-3xl font-bold font-head tracking-tight mb-1 text-[var(--foreground)]">Proveedores</h1>
+            <p className="text-[var(--muted)] font-medium">Gestión de suministros y acreedores.</p>
           </div>
           <button 
             onClick={() => setIsModalOpen(true)}
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--accent)] text-white font-bold hover:shadow-lg transition-all active:scale-[0.98]"
           >
             <Plus size={18} />
-            Nuevo Cliente
+            Nuevo Proveedor
           </button>
         </header>
 
-        {/* Modal de Nuevo Cliente */}
+        {/* Modal de Nuevo Proveedor */}
         {isModalOpen && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
             <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md border border-[var(--border)] animate-in fade-in zoom-in duration-200">
-              <h2 className="text-xl font-bold font-head mb-6">➕ Añadir Cliente</h2>
-              <form onSubmit={handleAddCliente} className="space-y-4">
+              <h2 className="text-xl font-bold font-head mb-6">🏪 Añadir Proveedor</h2>
+              <form onSubmit={handleAddProveedor} className="space-y-4">
                 <div>
-                  <label className="block text-[11px] font-bold text-[var(--muted)] uppercase mb-1">Razón Social *</label>
+                  <label className="block text-[11px] font-bold text-[var(--muted)] uppercase mb-1">Nombre Comercial *</label>
                   <input 
                     type="text" 
                     value={nombre} 
                     onChange={(e) => setNombre(e.target.value)}
                     className="w-full p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)]"
-                    placeholder="Ej: Aceros S.A."
+                    placeholder="Ej: Suministros Industriales SL"
                     required
                   />
                 </div>
@@ -144,17 +144,17 @@ export default function ClientesPage() {
                       value={nif} 
                       onChange={(e) => setNif(e.target.value)}
                       className="w-full p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)]"
-                      placeholder="A12345678"
+                      placeholder="B98765432"
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-bold text-[var(--muted)] uppercase mb-1">Email</label>
+                    <label className="block text-[11px] font-bold text-[var(--muted)] uppercase mb-1">Email Contacto</label>
                     <input 
                       type="email" 
                       value={email} 
                       onChange={(e) => setEmail(e.target.value)}
                       className="w-full p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)]"
-                      placeholder="facturas@..."
+                      placeholder="compras@..."
                     />
                   </div>
                 </div>
@@ -168,7 +168,7 @@ export default function ClientesPage() {
                         value={direccion} 
                         onChange={(e) => setDireccion(e.target.value)}
                         className="w-full p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)]"
-                        placeholder="Dirección completa"
+                        placeholder="Dirección fiscal"
                       />
                     </div>
                     <div className="grid grid-cols-3 gap-3">
@@ -197,6 +197,7 @@ export default function ClientesPage() {
                     </div>
                   </div>
                 </div>
+
                 <div className="flex gap-3 mt-6">
                   <button 
                     type="button"
@@ -224,7 +225,7 @@ export default function ClientesPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]" size={16} />
               <input 
                 type="text" 
-                placeholder="Buscar cliente..." 
+                placeholder="Buscar proveedor..." 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)] transition-colors"
@@ -236,36 +237,39 @@ export default function ClientesPage() {
             {loading ? (
               <div className="flex-1 flex flex-col items-center justify-center p-20 text-[var(--muted)] gap-3">
                 <Loader2 className="animate-spin" size={32} />
-                <p className="text-sm font-medium">Conectando con la base de datos...</p>
+                <p className="text-sm font-medium">Cargando proveedores...</p>
               </div>
-            ) : filteredClientes.length === 0 ? (
+            ) : filteredProveedores.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center p-20 text-[var(--muted)] gap-4 text-center">
                 <div className="w-16 h-16 rounded-full bg-[var(--background)] flex items-center justify-center">
-                  <Users size={32} className="opacity-20" />
+                  <Factory size={32} className="opacity-20" />
                 </div>
                 <div>
-                  <p className="font-bold text-[var(--foreground)]">No hay clientes todavía</p>
-                  <p className="text-sm">Añade tu primer cliente con el botón de arriba.</p>
+                  <p className="font-bold text-[var(--foreground)]">No hay proveedores registrados</p>
+                  <p className="text-sm">Registra tu primer proveedor para gestionar sus costes.</p>
                 </div>
               </div>
             ) : (
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-[#fcfaf7] border-b border-[var(--border)]">
-                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">Cliente</th>
+                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">Proveedor</th>
                     <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">NIF/CIF</th>
-                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">Email</th>
+                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">Ubicación</th>
                     <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--border)]">
-                  {filteredClientes.map((cliente) => (
-                    <tr key={cliente.id} className="hover:bg-[#fcfaf7] transition-colors group">
+                  {filteredProveedores.map((p) => (
+                    <tr key={p.id} className="hover:bg-[#fcfaf7] transition-colors group">
                       <td className="px-6 py-4">
-                        <div className="font-bold text-[var(--foreground)]">{cliente.nombre}</div>
+                        <div className="font-bold text-[var(--foreground)]">{p.nombre}</div>
+                        <div className="text-[10px] text-[var(--muted)] uppercase tracking-wider">{p.email}</div>
                       </td>
-                      <td className="px-6 py-4 text-sm text-[var(--muted)] font-medium">{cliente.nif || '—'}</td>
-                      <td className="px-6 py-4 text-sm text-[var(--muted)]">{cliente.email || '—'}</td>
+                      <td className="px-6 py-4 text-sm text-[var(--muted)] font-medium">{p.nif || '—'}</td>
+                      <td className="px-6 py-4 text-sm text-[var(--muted)]">
+                        {p.poblacion ? `${p.poblacion} (${p.provincia})` : '—'}
+                      </td>
                       <td className="px-6 py-4 text-right">
                         <button className="p-2 hover:bg-[var(--background)] rounded-lg transition-colors text-[var(--muted)]">
                           <MoreHorizontal size={18} />
