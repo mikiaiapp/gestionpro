@@ -21,6 +21,10 @@ export default function ClientesPage() {
   }, []);
 
   const fetchClientes = async () => {
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     const { data, error } = await supabase
       .from("clientes")
@@ -37,7 +41,7 @@ export default function ClientesPage() {
 
   const handleAddCliente = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!nombre) return;
+    if (!nombre || !supabase) return;
 
     const { error } = await supabase
       .from("clientes")

@@ -3,8 +3,14 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('Faltan las variables de entorno de Supabase. La base de datos no funcionará hasta que se configuren en Vercel.');
-}
+// Creamos una función para obtener el cliente de forma segura
+// Esto evita que el BUILD de Vercel falle si las variables no están listas
+const getSupabase = () => {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.warn('⚠️ Supabase: Faltan llaves de conexión.');
+    return null;
+  }
+  return createClient(supabaseUrl, supabaseAnonKey);
+};
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = getSupabase() as any;
