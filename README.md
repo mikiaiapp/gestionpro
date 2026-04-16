@@ -1,27 +1,36 @@
 # 📁 GestiónPro v3.0 (Versión Profesional)
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fmikiaiapp%2Fgestionpro)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fmikiaiapp%2Fgestionpro2)
 
-Esta es la versión profesional de **GestiónPro**, diseñada para ser rápida, segura y accesible desde cualquier dispositivo (Móvil, Tablet o PC).
+GestiónPro es una plataforma SaaS de gestión empresarial moderna, diseñada para autónomos y pequeñas empresas que buscan profesionalizar su facturación y control de proyectos.
 
-## 🚀 Instalación en 1 minuto (Para niños)
+## ✨ Características Principales
+- 📑 **Invoicing Pro**: Editor de facturas con líneas de detalle y cálculos automáticos.
+- 🤖 **AI Import**: Importación de facturas en PDF mediante **Google Gemini API**.
+- 📍 **Geo-Intelligence**: Autocompletado de municipios y provincias por Código Postal.
+- 📈 **Análisis Financiero**: Control de márgenes previstos vs reales por proyecto.
+- 🔒 **Security First**: Aislamiento total de datos mediante Row Level Security (RLS).
+- 📱 **Multi-dispositivo**: Diseño premium adaptado a móviles y tablets.
 
-### Opción A: Quiero usarlo en mi móvil ahora mismo
-1. Haz clic en el botón azul de arriba **"Deploy with Vercel"**.
-2. Conéctate con tu cuenta de GitHub.
-3. ¡Listo! Ya tienes tu dirección web propia para entrar desde el móvil.
+## 🚀 Instalación en 2 Pasos
 
-### Opción B: Quiero usarlo en mi ordenador (Local)
-1. Descarga este repositorio.
-2. Haz doble clic en el archivo `install.bat`.
-3. Espera a que termine y sigue las instrucciones en pantalla.
+### 1. Despliegue en Vercel
+Haz clic en el botón **"Deploy with Vercel"** de arriba. Deberás configurar las siguientes variables de entorno:
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+
+### 2. Configuración de Base de Datos (Supabase)
+1. Crea un proyecto gratuito en [Supabase](https://supabase.com).
+2. Entra en el **SQL Editor**.
+3. Copia el contenido del archivo [`supabase_schema.sql`](./supabase_schema.sql) y ejecútalo.
+4. ¡Listo! Ya puedes empezar a usar tu instancia privada.
 
 ---
 
-## 📁 Estructura del Proyecto
--   `/src`: El código moderno de la aplicación.
--   `/legacy`: Tu versión antigua por si necesitas consultar algo.
--   `install.bat`: El asistente mágico de instalación.
+## 🛠️ Tecnologías
+- **Frontend**: Next.js 14, Tailwind CSS, Lucide Icons.
+- **Backend**: Supabase (Auth, DB, RLS).
+- **IA**: Google Gemini Cloud Service.
 
 ---
-*Hecho para que gestionar sea tan fácil como jugar.*
+*GestiónPro: Control total, estés donde estés.*
