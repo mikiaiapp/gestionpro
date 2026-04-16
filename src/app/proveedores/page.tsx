@@ -23,9 +23,9 @@ export default function ProveedoresPage() {
   const [todosLosMunicipios, setTodosLosMunicipios] = useState<any[]>([]);
   const [municipiosSugeridos, setMunicipiosSugeridos] = useState<string[]>([]);
 
-  // Controladores de lista custom
   const [showProvList, setShowProvList] = useState(false);
   const [showMunList, setShowMunList] = useState(false);
+  const [loadingGeo, setLoadingGeo] = useState(false);
 
   useEffect(() => {
     fetchProveedores();
@@ -329,14 +329,15 @@ export default function ProveedoresPage() {
                   <button 
                     type="button"
                     onClick={() => setIsModalOpen(false)}
-                    className="flex-1 py-3 text-sm font-bold text-[var(--muted)] hover:bg-gray-100 rounded-xl transition-all border border-[var(--border)]"
+                    className="flex-1 py-2.5 text-sm font-bold text-[var(--muted)] hover:bg-gray-100 rounded-xl transition-all border border-[var(--border)]"
                   >
                     Cancelar
                   </button>
                   <button 
                     type="submit"
-                    className="flex-1 py-3 text-sm font-bold bg-[var(--accent)] text-white rounded-xl shadow-lg hover:shadow-xl hover:translate-y-[-1px] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                    className="flex-1 py-2.5 text-sm font-bold bg-[var(--accent)] text-white rounded-xl shadow-md hover:shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                   >
+                    <Plus size={18} />
                     Guardar Proveedor
                   </button>
                 </div>

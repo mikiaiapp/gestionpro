@@ -284,7 +284,7 @@ export default function ClientesPage() {
                              }
                           </div>
                         )}
-                                      <div className="relative">
+                      <div className="relative mt-3">
                         <input 
                           type="text" 
                           autoComplete="off"
@@ -302,7 +302,7 @@ export default function ClientesPage() {
                         {loadingGeo && (
                           <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-[var(--muted)]" size={14} />
                         )}
-                         {showMunList && municipiosSugeridos.length > 0 && (
+                        {showMunList && municipiosSugeridos.length > 0 && (
                           <div className="absolute z-[110] left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white border border-[var(--border)] rounded-xl shadow-2xl py-2">
                              {municipiosSugeridos
                                .filter(m => !poblacion || m.toLowerCase().includes(poblacion.toLowerCase()))
@@ -323,22 +323,23 @@ export default function ClientesPage() {
                           </div>
                         )}
                       </div>
-       </div>
                     </div>
                   </div>
                 </div>
+
                 <div className="flex gap-3 mt-8">
                   <button 
                     type="button"
                     onClick={() => setIsModalOpen(false)}
-                    className="flex-1 py-3 text-sm font-bold text-[var(--muted)] hover:bg-gray-100 rounded-xl transition-all border border-[var(--border)]"
+                    className="flex-1 py-2.5 text-sm font-bold text-[var(--muted)] hover:bg-gray-100 rounded-xl transition-all border border-[var(--border)]"
                   >
                     Cancelar
                   </button>
                   <button 
                     type="submit"
-                    className="flex-1 py-3 text-sm font-bold bg-[var(--accent)] text-white rounded-xl shadow-lg hover:shadow-xl hover:translate-y-[-1px] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                    className="flex-1 py-2.5 text-sm font-bold bg-[var(--accent)] text-white rounded-xl shadow-md hover:shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                   >
+                    <Plus size={18} />
                     Guardar Cliente
                   </button>
                 </div>
