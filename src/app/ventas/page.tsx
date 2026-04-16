@@ -48,12 +48,20 @@ export default function VentasPage() {
     setFormasCobro(fbc || []);
     setPerfil(perf);
 
-    // Sugerir siguiente número de factura (Lógica simple: año + contador)
-    if (vts && vts.length > 0) {
-      const lastNum = vts[0].num_factura;
-      // Aquí podrías implementar una lógica más robusta de incremento
+    // Lógica de contador automático (Año-XXX)
+    const currentYear = new Date().getFullYear();
+    const yearPrefix = `${currentYear}-`;
+    const yearVentas = (vts || []).filter(v => v.num_factura && v.num_factura.startsWith(yearPrefix));
+
+    if (yearVentas.length > 0) {
+      const numbers = yearVentas.map(v => {
+        const parts = v.num_factura.split("-");
+        return parseInt(parts[1], 10) || 0;
+      });
+      const nextNum = Math.max(...numbers) + 1;
+      setNumFactura(`${yearPrefix}${nextNum.toString().padStart(3, "0")}`);
     } else {
-      setNumFactura(`${new Date().getFullYear()}-001`);
+      setNumFactura(`${yearPrefix}001`);
     }
 
     setLoading(false);
@@ -300,8 +308,16 @@ export default function VentasPage() {
                 <FileText className="text-[var(--accent)]" /> Editor de Factura
               </h2>
               <div className="flex gap-3">
-                <button onClick={() => setIsEditorOpen(false)} className="px-5 py-2 text-sm font-bold text-gray-500 hover:bg-gray-100 rounded-lg">Cancelar</button>
-                <button onClick={handleSaveInvoice} className="flex items-center gap-2 px-6 py-2 bg-[var(--accent)] text-white rounded-lg font-bold shadow-md hover:shadow-lg transition-all">
+                <button 
+                  onClick={() => setIsEditorOpen(false)} 
+                  className="px-5 py-2.5 text-sm font-bold text-gray-500 hover:bg-gray-100 rounded-xl transition-all border border-transparent hover:border-gray-200"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  onClick={handleSaveInvoice} 
+                  className="flex items-center gap-2 px-6 py-2.5 bg-[var(--accent)] text-white rounded-xl font-bold shadow-md hover:shadow-lg active:scale-[0.98] transition-all"
+                >
                   <Save size={18} /> Guardar y Emitir
                 </button>
               </div>
