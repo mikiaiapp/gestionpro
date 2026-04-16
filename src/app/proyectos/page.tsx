@@ -153,9 +153,20 @@ export default function ProyectosPage() {
                   </div>
                 </div>
 
-                <div className="flex gap-3 mt-6">
-                  <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-2.5 text-sm font-bold text-[var(--muted)] hover:bg-[var(--background)] rounded-lg transition-colors border border-[var(--border)]">Cancelar</button>
-                  <button type="submit" className="flex-1 py-2.5 text-sm font-bold bg-[var(--accent)] text-white rounded-lg shadow-md hover:shadow-lg transition-all">Crear Proyecto</button>
+                <div className="flex gap-3 mt-8">
+                  <button 
+                    type="button" 
+                    onClick={() => setIsModalOpen(false)} 
+                    className="flex-1 py-3 text-sm font-bold text-[var(--muted)] hover:bg-gray-100 rounded-xl transition-all border border-[var(--border)]"
+                  >
+                    Cancelar
+                  </button>
+                  <button 
+                    type="submit" 
+                    className="flex-1 py-3 text-sm font-bold bg-[var(--accent)] text-white rounded-xl shadow-lg hover:shadow-xl hover:translate-y-[-1px] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                  >
+                    Crear Proyecto
+                  </button>
                 </div>
               </form>
             </div>

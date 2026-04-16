@@ -34,27 +34,25 @@ export default function CostesPage() {
   const fetchData = async () => {
     if (!supabase) return;
     setLoading(true);
-    
-    const { data: csts } = await supabase
-      .from("costes")
-      .select("*, proveedores(nombre), proyectos(nombre)")
-      .order("fecha", { ascending: false });
+    try {
+      const { data: csts } = await supabase
+        .from("costes")
+        .select("*, proveedores(nombre), proyectos(nombre)")
+        .order("fecha", { ascending: false });
 
-    const { data: provs } = await supabase.from("proveedores").select("id, nombre").order("nombre");
-    const { data: projs } = await supabase.from("proyectos").select("id, nombre").order("nombre");
-    const { data: perfil } = await supabase.from("perfil_negocio").select("gemini_key").single();
+      const { data: provs } = await supabase.from("proveedores").select("id, nombre").order("nombre");
+      const { data: projs } = await supabase.from("proyectos").select("id, nombre").order("nombre");
+      const { data: perfil } = await supabase.from("perfil_negocio").select("gemini_key").maybeSingle();
 
-    setCostes(csts || []);
-    setProveedores(provs || []);
-    setProyectos(projs || []);
-    if (perfil?.gemini_key) setGeminiKey(perfil.gemini_key);
-    
-    // Sugerir siguiente nº interno
-    if (csts && csts.length > 0) {
-       // Lógica de incremento opcional
+      setCostes(csts || []);
+      setProveedores(provs || []);
+      setProyectos(projs || []);
+      if (perfil?.gemini_key) setGeminiKey(perfil.gemini_key);
+    } catch (e: any) {
+      console.error("Error cargando costes:", e);
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   const handleImportPDF = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -282,9 +280,20 @@ export default function CostesPage() {
                    </div>
                 </div>
 
-                <div className="flex gap-3 mt-6">
-                  <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-2.5 text-sm font-bold text-[var(--muted)] hover:bg-[var(--background)] rounded-lg transition-colors border border-[var(--border)]">Cancelar</button>
-                  <button type="submit" className="flex-1 py-2.5 text-sm font-bold bg-[var(--accent)] text-white rounded-lg shadow-md hover:shadow-lg transition-all">Guardar Coste</button>
+                <div className="flex gap-3 mt-8">
+                  <button 
+                    type="button" 
+                    onClick={() => setIsModalOpen(false)} 
+                    className="flex-1 py-3 text-sm font-bold text-[var(--muted)] hover:bg-gray-100 rounded-xl transition-all border border-[var(--border)]"
+                  >
+                    Cancelar
+                  </button>
+                  <button 
+                    type="submit" 
+                    className="flex-1 py-3 text-sm font-bold bg-[var(--accent)] text-white rounded-xl shadow-lg hover:shadow-xl hover:translate-y-[-1px] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                  >
+                    Guardar Coste
+                  </button>
                 </div>
               </form>
             </div>
