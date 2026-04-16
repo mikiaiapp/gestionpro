@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Sidebar } from "@/components/Sidebar";
-import { Download, Plus, Search, MoreHorizontal, Loader2, Factory, FolderKanban } from "lucide-react";
+import { Download, Plus, Search, MoreHorizontal, Loader2, Factory, FolderKanban, FileText, Sparkles, X, Upload } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 export default function CostesPage() {
@@ -12,6 +12,9 @@ export default function CostesPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [geminiKey, setGeminiKey] = useState("");
 
   // Formulario
   const [serie, setSerie] = useState("A");
@@ -39,11 +42,76 @@ export default function CostesPage() {
 
     const { data: provs } = await supabase.from("proveedores").select("id, nombre").order("nombre");
     const { data: projs } = await supabase.from("proyectos").select("id, nombre").order("nombre");
+    const { data: perfil } = await supabase.from("perfil_negocio").select("gemini_key").single();
 
     setCostes(csts || []);
     setProveedores(provs || []);
     setProyectos(projs || []);
+    if (perfil?.gemini_key) setGeminiKey(perfil.gemini_key);
+    
+    // Sugerir siguiente nº interno
+    if (csts && csts.length > 0) {
+       // Lógica de incremento opcional
+    }
+
     setLoading(false);
+  };
+
+  const handleImportPDF = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !geminiKey) {
+      if (!geminiKey) alert("Configura primero la Gemini API Key en Ajustes.");
+      return;
+    }
+
+    setIsExtracting(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        const base64 = (event.target?.result as string).split(',')[1];
+        
+        const prompt = `Analiza esta factura y responde ÚNICAMENTE con un objeto JSON válido, sin explicaciones, sin markdown, sin backticks. 
+        JSON: { "nif": "CIF emisor", "proveedor": "Nombre emisor", "numfact": "Nº factura", "fecha": "YYYY-MM-DD", "base": 0.00, "ivaPct": 21, "total": 0.00 }`;
+
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-vision:generateContent?key=${geminiKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{
+              parts: [
+                { inline_data: { mime_type: 'application/pdf', data: base64 } },
+                { text: prompt }
+              ]
+            }]
+          })
+        });
+
+        // NOTA: 'gemini-pro-vision' es un ejemplo, usaremos la lógica de rotación similar a legacy si es necesario.
+        // Por sencillez en esta primera fase de migración:
+        const data = await res.json();
+        let raw = data.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+        raw = raw.replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/\s*```$/,'').trim();
+        const parsed = JSON.parse(raw);
+
+        // Mapear datos al formulario
+        if (parsed.numfact) setNumFactProv(parsed.numfact);
+        if (parsed.fecha) setFecha(parsed.fecha);
+        if (parsed.base) setBaseImponible(String(parsed.base));
+        if (parsed.ivaPct) setTipoIva(parsed.ivaPct);
+        
+        // Buscar proveedor por nombre o NIF
+        const prov = proveedores.find(p => p.nombre.toLowerCase().includes(parsed.proveedor?.toLowerCase()) || p.nif === parsed.nif);
+        if (prov) setProveedorId(prov.id);
+
+        setIsAiModalOpen(false);
+        setIsModalOpen(true);
+      };
+      reader.readAsDataURL(file);
+    } catch (e: any) {
+      alert("Error en el análisis IA: " + e.message);
+    } finally {
+      setIsExtracting(false);
+    }
   };
 
   const totalBase = parseFloat(baseImponible) || 0;
@@ -74,6 +142,10 @@ export default function CostesPage() {
       alert("Error: " + error.message);
     } else {
       setIsModalOpen(false);
+      // Limpiar
+      setNumFactProv("");
+      setBaseImponible("");
+      setProveedorId("");
       fetchData();
     }
   };
@@ -87,20 +159,61 @@ export default function CostesPage() {
             <h1 className="text-3xl font-bold font-head tracking-tight mb-1 text-[var(--foreground)]">Costes</h1>
             <p className="text-[var(--muted)] font-medium">Gestión de facturas recibidas y gastos de empresa.</p>
           </div>
-          <button 
-            onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--accent)] text-white font-bold hover:shadow-lg transition-all active:scale-[0.98]"
-          >
-            <Plus size={18} />
-            Nuevo Coste
-          </button>
+          <div className="flex gap-3">
+             <button 
+                onClick={() => setIsAiModalOpen(true)}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white border border-[var(--border)] text-gray-700 font-bold hover:shadow-md transition-all active:scale-[0.98]"
+              >
+                <Sparkles size={18} className="text-purple-500" />
+                Importar PDF
+              </button>
+              <button 
+                onClick={() => setIsModalOpen(true)}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--accent)] text-white font-bold hover:shadow-lg transition-all active:scale-[0.98]"
+              >
+                <Plus size={18} />
+                Nuevo Coste
+              </button>
+          </div>
         </header>
+
+        {/* MODAL IA */}
+        {isAiModalOpen && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
+             <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md border border-[var(--border)] text-center relative">
+                <button onClick={() => setIsAiModalOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"><X size={20}/></button>
+                <div className="w-16 h-16 bg-purple-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                   <Sparkles className="text-purple-500" size={32} />
+                </div>
+                <h2 className="text-xl font-bold font-head mb-2">Análisis de Factura con IA</h2>
+                <p className="text-sm text-gray-500 mb-6">Sube el PDF de tu factura y Gemini extraerá los datos automáticamente.</p>
+                
+                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-200 rounded-2xl cursor-pointer hover:bg-gray-50 transition-colors">
+                   {isExtracting ? (
+                     <div className="flex flex-col items-center gap-2">
+                        <Loader2 className="animate-spin text-purple-500" size={24} />
+                        <span className="text-xs font-bold text-gray-500 uppercase">Analizando factura...</span>
+                     </div>
+                   ) : (
+                     <>
+                       <Upload className="text-gray-300 mb-2" size={24} />
+                       <span className="text-sm font-bold text-gray-700">Seleccionar PDF</span>
+                       <input type="file" className="hidden" accept="application/pdf" onChange={handleImportPDF} />
+                     </>
+                   )}
+                </label>
+             </div>
+          </div>
+        )}
 
         {isModalOpen && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-lg border border-[var(--border)] animate-in fade-in zoom-in duration-200">
-              <h2 className="text-xl font-bold font-head mb-6">📥 Registrar Coste</h2>
-              <form onSubmit={handleSave} className="space-y-4">
+            <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-lg border border-[var(--border)] animate-in fade-in zoom-in duration-200 overflow-y-auto max-h-[90vh]">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold font-head flex items-center gap-2"><FileText className="text-[var(--accent)]" /> Registrar Coste</h2>
+                <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600"><X size={20}/></button>
+              </div>
+              <form onSubmit={handleSave} className="space-y-4 text-left">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-[11px] font-bold text-[var(--muted)] uppercase mb-1">Serie</label>
@@ -118,7 +231,7 @@ export default function CostesPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-[11px] font-bold text-[var(--muted)] uppercase mb-1">Nº Factura Prov.</label>
-                    <input type="text" value={numFactProv} onChange={(e) => setNumFactProv(e.target.value)} className="w-full p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)]" placeholder="Nº de su factura" />
+                    <input type="text" value={numFactProv} onChange={(e) => setNumFactProv(e.target.value)} className="w-full p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)] font-bold text-blue-600" placeholder="Extraído de IA..." />
                   </div>
                   <div>
                     <label className="block text-[11px] font-bold text-[var(--muted)] uppercase mb-1">Fecha</label>
@@ -128,7 +241,7 @@ export default function CostesPage() {
 
                 <div>
                   <label className="block text-[11px] font-bold text-[var(--muted)] uppercase mb-1">Proveedor</label>
-                  <select value={proveedorId} onChange={(e) => setProveedorId(e.target.value)} className="w-full p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)]">
+                  <select value={proveedorId} onChange={(e) => setProveedorId(e.target.value)} className="w-full p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)] font-bold">
                     <option value="">— Seleccionar —</option>
                     {proveedores.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
                   </select>
@@ -155,16 +268,16 @@ export default function CostesPage() {
 
                 <div>
                   <label className="block text-[11px] font-bold text-[var(--muted)] uppercase mb-1">Base Imponible (€)</label>
-                  <input type="number" step="0.01" value={baseImponible} onChange={(e) => setBaseImponible(e.target.value)} className="w-full p-3 rounded-xl border border-[var(--border)] bg-[var(--background)] text-lg font-bold focus:outline-none focus:border-[var(--accent)] text-right" placeholder="0.00" />
+                  <input type="number" step="0.01" value={baseImponible} onChange={(e) => setBaseImponible(e.target.value)} className="w-full p-3 rounded-xl border border-[var(--border)] bg-[var(--background)] text-lg font-bold focus:outline-none focus:border-[var(--accent)] text-right text-purple-700" placeholder="0.00" />
                 </div>
 
-                <div className="bg-[var(--background)] p-4 rounded-xl border border-[var(--border)] mt-4">
+                <div className="bg-gray-50 p-4 rounded-xl border border-[var(--border)] mt-4">
                    <div className="flex justify-between text-sm mb-1">
-                      <span className="text-[var(--muted)]">Cuota IVA ({serie === "A" ? tipoIva : 0}%):</span>
-                      <span className="font-mono">{new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(cuotaIva)}</span>
+                      <span className="text-[var(--muted)] font-bold">IVA ({serie === "A" ? tipoIva : 0}%):</span>
+                      <span className="font-mono font-bold">{new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(cuotaIva)}</span>
                    </div>
-                   <div className="flex justify-between text-lg font-bold border-t border-[var(--border)] pt-2 mt-2">
-                      <span className="text-[var(--foreground)]">TOTAL COSTE:</span>
+                   <div className="flex justify-between text-lg font-bold border-t border-gray-200 pt-2 mt-2">
+                      <span className="text-[var(--foreground)] uppercase text-xs tracking-wider">Total Factura:</span>
                       <span className="text-red-600">{new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(totalFactura)}</span>
                    </div>
                 </div>

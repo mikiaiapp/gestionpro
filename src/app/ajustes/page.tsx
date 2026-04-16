@@ -14,6 +14,8 @@ export default function AjustesPage() {
   const [nif, setNif] = useState("");
   const [cuentaBancaria, setCuentaBancaria] = useState("");
   const [direccion, setDireccion] = useState("");
+  const [geminiKey, setGeminiKey] = useState("");
+  const [geminiStatus, setGeminiStatus] = useState({ msg: "", type: "muted" });
   
   // Formas de Cobro
   const [formasCobro, setFormasCobro] = useState<any[]>([]);
@@ -34,6 +36,7 @@ export default function AjustesPage() {
        setNif(perfil.nif || "");
        setCuentaBancaria(perfil.cuenta_bancaria || "");
        setDireccion(perfil.direccion || "");
+       setGeminiKey(perfil.gemini_key || "");
     }
 
     const { data: fbc } = await supabase.from("formas_cobro").select("*").order("nombre");
@@ -49,7 +52,8 @@ export default function AjustesPage() {
       nombre,
       nif,
       cuenta_bancaria: cuentaBancaria,
-      direccion
+      direccion,
+      gemini_key: geminiKey
     });
     
     if (error) alert("Error al guardar: " + error.message);
@@ -69,6 +73,22 @@ export default function AjustesPage() {
   const handleDeleteForma = async (id: string) => {
     const { error } = await supabase.from("formas_cobro").delete().eq("id", id);
     if (!error) fetchAjustes();
+  };
+
+  const testGeminiKey = async () => {
+    if (!geminiKey) {
+      setGeminiStatus({ msg: "Introduce la clave primero", type: "red" });
+      return;
+    }
+    setGeminiStatus({ msg: "Verificando...", type: "muted" });
+    try {
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${geminiKey}&pageSize=1`);
+      const data = await res.json();
+      if (data.error) throw new Error(data.error.message);
+      setGeminiStatus({ msg: "✓ Conexión establecida correctamente", type: "green" });
+    } catch (e: any) {
+      setGeminiStatus({ msg: "✕ Error: " + e.message, type: "red" });
+    }
   };
 
   if (loading) return (
@@ -136,6 +156,40 @@ export default function AjustesPage() {
                 {isSaving ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
                 {isSaving ? "Guardando..." : "Guardar Configuración"}
               </button>
+            </div>
+          </div>
+
+          {/* INTELIGENCIA ARTIFICIAL (GEMINI) */}
+          <div className="bg-white rounded-2xl border border-[var(--border)] shadow-sm p-8 h-fit">
+            <h2 className="text-xl font-bold font-head mb-6 flex items-center gap-2">
+              <span className="text-xl">✨</span> Inteligencia Artificial (Gemini)
+            </h2>
+            <p className="text-sm text-[var(--muted)] mb-6">Configura tu API Key de Google para activar el importador automático de facturas en PDF.</p>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-[11px] font-bold text-gray-400 uppercase mb-1">Google Gemini API KEY</label>
+                <div className="flex gap-2">
+                  <input 
+                    type="password" 
+                    value={geminiKey} 
+                    onChange={e => setGeminiKey(e.target.value)}
+                    placeholder="AIzaSy..."
+                    className="flex-1 p-3 rounded-xl border border-gray-200 focus:outline-none focus:border-[var(--accent)] font-mono text-sm"
+                  />
+                  <button onClick={testGeminiKey} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-xs transition-colors">
+                    Probar
+                  </button>
+                </div>
+                {geminiStatus.msg && (
+                  <p className={`text-[10px] mt-2 font-bold uppercase ${geminiStatus.type === 'green' ? 'text-green-600' : 'text-red-500'}`}>
+                    {geminiStatus.msg}
+                  </p>
+                )}
+                <p className="text-[10px] mt-3 text-gray-400">
+                  Consigue tu clave gratuita en <a href="https://aistudio.google.com/apikey" target="_blank" className="text-[var(--accent)] underline">Google AI Studio</a>.
+                </p>
+              </div>
             </div>
           </div>
 
