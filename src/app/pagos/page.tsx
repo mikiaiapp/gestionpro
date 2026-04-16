@@ -23,7 +23,10 @@ export default function PagosPage() {
   }, [supabase]);
 
   const fetchData = async () => {
-    if (!supabase) return;
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
 
     // Fail-safe: si en 2 segundos no ha cargado, desbloqueamos la UI

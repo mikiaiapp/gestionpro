@@ -34,7 +34,11 @@ export default function VentasPage() {
   }, [supabase]);
 
   const fetchData = async () => {
-    if (!supabase) return;
+    if (!supabase) {
+      console.error("Supabase connection missing!");
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     const { data: vts } = await supabase.from("ventas").select("*, clientes(*), proyectos(nombre), venta_lineas(*)").order("fecha", { ascending: false });
     const { data: clis } = await supabase.from("clientes").select("*").order("nombre");

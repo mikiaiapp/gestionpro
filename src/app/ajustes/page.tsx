@@ -26,7 +26,10 @@ export default function AjustesPage() {
   }, [supabase]);
 
   const fetchAjustes = async () => {
-    if (!supabase) return;
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     
     // Fail-safe: liberar la UI en 2 segundos si hay lag
