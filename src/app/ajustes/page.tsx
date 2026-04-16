@@ -14,7 +14,8 @@ import {
   Brain,
   ShieldCheck,
   CreditCard,
-  MapPin
+  Image as ImageIcon,
+  Wallet
 } from 'lucide-react';
 import { Sidebar } from '@/components/Sidebar';
 import { getProvinciaPorCP } from '@/lib/geoData';
@@ -33,6 +34,8 @@ export default function AjustesPage() {
   const [poblacion, setPoblacion] = useState('');
   const [provincia, setProvincia] = useState('');
   const [geminiKey, setGeminiKey] = useState('');
+  const [logoUrl, setLogoUrl] = useState('');
+  const [formaPago, setFormaPago] = useState('Transferencia Bancaria');
   const [tieneRetencion, setTieneRetencion] = useState(false);
   const [irpfDefault, setIrpfDefault] = useState(15);
   
@@ -81,6 +84,8 @@ export default function AjustesPage() {
         setPoblacion(data.poblacion || '');
         setProvincia(data.provincia || '');
         setGeminiKey(data.gemini_key || '');
+        setLogoUrl(data.logo_url || '');
+        setFormaPago(data.forma_pago_default || 'Transferencia Bancaria');
         setTieneRetencion(data.tiene_retencion || false);
         setIrpfDefault(Number(data.irpf_default) || 0);
       }
@@ -112,12 +117,14 @@ export default function AjustesPage() {
         poblacion,
         provincia,
         gemini_key: geminiKey,
+        logo_url: logoUrl,
+        forma_pago_default: formaPago,
         tiene_retencion: tieneRetencion,
         irpf_default: irpfDefault
       }, { onConflict: 'user_id' });
 
       if (error) alert("❌ Error: " + error.message);
-      else alert("✅ Ajustes actualizados");
+      else alert("✅ Ajustes Corporativos Guardados");
     } catch (e: any) {
       alert("❌ Error: " + e.message);
     } finally {
@@ -149,149 +156,136 @@ export default function AjustesPage() {
       }
       
       await fetchTipos();
-      alert("✅ Fiscalidad sincronizada (IVA e IRPF)");
+      alert("✅ Fiscalidad Sincronizada");
     } catch (e) {
-      alert("❌ Error al sincronizar fiscalidad");
+      alert("❌ Error al sincronizar");
     } finally {
       setSyncing(false);
     }
   };
 
   if (!user && !loading) return (
-    <div className="flex h-screen items-center justify-center bg-gray-100 p-4 font-sans text-center">
-      <div className="bg-white p-12 rounded-3xl shadow-2xl border max-w-sm w-full space-y-6">
+    <div className="flex h-screen items-center justify-center bg-gray-100 p-4">
+      <div className="bg-white p-12 rounded-3xl shadow-2xl border max-w-sm w-full text-center space-y-6">
         <Lock className="text-blue-600 mx-auto" size={48} />
-        <h2 className="text-2xl font-black text-gray-800">Caja de Seguridad</h2>
-        <p className="text-gray-500 text-sm">Inicia sesión para acceder a tu configuración privada.</p>
-        <div className="flex flex-col gap-3">
-          <a href="/login" className="w-full py-4 bg-blue-600 text-white font-bold rounded-2xl shadow-lg hover:shadow-xl transition-all">Entrar</a>
-          <a href="/signup" className="text-sm font-bold text-gray-400 hover:text-blue-600">O crear nueva cuenta</a>
-        </div>
+        <h2 className="text-2xl font-black text-gray-800 tracking-tight">Acceso Privado</h2>
+        <p className="text-gray-500 text-sm italic">Identifícate para gestionar tu contabilidad.</p>
+        <a href="/login" className="block w-full py-4 bg-blue-600 text-white font-bold rounded-2xl shadow-lg hover:bg-blue-700 transition-all">Iniciar Sesión</a>
       </div>
     </div>
   );
 
-  if (loading) return <div className="flex h-screen items-center justify-center bg-gray-50"><Loader2 className="animate-spin text-blue-500" size={48} /></div>;
+  if (loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-blue-500" size={48} /></div>;
 
   return (
     <div className="flex bg-[var(--background)] min-h-screen">
       <Sidebar />
       <div className="flex-1 p-8 space-y-10 animate-in fade-in duration-500 overflow-y-auto text-left">
-        <header>
-          <h1 className="text-3xl font-black font-head tracking-tight text-[var(--foreground)]">Panel de Control</h1>
-          <p className="text-[var(--muted)] font-medium flex items-center gap-2">
-            <ShieldCheck size={16} className="text-green-500" /> Usuario activo: <span className="text-blue-600 underline">{user.email}</span>
-          </p>
+        <header className="flex justify-between items-end">
+          <div>
+            <h1 className="text-4xl font-black font-head tracking-tighter text-[var(--foreground)]">Ajustes</h1>
+            <p className="text-[var(--muted)] font-medium">Personalización corporativa y fiscal.</p>
+          </div>
+          <div className="px-5 py-2 bg-green-50 text-green-700 rounded-full text-xs font-bold border border-green-100 flex items-center gap-2">
+            <ShieldCheck size={14} /> Contabilidad de {user.email}
+          </div>
         </header>
 
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-          {/* SECCIÓN 1: IDENTIDAD Y FACTURACIÓN */}
-          <div className="xl:col-span-2 space-y-6">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 pb-32">
+          {/* COLUMNA 1: IDENTIDAD + LOGO */}
+          <div className="xl:col-span-2 space-y-8">
             <div className="bg-white rounded-3xl border p-8 shadow-sm">
-              <h2 className="text-xl font-bold font-head mb-8 flex items-center gap-3 text-gray-800">
-                <Building2 className="text-blue-600" size={24} /> Identidad Empresarial
+              <h2 className="text-xl font-bold font-head mb-8 flex items-center gap-3 text-gray-800 border-b pb-4">
+                <Building2 className="text-blue-600" /> Identidad de Empresa
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="md:col-span-2 space-y-1">
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] pl-1">Razón Social / Nombre Comercial</label>
-                  <input type="text" value={nombre} onChange={e => setNombre(e.target.value)} className="w-full px-5 py-4 rounded-2xl border bg-gray-50/50 outline-none focus:ring-2 focus:ring-blue-500/10 transition-all" />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] pl-1">CIF / NIF</label>
-                  <input type="text" value={nif} onChange={e => setNif(e.target.value.toUpperCase())} className="w-full px-5 py-4 rounded-2xl border bg-gray-50/50 outline-none" />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] pl-1">IBAN de Cobro</label>
+                <div className="md:col-span-2 space-y-2">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">URL del Logo (PNG/JPG)</label>
                   <div className="relative">
-                    <input type="text" value={cuentaBancaria} onChange={e => setCuentaBancaria(formatIBAN(e.target.value))} className="w-full pl-12 pr-4 py-4 rounded-2xl border bg-gray-50/50 outline-none font-mono text-xs" />
-                    <CreditCard size={18} className="absolute left-4 top-4.5 text-gray-300" />
+                    <input type="text" value={logoUrl} onChange={e => setLogoUrl(e.target.value)} className="w-full pl-12 pr-4 py-4 rounded-2xl border bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500/10" placeholder="https://..." />
+                    <ImageIcon size={18} className="absolute left-4 top-4.5 text-gray-300" />
                   </div>
+                  {logoUrl && <img src={logoUrl} alt="Preview" className="h-12 object-contain mt-2 opacity-80" />}
                 </div>
+
                 <div className="md:col-span-2 space-y-1">
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] pl-1">Dirección de Facturación</label>
-                  <input type="text" value={direccion} onChange={e => setDireccion(e.target.value)} className="w-full px-5 py-4 rounded-2xl border bg-gray-50/50 outline-none" />
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Razón Social</label>
+                  <input type="text" value={nombre} onChange={e => setNombre(e.target.value)} className="w-full px-5 py-4 rounded-2xl border bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500/10" />
                 </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">NIF / CIF</label>
+                  <input type="text" value={nif} onChange={e => setNif(e.target.value.toUpperCase())} className="w-full px-5 py-4 rounded-2xl border bg-gray-50 outline-none" />
+                </div>
+                
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Forma de Pago por Defecto</label>
+                  <div className="relative">
+                    <input type="text" value={formaPago} onChange={e => setFormaPago(e.target.value)} className="w-full pl-12 pr-4 py-4 rounded-2xl border bg-gray-50 outline-none" placeholder="Transferencia, Bizum..." />
+                    <Wallet size={18} className="absolute left-4 top-4.5 text-gray-300" />
+                  </div>
+                </div>
+
+                <div className="md:col-span-2 space-y-1">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">IBAN para Facturas</label>
+                  <input type="text" value={cuentaBancaria} onChange={e => setCuentaBancaria(formatIBAN(e.target.value))} className="w-full px-5 py-4 rounded-2xl border bg-gray-50 font-mono text-sm" />
+                </div>
+
                 <div className="grid grid-cols-3 gap-4 md:col-span-2">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] pl-1">C.P.</label>
-                    <input type="text" value={cp} maxLength={5} onChange={e => setCp(e.target.value)} className="w-full px-5 py-4 rounded-2xl border bg-gray-50/50 outline-none font-mono" />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] pl-1">Ciudad</label>
-                    <input type="text" value={poblacion} onChange={e => setPoblacion(e.target.value)} className="w-full px-5 py-4 rounded-2xl border bg-gray-50/50 outline-none" />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] pl-1">Provincia</label>
-                    <input type="text" value={provincia} onChange={e => setProvincia(e.target.value)} className="w-full px-5 py-4 rounded-2xl border bg-gray-50/50 outline-none" />
-                  </div>
+                   <div className="md:col-span-3 space-y-1">
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Dirección</label>
+                      <input type="text" value={direccion} onChange={e => setDireccion(e.target.value)} className="w-full px-5 py-4 rounded-2xl border bg-gray-50" />
+                   </div>
+                   <input type="text" placeholder="C.P." value={cp} maxLength={5} onChange={e => setCp(e.target.value)} className="px-5 py-4 rounded-2xl border bg-gray-50 outline-none font-mono" />
+                   <input type="text" placeholder="Ciudad" value={poblacion} onChange={e => setPoblacion(e.target.value)} className="px-5 py-4 rounded-2xl border bg-gray-50 outline-none" />
+                   <input type="text" placeholder="Provincia" value={provincia} onChange={e => setProvincia(e.target.value)} className="px-5 py-4 rounded-2xl border bg-gray-50 outline-none" />
                 </div>
               </div>
             </div>
 
-            {/* SECCIÓN 2: INTELIGENCIA ARTIFICIAL */}
-            <div className="bg-white rounded-3xl border p-8 shadow-sm">
+            <div className="bg-white rounded-3xl border p-8 shadow-sm border-purple-100">
               <h2 className="text-xl font-bold font-head mb-8 flex items-center gap-3 text-purple-600">
-                <Brain size={24} /> Motor GPT / Gemini
+                <Brain size={24} /> Inteligencia Artificial
               </h2>
-              <div className="space-y-4">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] pl-1">API Key (Gemini Ultra/Pro)</label>
-                  <input type="password" value={geminiKey} onChange={e => setGeminiKey(e.target.value)} className="w-full px-5 py-4 rounded-2xl border bg-gray-50/50 outline-none focus:border-purple-200 transition-all font-mono" placeholder="AIzaSy..." />
-                </div>
-                <p className="text-[10px] text-gray-400 italic">Esta clave se usa para la extracción automática de datos de facturas en PDF.</p>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Gemini API Key</label>
+                <input type="password" value={geminiKey} onChange={e => setGeminiKey(e.target.value)} className="w-full px-5 py-4 rounded-2xl border bg-purple-50/20 outline-none font-mono text-xs focus:ring-2 focus:ring-purple-500/10" />
               </div>
             </div>
           </div>
 
-          {/* SECCIÓN 3: CONFIGURACIÓN FISCAL */}
-          <div className="space-y-6">
+          {/* COLUMNA 2: FISCALIDAD */}
+          <div className="space-y-8">
             <div className="bg-white rounded-3xl border p-8 shadow-sm">
-              <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center justify-between mb-8 border-b pb-4">
                 <h2 className="text-lg font-bold font-head flex items-center gap-2 text-green-600">
-                  <Percent size={20} /> Fiscalidad
+                  <Percent size={20} /> Impuestos
                 </h2>
-                <button onClick={handleSyncOfficial} disabled={syncing} className="p-2 hover:bg-blue-50 rounded-xl text-blue-600 transition-all group">
-                  <RefreshCcw size={18} className={syncing ? 'animate-spin' : 'group-hover:rotate-45 transition-transform'} />
+                <button onClick={handleSyncOfficial} disabled={syncing} className="p-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-all">
+                  <RefreshCcw size={18} className={syncing ? 'animate-spin' : ''} />
                 </button>
               </div>
 
               <div className="space-y-6">
-                {/* IVA */}
                 <div className="space-y-3">
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Tipos de IVA</p>
-                  <div className="space-y-2">
-                    {tiposIva.map(t => (
-                      <div key={t.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-xl border border-gray-100">
-                        <span className="text-xs font-semibold text-gray-600">{t.nombre}</span>
-                        <span className="text-sm font-black text-gray-800">{t.valor}%</span>
-                      </div>
-                    ))}
-                    {tiposIva.length === 0 && <button onClick={handleSyncOfficial} className="w-full py-3 text-xs font-bold text-blue-600 border border-dashed border-blue-200 rounded-xl hover:bg-blue-50">Sincronizar IVA</button>}
-                  </div>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Grupos de IVA</p>
+                  {tiposIva.map(t => (
+                    <div key={t.id} className="flex justify-between items-center p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                      <span className="text-xs font-bold text-gray-600">{t.nombre}</span>
+                      <span className="text-sm font-black text-gray-900">{t.valor}%</span>
+                    </div>
+                  ))}
                 </div>
 
-                <div className="h-px bg-gray-100"></div>
-
-                {/* Retención / IRPF */}
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Retención IRPF</p>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input type="checkbox" checked={tieneRetencion} onChange={e => setTieneRetencion(e.target.checked)} className="sr-only peer" />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                    </label>
+                <div className="flex items-center justify-between bg-orange-50/30 p-4 rounded-2xl border border-orange-100">
+                  <div className="space-y-1">
+                    <p className="text-sm font-bold text-orange-800 tracking-tight">Aplicar IRPF</p>
+                    <p className="text-[10px] text-orange-600 italic">Retención profesional autónomos</p>
                   </div>
-                  
-                  {tieneRetencion && (
-                    <div className="space-y-2 animate-in slide-in-from-top-2 duration-300">
-                      {tiposIrpf.map(t => (
-                        <div key={t.id} className="flex justify-between items-center p-3 bg-orange-50/50 rounded-xl border border-orange-100">
-                          <span className="text-xs font-semibold text-orange-700">{t.nombre}</span>
-                          <span className="text-sm font-black text-orange-800">{t.valor}%</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" checked={tieneRetencion} onChange={e => setTieneRetencion(e.target.checked)} className="sr-only peer" />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
+                  </label>
                 </div>
               </div>
             </div>
@@ -299,10 +293,10 @@ export default function AjustesPage() {
             <button 
               onClick={handleSavePerfil} 
               disabled={isSaving} 
-              className="w-full py-5 bg-gray-900 text-white font-bold rounded-3xl shadow-2xl hover:bg-black transition-all active:scale-[0.98] flex items-center justify-center gap-3"
+              className="w-full py-6 bg-gray-900 text-white font-black rounded-3xl shadow-2xl hover:bg-black transition-all transform active:scale-[0.97] flex items-center justify-center gap-3"
             >
               {isSaving ? <Loader2 className="animate-spin" /> : <Save size={20} />}
-              Actualizar Configuración
+              Guardar Configuración
             </button>
           </div>
         </div>
