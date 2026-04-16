@@ -20,6 +20,7 @@ export default function ClientesPage() {
   const [cp, setCp] = useState("");
   const [poblacion, setPoblacion] = useState("");
   const [provincia, setProvincia] = useState("");
+  const [municipiosSugeridos, setMunicipiosSugeridos] = useState<string[]>([]);
 
   useEffect(() => {
     fetchClientes();
@@ -28,13 +29,39 @@ export default function ClientesPage() {
   // Inteligencia de Código Postal
   useEffect(() => {
     if (cp.length === 5) {
-      const provinciaDetectada = getProvinciaPorCP(cp);
-      if (provinciaDetectada) setProvincia(provinciaDetectada);
-      buscarMunicipio(cp);
+      const resp = getProvinciaPorCP(cp);
+      if (resp) setProvincia(resp.nombre);
+      buscarMunicipioPorCP(cp);
     }
   }, [cp]);
 
-  const buscarMunicipio = async (codigo: string) => {
+  // Cargar Municipios al cambiar Provincia
+  useEffect(() => {
+    if (provincia) {
+      const provData = PROVINCIAS_ESPANOLAS.find(p => p.nombre === provincia);
+      if (provData) {
+        fetchMunicipios(provData.id);
+      }
+    } else {
+      setMunicipiosSugeridos([]);
+    }
+  }, [provincia]);
+
+  const fetchMunicipios = async (idProv: string) => {
+    try {
+      // API de El Tiempo (Oficial para municipios de España)
+      const response = await fetch(`https://www.el-tiempo.net/api/json/v1/provincias/${idProv}/municipios`);
+      if (response.ok) {
+        const data = await response.json();
+        const nombres = data.municipios.map((m: any) => m.NOMBRE);
+        setMunicipiosSugeridos(nombres);
+      }
+    } catch (error) {
+       console.error("Error cargando municipios de provincia");
+    }
+  };
+
+  const buscarMunicipioPorCP = async (codigo: string) => {
     try {
       const response = await fetch(`https://api.zippopotam.us/es/${codigo}`);
       if (response.ok) {
@@ -43,7 +70,7 @@ export default function ClientesPage() {
         setPoblacion(place['place name']);
       }
     } catch (error) {
-       console.error("Error buscando municipio");
+       console.error("Error buscando municipio por CP");
     }
   };
 
@@ -185,16 +212,20 @@ export default function ClientesPage() {
                         placeholder="C.P."
                       />
                       
-                      <select 
+                      <input 
+                        type="text" 
+                        autoComplete="off"
                         value={provincia} 
+                        list="provincias-list"
                         onChange={(e) => setProvincia(e.target.value)}
-                        className="p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)] cursor-pointer"
-                      >
-                        <option value="">Provincia...</option>
+                        className="p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)]"
+                        placeholder="Escribe provincia..."
+                      />
+                      <datalist id="provincias-list">
                         {PROVINCIAS_ESPANOLAS.map(p => (
-                          <option key={p} value={p}>{p}</option>
+                          <option key={p.id} value={p.nombre} />
                         ))}
-                      </select>
+                      </datalist>
 
                       <input 
                         type="text" 
@@ -203,10 +234,12 @@ export default function ClientesPage() {
                         list="municipios-list"
                         onChange={(e) => setPoblacion(e.target.value)}
                         className="p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)]"
-                        placeholder="Municipio"
+                        placeholder="Escribe municipio..."
                       />
                       <datalist id="municipios-list">
-                         <option value={poblacion} />
+                         {municipiosSugeridos.map((m, idx) => (
+                           <option key={idx} value={m} />
+                         ))}
                       </datalist>
                     </div>
                   </div>

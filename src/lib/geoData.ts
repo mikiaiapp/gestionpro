@@ -1,27 +1,25 @@
 export const PROVINCIAS_ESPANOLAS = [
-  "Álava", "Albacete", "Alicante", "Almería", "Asturias", "Ávila", "Badajoz", "Baleares", 
-  "Barcelona", "Burgos", "Cáceres", "Cádiz", "Cantabria", "Castellón", "Ciudad Real", 
-  "Córdoba", "A Coruña", "Cuenca", "Gipuzcoa", "Girona", "Granada", "Guadalajara", 
-  "Huelva", "Huesca", "Jaén", "León", "Lleida", "Lugo", "Madrid", "Málaga", "Murcia", 
-  "Navarra", "Ourense", "Palencia", "Las Palmas", "Pontevedra", "La Rioja", "Salamanca", 
-  "Segovia", "Sevilla", "Soria", "Tarragona", "Santa Cruz de Tenerife", "Teruel", 
-  "Toledo", "Valencia", "Valladolid", "Vizcaya", "Zamora", "Zaragoza", "Ceuta", "Melilla"
-].sort();
+  { id: "01", nombre: "Álava" }, { id: "02", nombre: "Albacete" }, { id: "03", nombre: "Alicante" }, 
+  { id: "04", nombre: "Almería" }, { id: "05", nombre: "Ávila" }, { id: "06", nombre: "Badajoz" }, 
+  { id: "07", nombre: "Baleares" }, { id: "08", nombre: "Barcelona" }, { id: "09", nombre: "Burgos" }, 
+  { id: "10", nombre: "Cáceres" }, { id: "11", nombre: "Cádiz" }, { id: "12", nombre: "Castellón" }, 
+  { id: "13", nombre: "Ciudad Real" }, { id: "14", nombre: "Córdoba" }, { id: "15", nombre: "A Coruña" }, 
+  { id: "16", nombre: "Cuenca" }, { id: "17", nombre: "Girona" }, { id: "18", nombre: "Granada" }, 
+  { id: "19", nombre: "Guadalajara" }, { id: "20", nombre: "Gipuzcoa" }, { id: "21", nombre: "Huelva" }, 
+  { id: "22", nombre: "Huesca" }, { id: "23", nombre: "Jaén" }, { id: "24", nombre: "León" }, 
+  { id: "25", nombre: "Lleida" }, { id: "26", nombre: "La Rioja" }, { id: "27", nombre: "Lugo" }, 
+  { id: "28", nombre: "Madrid" }, { id: "29", nombre: "Málaga" }, { id: "30", nombre: "Murcia" }, 
+  { id: "31", nombre: "Navarra" }, { id: "32", nombre: "Ourense" }, { id: "33", nombre: "Asturias" }, 
+  { id: "34", nombre: "Palencia" }, { id: "35", nombre: "Las Palmas" }, { id: "36", nombre: "Pontevedra" }, 
+  { id: "37", nombre: "Salamanca" }, { id: "38", nombre: "Santa Cruz de Tenerife" }, { id: "39", nombre: "Cantabria" }, 
+  { id: "40", nombre: "Segovia" }, { id: "41", nombre: "Sevilla" }, { id: "42", nombre: "Soria" }, 
+  { id: "43", nombre: "Tarragona" }, { id: "44", nombre: "Teruel" }, { id: "45", nombre: "Toledo" }, 
+  { id: "46", nombre: "Valencia" }, { id: "47", nombre: "Valladolid" }, { id: "48", nombre: "Vizcaya" }, 
+  { id: "49", nombre: "Zamora" }, { id: "50", nombre: "Zaragoza" }, { id: "51", nombre: "Ceuta" }, 
+  { id: "52", nombre: "Melilla" }
+].sort((a, b) => a.nombre.localeCompare(b.nombre));
 
-export const getProvinciaPorCP = (cp: string): string => {
+export const getProvinciaPorCP = (cp: string): {id: string, nombre: string} | null => {
   const dosPrimeros = cp.substring(0, 2);
-  const mapa: Record<string, string> = {
-    "01": "Álava", "02": "Albacete", "03": "Alicante", "04": "Almería", "05": "Ávila",
-    "06": "Badajoz", "07": "Baleares", "08": "Barcelona", "09": "Burgos", "10": "Cáceres",
-    "11": "Cádiz", "12": "Castellón", "13": "Ciudad Real", "14": "Córdoba", "15": "A Coruña",
-    "16": "Cuenca", "17": "Girona", "18": "Granada", "19": "Guadalajara", "20": "Gipuzcoa",
-    "21": "Huelva", "22": "Huesca", "23": "Jaén", "24": "León", "25": "Lleida",
-    "26": "La Rioja", "27": "Lugo", "28": "Madrid", "29": "Málaga", "30": "Murcia",
-    "31": "Navarra", "32": "Ourense", "33": "Asturias", "34": "Palencia", "35": "Las Palmas",
-    "36": "Pontevedra", "37": "Salamanca", "38": "Santa Cruz de Tenerife", "39": "Cantabria", "40": "Segovia",
-    "41": "Sevilla", "42": "Soria", "43": "Tarragona", "44": "Teruel", "45": "Toledo",
-    "46": "Valencia", "47": "Valladolid", "48": "Vizcaya", "49": "Zamora", "50": "Zaragoza",
-    "51": "Ceuta", "52": "Melilla"
-  };
-  return mapa[dosPrimeros] || "";
+  return PROVINCIAS_ESPANOLAS.find(p => p.id === dosPrimeros) || null;
 };
