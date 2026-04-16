@@ -88,14 +88,31 @@ export default function ClientesPage() {
     }
   };
 
+  const [saving, setSaving] = useState(false);
+
   const handleAddCliente = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!nombre || !supabase) return;
-    const { error } = await supabase.from("clientes").insert([{ nombre, nif, email, direccion, codigo_postal: cp, poblacion, provincia }]);
-    if (error) alert(error.message);
-    else {
-      setIsModalOpen(false);
-      fetchClientes();
+    if (!nombre) return;
+    
+    if (!supabase) {
+      alert("Error: No hay conexión con la base de datos. Completa las variables de entorno en Vercel.");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const { error } = await supabase.from("clientes").insert([{ nombre, nif, email, direccion, codigo_postal: cp, poblacion, provincia }]);
+      if (error) alert("Error Supabase: " + error.message);
+      else {
+        setIsModalOpen(false);
+        // Limpiar formulario
+        setNombre(""); setNif(""); setEmail(""); setDireccion(""); setCp(""); setPoblacion(""); setProvincia("");
+        fetchClientes();
+      }
+    } catch (err: any) {
+      alert("Error inesperado: " + err.message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -156,9 +173,9 @@ export default function ClientesPage() {
                 </div>
                 <div className="flex gap-3 mt-8">
                   <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-2.5 text-sm font-bold text-[var(--muted)] hover:bg-gray-100 rounded-xl transition-all border border-[var(--border)]">Cancelar</button>
-                  <button type="submit" className="flex-1 py-2.5 text-sm font-bold bg-[var(--accent)] text-white rounded-xl shadow-md hover:shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2">
-                    <Plus size={18} />
-                    Guardar
+                  <button type="submit" disabled={saving} className="flex-1 py-2.5 text-sm font-bold bg-[var(--accent)] text-white rounded-xl shadow-md hover:shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50">
+                    {saving ? <Loader2 className="animate-spin" size={18} /> : <Plus size={18} />}
+                    {saving ? "Guardando..." : "Guardar"}
                   </button>
                 </div>
               </form>
