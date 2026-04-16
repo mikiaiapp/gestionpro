@@ -356,8 +356,15 @@ export default function VentasPage() {
                   </select>
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Cliente</label>
-                  <select value={clienteId} onChange={(e) => setClienteId(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200 bg-gray-50 focus:bg-white font-bold">
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">
+                    Cliente {proyectoId && <span className="text-[var(--accent)] normal-case font-medium ml-2">(Fijado por proyecto)</span>}
+                  </label>
+                  <select 
+                    value={clienteId} 
+                    onChange={(e) => setClienteId(e.target.value)} 
+                    disabled={!!proyectoId}
+                    className={`w-full p-2.5 rounded-lg border border-gray-200 focus:bg-white font-bold transition-all ${proyectoId ? 'bg-gray-100 cursor-not-allowed opacity-75' : 'bg-gray-50'}`}
+                  >
                     <option value="">— Obligatorio —</option>
                     {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
                   </select>
