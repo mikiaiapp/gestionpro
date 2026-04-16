@@ -79,7 +79,7 @@ export default function ClientesPage() {
 
   useEffect(() => {
     if (!provincia || todosLosMunicipios.length === 0) return;
-    const normalize = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    const normalize = (s: string) => s.normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toLowerCase();
     const provNorm = normalize(provincia);
     const provData = PROVINCIAS_ESPANOLAS.find(p => normalize(p.nombre) === provNorm);
     if (provData) {
@@ -141,7 +141,7 @@ export default function ClientesPage() {
         
         const { data: existing } = await query.maybeSingle();
         if (existing) {
-          alert(`Error: Ya existe un cliente o empresa con el NIF ${nif} (${existing.nombre}).`);
+          alert(\`Error: Ya existe un cliente o empresa con el NIF \${nif} (\${existing.nombre}).\`);
           setSaving(false);
           return;
         }
@@ -184,11 +184,11 @@ export default function ClientesPage() {
     }
 
     if (count && count > 0) {
-      alert(`No se puede eliminar a "${nombreCli}" porque tiene ${count} proyectos asociados. Elimina primero los proyectos.`);
+      alert(\`No se puede eliminar a "\${nombreCli}" porque tiene \${count} proyectos asociados. Elimina primero los proyectos.\`);
       return;
     }
 
-    if (!confirm(`¿Estás seguro de que quieres eliminar al cliente "${nombreCli}"?`)) return;
+    if (!confirm(\`¿Estás seguro de que quieres eliminar al cliente "\${nombreCli}"?\`)) return;
 
     const { error } = await supabase.from("clientes").delete().eq("id", id);
     if (error) alert("Error al eliminar: " + error.message);
@@ -300,7 +300,7 @@ export default function ClientesPage() {
                         <div className="text-[10px] text-[var(--muted)] uppercase tracking-wider">{c.poblacion} {c.provincia}</div>
                       </td>
                       <td className="px-6 py-4 text-sm text-[var(--muted)]">{c.nif || '—'}</td>
-                      <td className="px-6 py-4 text-center relative">
+                      <td className="px-6 py-4 text-right relative">
                         <button 
                           onClick={(e) => {
                             e.stopPropagation();

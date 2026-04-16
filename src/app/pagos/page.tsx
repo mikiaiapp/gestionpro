@@ -78,8 +78,8 @@ export default function PagosPage() {
     setIsModalOpen(true);
   };
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSave = async (req: React.FormEvent) => {
+    req.preventDefault();
     if (!costeId) return;
     
     if (!supabase) {
@@ -125,6 +125,11 @@ export default function PagosPage() {
     else fetchData();
   };
 
+  const filteredPagos = pagos.filter(p => 
+    p.costes?.proveedores?.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    p.costes?.num_interno?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <div className="flex bg-[var(--background)] min-h-screen">
       <Sidebar />
@@ -147,7 +152,7 @@ export default function PagosPage() {
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
             <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md border border-[var(--border)] animate-in fade-in zoom-in duration-200">
               <h2 className="text-xl font-bold font-head mb-6 flex items-center gap-2">
-                {editingId ? <Save className="text-orange-600" size={20} /> : <CreditCard className="text-orange-600" size={20} />}
+                {editingId ? <Save className="text-orange-600" size(20) /> : <CreditCard className="text-orange-600" size(20) />}
                 {editingId ? "Editar Pago" : "Registrar Pago"}
               </h2>
               <form onSubmit={handleSave} className="space-y-4 text-left">
@@ -184,9 +189,9 @@ export default function PagosPage() {
                 </div>
 
                 <div className="flex gap-3 mt-8">
-                  <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-2.5 text-sm font-bold text-[var(--muted)] hover:bg-[var(--background)] rounded-lg transition-colors border border-[var(--border)]">Cancelar</button>
-                  <button type="submit" disabled={saving} className="flex-1 py-2.5 text-sm font-bold bg-orange-600 text-white rounded-lg shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50">
-                    {saving ? <Loader2 className="animate-spin" size={18} /> : (editingId ? <Save size={18} /> : <Plus size={18} />)}
+                  <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 text-sm font-bold text-[var(--muted)] hover:bg-[var(--background)] rounded-lg transition-colors border border-[var(--border)]">Cancelar</button>
+                  <button type="submit" disabled={saving} className="flex-1 py-3 text-sm font-bold bg-orange-600 text-white rounded-lg shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50">
+                    {saving ? <Loader2 className="animate-spin" size(18) /> : (editingId ? <Save size(18) /> : <Plus size(18) />)}
                     {saving ? "Guardando..." : (editingId ? "Actualizar" : "Confirmar Pago")}
                   </button>
                 </div>
@@ -198,7 +203,7 @@ export default function PagosPage() {
         <div className="glass-card bg-white shadow-sm border-[var(--border)] overflow-hidden">
           <div className="p-4 border-b border-[var(--border)] flex justify-between items-center bg-[#fafafa]">
              <div className="relative w-72">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]" size={16} />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]" size(16) />
               <input 
                 type="text" 
                 placeholder="Buscar pago..." 
@@ -212,13 +217,13 @@ export default function PagosPage() {
           <div className="overflow-x-auto min-h-[300px] flex flex-col">
             {loading ? (
               <div className="flex-1 flex flex-col items-center justify-center p-20 text-[var(--muted)] gap-3">
-                <Loader2 className="animate-spin" size={32} />
+                <Loader2 className="animate-spin" size(32) />
                 <p className="text-sm font-medium">Cargando tesorería...</p>
               </div>
             ) : pagos.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center p-20 text-[var(--muted)] gap-4 text-center">
                 <div className="w-16 h-16 rounded-full bg-[var(--background)] flex items-center justify-center">
-                  <CreditCard size={32} className="opacity-20" />
+                  <CreditCard size(32) className="opacity-20" />
                 </div>
                 <div>
                   <p className="font-bold text-[var(--foreground)]">No hay pagos registrados</p>
@@ -237,7 +242,7 @@ export default function PagosPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--border)]">
-                  {pagos.map((pg) => (
+                  {filteredPagos.map((pg) => (
                     <tr key={pg.id} className="hover:bg-[#fcfaf7] transition-colors group">
                       <td className="px-6 py-4 text-sm font-medium text-[var(--muted)]">
                         {new Date(pg.fecha).toLocaleDateString()}
@@ -248,7 +253,7 @@ export default function PagosPage() {
                            <span className="font-bold text-[var(--foreground)]">{pg.costes?.serie}-{pg.costes?.num_interno}</span>
                         </div>
                         <div className="text-[10px] text-[var(--muted)] uppercase flex items-center gap-1 font-bold">
-                           <Factory size={10} />
+                           <Factory size(10) />
                            {pg.costes?.proveedores?.nombre}
                         </div>
                       </td>
@@ -260,7 +265,7 @@ export default function PagosPage() {
                       <td className="px-6 py-4 text-right font-mono text-sm font-bold text-red-600">
                         {new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(pg.importe || 0)}
                       </td>
-                      <td className="px-6 py-4 text-center relative">
+                      <td className="px-6 py-4 text-right relative">
                         <button 
                           onClick={(e) => {
                             e.stopPropagation();
@@ -268,7 +273,7 @@ export default function PagosPage() {
                           }}
                           className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-400 hover:text-gray-600"
                         >
-                          <MoreHorizontal size={20} />
+                          <MoreHorizontal size(20) />
                         </button>
 
                         {openMenuId === pg.id && (
@@ -277,14 +282,14 @@ export default function PagosPage() {
                               onClick={() => openEditModal(pg)}
                               className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-700 transition-colors"
                             >
-                              <Save size={16} /> Editar Pago
+                              <Save size(16) /> Editar Pago
                             </button>
                             <div className="h-px bg-gray-100 my-1 mx-2"></div>
                             <button 
                               onClick={() => handleDeletePago(pg.id)}
                               className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
                             >
-                              <Trash2 size={16} /> Eliminar Pago
+                              <Trash2 size(16) /> Eliminar Pago
                             </button>
                           </div>
                         )}

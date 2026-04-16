@@ -311,28 +311,28 @@ function VentasContent() {
       <body>
         <div class="header">
           <div>
-            ${perfil.logo_url ? `<img src="${perfil.logo_url}" class="logo">` : `<div style="font-size: 24px; font-weight: bold; color: #2563eb;">${perfil.nombre}</div>`}
+            ${perfil.logo_url ? \`<img src="\${perfil.logo_url}" class="logo">\` : \`<div style="font-size: 24px; font-weight: bold; color: #2563eb;">\${perfil.nombre}</div>\`}
           </div>
           <div style="text-align: right;">
             <div class="invoice-item">FACTURA</div>
-            <div style="font-weight: bold;">${venta.serie}-${venta.num_factura}</div>
-            <div style="color: #666;">Fecha: ${new Date(venta.fecha).toLocaleDateString()}</div>
+            <div style="font-weight: bold;">\${venta.serie}-\${venta.num_factura}</div>
+            <div style="color: #666;">Fecha: \${new Date(venta.fecha).toLocaleDateString()}</div>
           </div>
         </div>
 
         <div class="details">
           <div>
             <div class="section-title">Emisor</div>
-            <div style="font-weight: bold;">${perfil.nombre}</div>
-            <div>${perfil.nif}</div>
-            <div>${perfil.direccion || ''}</div>
+            <div style="font-weight: bold;">\${perfil.nombre}</div>
+            <div>\${perfil.nif}</div>
+            <div>\${perfil.direccion || ''}</div>
           </div>
           <div>
             <div class="section-title">Cliente</div>
-            <div style="font-weight: bold;">${venta.clientes?.nombre}</div>
-            <div>${venta.clientes?.nif}</div>
-            <div>${venta.clientes?.direccion || ''}</div>
-            <div>${venta.clientes?.codigo_postal || ''} ${venta.clientes?.poblacion || ''}</div>
+            <div style="font-weight: bold;">\${venta.clientes?.nombre}</div>
+            <div>\${venta.clientes?.nif}</div>
+            <div>\${venta.clientes?.direccion || ''}</div>
+            <div>\${venta.clientes?.codigo_postal || ''} \${venta.clientes?.poblacion || ''}</div>
           </div>
         </div>
 
@@ -346,40 +346,40 @@ function VentasContent() {
             </tr>
           </thead>
           <tbody>
-            ${lineasHtml}
+            \${lineasHtml}
           </tbody>
         </table>
 
         <div class="totals">
           <div class="total-row">
             <span>Base Imponible:</span>
-            <span>${fmt(venta.base_imponible)}</span>
+            <span>\${fmt(venta.base_imponible)}</span>
           </div>
           <div class="total-row">
-            <span>IVA (${venta.iva_pct}%):</span>
-            <span>${fmt(venta.base_imponible * (venta.iva_pct / 100))}</span>
+            <span>IVA (\${venta.iva_pct}%):</span>
+            <span>\${fmt(venta.base_imponible * (venta.iva_pct / 100))}</span>
           </div>
           <div class="total-row total-final">
             <span>TOTAL:</span>
-            <span>${fmt(venta.total)}</span>
+            <span>\${fmt(venta.total)}</span>
           </div>
         </div>
 
         <div class="legal-footer">
           <div class="footer-text">
             <div style="font-weight: bold; margin-bottom: 4px;">Información de Pago</div>
-            <div>Forma de Cobro: <strong>${formasCobro.find(f => f.id === venta.forma_cobro_id)?.nombre || 'Transferencia'}</strong></div>
-            <div>Cuenta para el ingreso (IBAN): <strong>${perfil.cuenta_bancaria}</strong></div>
+            <div>Forma de Cobro: <strong>\${formasCobro.find(f => f.id === venta.forma_cobro_id)?.nombre || 'Transferencia'}</strong></div>
+            <div>Cuenta para el ingreso (IBAN): <strong>\${perfil.cuenta_bancaria}</strong></div>
             <div style="margin-top: 15px;">Documento generado conforme a la Ley 18/2022 de creación y crecimiento de empresas (Ley Crea y Crece). Trazabilidad digital garantizada.</div>
           </div>
           <div style="text-align: right;">
             <div class="qr-placeholder">CÓDIGO QR<br>VERI*FACTU<br>PENDIENTE FIRMA</div>
-            <div style="font-size: 8px; color: #999; margin-top: 4px;">ID: ${venta.id.slice(0,13)}</div>
+            <div style="font-size: 8px; color: #999; margin-top: 4px;">ID: \${venta.id.slice(0,13)}</div>
           </div>
         </div>
       </body>
       </html>
-    `;
+    \`;
 
     const win = window.open('', '_blank');
     if (win) {
@@ -407,11 +407,11 @@ function VentasContent() {
     ]);
 
     const csvContent = [headers, ...rows].map(e => e.join(";")).join("\n");
-    const blob = new Blob(["\ufeff" + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob(["\\ufeff" + csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
-    link.setAttribute("download", `Libro_IVA_Repercutido_${new Date().getFullYear()}.csv`);
+    link.setAttribute("download", \`Libro_IVA_Repercutido_\${new Date().getFullYear()}.csv\`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -543,7 +543,7 @@ function VentasContent() {
                             setClienteId(proj?.cliente_id || "");
                             setLineas([{
                               unidades: 1,
-                              descripcion: `${pct}% Avance proyecto: ${proj?.nombre}`,
+                              descripcion: \`\${pct}% Avance proyecto: \${proj?.nombre}\`,
                               precio_unitario: importeVal
                             }]);
                             setIsWizardOpen(false);
@@ -577,7 +577,7 @@ function VentasContent() {
                       <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">Fecha</th>
                       <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">Cliente</th>
                       <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Total</th>
-                      <th className="px-6 py-4 text-[11px] font-bold text-center text-red-600">Acciones</th>
+                      <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Acciones</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[var(--border)]">
@@ -587,7 +587,7 @@ function VentasContent() {
                         <td className="px-6 py-4 text-sm text-[var(--muted)]">{new Date(v.fecha).toLocaleDateString()}</td>
                         <td className="px-6 py-4 text-sm">{v.clientes?.nombre}</td>
                         <td className="px-6 py-4 text-right font-bold text-[var(--accent)]">{new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(v.total)}</td>
-                        <td className="px-6 py-4 text-center relative">
+                        <td className="px-6 py-4 text-right relative">
                           <button 
                             onClick={(e) => {
                               e.stopPropagation();
@@ -617,7 +617,7 @@ function VentasContent() {
                               </button>
                               <div className="h-px bg-gray-100 my-1 mx-2"></div>
                               <button 
-                                onClick={() => handleDeleteVenta(v.id, `${v.serie}-${v.num_factura}`, v.serie, v.num_factura)}
+                                onClick={() => handleDeleteVenta(v.id, \`\${v.serie}-\${v.num_factura}\`, v.serie, v.num_factura)}
                                 className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
                               >
                                 <Trash2 size={16} /> Eliminar Factura
@@ -718,13 +718,13 @@ function VentasContent() {
                             if (lineas.length === 1 && lineas[0].descripcion === "") {
                               setLineas([{
                                 unidades: 1,
-                                descripcion: `${pct}% Avance proyecto nº ${proj?.nombre || proyectoId.slice(0,6)}`,
+                                descripcion: \`\${pct}% Avance proyecto nº \${proj?.nombre || proyectoId.slice(0,6)}\`,
                                 precio_unitario: importeAvance
                               }]);
                             } else {
                               setLineas([...lineas, {
                                 unidades: 1,
-                                descripcion: `${pct}% Avance proyecto nº ${proj?.nombre || proyectoId.slice(0,6)}`,
+                                descripcion: \`\${pct}% Avance proyecto nº \${proj?.nombre || proyectoId.slice(0,6)}\`,
                                 precio_unitario: importeAvance
                               }]);
                             }
@@ -745,7 +745,7 @@ function VentasContent() {
                     value={clienteId} 
                     onChange={(e) => setClienteId(e.target.value)} 
                     disabled={!!proyectoId}
-                    className={`w-full p-2.5 rounded-lg border border-gray-200 focus:bg-white font-bold transition-all ${proyectoId ? 'bg-gray-100 cursor-not-allowed opacity-75' : 'bg-gray-50'}`}
+                    className={\`w-full p-2.5 rounded-lg border border-gray-200 focus:bg-white font-bold transition-all \${proyectoId ? 'bg-gray-100 cursor-not-allowed opacity-75' : 'bg-gray-50'}\`}
                   >
                     <option value="">— Obligatorio —</option>
                     {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}

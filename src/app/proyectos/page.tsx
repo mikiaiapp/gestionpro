@@ -73,12 +73,12 @@ export default function ProyectosPage() {
     }
 
     const fmt = (n: number) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(n);
-    const html = `
+    const html = \`
       <!DOCTYPE html>
       <html>
       <head>
         <meta charset="UTF-8">
-        <title>PRESUPUESTO - ${p.nombre}</title>
+        <title>PRESUPUESTO - \${p.nombre}</title>
         <style>
           body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #333; margin: 0; padding: 40px; line-height: 1.6; }
           .header { display: flex; justify-content: space-between; margin-bottom: 60px; }
@@ -93,37 +93,37 @@ export default function ProyectosPage() {
       <body>
         <div class="header">
           <div>
-            ${perfil.logo_url ? `<img src="${perfil.logo_url}" class="logo">` : `<div style="font-size: 24px; font-weight: bold; color: #f59e0b;">${perfil.nombre}</div>`}
+            \${perfil.logo_url ? \`<img src="\${perfil.logo_url}" class="logo">\` : \`<div style="font-size: 24px; font-weight: bold; color: #f59e0b;">\${perfil.nombre}</div>\`}
           </div>
           <div style="text-align: right;">
             <div class="doc-title">PRESUPUESTO</div>
-            <div style="font-weight: bold;">Ref: PRJ-${p.id.slice(0,6).toUpperCase()}</div>
-            <div style="color: #666;">Fecha: ${new Date().toLocaleDateString()}</div>
+            <div style="font-weight: bold;">Ref: PRJ-\${p.id.slice(0,6).toUpperCase()}</div>
+            <div style="color: #666;">Fecha: \${new Date().toLocaleDateString()}</div>
           </div>
         </div>
 
         <div class="details">
           <div>
             <div class="section-title">De:</div>
-            <div style="font-weight: bold;">${perfil.nombre}</div>
-            <div>${perfil.nif}</div>
-            <div>${perfil.direccion || ''}</div>
+            <div style="font-weight: bold;">\${perfil.nombre}</div>
+            <div>\${perfil.nif}</div>
+            <div>\${perfil.direccion || ''}</div>
           </div>
           <div>
             <div class="section-title">Para:</div>
-            <div style="font-weight: bold;">${p.clientes?.nombre || 'Particular'}</div>
+            <div style="font-weight: bold;">\${p.clientes?.nombre || 'Particular'}</div>
           </div>
         </div>
 
         <div style="margin-bottom: 40px;">
           <div class="section-title">Concepto del Proyecto</div>
-          <div style="font-size: 18px; font-weight: bold; margin-bottom: 10px;">${p.nombre}</div>
+          <div style="font-size: 18px; font-weight: bold; margin-bottom: 10px;">\${p.nombre}</div>
           <p>Ejecución integral según especificaciones técnicas y requerimientos acordados. Este presupuesto tiene una validez de 30 días.</p>
         </div>
 
         <div class="total-box">
           <span style="color: #999; font-size: 14px; text-transform: uppercase; margin-right: 20px;">Total Presupuestado:</span>
-          <span style="color: #f59e0b;">${fmt(p.venta_prevista)}</span>
+          <span style="color: #f59e0b;">\${fmt(p.venta_prevista)}</span>
         </div>
 
         <div class="footer">
@@ -132,7 +132,7 @@ export default function ProyectosPage() {
         </div>
       </body>
       </html>
-    `;
+    \`;
 
     const win = window.open('', '_blank');
     if (win) {
@@ -157,8 +157,8 @@ export default function ProyectosPage() {
     setIsModalOpen(true);
   };
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSave = async (req: React.FormEvent) => {
+    req.preventDefault();
     if (!nombre) return;
     
     if (!supabase) {
@@ -211,11 +211,11 @@ export default function ProyectosPage() {
     }
 
     if (count && count > 0) {
-      alert(`No se puede eliminar "${nombreProj}" porque ya tiene ${count} facturas de ventas emitidas. Debes eliminarlas primero.`);
+      alert(\`No se puede eliminar "\${nombreProj}" porque ya tiene \${count} facturas de ventas emitidas. Debes eliminarlas primero.\`);
       return;
     }
 
-    if (!confirm(`¿Estás seguro de que quieres eliminar el proyecto "${nombreProj}"?`)) return;
+    if (!confirm(\`¿Estás seguro de que quieres eliminar el proyecto "\${nombreProj}"?\`)) return;
 
     const { error } = await supabase.from("proyectos").delete().eq("id", id);
     if (error) alert("Error al eliminar: " + error.message);
@@ -308,14 +308,14 @@ export default function ProyectosPage() {
                   <button 
                     type="button" 
                     onClick={() => setIsModalOpen(false)} 
-                    className="flex-1 py-2.5 text-sm font-bold text-[var(--muted)] hover:bg-gray-100 rounded-xl transition-all border border-[var(--border)]"
+                    className="flex-1 py-3 text-sm font-bold text-[var(--muted)] hover:bg-gray-100 rounded-xl transition-all border border-[var(--border)]"
                   >
                     Cancelar
                   </button>
                   <button 
                     type="submit" 
                     disabled={saving}
-                    className="flex-1 py-2.5 text-sm font-bold bg-[var(--accent)] text-white rounded-xl shadow-md hover:shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                    className="flex-1 py-3 text-sm font-bold bg-[var(--accent)] text-white rounded-xl shadow-md hover:shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                   >
                     {saving ? <Loader2 className="animate-spin" size={18} /> : (editingId ? <Save size={18} /> : <Plus size={18} />)}
                     {saving ? "Guardando..." : (editingId ? "Actualizar" : "Crear Proyecto")}
@@ -343,7 +343,7 @@ export default function ProyectosPage() {
           <div className="overflow-x-auto min-h-[300px] flex flex-col">
             {loading ? (
               <div className="flex-1 flex flex-col items-center justify-center p-20 text-[var(--muted)] gap-3">
-                <Loader2 className="animate-spin" size={32} />
+                <Loader2 className="animate-spin" size(32) />
                 <p className="text-sm font-medium">Sincronizando proyectos...</p>
               </div>
             ) : filtered.length === 0 ? (
@@ -365,7 +365,7 @@ export default function ProyectosPage() {
                     <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">Estado</th>
                     <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Presup. Venta</th>
                     <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Coste Prev.</th>
-                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right text-red-600">Acciones</th>
+                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--border)]">
@@ -379,10 +379,10 @@ export default function ProyectosPage() {
                         {p.clientes?.nombre || 'Particular'}
                       </td>
                       <td className="px-6 py-4">
-                        <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${
+                        <span className={\`px-2 py-1 rounded-full text-[10px] font-bold uppercase \${
                           p.estado === 'Finalizado' ? 'bg-green-100 text-green-700' : 
                           p.estado === 'En Curso' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'
-                        }`}>
+                        }\`}>
                           {p.estado}
                         </span>
                       </td>
@@ -392,7 +392,7 @@ export default function ProyectosPage() {
                       <td className="px-6 py-4 text-right font-mono text-sm font-bold text-red-700">
                         {new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(p.coste_previsto || 0)}
                       </td>
-                      <td className="px-6 py-4 text-center relative">
+                      <td className="px-6 py-4 text-right relative">
                         <button 
                           onClick={(e) => {
                             e.stopPropagation();
@@ -408,7 +408,7 @@ export default function ProyectosPage() {
                             <button 
                               onClick={() => {
                                 // Redirigir a Ventas con parámetros para abrir el wizard de avance
-                                router.push(`/ventas?proyectoId=${p.id}&mode=avance`);
+                                router.push(\`/ventas?proyectoId=\${p.id}&mode=avance\`);
                               }}
                               className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--accent)] font-bold hover:bg-orange-50 transition-colors"
                             >
