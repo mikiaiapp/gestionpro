@@ -38,9 +38,6 @@ export default function CobrosPage() {
     }
     setLoading(true);
 
-    // Fail-safe: si en 3 segundos no ha cargado, desbloqueamos la UI
-    const timeout = setTimeout(() => setLoading(false), 3000);
-    
     try {
       const { data: cbs } = await supabase
         .from("cobros")
@@ -55,7 +52,6 @@ export default function CobrosPage() {
       setCobros(cbs || []);
       setVentas(vts || []);
     } finally {
-      clearTimeout(timeout);
       setLoading(false);
     }
   };
@@ -78,8 +74,8 @@ export default function CobrosPage() {
     setIsModalOpen(true);
   };
 
-  const handleSave = async (req: React.FormEvent) => {
-    req.preventDefault();
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!ventaId) return;
     
     if (!supabase) {
@@ -96,16 +92,11 @@ export default function CobrosPage() {
         forma_pago: formaPago
       };
 
-      let error;
       if (editingId) {
-        const { error: updateError } = await supabase.from("cobros").update([payload]).eq("id", editingId);
-        error = updateError;
+        await supabase.from("cobros").update([payload]).eq("id", editingId);
       } else {
-        const { error: insertError } = await supabase.from("cobros").insert([payload]);
-        error = insertError;
+        await supabase.from("cobros").insert([payload]);
       }
-
-      if (error) throw error;
 
       setIsModalOpen(false);
       fetchData();
@@ -120,31 +111,24 @@ export default function CobrosPage() {
     if (!supabase) return;
     if (!confirm("¿Estás seguro de que deseas eliminar este registro de cobro?")) return;
 
-    const { error } = await supabase.from("cobros").delete().eq("id", id);
-    if (error) alert("Error al eliminar: " + error.message);
-    else fetchData();
+    await supabase.from("cobros").delete().eq("id", id);
+    fetchData();
   };
-
-  const filteredCobros = cobros.filter(c => 
-    c.ventas?.clientes?.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.ventas?.num_factura?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
 
   return (
     <div className="flex bg-[var(--background)] min-h-screen">
       <Sidebar />
-      <div className="flex-1 p-8 overflow-y-auto">
+      <div className="flex-1 p-8 overflow-y-auto text-left">
         <header className="flex justify-between items-center mb-10">
           <div>
-            <h1 className="text-3xl font-bold font-head tracking-tight mb-1 text-[var(--foreground)]">Cobros</h1>
+            <h1 className="text-3xl font-bold font-head tracking-tight mb-1">Cobros</h1>
             <p className="text-[var(--muted)] font-medium">Tesorería: Entrada de fondos de clientes.</p>
           </div>
           <button 
             onClick={openAddModal}
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--accent)] text-white font-bold hover:shadow-lg transition-all active:scale-[0.98]"
           >
-            <Plus size={18} />
-            Registrar Cobro
+            <Plus size={18} /> Registrar Cobro
           </button>
         </header>
 
@@ -152,10 +136,10 @@ export default function CobrosPage() {
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
             <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md border border-[var(--border)] animate-in fade-in zoom-in duration-200">
               <h2 className="text-xl font-bold font-head mb-6 flex items-center gap-2">
-                {editingId ? <Save className="text-[var(--accent)]" size(20) /> : <HandCoins className="text-[var(--accent)]" size(20) />}
+                {editingId ? <Save className="text-[var(--accent)]" size={20} /> : <HandCoins className="text-[var(--accent)]" size={20} />}
                 {editingId ? "Editar Cobro" : "Registrar Cobro"}
               </h2>
-              <form onSubmit={handleSave} className="space-y-4 text-left">
+              <form onSubmit={handleSave} className="space-y-4">
                 <div>
                   <label className="block text-[11px] font-bold text-[var(--muted)] uppercase mb-1">Factura Emitida</label>
                   <select value={ventaId} onChange={(e) => setVentaId(e.target.value)} className="w-full p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)]">
@@ -189,9 +173,9 @@ export default function CobrosPage() {
                 </div>
 
                 <div className="flex gap-3 mt-8">
-                  <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 text-sm font-bold text-[var(--muted)] hover:bg-[var(--background)] rounded-lg transition-colors border border-[var(--border)]">Cancelar</button>
-                  <button type="submit" disabled={saving} className="flex-1 py-3 text-sm font-bold bg-[var(--accent)] text-white rounded-lg shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50">
-                    {saving ? <Loader2 className="animate-spin" size(18) /> : (editingId ? <Save size(18) /> : <Plus size(18) />)}
+                  <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-2.5 text-sm font-bold text-[var(--muted)] hover:bg-[var(--background)] rounded-lg transition-colors border border-[var(--border)]">Cancelar</button>
+                  <button type="submit" disabled={saving} className="flex-1 py-2.5 text-sm font-bold bg-[var(--accent)] text-white rounded-lg shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50">
+                    {saving ? <Loader2 className="animate-spin" size={18} /> : (editingId ? <Save size={18} /> : <Plus size={18} />)}
                     {saving ? "Guardando..." : (editingId ? "Actualizar" : "Confirmar Cobro")}
                   </button>
                 </div>
@@ -203,7 +187,7 @@ export default function CobrosPage() {
         <div className="glass-card bg-white shadow-sm border-[var(--border)] overflow-hidden">
           <div className="p-4 border-b border-[var(--border)] flex justify-between items-center bg-[#fafafa]">
              <div className="relative w-72">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]" size(16) />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]" size={16} />
               <input 
                 type="text" 
                 placeholder="Buscar cobro..." 
@@ -217,10 +201,10 @@ export default function CobrosPage() {
           <div className="overflow-x-auto min-h-[300px] flex flex-col">
             {loading ? (
               <div className="flex-1 flex flex-col items-center justify-center p-20 text-[var(--muted)] gap-3">
-                <Loader2 className="animate-spin" size(32) />
+                <Loader2 className="animate-spin" size={32} />
                 <p className="text-sm font-medium">Cargando tesorería...</p>
               </div>
-            ) : filteredCobros.length === 0 ? (
+            ) : cobros.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center p-20 text-[var(--muted)] gap-4 text-center">
                 <div className="w-16 h-16 rounded-full bg-[var(--background)] flex items-center justify-center">
                   <HandCoins size={32} className="opacity-20" />
@@ -236,58 +220,36 @@ export default function CobrosPage() {
                   <tr className="bg-[#fcfaf7] border-b border-[var(--border)]">
                     <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">Fecha</th>
                     <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">Factura Origen</th>
-                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">Forma de Pago</th>
                     <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Importe</th>
-                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right text-red-600">Acciones</th>
+                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--border)]">
-                  {filteredCobros.map((cb) => (
+                  {cobros.filter(cb => cb.ventas?.num_factura.includes(searchTerm) || cb.ventas?.clientes?.nombre.toLowerCase().includes(searchTerm.toLowerCase())).map((cb) => (
                     <tr key={cb.id} className="hover:bg-[#fcfaf7] transition-colors group">
                       <td className="px-6 py-4 text-sm font-medium text-[var(--muted)]">
                         {new Date(cb.fecha).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4">
-                        <div className="flex items-center gap-2 mb-0.5">
-                           <Receipt size={14} className="text-[var(--accent)]" />
-                           <span className="font-bold text-[var(--foreground)]">{cb.ventas?.serie}-{cb.ventas?.num_factura}</span>
-                        </div>
+                        <div className="font-bold text-[var(--foreground)]">{cb.ventas?.serie}-{cb.ventas?.num_factura}</div>
                         <div className="text-[10px] text-[var(--muted)] uppercase font-bold">{cb.ventas?.clientes?.nombre}</div>
-                      </td>
-                      <td className="px-6 py-4">
-                         <span className="text-xs font-bold text-gray-500 uppercase px-2 py-1 bg-gray-100 rounded-lg">
-                            {cb.forma_pago}
-                         </span>
                       </td>
                       <td className="px-6 py-4 text-right font-mono text-sm font-bold text-green-700">
                         {new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(cb.importe || 0)}
                       </td>
                       <td className="px-6 py-4 text-right relative">
                         <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setOpenMenuId(openMenuId === cb.id ? null : cb.id);
-                          }}
-                          className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-400 hover:text-gray-600"
+                          onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === cb.id ? null : cb.id); }}
+                          className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-gray-600"
                         >
-                          <MoreHorizontal size(20) />
+                          <MoreHorizontal size={20} />
                         </button>
 
                         {openMenuId === cb.id && (
-                          <div className="absolute right-6 top-12 w-48 bg-white rounded-xl shadow-xl border border-[var(--border)] z-50 py-2 animate-in fade-in slide-in-from-top-2 duration-200 text-left">
-                            <button 
-                              onClick={() => openEditModal(cb)}
-                              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-700 transition-colors"
-                            >
-                              <Save size(16) /> Editar Cobro
-                            </button>
+                          <div className="absolute right-6 top-12 w-48 bg-white rounded-xl shadow-xl border z-50 py-2 animate-in fade-in slide-in-from-top-2 duration-200 text-left">
+                            <button onClick={() => openEditModal(cb)} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 hover:bg-blue-50 transition-colors"><Save size={16} /> Editar</button>
                             <div className="h-px bg-gray-100 my-1 mx-2"></div>
-                            <button 
-                              onClick={() => handleDeleteCobro(cb.id)}
-                              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                            >
-                              <Trash2 size(16) /> Eliminar Cobro
-                            </button>
+                            <button onClick={() => handleDeleteCobro(cb.id)} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"><Trash2 size={16} /> Eliminar</button>
                           </div>
                         )}
                       </td>

@@ -35,8 +35,6 @@ export default function ClientesPage() {
 
   useEffect(() => {
     fetchClientes();
-    const timer = setTimeout(() => setLoading(false), 2000);
-    return () => clearTimeout(timer);
   }, [supabase]);
 
   useEffect(() => {
@@ -67,9 +65,6 @@ export default function ClientesPage() {
           .map(m => m.label);
         
         setMunicipiosSugeridos(filtrados);
-        
-        // Si encontramos municipios para ese código de provincia, proponemos el primero 
-        // (Suele ser el más probable o el único en CPs pequeños)
         if (filtrados.length > 0 && !poblacion) {
           setPoblacion(filtrados[0]);
         }
@@ -79,7 +74,7 @@ export default function ClientesPage() {
 
   useEffect(() => {
     if (!provincia || todosLosMunicipios.length === 0) return;
-    const normalize = (s: string) => s.normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toLowerCase();
+    const normalize = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
     const provNorm = normalize(provincia);
     const provData = PROVINCIAS_ESPANOLAS.find(p => normalize(p.nombre) === provNorm);
     if (provData) {
@@ -141,7 +136,7 @@ export default function ClientesPage() {
         
         const { data: existing } = await query.maybeSingle();
         if (existing) {
-          alert(\`Error: Ya existe un cliente o empresa con el NIF \${nif} (\${existing.nombre}).\`);
+          alert("Error: Ya existe el NIF " + nif + " (" + existing.nombre + ")");
           setSaving(false);
           return;
         }
@@ -149,16 +144,11 @@ export default function ClientesPage() {
 
       const payload = { nombre, nif, email, direccion, codigo_postal: cp, poblacion, provincia };
       
-      let error;
       if (editingId) {
-        const { error: updateError } = await supabase.from("clientes").update([payload]).eq("id", editingId);
-        error = updateError;
+        await supabase.from("clientes").update([payload]).eq("id", editingId);
       } else {
-        const { error: insertError } = await supabase.from("clientes").insert([payload]);
-        error = insertError;
+        await supabase.from("clientes").insert([payload]);
       }
-
-      if (error) throw error;
 
       setIsModalOpen(false);
       fetchClientes();
@@ -172,45 +162,33 @@ export default function ClientesPage() {
   const handleDeleteCliente = async (id: string, nombreCli: string) => {
     if (!supabase) return;
 
-    // Plan de integridad: ¿Tiene proyectos?
-    const { count, error: countErr } = await supabase
+    const { count } = await supabase
       .from("proyectos")
       .select("*", { count: 'exact', head: true })
       .eq("cliente_id", id);
 
-    if (countErr) {
-      alert("Error al verificar integridad: " + countErr.message);
-      return;
-    }
-
     if (count && count > 0) {
-      alert(\`No se puede eliminar a "\${nombreCli}" porque tiene \${count} proyectos asociados. Elimina primero los proyectos.\`);
+      alert("No se puede eliminar a " + nombreCli + " porque tiene proyectos asociados.");
       return;
     }
 
-    if (!confirm(\`¿Estás seguro de que quieres eliminar al cliente "\${nombreCli}"?\`)) return;
+    if (!confirm("¿Eliminar cliente " + nombreCli + "?")) return;
 
-    const { error } = await supabase.from("clientes").delete().eq("id", id);
-    if (error) alert("Error al eliminar: " + error.message);
-    else fetchClientes();
+    await supabase.from("clientes").delete().eq("id", id);
+    fetchClientes();
   };
-
-  const filteredClientes = clientes.filter(c => 
-    c.nombre.toLowerCase().includes(searchTerm.toLowerCase())
-  );
 
   return (
     <div className="flex bg-[var(--background)] min-h-screen">
       <Sidebar />
-      <div className="flex-1 p-8 overflow-y-auto">
+      <div className="flex-1 p-8 overflow-y-auto text-left">
         <header className="flex justify-between items-center mb-10">
           <div>
-            <h1 className="text-3xl font-bold font-head tracking-tight mb-1 text-[var(--foreground)]">Clientes</h1>
-            <p className="text-[var(--muted)] font-medium">Gestión centralizada.</p>
+            <h1 className="text-3xl font-bold font-head tracking-tight mb-1">Clientes</h1>
+            <p className="text-[var(--muted)] font-medium">Gestión de cartera de clientes.</p>
           </div>
           <button onClick={openAddModal} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--accent)] text-white font-bold hover:shadow-lg transition-all active:scale-[0.98]">
-            <Plus size={18} />
-            Nuevo Cliente
+            <Plus size={18} /> Nuevo Cliente
           </button>
         </header>
 
@@ -218,23 +196,22 @@ export default function ClientesPage() {
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
             <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md animate-in fade-in zoom-in duration-200 border border-[var(--border)]">
               <h2 className="text-xl font-bold font-head mb-6 flex items-center gap-2">
-                {editingId ? <Save className="text-[var(--accent)]" size={20} /> : <Plus className="text-[var(--accent)]" size={20} />}
                 {editingId ? "Editar Cliente" : "Añadir Cliente"}
               </h2>
               <form onSubmit={handleSaveCliente} className="space-y-4">
-                <input type="text" placeholder="Razón Social / Nombre *" value={nombre} onChange={(e) => setNombre(e.target.value)} className="w-full p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] focus:outline-none focus:border-[var(--accent)]" required />
+                <input type="text" placeholder="Razón Social / Nombre *" value={nombre} onChange={(e) => setNombre(e.target.value)} className="w-full p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] focus:outline-none" required />
                 <div className="grid grid-cols-2 gap-4">
-                  <input type="text" placeholder="NIF/DNI" value={nif} onChange={(e) => setNif(e.target.value)} className="p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] focus:outline-none focus:border-[var(--accent)]" />
-                  <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] focus:outline-none focus:border-[var(--accent)]" />
+                  <input type="text" placeholder="NIF/DNI" value={nif} onChange={(e) => setNif(e.target.value)} className="p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] focus:outline-none" />
+                  <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] focus:outline-none" />
                 </div>
                 <div className="space-y-3">
-                  <input type="text" placeholder="Dirección" value={direccion} onChange={(e) => setDireccion(e.target.value)} className="w-full p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] focus:outline-none focus:border-[var(--accent)]" />
+                  <input type="text" placeholder="Dirección" value={direccion} onChange={(e) => setDireccion(e.target.value)} className="w-full p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] focus:outline-none" />
                   <div className="grid grid-cols-2 gap-3">
-                    <input type="text" placeholder="C.P." value={cp} maxLength={5} onChange={(e) => setCp(e.target.value)} className="p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] focus:outline-none focus:border-[var(--accent)] font-mono" />
+                    <input type="text" placeholder="C.P." value={cp} maxLength={5} onChange={(e) => setCp(e.target.value)} className="p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] font-mono" />
                     <div className="relative">
-                       <input type="text" placeholder="Provincia" value={provincia} onFocus={() => setShowProvList(true)} onBlur={() => setTimeout(() => setShowProvList(false), 200)} onChange={(e) => setProvincia(e.target.value)} className="w-full p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] focus:outline-none focus:border-[var(--accent)]" />
+                       <input type="text" placeholder="Provincia" value={provincia} onFocus={() => setShowProvList(true)} onBlur={() => setTimeout(() => setShowProvList(false), 200)} onChange={(e) => setProvincia(e.target.value)} className="w-full p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)]" />
                        {showProvList && (
-                         <div className="absolute z-[110] left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white border border-[var(--border)] rounded-xl shadow-2xl py-2">
+                         <div className="absolute z-[110] left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white border rounded-xl shadow-2xl py-2">
                            {PROVINCIAS_ESPANOLAS.filter(p => !provincia || p.nombre.toLowerCase().includes(provincia.toLowerCase())).map(p => (
                              <button key={p.id} type="button" onClick={() => { setProvincia(p.nombre); setShowProvList(false); }} className="w-full text-left px-4 py-2 hover:bg-[var(--accent)]/10 text-sm">{p.nombre}</button>
                            ))}
@@ -243,9 +220,9 @@ export default function ClientesPage() {
                     </div>
                   </div>
                   <div className="relative">
-                    <input type="text" placeholder="Municipio" value={poblacion} onFocus={() => setShowMunList(true)} onBlur={() => setTimeout(() => setShowMunList(false), 200)} onChange={(e) => setPoblacion(e.target.value)} className="w-full p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] focus:outline-none focus:border-[var(--accent)]" />
+                    <input type="text" placeholder="Municipio" value={poblacion} onFocus={() => setShowMunList(true)} onBlur={() => setTimeout(() => setShowMunList(false), 200)} onChange={(e) => setPoblacion(e.target.value)} className="w-full p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] focus:outline-none" />
                     {showMunList && municipiosSugeridos.length > 0 && (
-                      <div className="absolute z-[110] left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white border border-[var(--border)] rounded-xl shadow-2xl py-2">
+                      <div className="absolute z-[110] left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white border rounded-xl shadow-2xl py-2">
                         {municipiosSugeridos.filter(m => !poblacion || m.toLowerCase().includes(poblacion.toLowerCase())).map((m, i) => (
                           <button key={i} type="button" onClick={() => { setPoblacion(m); setShowMunList(false); }} className="w-full text-left px-4 py-2 hover:bg-[var(--accent)]/10 text-sm">{m}</button>
                         ))}
@@ -254,9 +231,8 @@ export default function ClientesPage() {
                   </div>
                 </div>
                 <div className="flex gap-3 mt-8">
-                  <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-2.5 text-sm font-bold text-[var(--muted)] hover:bg-gray-100 rounded-xl transition-all border border-[var(--border)]">Cancelar</button>
-                  <button type="submit" disabled={saving} className="flex-1 py-2.5 text-sm font-bold bg-[var(--accent)] text-white rounded-xl shadow-md hover:shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50">
-                    {saving ? <Loader2 className="animate-spin" size={18} /> : (editingId ? <Save size={18} /> : <Plus size={18} />)}
+                  <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-2.5 text-sm font-bold text-[var(--muted)] border rounded-xl">Cancelar</button>
+                  <button type="submit" disabled={saving} className="flex-1 py-2.5 text-sm font-bold bg-[var(--accent)] text-white rounded-xl shadow-md disabled:opacity-50">
                     {saving ? "Guardando..." : (editingId ? "Actualizar" : "Guardar")}
                   </button>
                 </div>
@@ -269,63 +245,44 @@ export default function ClientesPage() {
           <div className="p-4 border-b border-[var(--border)] bg-[#fafafa]">
              <div className="relative w-72">
                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]" size={16} />
-               <input type="text" placeholder="Buscar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)]" />
+               <input type="text" placeholder="Buscar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none" />
              </div>
           </div>
           <div className="overflow-x-auto min-h-[200px]">
             {loading ? (
-              <div className="p-20 flex flex-col items-center justify-center gap-3 text-[var(--muted)]">
-                <Loader2 className="animate-spin" size={32} />
-                <p className="text-sm font-medium">Sincronizando clientes...</p>
-              </div>
-            ) : filteredClientes.length === 0 ? (
-              <div className="p-20 text-center text-[var(--muted)]">
-                <p className="font-bold text-[var(--foreground)] mb-1">No hay clientes registrados</p>
-                <p className="text-sm">Empieza añadiendo tu primer cliente.</p>
+              <div className="p-20 flex flex-col items-center justify-center gap-3">
+                <Loader2 className="animate-spin text-[var(--accent)]" size={32} />
               </div>
             ) : (
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-[#fcfaf7] border-b border-[var(--border)]">
+                  <tr className="bg-[#fcfaf7] border-b">
                     <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">Cliente</th>
                     <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">NIF</th>
                     <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--border)]">
-                  {filteredClientes.map((c) => (
+                  {clientes.filter(c => c.nombre.toLowerCase().includes(searchTerm.toLowerCase())).map((c) => (
                     <tr key={c.id} className="hover:bg-[#fcfaf7] transition-colors group">
                       <td className="px-6 py-4">
                         <div className="font-bold text-[var(--foreground)]">{c.nombre}</div>
-                        <div className="text-[10px] text-[var(--muted)] uppercase tracking-wider">{c.poblacion} {c.provincia}</div>
+                        <div className="text-[10px] text-[var(--muted)] uppercase">{c.poblacion} {c.provincia}</div>
                       </td>
                       <td className="px-6 py-4 text-sm text-[var(--muted)]">{c.nif || '—'}</td>
                       <td className="px-6 py-4 text-right relative">
                         <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setOpenMenuId(openMenuId === c.id ? null : c.id);
-                          }}
-                          className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-400 hover:text-gray-600"
+                          onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === c.id ? null : c.id); }}
+                          className="p-2 hover:bg-gray-100 rounded-lg text-gray-400"
                         >
                           <MoreHorizontal size={20} />
                         </button>
 
                         {openMenuId === c.id && (
-                          <div className="absolute right-6 top-12 w-48 bg-white rounded-xl shadow-xl border border-[var(--border)] z-50 py-2 animate-in fade-in slide-in-from-top-2 duration-200 text-left">
-                            <button 
-                              onClick={() => openEditModal(c)}
-                              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-700 transition-colors"
-                            >
-                              <Save size={16} /> Editar Cliente
-                            </button>
+                          <div className="absolute right-6 top-12 w-48 bg-white rounded-xl shadow-xl border z-50 py-2 animate-in fade-in slide-in-from-top-2 duration-200 text-left">
+                            <button onClick={() => openEditModal(c)} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 hover:bg-blue-50 transition-colors"><Save size={16} /> Editar</button>
                             <div className="h-px bg-gray-100 my-1 mx-2"></div>
-                            <button 
-                              onClick={() => handleDeleteCliente(c.id, c.nombre)}
-                              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                            >
-                              <Trash2 size={16} /> Eliminar Cliente
-                            </button>
+                            <button onClick={() => handleDeleteCliente(c.id, c.nombre)} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"><Trash2 size={16} /> Eliminar</button>
                           </div>
                         )}
                       </td>
