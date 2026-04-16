@@ -19,6 +19,8 @@ export default function VentasPage() {
   const [perfil, setPerfil] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   // Estados del Editor
   const [serie, setSerie] = useState("A");
@@ -106,9 +108,6 @@ export default function VentasPage() {
   const baseImponible = lineas.reduce((acc, l) => acc + (l.unidades * l.precio_unitario), 0);
   const cuotaIva = serie === "A" ? baseImponible * 0.21 : 0;
   const totalFactura = baseImponible + cuotaIva;
-
-  const [saving, setSaving] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
 
   const openEditVenta = (v: any) => {
     setEditingId(v.id);
