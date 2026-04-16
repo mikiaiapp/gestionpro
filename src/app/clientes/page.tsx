@@ -60,22 +60,27 @@ export default function ClientesPage() {
       }
       buscarMunicipioPorCP(cp);
     }
-  }, [cp, todosLosMunicipios]);
+  }, [cp]);
 
   // Cargar Municipios al cambiar Provincia manualmente
   useEffect(() => {
-    if (provincia && todosLosMunicipios.length > 0) {
-      const provData = PROVINCIAS_ESPANOLAS.find(p => p.nombre === provincia);
-      if (provData) {
-        const filtrados = todosLosMunicipios
-          .filter(m => m.id_prov === provData.id)
-          .map(m => m.nm);
-        setMunicipiosSugeridos(filtrados);
-      }
-    } else {
-      setMunicipiosSugeridos([]);
+    if (!provincia) {
+      setFilteredMunicipios([]);
+      return;
     }
-  }, [provincia, todosLosMunicipios]);
+
+    // Normalizar nombres para comparación robusta (quitar tildes, etc)
+    const normalize = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    const provNorm = normalize(provincia);
+
+    const filtered = allMunicipios.filter(m => {
+      const muniProvNorm = normalize(m.provincia);
+      return muniProvNorm === provNorm || muniProvNorm.includes(provNorm) || provNorm.includes(muniProvNorm);
+    });
+
+    setFilteredMunicipios(filtered);
+    console.log("Municipios filtrados para:", provincia, filtered.length);
+  }, [provincia, allMunicipios]);
 
   const buscarMunicipioPorCP = async (codigo: string) => {
     try {
