@@ -120,6 +120,19 @@ export default function ProveedoresPage() {
 
     setSaving(true);
     try {
+      // Control de duplicidades por NIF
+      if (nif) {
+        let query = supabase.from("proveedores").select("id, nombre").eq("nif", nif);
+        if (editingId) query = query.neq("id", editingId);
+        
+        const { data: existing } = await query.maybeSingle();
+        if (existing) {
+          alert(`Error: Ya existe un proveedor con el NIF ${nif} (${existing.nombre}).`);
+          setSaving(false);
+          return;
+        }
+      }
+
       const payload = { nombre, nif, email, direccion, codigo_postal: cp, poblacion, provincia };
       
       let error;

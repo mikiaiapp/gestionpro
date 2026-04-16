@@ -13,19 +13,34 @@ GestiónPro es una plataforma SaaS de gestión empresarial moderna y profesional
 - 🤖 **AI Import**: Importación de facturas en PDF mediante **Google Gemini API**.
 - 📍 **Geo-Intelligence**: Autocompletado de municipios y provincias por Código Postal.
 
-## 🚀 Instalación en 2 Pasos
-... (Misma estructura de instalación) ...
+## 🚀 Guía Detallada de Instalación
 
-### 1. Despliegue en Vercel
-Haz clic en el botón **"Deploy with Vercel"** de arriba. Deberás configurar las siguientes variables de entorno:
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+Sigue estos pasos para tener tu propia instancia privada de GestiónPro totalmente operativa.
 
-### 2. Configuración de Base de Datos (Supabase)
-1. Crea un proyecto gratuito en [Supabase](https://supabase.com).
-2. Entra en el **SQL Editor**.
-3. Copia el contenido del archivo [`supabase_schema.sql`](./supabase_schema.sql) y ejecútalo.
-4. ¡Listo! Ya puedes empezar a usar tu instancia privada.
+### 1. Preparar la Base de Datos (Supabase)
+GestiónPro utiliza **Supabase** como motor de base de datos, sistema de autenticación y almacenamiento.
+1.  **Crea un proyecto**: Ve a [Supabase](https://supabase.com) y crea un nuevo proyecto gratuito.
+2.  **Ejecuta el Esquema**: 
+    *   En el menú lateral, entra en el **SQL Editor**.
+    *   Haz clic en **"New Query"**.
+    *   Copia y pega íntegramente el contenido del archivo [`supabase_schema.sql`](./supabase_schema.sql) de este repositorio.
+    *   Pulsa **Run**. Esto creará todas las tablas, relaciones y las reglas de seguridad (RLS) que garantizan que tus datos sean privados.
+3.  **Configura la Autenticación**:
+    *   Ve a **Authentication > Providers**.
+    *   Asegúrate de que el proveedor **Email** está activado (es el que viene por defecto).
+    *   *Recomendación*: Puedes desactivar "Confirm Email" en los ajustes de Auth para empezar a probar inmediatamente sin esperar correos de verificación.
+
+### 2. Despliegue en Vercel
+1.  Haz clic en el botón **"Deploy with Vercel"** ubicado al principio de este README.
+2.  **Configura las Variables de Entorno**: Vercel te pedirá dos valores críticos. Para encontrarlos en Supabase, ve a **Project Settings > API**:
+    *   `NEXT_PUBLIC_SUPABASE_URL`: Es la URL de tu proyecto (ej: `https://xyz.supabase.co`).
+    *   `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Es la clave pública (identificada como `anon` `public`).
+3.  Pulsa **Deploy**. Una vez termine el proceso (aprox. 3 minutos), tendrás tu URL pública lista.
+
+### 3. Primer Acceso
+*   Entra en tu nueva URL y ve a la página de **Registro**.
+*   Crea tu cuenta de administrador.
+*   ¡Listo! Recomendamos configurar tus datos de empresa en **Ajustes** para que tus facturas y presupuestos salgan con tu identidad corporativa.
 
 ---
 
