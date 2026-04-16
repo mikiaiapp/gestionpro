@@ -29,10 +29,9 @@ export default function AjustesPage() {
   const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
+    // Verificación de conexión inmediata
     if (!supabase) {
-      alert("⚠️ Error: No se detecta conexión con Supabase. Revisa las variables de entorno.");
-      setLoading(false);
-      return;
+      console.error("Supabase client is null");
     }
     fetchPerfil();
     fetchTipos();
@@ -50,7 +49,7 @@ export default function AjustesPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setLoading(false); return; }
       
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('perfil_negocio')
         .select('*')
         .eq('user_id', user.id)
@@ -73,6 +72,7 @@ export default function AjustesPage() {
   };
 
   const fetchTipos = async () => {
+    if (!supabase) return;
     const { data: iva } = await supabase.from('tipos_iva').select('*').order('valor', { ascending: false });
     setTiposIva(iva || []);
   };
@@ -82,12 +82,10 @@ export default function AjustesPage() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        alert("❌ Error: No se detecta sesión de usuario.");
+        alert("⚠️ No hay sesión de usuario activa.");
         setIsSaving(false);
         return;
       }
-
-      console.log("Intentando guardar para usuario:", user.id);
 
       const { error } = await supabase.from('perfil_negocio').upsert({
         user_id: user.id,
@@ -101,13 +99,12 @@ export default function AjustesPage() {
       }, { onConflict: 'user_id' });
 
       if (error) {
-        console.error("Error de Supabase:", error);
-        alert("❌ Error al guardar: " + error.message);
+        alert("❌ Error BD: " + error.message);
       } else {
-        alert("✅ Perfil guardado correctamente");
+        alert("✅ Configuración guardada");
       }
     } catch (e: any) {
-      alert("❌ Error inesperado: " + e.message);
+      alert("❌ Error conexión: " + e.message);
     } finally {
       setIsSaving(false);
     }
@@ -118,7 +115,7 @@ export default function AjustesPage() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        alert("❌ Error: No hay sesión.");
+        alert("⚠️ Inicia sesión para sincronizar.");
         setSyncing(false);
         return;
       }
@@ -131,26 +128,24 @@ export default function AjustesPage() {
       ];
 
       for (const item of officialIva) {
-        const { error } = await supabase.from('tipos_iva').upsert({ 
+        await supabase.from('tipos_iva').upsert({ 
           user_id: user.id, 
           nombre: item.nombre, 
           valor: item.valor 
         }, { onConflict: 'user_id,valor' });
-        
-        if (error) console.error("Error en item IVA:", error);
       }
       
       await fetchTipos();
-      alert("✅ Tipos de IVA sincronizados");
+      alert("✅ Impuestos sincronizados con éxito");
     } catch (e) {
-      alert("❌ Error en la sincronización fiscal");
+      alert("❌ Error al sincronizar");
     } finally {
       setSyncing(false);
     }
   };
 
   if (loading) return (
-    <div className="flex bg-[var(--background)] min-h-screen items-center justify-center">
+    <div className="flex h-screen items-center justify-center">
       <Loader2 className="animate-spin text-blue-500" size={40} />
     </div>
   );
@@ -161,19 +156,19 @@ export default function AjustesPage() {
       <div className="flex-1 p-8 space-y-8 animate-in fade-in duration-500 overflow-y-auto text-left">
         <header>
           <h1 className="text-3xl font-bold font-head tracking-tight text-[var(--foreground)]">Ajustes</h1>
-          <p className="text-[var(--muted)] mt-1">Configuración de identidad fiscal y fiscalidad profesional.</p>
+          <p className="text-[var(--muted)] mt-1">Configuración fiscal profesional V2.0.4</p>
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-20">
           <div className="lg:col-span-2 bg-white rounded-2xl border p-8 shadow-sm">
-            <h2 className="text-xl font-bold font-head mb-8 flex items-center gap-3">
-              <Building2 className="text-blue-600" /> Datos del Emisor
+            <h2 className="text-xl font-bold font-head mb-8 flex items-center gap-3 text-gray-800">
+              <Building2 className="text-blue-600" /> Perfil de Facturación
             </h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="md:col-span-2 space-y-1">
                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Nombre Comercial</label>
-                <input type="text" value={nombre} onChange={e => setNombre(e.target.value)} className="w-full px-4 py-3 rounded-xl border bg-gray-50 focus:ring-2 focus:ring-blue-500/20 transition-all outline-none" placeholder="Ej: Reformas Miguel SL" />
+                <input type="text" value={nombre} onChange={e => setNombre(e.target.value)} className="w-full px-4 py-3 rounded-xl border bg-gray-50 focus:ring-2 focus:ring-blue-500/20 transition-all outline-none" />
               </div>
 
               <div className="space-y-1">
@@ -186,11 +181,11 @@ export default function AjustesPage() {
 
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">IBAN</label>
-                <input type="text" value={cuentaBancaria} onChange={e => setCuentaBancaria(formatIBAN(e.target.value))} className="w-full px-4 py-3 rounded-xl border bg-gray-50 font-mono text-sm" placeholder="ES00 0000..." />
+                <input type="text" value={cuentaBancaria} onChange={e => setCuentaBancaria(formatIBAN(e.target.value))} className="w-full px-4 py-3 rounded-xl border bg-gray-50 font-mono text-sm" />
               </div>
 
               <div className="md:col-span-2 space-y-1">
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Dirección</label>
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Dirección Completa</label>
                 <input type="text" value={direccion} onChange={e => setDireccion(e.target.value)} className="w-full px-4 py-3 rounded-xl border bg-gray-50" />
               </div>
 
@@ -213,36 +208,35 @@ export default function AjustesPage() {
             <button 
               onClick={handleSavePerfil} 
               disabled={isSaving} 
-              className="w-full mt-8 py-4 bg-blue-600 text-white font-bold rounded-2xl shadow-lg hover:bg-blue-700 transition-all flex items-center justify-center gap-2 active:scale-[0.99]"
+              className="w-full mt-8 py-4 bg-blue-600 text-white font-bold rounded-2xl shadow-lg hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
             >
-              {isSaving ? <RefreshCcw className="animate-spin" /> : <Save size={20} />} Guardar Perfil
+              {isSaving ? <RefreshCcw className="animate-spin" /> : <Save size={20} />} Actualizar Perfil
             </button>
           </div>
 
           <div className="space-y-6">
             <div className="bg-white rounded-2xl border p-6 shadow-sm">
               <div className="flex items-center justify-between mb-6">
-                <h2 className="font-bold font-head flex items-center gap-2 text-green-600"><Percent size={18} /> IVA</h2>
-                <button onClick={handleSyncOfficial} disabled={syncing} className="text-[10px] font-bold text-blue-500 uppercase flex items-center gap-1 hover:text-blue-700 transition-colors">
-                  <RefreshCcw size={12} className={syncing ? 'animate-spin' : ''} /> Sync
+                <h2 className="font-bold font-head flex items-center gap-2 text-green-600"><Percent size={18} /> IVA Oficial</h2>
+                <button onClick={handleSyncOfficial} disabled={syncing} className="p-2 hover:bg-blue-50 rounded-lg text-blue-500 transition-colors">
+                  <RefreshCcw size={16} className={syncing ? 'animate-spin' : ''} />
                 </button>
               </div>
               <div className="space-y-2">
-                {tiposIva.length === 0 ? (
-                  <p className="text-[11px] text-gray-400 text-center py-4">Pulsa Sync para cargar tipos</p>
-                ) : tiposIva.map(t => (
+                {tiposIva.map(t => (
                   <div key={t.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-xl border border-gray-100">
                     <span className="text-sm font-medium">{t.nombre}</span>
                     <span className="font-bold">{t.valor}%</span>
                   </div>
                 ))}
+                {tiposIva.length === 0 && <p className="text-[11px] text-gray-400 text-center py-4 italic">Pulsa el icono de arriba para sincronizar</p>}
               </div>
             </div>
           </div>
         </div>
         
         <div className="text-center pt-10 border-t">
-          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">GestiónPro V2.0.4 - STABILIZER</p>
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">GestiónPro V2.0.4 - STABLE BUILD</p>
         </div>
       </div>
     </div>
