@@ -2,8 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { Sidebar } from "@/components/Sidebar";
-import { Download, Plus, Search, MoreHorizontal, Loader2, Factory, FolderKanban, FileText, Sparkles, X, Upload, Save, Trash2 } from "lucide-react";
+import { SearchableSelect } from "@/components/SearchableSelect";
+import { Download, Plus, Search, MoreHorizontal, Loader2, Receipt, FolderKanban, FileText, Sparkles, X, Upload, Save, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+
+interface LineaCoste {
+  unidades: number;
+  descripcion: string;
+  precio_unitario: number;
+  iva_pct: number;
+}
 
 export default function CostesPage() {
   const [costes, setCostes] = useState<any[]>([]);
@@ -31,14 +39,11 @@ export default function CostesPage() {
   const [proveedorId, setProveedorId] = useState("");
   const [tipoGasto, setTipoGasto] = useState("general");
   const [proyectoId, setProyectoId] = useState("");
-  const [baseImponible, setBaseImponible] = useState("");
-  const [tipoIva, setTipoIva] = useState(21);
+  const [retencionPct, setRetencionPct] = useState(0);
+  const [lineas, setLineas] = useState<LineaCoste[]>([{ unidades: 1, descripcion: "", precio_unitario: 0, iva_pct: 21 }]);
 
   useEffect(() => {
     fetchData();
-    // Fail-safe: desbloquear carga tras 2 segundos máximo
-    const timer = setTimeout(() => setLoading(false), 2000);
-    return () => clearTimeout(timer);
   }, [supabase]);
 
   const fetchData = async () => {
@@ -47,7 +52,7 @@ export default function CostesPage() {
     try {
       const { data: csts } = await supabase
         .from("costes")
-        .select("*, proveedores(nombre), proyectos(nombre)")
+        .select("*, proveedores(nombre), proyectos(nombre), coste_lineas(*)")
         .order("fecha", { ascending: false });
 
       const { data: provs } = await supabase.from("proveedores").select("id, nombre").order("nombre");
@@ -58,8 +63,6 @@ export default function CostesPage() {
       setProveedores(provs || []);
       setProyectos(projs || []);
       if (perfil?.gemini_key) setGeminiKey(perfil.gemini_key);
-    } catch (e: any) {
-      console.error("Error cargando costes:", e);
     } finally {
       setLoading(false);
     }
@@ -77,21 +80,12 @@ export default function CostesPage() {
       const reader = new FileReader();
       reader.onload = async (event) => {
         const base64 = (event.target?.result as string).split(',')[1];
-        
-        const prompt = `Analiza esta factura y responde ÚNICAMENTE con un objeto JSON válido, sin explicaciones, sin markdown, sin backticks. 
-        JSON: { "nif": "CIF emisor", "proveedor": "Nombre emisor", "numfact": "Nº factura", "fecha": "YYYY-MM-DD", "base": 0.00, "ivaPct": 21, "total": 0.00 }`;
+        const prompt = `Analiza esta factura y responde ÚNICAMENTE con un objeto JSON válido. 
+        JSON: { "nif": "CIF emisor", "proveedor": "Nombre emisor", "numfact": "Nº factura", "fecha": "YYYY-MM-DD", "base": 0.00, "ivaPct": 21 }`;
 
         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-vision:generateContent?key=${geminiKey}`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{
-              parts: [
-                { inline_data: { mime_type: 'application/pdf', data: base64 } },
-                { text: prompt }
-              ]
-            }]
-          })
+          body: JSON.stringify({ contents: [{ parts: [{ inline_data: { mime_type: 'application/pdf', data: base64 } }, { text: prompt }] }] })
         });
 
         const data = await res.json();
@@ -99,14 +93,13 @@ export default function CostesPage() {
         raw = raw.replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/\s*```$/,'').trim();
         const parsed = JSON.parse(raw);
 
-        // Mapear datos al formulario
         if (parsed.numfact) setNumFactProv(parsed.numfact);
         if (parsed.fecha) setFecha(parsed.fecha);
-        if (parsed.base) setBaseImponible(String(parsed.base));
-        if (parsed.ivaPct) setTipoIva(parsed.ivaPct);
+        if (parsed.base) {
+           setLineas([{ unidades: 1, descripcion: "Importe extraído por IA", precio_unitario: parsed.base, iva_pct: parsed.ivaPct || 21 }]);
+        }
         
-        // Buscar proveedor por nombre o NIF
-        const prov = proveedores.find(p => p.nombre.toLowerCase().includes(parsed.proveedor?.toLowerCase()) || p.nif === parsed.nif);
+        const prov = proveedores.find(p => p.nombre.toLowerCase().includes(parsed.proveedor?.toLowerCase()));
         if (prov) setProveedorId(prov.id);
 
         setIsAiModalOpen(false);
@@ -114,15 +107,24 @@ export default function CostesPage() {
       };
       reader.readAsDataURL(file);
     } catch (e: any) {
-      alert("Error en el análisis IA: " + e.message);
+      alert("Error IA: " + e.message);
     } finally {
       setIsExtracting(false);
     }
   };
 
-  const totalBase = parseFloat(baseImponible) || 0;
-  const cuotaIva = serie === "A" ? totalBase * (tipoIva / 100) : 0;
-  const totalFactura = totalBase + cuotaIva;
+  const addLinea = () => setLineas([...lineas, { unidades: 1, descripcion: "", precio_unitario: 0, iva_pct: 21 }]);
+  const removeLinea = (index: number) => setLineas(lineas.filter((_, i) => i !== index));
+  const updateLinea = (index: number, field: keyof LineaCoste, value: any) => {
+    const newLineas = [...lineas];
+    newLineas[index] = { ...newLineas[index], [field]: value };
+    setLineas(newLineas);
+  };
+
+  const baseImponible = lineas.reduce((acc, l) => acc + (l.unidades * l.precio_unitario), 0);
+  const totalIva = lineas.reduce((acc, l) => acc + (l.unidades * l.precio_unitario * (serie === "A" ? l.iva_pct / 100 : 0)), 0);
+  const retencionImporte = (baseImponible * (retencionPct || 0)) / 100;
+  const totalFactura = baseImponible + totalIva - retencionImporte;
 
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -136,7 +138,8 @@ export default function CostesPage() {
     setProveedorId("");
     setTipoGasto("general");
     setProyectoId("");
-    setBaseImponible("");
+    setRetencionPct(0);
+    setLineas([{ unidades: 1, descripcion: "", precio_unitario: 0, iva_pct: 21 }]);
     setIsModalOpen(true);
   };
 
@@ -149,380 +152,235 @@ export default function CostesPage() {
     setProveedorId(c.proveedor_id || "");
     setTipoGasto(c.tipo_gasto);
     setProyectoId(c.proyecto_id || "");
-    setBaseImponible(c.base_imponible?.toString() || "");
-    setTipoIva(c.iva_pct || 21);
+    setRetencionPct(c.retencion_pct || 0);
+    
+    if (c.coste_lineas && c.coste_lineas.length > 0) {
+      setLineas(c.coste_lineas.map((l: any) => ({
+        unidades: l.unidades,
+        descripcion: l.descripcion,
+        precio_unitario: l.precio_unitario,
+        iva_pct: l.iva_pct
+      })));
+    } else {
+      setLineas([{ unidades: 1, descripcion: "Factura Directa", precio_unitario: c.base_imponible, iva_pct: 21 }]);
+    }
     setIsModalOpen(true);
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!supabase) {
-      alert("Error: No hay conexión con la base de datos.");
-      return;
-    }
-
+    if (!supabase) return;
     setSaving(true);
     try {
       const payload = {
-        serie,
-        num_interno: numInterno,
-        num_factura_proveedor: numFactProv,
-        fecha,
-        proveedor_id: proveedorId || null,
-        tipo_gasto: tipoGasto,
+        serie, num_interno: numInterno, num_factura_proveedor: numFactProv, fecha, 
+        proveedor_id: proveedorId || null, tipo_gasto: tipoGasto,
         proyecto_id: tipoGasto === "proyecto" ? proyectoId : null,
-        base_imponible: totalBase,
-        iva_pct: serie === "A" ? tipoIva : 0,
-        iva_importe: cuotaIva,
-        total: totalFactura
+        base_imponible: baseImponible, iva_pct: 21, iva_importe: totalIva,
+        retencion_pct: retencionPct, retencion_importe: retencionImporte, 
+        total: totalFactura,
+        user_id: (await supabase.auth.getUser()).data.user?.id
       };
 
-      let error;
+      let currentId = editingId;
       if (editingId) {
-        const { error: updateError } = await supabase.from("costes").update([payload]).eq("id", editingId);
-        error = updateError;
+        await supabase.from("costes").update(payload).eq("id", editingId);
+        await supabase.from("coste_lineas").delete().eq("coste_id", editingId);
       } else {
-        const { error: insertError } = await supabase.from("costes").insert([payload]);
-        error = insertError;
+        const { data } = await supabase.from("costes").insert([payload]).select().single();
+        currentId = data.id;
       }
 
-      if (error) throw error;
+      const linesToInsert = lineas.map(l => ({
+        coste_id: currentId,
+        unidades: l.unidades,
+        descripcion: l.descripcion,
+        precio_unitario: l.precio_unitario,
+        iva_pct: l.iva_pct
+      }));
+      await supabase.from("coste_lineas").insert(linesToInsert);
 
       setIsModalOpen(false);
       fetchData();
     } catch (err: any) {
-      alert("Error al guardar coste: " + err.message);
+      alert("Error: " + err.message);
     } finally {
       setSaving(false);
     }
   };
 
   const handleDeleteCoste = async (id: string, ref: string) => {
-    if (!supabase) return;
-
-    // Integridad: ¿Tiene pagos?
-    const { count, error: countErr } = await supabase
-      .from("pagos")
-      .select("*", { count: 'exact', head: true })
-      .eq("coste_id", id);
-
-    if (countErr) {
-      alert("Error al verificar integridad: " + countErr.message);
-      return;
-    }
-
-    if (count && count > 0) {
-      alert(`No se puede eliminar el coste ${ref} porque ya tiene ${count} pagos registrados. Elimina primero los pagos.`);
-      return;
-    }
-
-    if (!confirm(`¿Estás seguro de que deseas eliminar el coste ${ref}?`)) return;
-
-    const { error } = await supabase.from("costes").delete().eq("id", id);
-    if (error) alert("Error al eliminar: " + error.message);
-    else fetchData();
-  };
-
-  const downloadLibroIVA = () => {
-    const headers = ["Fecha", "Serie", "Nº Interno", "Factura Proveedor", "NIF Prov", "Proveedor", "Base Imponible", "IVA (%)", "Cuota IVA", "Total"];
-    const rows = costes.map(c => [
-      new Date(c.fecha).toLocaleDateString(),
-      c.serie,
-      c.num_interno,
-      c.num_factura_proveedor,
-      c.proveedores?.nif || "",
-      c.proveedores?.nombre || "",
-      c.base_imponible.toFixed(2).replace('.', ','),
-      c.iva_pct,
-      c.iva_importe.toFixed(2).replace('.', ','),
-      c.total.toFixed(2).replace('.', ',')
-    ]);
-
-    const csvContent = [headers, ...rows].map(e => e.join(";")).join("\n");
-    const blob = new Blob(["\ufeff" + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", `Libro_IVA_Soportado_${new Date().getFullYear()}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    if (!confirm(`¿Eliminar coste ${ref}?`)) return;
+    await supabase.from("costes").delete().eq("id", id);
+    fetchData();
   };
 
   return (
-    <div className="flex bg-[var(--background)] min-h-screen">
+    <div className="flex bg-[var(--background)] min-h-screen text-left">
       <Sidebar />
       <div className="flex-1 p-8 overflow-y-auto">
         <header className="flex justify-between items-center mb-10">
           <div>
-            <h1 className="text-3xl font-bold font-head tracking-tight mb-1 text-[var(--foreground)]">Costes</h1>
-            <p className="text-[var(--muted)] font-medium">Gestión de facturas recibidas y gastos de empresa.</p>
+            <h1 className="text-3xl font-bold font-head tracking-tight mb-1">Costes</h1>
+            <p className="text-[var(--muted)] font-medium">Gestión de facturas recibidas y multi-IVA.</p>
           </div>
           <div className="flex gap-3">
-              <button 
-                onClick={downloadLibroIVA}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white border border-[var(--border)] text-gray-700 font-bold hover:shadow-md transition-all active:scale-[0.98]"
-              >
-                <Download size={18} className="text-green-600" />
-                Libro IVA
-              </button>
-              <button 
-                 onClick={() => setIsAiModalOpen(true)}
-                 className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white border border-[var(--border)] text-gray-700 font-bold hover:shadow-md transition-all active:scale-[0.98]"
-               >
-                 <Sparkles size={18} className="text-purple-500" />
-                 Importar PDF
-               </button>
-               <button 
-                 onClick={openAddModal}
-                 className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--accent)] text-white font-bold hover:shadow-lg transition-all active:scale-[0.98]"
-               >
-                 <Plus size={18} />
-                 Nuevo Coste
-               </button>
+             <button onClick={() => setIsAiModalOpen(true)} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white border border-[var(--border)] font-bold text-purple-600 hover:shadow-md transition-all active:scale-[0.98]"><Sparkles size={18}/> Importar PDF</button>
+             <button onClick={openAddModal} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--accent)] text-white font-bold hover:shadow-lg transition-all active:scale-[0.98]"><Plus size={18}/> Nuevo Coste</button>
           </div>
         </header>
 
-        {/* MODAL IA */}
         {isAiModalOpen && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
-             <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md border border-[var(--border)] text-center relative">
-                <button onClick={() => setIsAiModalOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"><X size={20}/></button>
-                <div className="w-16 h-16 bg-purple-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                   <Sparkles className="text-purple-500" size={32} />
-                </div>
-                <h2 className="text-xl font-bold font-head mb-2">Análisis de Factura con IA</h2>
-                <p className="text-sm text-gray-500 mb-6">Sube el PDF de tu factura y Gemini extraerá los datos automáticamente.</p>
-                
-                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-200 rounded-2xl cursor-pointer hover:bg-gray-50 transition-colors">
-                   {isExtracting ? (
-                     <div className="flex flex-col items-center gap-2">
-                        <Loader2 className="animate-spin text-purple-500" size={24} />
-                        <span className="text-xs font-bold text-gray-500 uppercase">Analizando factura...</span>
-                     </div>
-                   ) : (
-                     <>
-                       <Upload className="text-gray-300 mb-2" size={24} />
-                       <span className="text-sm font-bold text-gray-700">Seleccionar PDF</span>
-                       <input type="file" className="hidden" accept="application/pdf" onChange={handleImportPDF} />
-                     </>
-                   )}
-                </label>
-             </div>
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl p-8 w-full max-w-sm text-center">
+              {isExtracting ? <Loader2 className="animate-spin mx-auto text-purple-500 mb-4" size={40} /> : <Upload className="mx-auto text-gray-300 mb-4" size={40} />}
+              <h2 className="text-xl font-bold mb-2">Importar con IA</h2>
+              <p className="text-sm text-gray-500 mb-6">Sube tu factura y extraeremos los datos.</p>
+              {!isExtracting && <input type="file" accept="application/pdf" onChange={handleImportPDF} className="text-xs" />}
+              <button onClick={() => setIsAiModalOpen(false)} className="mt-8 text-gray-400 font-bold block mx-auto">Cerrar</button>
+            </div>
           </div>
         )}
 
         {isModalOpen && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-lg border border-[var(--border)] animate-in fade-in zoom-in duration-200 overflow-y-auto max-h-[90vh]">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold font-head flex items-center gap-2">
-                  {editingId ? <Save className="text-[var(--accent)]" size={20} /> : <FileText className="text-[var(--accent)]" size={20} />}
-                  {editingId ? "Editar Coste" : "Registrar Coste"}
-                </h2>
-                <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600"><X size={20}/></button>
-              </div>
-              <form onSubmit={handleSave} className="space-y-4 text-left">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[11px] font-bold text-[var(--muted)] uppercase mb-1">Serie</label>
-                    <select value={serie} onChange={(e) => setSerie(e.target.value)} className="w-full p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)]">
-                      <option value="A">Serie A (Con IVA)</option>
-                      <option value="B">Serie B (Sin IVA)</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-[var(--muted)] uppercase mb-1">Nº Interno</label>
-                    <input type="text" value={numInterno} onChange={(e) => setNumInterno(e.target.value)} className="w-full p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)]" placeholder="Ej: 2024-C001" />
-                  </div>
+             <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-4xl border border-[var(--border)] overflow-y-auto max-h-[90vh]">
+                <div className="flex justify-between items-center mb-8 pb-4 border-b">
+                   <h2 className="text-2xl font-bold font-head flex items-center gap-2"><Receipt className="text-purple-600" /> {editingId ? "Editar Factura Recibida" : "Registrar Coste"}</h2>
+                   <button onClick={() => setIsModalOpen(false)}><X size={24} className="text-gray-400"/></button>
                 </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[11px] font-bold text-[var(--muted)] uppercase mb-1">Nº Factura Prov.</label>
-                    <input type="text" value={numFactProv} onChange={(e) => setNumFactProv(e.target.value)} className="w-full p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)] font-bold text-blue-600" placeholder="Extraído de IA..." />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-[var(--muted)] uppercase mb-1">Fecha</label>
-                    <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className="w-full p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)]" />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-[var(--muted)] uppercase mb-1">Proveedor</label>
-                  <select value={proveedorId} onChange={(e) => setProveedorId(e.target.value)} className="w-full p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)] font-bold">
-                    <option value="">— Seleccionar —</option>
-                    {proveedores.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-                  </select>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[11px] font-bold text-[var(--muted)] uppercase mb-1">Tipo de Gasto</label>
-                    <select value={tipoGasto} onChange={(e) => setTipoGasto(e.target.value)} className="w-full p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)] font-bold">
-                      <option value="general">Gasto General</option>
-                      <option value="proyecto">Coste de Proyecto</option>
-                    </select>
-                  </div>
-                  {tipoGasto === "proyecto" && (
-                    <div>
-                      <label className="block text-[11px] font-bold text-[var(--muted)] uppercase mb-1">Proyecto</label>
-                      <select value={proyectoId} onChange={(e) => setProyectoId(e.target.value)} className="w-full p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)]">
-                        <option value="">— Seleccionar —</option>
-                        {proyectos.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-                      </select>
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-[var(--muted)] uppercase mb-1">Base Imponible (€)</label>
-                  <input type="number" step="0.01" value={baseImponible} onChange={(e) => setBaseImponible(e.target.value)} className="w-full p-3 rounded-xl border border-[var(--border)] bg-[var(--background)] text-lg font-bold focus:outline-none focus:border-[var(--accent)] text-right text-purple-700" placeholder="0.00" />
-                </div>
-
-                <div className="bg-gray-50 p-4 rounded-xl border border-[var(--border)] mt-4">
-                   <div className="flex justify-between text-sm mb-1">
-                      <span className="text-[var(--muted)] font-bold">IVA ({serie === "A" ? tipoIva : 0}%):</span>
-                      <span className="font-mono font-bold">{new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(cuotaIva)}</span>
+                
+                <form onSubmit={handleSave} className="space-y-8">
+                   <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                      <div><label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Serie</label>
+                        <select value={serie} onChange={(e) => setSerie(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200 bg-gray-50 font-bold">
+                          <option value="A">Serie A (Soportado)</option>
+                          <option value="B">Serie B (sin IVA)</option>
+                        </select>
+                      </div>
+                      <div><label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Nº Interno</label><input type="text" value={numInterno} onChange={(e) => setNumInterno(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200" placeholder="2024-C001" /></div>
+                      <div><label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Factura Prov.</label><input type="text" value={numFactProv} onChange={(e) => setNumFactProv(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200 font-bold text-blue-600" /></div>
+                      <div><label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Fecha</label><input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200" /></div>
+                      <div className="md:col-span-2">
+                         <SearchableSelect label="Proveedor" options={proveedores} value={proveedorId} onChange={(id) => setProveedorId(id)} placeholder="Buscar proveedor..." />
+                      </div>
+                      <div><label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Gasto</label>
+                        <select value={tipoGasto} onChange={(e) => setTipoGasto(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200 font-bold">
+                          <option value="general">Gasto General</option>
+                          <option value="proyecto">Coste Proyecto</option>
+                        </select>
+                      </div>
+                      {tipoGasto === "proyecto" && (
+                        <div className="md:col-span-1">
+                          <SearchableSelect label="Proyecto" options={proyectos} value={proyectoId} onChange={(id) => setProyectoId(id)} placeholder="Asignar proyecto..." />
+                        </div>
+                      )}
                    </div>
-                   <div className="flex justify-between text-lg font-bold border-t border-gray-200 pt-2 mt-2">
-                      <span className="text-[var(--foreground)] uppercase text-xs tracking-wider">Total Factura:</span>
-                      <span className="text-red-600">{new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(totalFactura)}</span>
-                   </div>
-                </div>
 
-                <div className="flex gap-3 mt-8">
-                  <button 
-                    type="button" 
-                    onClick={() => setIsModalOpen(false)} 
-                    className="flex-1 py-2.5 text-sm font-bold text-[var(--muted)] hover:bg-gray-100 rounded-xl transition-all border border-[var(--border)]"
-                  >
-                    Cancelar
-                  </button>
-                   <button 
-                    type="submit" 
-                    disabled={saving}
-                    className="flex-1 py-2.5 text-sm font-bold bg-[var(--accent)] text-white rounded-xl shadow-md hover:shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                  >
-                    {saving ? <Loader2 className="animate-spin" size={18} /> : <Plus size={18} />}
-                    {saving ? "Guardando..." : "Guardar Coste"}
-                  </button>
-                </div>
-              </form>
-            </div>
+                   <div className="pt-4 overflow-x-auto">
+                      <table className="w-full text-left min-w-[600px]">
+                        <thead>
+                          <tr className="border-b">
+                            <th className="pb-3 text-[10px] font-bold text-gray-400 uppercase">Ud.</th>
+                            <th className="pb-3 text-[10px] font-bold text-gray-400 uppercase">Concepto</th>
+                            <th className="pb-3 text-[10px] font-bold text-gray-400 uppercase text-right w-32">Precio Ud.</th>
+                            <th className="pb-3 text-[10px] font-bold text-gray-400 uppercase w-24 text-center">IVA %</th>
+                            <th className="pb-3 text-[10px] font-bold text-gray-400 uppercase text-right w-32">Total</th>
+                            <th className="w-10"></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {lineas.map((linea, idx) => (
+                            <tr key={idx} className="border-b border-gray-50">
+                              <td className="py-3 pr-4"><input type="number" value={linea.unidades} onChange={(e) => updateLinea(idx, "unidades", parseFloat(e.target.value))} className="w-full p-2 rounded-lg border border-gray-100 font-bold text-center" /></td>
+                              <td className="py-3 pr-4"><input type="text" value={linea.descripcion} onChange={(e) => updateLinea(idx, "descripcion", e.target.value)} className="w-full p-2 rounded-lg border border-gray-100 text-sm" placeholder="Partida o servicio..." /></td>
+                              <td className="py-3 pr-4"><input type="number" value={linea.precio_unitario} onChange={(e) => updateLinea(idx, "precio_unitario", parseFloat(e.target.value))} className="w-full p-2 rounded-lg border border-gray-100 text-right font-mono" /></td>
+                              <td className="py-3 pr-4">
+                                <select value={linea.iva_pct} onChange={(e) => updateLinea(idx, "iva_pct", parseInt(e.target.value))} className="w-full p-2 rounded-lg border border-gray-100 text-xs font-bold text-center">
+                                   <option value="21">21%</option>
+                                   <option value="10">10%</option>
+                                   <option value="4">4%</option>
+                                   <option value="0">0%</option>
+                                </select>
+                              </td>
+                              <td className="py-3 text-right font-bold text-gray-700 font-mono">{new Intl.NumberFormat('es-ES').format(linea.unidades * linea.precio_unitario)}</td>
+                              <td className="py-3 text-center">{lineas.length > 1 && <button type="button" onClick={() => removeLinea(idx)} className="text-red-300 hover:text-red-500"><Trash2 size={16}/></button>}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      <button type="button" onClick={addLinea} className="mt-4 flex items-center gap-2 text-sm font-bold text-purple-600 hover:underline"><Plus size={16}/> Añadir línea (Multi-IVA)</button>
+                   </div>
+
+                   <div className="flex flex-col md:flex-row justify-between items-start pt-8 border-t bg-gray-50/50 p-6 rounded-2xl gap-8">
+                      <div className="w-full md:w-64">
+                         <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Retención Soportada (%)</label>
+                         <input type="number" value={retencionPct} onChange={(e) => setRetencionPct(parseFloat(e.target.value) || 0)} className="w-full p-2.5 rounded-lg border border-gray-200 font-bold" placeholder="0" />
+                      </div>
+                      <div className="w-full md:w-80 space-y-3">
+                         <div className="flex justify-between text-sm text-gray-500"><span>Base Imponible Tot.:</span><span className="font-mono font-bold text-gray-700">{fmt(baseImponible)}</span></div>
+                         <div className="flex justify-between text-sm text-gray-500"><span>Cuota IVA Tot.:</span><span className="font-mono font-bold text-gray-700">{fmt(totalIva)}</span></div>
+                         {retencionPct > 0 && <div className="flex justify-between text-sm text-red-600 font-bold"><span>Retención (-{retencionPct}%):</span><span className="font-mono">-{fmt(retencionImporte)}</span></div>}
+                         <div className="flex justify-between text-2xl font-bold pt-4 border-t border-gray-200 text-gray-900"><span>TOTAL:</span><span className="text-red-600">{fmt(totalFactura)}</span></div>
+                      </div>
+                   </div>
+
+                   <div className="flex gap-4">
+                      <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 font-bold text-gray-400 hover:bg-gray-100 rounded-xl transition-all">Cancelar</button>
+                      <button type="submit" disabled={saving} className="flex-2 px-10 py-3 bg-[var(--accent)] text-white font-bold rounded-xl shadow-lg hover:shadow-xl disabled:opacity-50 transition-all flex items-center gap-2 active:scale-[0.98]">
+                        {saving ? <Loader2 className="animate-spin" size={20}/> : <Save size={20} />}
+                        {saving ? "Guardando..." : "Registrar Factura"}
+                      </button>
+                   </div>
+                </form>
+             </div>
           </div>
         )}
 
         <div className="glass-card bg-white shadow-sm border-[var(--border)] overflow-hidden">
-          <div className="p-4 border-b border-[var(--border)] flex justify-between items-center bg-[#fafafa]">
-             <div className="relative w-72">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]" size={16} />
-              <input 
-                type="text" 
-                placeholder="Buscar por factura o proveedor..." 
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)] transition-colors"
-              />
-            </div>
-          </div>
-          
-          <div className="overflow-x-auto min-h-[300px] flex flex-col">
-            {loading ? (
-              <div className="flex-1 flex flex-col items-center justify-center p-20 text-[var(--muted)] gap-3">
-                <Loader2 className="animate-spin" size={32} />
-                <p className="text-sm font-medium">Cargando costes...</p>
-              </div>
-            ) : costes.length === 0 ? (
-              <div className="flex-1 flex flex-col items-center justify-center p-20 text-[var(--muted)] gap-4 text-center">
-                <div className="w-16 h-16 rounded-full bg-[var(--background)] flex items-center justify-center">
-                  <Download size={32} className="opacity-20" />
-                </div>
-                <div>
-                  <p className="font-bold text-[var(--foreground)]">No hay facturas recibidas</p>
-                  <p className="text-sm">Registra tu primer coste para controlar tus gastos.</p>
-                </div>
-              </div>
-            ) : (
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-[#fcfaf7] border-b border-[var(--border)]">
-                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">Fecha</th>
-                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">Nº Interno / Proveedor</th>
-                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">Tipo / Proyecto</th>
-                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Total</th>
-                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[var(--border)]">
-                  {costes.map((c) => (
-                    <tr key={c.id} className="hover:bg-[#fcfaf7] transition-colors group">
-                      <td className="px-6 py-4 text-sm font-medium text-[var(--muted)]">
-                        {new Date(c.fecha).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2 mb-0.5">
-                           <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${c.serie === 'A' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
-                             {c.serie}
-                           </span>
-                           <span className="font-bold text-[var(--foreground)]">{c.num_interno}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5 text-xs text-[var(--muted)]">
-                           <Factory size={10} />
-                           {c.proveedores?.nombre || 'Proveedor'}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                         <div className={`text-xs font-bold mb-0.5 ${c.tipo_gasto === 'proyecto' ? 'text-[var(--accent)]' : 'text-gray-500'}`}>
-                            {c.tipo_gasto === 'proyecto' ? 'Coste Proyecto' : 'Gasto General'}
-                         </div>
-                         {c.tipo_gasto === 'proyecto' && (
-                           <div className="text-[10px] text-[var(--muted)] flex items-center gap-1">
-                              <FolderKanban size={10} />
-                              {c.proyectos?.nombre || '—'}
-                           </div>
-                         )}
-                      </td>
-                      <td className="px-6 py-4 text-right font-mono text-sm font-bold text-red-600">
-                        {new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(c.total || 0)}
-                      </td>
-                      <td className="px-6 py-4 text-center relative">
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setOpenMenuId(openMenuId === c.id ? null : c.id);
-                          }}
-                          className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-400 hover:text-gray-600"
-                        >
-                          <MoreHorizontal size={20} />
-                        </button>
-
-                        {openMenuId === c.id && (
-                          <div className="absolute right-6 top-12 w-48 bg-white rounded-xl shadow-xl border border-[var(--border)] z-50 py-2 animate-in fade-in slide-in-from-top-2 duration-200 text-left">
-                            <button 
-                              onClick={() => openEditModal(c)}
-                              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-700 transition-colors"
-                            >
-                              <Save size={16} /> Editar Coste
-                            </button>
-                            <div className="h-px bg-gray-100 my-1 mx-2"></div>
-                            <button 
-                              onClick={() => handleDeleteCoste(c.id, c.num_interno)}
-                              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                            >
-                              <Trash2 size={16} /> Eliminar Coste
-                            </button>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-[#fcfaf7] border-b">
+                <th className="px-6 py-4 text-[11px] font-bold text-gray-400 uppercase">Factura / Prov.</th>
+                <th className="px-6 py-4 text-[11px] font-bold text-gray-400 uppercase">Fecha</th>
+                <th className="px-6 py-4 text-[11px] font-bold text-gray-400 uppercase">Tipo</th>
+                <th className="px-6 py-4 text-[11px] font-bold text-gray-400 uppercase text-right">Total</th>
+                <th className="px-6 py-4 text-[11px] font-bold text-gray-400 uppercase text-right text-transparent">Acciones</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[var(--border)]">
+              {costes.map(c => (
+                <tr key={c.id} className="hover:bg-gray-50 transition-colors group">
+                  <td className="px-6 py-4">
+                     <div className="text-[10px] font-bold text-blue-600 mb-0.5">{c.num_interno}</div>
+                     <div className="font-bold">{c.proveedores?.nombre}</div>
+                     <div className="text-[10px] text-gray-400 font-mono tracking-tighter uppercase">{c.num_factura_proveedor}</div>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-500">{new Date(c.fecha).toLocaleDateString()}</td>
+                  <td className="px-6 py-4">
+                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${c.tipo_gasto === 'proyecto' ? 'bg-orange-100 text-orange-600' : 'bg-gray-100 text-gray-600'}`}>
+                        {c.tipo_gasto === 'proyecto' ? `P: ${c.proyectos?.nombre}` : 'General'}
+                     </span>
+                  </td>
+                  <td className="px-6 py-4 text-right font-mono font-bold text-red-600">{fmt(c.total)}</td>
+                  <td className="px-6 py-4 text-right relative">
+                    <button onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === c.id ? null : c.id); }} className="p-2 text-gray-400 hover:text-gray-600"><MoreHorizontal size={20}/></button>
+                    {openMenuId === c.id && (
+                      <div className="absolute right-6 top-12 w-48 bg-white rounded-xl shadow-xl border z-50 py-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                        <button onClick={() => openEditModal(c)} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-700 transition-colors"><Save size={16}/> Editar</button>
+                        <div className="h-px bg-gray-100 my-1 mx-2"></div>
+                        <button onClick={() => handleDeleteCoste(c.id, c.num_interno)} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"><Trash2 size={16}/> Eliminar</button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
   );
 }
+
+const fmt = (n: number) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(n);

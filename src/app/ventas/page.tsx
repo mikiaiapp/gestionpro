@@ -3,6 +3,7 @@
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Sidebar } from "@/components/Sidebar";
+import { SearchableSelect } from "@/components/SearchableSelect";
 import { Receipt, Plus, Search, MoreHorizontal, Loader2, Trash2, Save, FileText, Download, Printer, FolderKanban } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
@@ -63,6 +64,7 @@ function VentasContent() {
   const [clienteId, setClienteId] = useState("");
   const [proyectoId, setProyectoId] = useState("");
   const [formaCobroId, setFormaCobroId] = useState("");
+  const [retencionPct, setRetencionPct] = useState(0);
   const [lineas, setLineas] = useState<LineaFactura[]>([{ unidades: 1, descripcion: "", precio_unitario: 0 }]);
 
   useEffect(() => {
@@ -90,7 +92,6 @@ function VentasContent() {
   };
 
   useEffect(() => {
-    // Solo auto-calculamos el número si es una factura NUEVA y el editor está abierto
     if (isEditorOpen && !editingId) {
       const next = getNextNumber(serie, ventas);
       setNumFactura(next);
@@ -106,7 +107,7 @@ function VentasContent() {
     setLoading(true);
     const { data: vts } = await supabase.from("ventas").select("*, clientes(*), proyectos(nombre), venta_lineas(*)").order("fecha", { ascending: false });
     const { data: clis } = await supabase.from("clientes").select("*").order("nombre");
-    const { data: projs } = await supabase.from("proyectos").select("id, nombre, descripcion").order("nombre");
+    const { data: projs } = await supabase.from("proyectos").select("id, nombre, descripcion, cliente_id, base_imponible").order("nombre");
     const { data: fbc } = await supabase.from("formas_cobro").select("*").order("nombre");
     const { data: perf } = await supabase.from("perfil_negocio").select("*").single();
 
@@ -128,20 +129,19 @@ function VentasContent() {
     setLineas(newLineas);
   };
 
-  // Al seleccionar proyecto, podemos traer su descripción
   const handleProyectoChange = (id: string) => {
     setProyectoId(id);
     const proj = proyectos.find(p => p.id === id);
     if (proj && lineas.length === 1 && lineas[0].descripcion === "") {
       updateLinea(0, "descripcion", proj.descripcion || proj.nombre);
     }
-    // También autoseleccionar cliente si el proyecto lo tiene
     if (proj?.cliente_id) setClienteId(proj.cliente_id);
   };
 
   const baseImponible = lineas.reduce((acc, l) => acc + (l.unidades * l.precio_unitario), 0);
   const cuotaIva = serie === "A" ? baseImponible * 0.21 : 0;
-  const totalFactura = baseImponible + cuotaIva;
+  const retencionImporte = (baseImponible * (retencionPct || 0)) / 100;
+  const totalFactura = baseImponible + cuotaIva - retencionImporte;
 
   const openEditVenta = (v: any) => {
     setEditingId(v.id);
@@ -151,6 +151,7 @@ function VentasContent() {
     setClienteId(v.cliente_id);
     setProyectoId(v.proyecto_id || "");
     setFormaCobroId(v.forma_cobro_id || "");
+    setRetencionPct(v.retencion_pct || 0);
     
     if (v.venta_lineas && v.venta_lineas.length > 0) {
       setLineas(v.venta_lineas.map((l: any) => ({
@@ -186,6 +187,9 @@ function VentasContent() {
         forma_cobro_id: formaCobroId || null,
         base_imponible: baseImponible,
         iva_pct: serie === "A" ? 21 : 0,
+        iva_importe: cuotaIva,
+        retencion_pct: retencionPct,
+        retencion_importe: retencionImporte,
         total: totalFactura
       };
 
@@ -194,7 +198,6 @@ function VentasContent() {
       if (editingId) {
         const { error: vError } = await supabase.from("ventas").update([payload]).eq("id", editingId);
         if (vError) throw vError;
-        // Borramos líneas antiguas para re-insertar
         await supabase.from("venta_lineas").delete().eq("venta_id", editingId);
       } else {
         const { data: venta, error: vError } = await supabase.from("ventas").insert([payload]).select().single();
@@ -226,8 +229,6 @@ function VentasContent() {
   const handleDeleteVenta = async (id: string, ref: string, serieVenta: string, numVenta: string) => {
     if (!supabase) return;
 
-    // 1. Integridad Legal: ¿Es la última factura de la serie?
-    // Buscamos si existe alguna factura con número mayor en la misma serie
     const { data: facturasMayores, error: seqErr } = await supabase
       .from("ventas")
       .select("num_factura")
@@ -245,7 +246,6 @@ function VentasContent() {
       return;
     }
 
-    // 2. Integridad de Cobros: ¿Tiene cobros?
     const { count, error: countErr } = await supabase
       .from("cobros")
       .select("*", { count: 'exact', head: true })
@@ -311,28 +311,28 @@ function VentasContent() {
       <body>
         <div class="header">
           <div>
-            ${perfil.logo_url ? \`<img src="\${perfil.logo_url}" class="logo">\` : \`<div style="font-size: 24px; font-weight: bold; color: #2563eb;">\${perfil.nombre}</div>\`}
+            ${perfil.logo_url ? `<img src="${perfil.logo_url}" class="logo">` : `<div style="font-size: 24px; font-weight: bold; color: #2563eb;">${perfil.nombre}</div>`}
           </div>
           <div style="text-align: right;">
             <div class="invoice-item">FACTURA</div>
-            <div style="font-weight: bold;">\${venta.serie}-\${venta.num_factura}</div>
-            <div style="color: #666;">Fecha: \${new Date(venta.fecha).toLocaleDateString()}</div>
+            <div style="font-weight: bold;">${venta.serie}-${venta.num_factura}</div>
+            <div style="color: #666;">Fecha: ${new Date(venta.fecha).toLocaleDateString()}</div>
           </div>
         </div>
 
         <div class="details">
           <div>
             <div class="section-title">Emisor</div>
-            <div style="font-weight: bold;">\${perfil.nombre}</div>
-            <div>\${perfil.nif}</div>
-            <div>\${perfil.direccion || ''}</div>
+            <div style="font-weight: bold;">${perfil.nombre}</div>
+            <div>${perfil.nif}</div>
+            <div>${perfil.direccion || ''}</div>
           </div>
           <div>
             <div class="section-title">Cliente</div>
-            <div style="font-weight: bold;">\${venta.clientes?.nombre}</div>
-            <div>\${venta.clientes?.nif}</div>
-            <div>\${venta.clientes?.direccion || ''}</div>
-            <div>\${venta.clientes?.codigo_postal || ''} \${venta.clientes?.poblacion || ''}</div>
+            <div style="font-weight: bold;">${venta.clientes?.nombre}</div>
+            <div>${venta.clientes?.nif}</div>
+            <div>${venta.clientes?.direccion || ''}</div>
+            <div>${venta.clientes?.codigo_postal || ''} ${venta.clientes?.poblacion || ''}</div>
           </div>
         </div>
 
@@ -346,40 +346,46 @@ function VentasContent() {
             </tr>
           </thead>
           <tbody>
-            \${lineasHtml}
+            ${lineasHtml}
           </tbody>
         </table>
 
         <div class="totals">
           <div class="total-row">
             <span>Base Imponible:</span>
-            <span>\${fmt(venta.base_imponible)}</span>
+            <span>${fmt(venta.base_imponible)}</span>
           </div>
           <div class="total-row">
-            <span>IVA (\${venta.iva_pct}%):</span>
-            <span>\${fmt(venta.base_imponible * (venta.iva_pct / 100))}</span>
+            <span>IVA (${venta.iva_pct}%):</span>
+            <span>${fmt(venta.base_imponible * (venta.iva_pct / 100))}</span>
           </div>
+          ${venta.retencion_pct > 0 ? `
+            <div class="total-row" style="color: #666; font-style: italic;">
+              <span>Retención IRPF (${venta.retencion_pct}%):</span>
+              <span>-${fmt(venta.retencion_importe)}</span>
+            </div>
+          ` : ''}
           <div class="total-row total-final">
             <span>TOTAL:</span>
-            <span>\${fmt(venta.total)}</span>
+            <span>${fmt(venta.total)}</span>
           </div>
         </div>
 
         <div class="legal-footer">
           <div class="footer-text">
             <div style="font-weight: bold; margin-bottom: 4px;">Información de Pago</div>
-            <div>Forma de Cobro: <strong>\${formasCobro.find(f => f.id === venta.forma_cobro_id)?.nombre || 'Transferencia'}</strong></div>
-            <div>Cuenta para el ingreso (IBAN): <strong>\${perfil.cuenta_bancaria}</strong></div>
+            <div>Forma de Cobro: <strong>${formasCobro.find(f => f.id === venta.forma_cobro_id)?.nombre || 'Transferencia'}</strong></div>
+            <div>Cuenta para el ingreso (IBAN): <strong>${perfil.cuenta_bancaria}</strong></div>
             <div style="margin-top: 15px;">Documento generado conforme a la Ley 18/2022 de creación y crecimiento de empresas (Ley Crea y Crece). Trazabilidad digital garantizada.</div>
           </div>
           <div style="text-align: right;">
             <div class="qr-placeholder">CÓDIGO QR<br>VERI*FACTU<br>PENDIENTE FIRMA</div>
-            <div style="font-size: 8px; color: #999; margin-top: 4px;">ID: \${venta.id.slice(0,13)}</div>
+            <div style="font-size: 8px; color: #999; margin-top: 4px;">ID: ${venta.id.slice(0,13)}</div>
           </div>
         </div>
       </body>
       </html>
-    \`;
+    `;
 
     const win = window.open('', '_blank');
     if (win) {
@@ -387,13 +393,12 @@ function VentasContent() {
       win.document.close();
       setTimeout(() => {
         win.print();
-        // win.close(); // Opcional: cerrar tras imprimir
       }, 500);
     }
   };
 
   const downloadLibroIVA = () => {
-    const headers = ["Fecha", "Serie", "Factura", "NIF Cliente", "Cliente", "Base Imponible", "IVA (%)", "Cuota IVA", "Total"];
+    const headers = ["Fecha", "Serie", "Factura", "NIF Cliente", "Cliente", "Base Imponible", "IVA (%)", "Cuota IVA", "Retención (%)", "Total"];
     const rows = ventas.map(v => [
       new Date(v.fecha).toLocaleDateString(),
       v.serie,
@@ -403,15 +408,16 @@ function VentasContent() {
       v.base_imponible.toFixed(2).replace('.', ','),
       v.iva_pct,
       (v.base_imponible * (v.iva_pct / 100)).toFixed(2).replace('.', ','),
+      v.retencion_pct || 0,
       v.total.toFixed(2).replace('.', ',')
     ]);
 
     const csvContent = [headers, ...rows].map(e => e.join(";")).join("\n");
-    const blob = new Blob(["\\ufeff" + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob(["\ufeff" + csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
-    link.setAttribute("download", \`Libro_IVA_Repercutido_\${new Date().getFullYear()}.csv\`);
+    link.setAttribute("download", `Libro_IVA_Repercutido_${new Date().getFullYear()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -492,15 +498,13 @@ function VentasContent() {
                   ) : (
                     <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
                       <div>
-                        <label className="block text-[11px] font-bold text-gray-400 uppercase mb-2">Seleccionar Proyecto</label>
-                        <select 
-                          value={selectedProjId} 
-                          onChange={(e) => setSelectedProjId(e.target.value)}
-                          className="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white font-bold"
-                        >
-                          <option value="">— Seleccionar —</option>
-                          {proyectos.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-                        </select>
+                        <SearchableSelect 
+                          label="Seleccionar Proyecto"
+                          options={proyectos}
+                          value={selectedProjId}
+                          onChange={(id) => setSelectedProjId(id)}
+                          placeholder="Buscar proyecto..."
+                        />
                       </div>
 
                       <div className="grid grid-cols-2 gap-4">
@@ -520,7 +524,7 @@ function VentasContent() {
                           <label className="block text-[11px] font-bold text-gray-400 uppercase mb-2">Importe Estimado</label>
                           <div className="p-3 rounded-xl bg-gray-50 border border-gray-100 font-mono font-bold text-gray-600 h-[52px] flex items-center">
                             {new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(
-                              ((proyectos.find(p => p.id === selectedProjId)?.venta_prevista || 0) * parseFloat(pct || "0")) / 100
+                              ((proyectos.find(p => p.id === selectedProjId)?.base_imponible || 0) * parseFloat(pct || "0")) / 100
                             )}
                           </div>
                         </div>
@@ -537,13 +541,13 @@ function VentasContent() {
                           disabled={!selectedProjId || !pct}
                           onClick={() => {
                             const proj = proyectos.find(p => p.id === selectedProjId);
-                            const importeVal = ((proj?.venta_prevista || 0) * parseFloat(pct)) / 100;
+                            const importeVal = ((proj?.base_imponible || 0) * parseFloat(pct)) / 100;
                             
                             setProyectoId(selectedProjId);
                             setClienteId(proj?.cliente_id || "");
                             setLineas([{
                               unidades: 1,
-                              descripcion: \`\${pct}% Avance proyecto: \${proj?.nombre}\`,
+                              descripcion: `${pct}% Avance proyecto: ${proj?.nombre}`,
                               precio_unitario: importeVal
                             }]);
                             setIsWizardOpen(false);
@@ -569,7 +573,7 @@ function VentasContent() {
               </div>
             )}
 
-            <div className="glass-card bg-white shadow-sm border-[var(--border)] overflow-hidden">
+            <div className="glass-card bg-white shadow-sm border-[var(--border)] overflow-hidden text-left">
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-[#fcfaf7] border-b border-[var(--border)]">
@@ -599,7 +603,7 @@ function VentasContent() {
                           </button>
 
                           {openMenuId === v.id && (
-                            <div className="absolute right-6 top-12 w-48 bg-white rounded-xl shadow-xl border border-[var(--border)] z-50 py-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                            <div className="absolute right-6 top-12 w-48 bg-white rounded-xl shadow-xl border border-[var(--border)] z-50 py-2 animate-in fade-in slide-in-from-top-2 duration-200 text-left">
                               <button 
                                 onClick={() => downloadInvoice(v)}
                                 className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-700 transition-colors"
@@ -617,7 +621,7 @@ function VentasContent() {
                               </button>
                               <div className="h-px bg-gray-100 my-1 mx-2"></div>
                               <button 
-                                onClick={() => handleDeleteVenta(v.id, \`\${v.serie}-\${v.num_factura}\`, v.serie, v.num_factura)}
+                                onClick={() => handleDeleteVenta(v.id, `${v.serie}-${v.num_factura}`, v.serie, v.num_factura)}
                                 className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
                               >
                                 <Trash2 size={16} /> Eliminar Factura
@@ -632,7 +636,7 @@ function VentasContent() {
             </div>
           </>
         ) : (
-          <div className="max-w-5xl mx-auto animate-in slide-in-from-bottom-4 duration-300">
+          <div className="max-w-5xl mx-auto animate-in slide-in-from-bottom-4 duration-300 pb-20 text-left">
             <div className="flex items-center justify-between mb-8">
               <h2 className="text-2xl font-bold font-head flex items-center gap-2">
                 <FileText className="text-[var(--accent)]" /> Editor de Factura
@@ -681,81 +685,29 @@ function VentasContent() {
                   </select>
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Proyecto Asociado</label>
-                  <select value={proyectoId} onChange={(e) => handleProyectoChange(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200 bg-gray-50 focus:bg-white">
-                    <option value="">— Selección opcional —</option>
-                    {proyectos.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-                  </select>
+                  <SearchableSelect 
+                    label="Proyecto Asociado"
+                    options={proyectos}
+                    value={proyectoId}
+                    onChange={(id) => handleProyectoChange(id)}
+                    placeholder="Selección opcional..."
+                  />
                 </div>
-                {proyectoId && !editingId && (
-                  <div className="md:col-span-4 bg-blue-50/50 p-4 rounded-xl border border-blue-100 flex items-center justify-between animate-in fade-in slide-in-from-top-2">
-                    <div>
-                      <div className="text-[10px] font-bold text-blue-600 uppercase mb-1 flex items-center gap-1">
-                        <FolderKanban size={10} /> Herramienta de Avance (%)
-                      </div>
-                      <p className="text-xs text-blue-700">Factura un porcentaje del presupuesto total del proyecto.</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="relative">
-                        <input 
-                          id="pct-input"
-                          type="number" 
-                          placeholder="%" 
-                          className="w-20 p-2 pr-6 rounded-lg border border-blue-200 text-sm font-bold text-blue-700 focus:outline-none focus:border-blue-400 box-content"
-                        />
-                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-bold text-blue-400">%</span>
-                      </div>
-                      <button 
-                        type="button"
-                        onClick={() => {
-                          const pct = parseFloat((document.getElementById('pct-input') as HTMLInputElement).value);
-                          if (pct > 0) {
-                            const proj = proyectos.find(p => p.id === proyectoId);
-                            const totalVenta = proj?.venta_prevista || 0;
-                            const importeAvance = (totalVenta * pct) / 100;
-                            
-                            // Si la primera línea está vacía, la usamos
-                            if (lineas.length === 1 && lineas[0].descripcion === "") {
-                              setLineas([{
-                                unidades: 1,
-                                descripcion: \`\${pct}% Avance proyecto nº \${proj?.nombre || proyectoId.slice(0,6)}\`,
-                                precio_unitario: importeAvance
-                              }]);
-                            } else {
-                              setLineas([...lineas, {
-                                unidades: 1,
-                                descripcion: \`\${pct}% Avance proyecto nº \${proj?.nombre || proyectoId.slice(0,6)}\`,
-                                precio_unitario: importeAvance
-                              }]);
-                            }
-                          }
-                        }}
-                        className="px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
-                      >
-                        Aplicar Hito
-                      </button>
-                    </div>
-                  </div>
-                )}
                 <div className="md:col-span-2">
-                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">
-                    Cliente {proyectoId && <span className="text-[var(--accent)] normal-case font-medium ml-2">(Fijado por proyecto)</span>}
-                  </label>
-                  <select 
-                    value={clienteId} 
-                    onChange={(e) => setClienteId(e.target.value)} 
-                    disabled={!!proyectoId}
-                    className={\`w-full p-2.5 rounded-lg border border-gray-200 focus:bg-white font-bold transition-all \${proyectoId ? 'bg-gray-100 cursor-not-allowed opacity-75' : 'bg-gray-50'}\`}
-                  >
-                    <option value="">— Obligatorio —</option>
-                    {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-                  </select>
+                  <SearchableSelect 
+                    label="Cliente"
+                    options={clientes}
+                    value={clienteId}
+                    onChange={(id) => setClienteId(id)}
+                    placeholder="Obligatorio"
+                    error={!clienteId}
+                  />
                 </div>
               </div>
 
               {/* CUERPO - LÍNEAS */}
-              <div className="mb-8">
-                <table className="w-full border-collapse">
+              <div className="mb-8 overflow-x-auto">
+                <table className="w-full border-collapse min-w-[600px]">
                   <thead>
                     <tr className="text-left">
                       <th className="w-20 pb-3 text-[10px] font-bold text-gray-400 uppercase">Ud.</th>
@@ -772,7 +724,7 @@ function VentasContent() {
                           <input type="number" value={linea.unidades} onChange={(e) => updateLinea(idx, "unidades", parseFloat(e.target.value))} className="w-full p-2 rounded-lg border border-gray-100 hover:border-gray-200 focus:bg-blue-50 transition-colors text-center font-bold" />
                         </td>
                         <td className="py-2 pr-4">
-                          <textarea rows={1} value={linea.descripcion} onChange={(e) => updateLinea(idx, "descripcion", e.target.value)} className="w-full p-2 rounded-lg border border-gray-100 hover:border-gray-200 focus:bg-blue-50 transition-colors text-sm resize-none overflow-hidden" placeholder="Describe el servicio o producto..." />
+                          <textarea rows={1} value={linea.descripcion} onChange={(e) => updateLinea(idx, "descripcion", e.target.value)} className="w-full p-2 rounded-lg border border-gray-100 hover:border-gray-200 focus:bg-blue-50 transition-colors text-sm resize-none" placeholder="Describe el servicio o producto..." />
                         </td>
                         <td className="py-2 pr-4">
                           <input type="number" value={linea.precio_unitario} onChange={(e) => updateLinea(idx, "precio_unitario", parseFloat(e.target.value))} className="w-full p-2 rounded-lg border border-gray-100 hover:border-gray-200 focus:bg-blue-50 transition-colors text-right font-mono" />
@@ -797,18 +749,37 @@ function VentasContent() {
               </div>
 
               {/* PIE - TOTALES */}
-              <div className="flex justify-end pt-8 border-t border-gray-100">
-                <div className="w-80 space-y-3">
+              <div className="flex flex-col md:flex-row justify-between items-start pt-8 border-t border-gray-100 gap-8">
+                <div className="w-full md:w-64">
+                   <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Retención IRPF (%)</label>
+                   <div className="relative">
+                      <input 
+                        type="number" 
+                        value={retencionPct} 
+                        onChange={(e) => setRetencionPct(parseFloat(e.target.value) || 0)} 
+                        className="w-full p-2 rounded-lg border border-gray-200 focus:bg-white font-bold"
+                        placeholder="0"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 font-bold text-gray-400">%</span>
+                   </div>
+                </div>
+                <div className="w-full md:w-80 space-y-3">
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-400">Base Imponible:</span>
-                    <span className="font-mono font-bold">{new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(baseImponible)}</span>
+                    <span className="text-gray-500">Base Imponible:</span>
+                    <span className="font-mono font-bold text-gray-700">{new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(baseImponible)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-400">IVA ({serie === "A" ? 21 : 0}%):</span>
-                    <span className="font-mono font-bold border-b border-gray-200 pb-1">{new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(cuotaIva)}</span>
+                    <span className="text-gray-500">IVA ({serie === "A" ? '21%' : '0%'}):</span>
+                    <span className="font-mono font-bold text-gray-700">{new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(cuotaIva)}</span>
                   </div>
-                  <div className="flex justify-between text-xl font-bold pt-1 bg-gray-50 p-4 rounded-2xl">
-                    <span className="text-gray-700">Total Factura:</span>
+                  {retencionPct > 0 && (
+                    <div className="flex justify-between text-sm text-red-600">
+                      <span className="font-medium">Retención ({retencionPct}%):</span>
+                      <span className="font-mono font-bold">-{new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(retencionImporte)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-xl font-bold pt-3 border-t-2 border-gray-200">
+                    <span className="text-gray-800">TOTAL:</span>
                     <span className="text-[var(--accent)]">{new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(totalFactura)}</span>
                   </div>
                 </div>
