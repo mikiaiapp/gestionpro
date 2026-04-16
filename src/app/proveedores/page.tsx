@@ -12,7 +12,7 @@ export default function ProveedoresPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // Estados para el formulario
+  // Formulario
   const [nombre, setNombre] = useState("");
   const [nif, setNif] = useState("");
   const [email, setEmail] = useState("");
@@ -22,16 +22,16 @@ export default function ProveedoresPage() {
   const [provincia, setProvincia] = useState("");
   const [todosLosMunicipios, setTodosLosMunicipios] = useState<any[]>([]);
   const [municipiosSugeridos, setMunicipiosSugeridos] = useState<string[]>([]);
-
   const [showProvList, setShowProvList] = useState(false);
   const [showMunList, setShowMunList] = useState(false);
   const [loadingGeo, setLoadingGeo] = useState(false);
 
   useEffect(() => {
     fetchProveedores();
+    const timer = setTimeout(() => setLoading(false), 2000);
+    return () => clearTimeout(timer);
   }, [supabase]);
 
-  // Cargar todos los municipios al inicio para rapidez
   useEffect(() => {
     const initGeo = async () => {
       setLoadingGeo(true);
@@ -42,7 +42,7 @@ export default function ProveedoresPage() {
           setTodosLosMunicipios(data);
         }
       } catch (e) {
-        console.error("Error cargando base geo");
+        console.error("Geo error");
       } finally {
         setLoadingGeo(false);
       }
@@ -50,121 +50,57 @@ export default function ProveedoresPage() {
     initGeo();
   }, []);
 
-  // Inteligencia de Código Postal
   useEffect(() => {
     if (cp.length === 5) {
       const resp = getProvinciaPorCP(cp);
       if (resp) {
         setProvincia(resp.nombre);
-        // Filtrar municipios de esa provincia inmediatamente (usando parent_code y label)
         const filtrados = todosLosMunicipios
           .filter(m => parseInt(m.parent_code, 10) === parseInt(resp.id, 10))
           .map(m => m.label);
         setMunicipiosSugeridos(filtrados);
       }
-      buscarMunicipioPorCP(cp);
     }
   }, [cp, todosLosMunicipios]);
 
-  // Cargar Municipios al cambiar Provincia manualmente
   useEffect(() => {
-    if (!provincia || todosLosMunicipios.length === 0) {
-      setMunicipiosSugeridos([]);
-      return;
-    }
-
-    // Normalizar nombres para comparación robusta (quitar tildes, etc)
+    if (!provincia || todosLosMunicipios.length === 0) return;
     const normalize = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
     const provNorm = normalize(provincia);
-
-    // Buscar el ID de la provincia primero
     const provData = PROVINCIAS_ESPANOLAS.find(p => normalize(p.nombre) === provNorm);
-    
-    let filtrados: string[] = [];
     if (provData) {
-      // Comparación flexible de ID (como número para evitar líos de ceros a la izquierda)
       const targetId = parseInt(provData.id, 10);
-      filtrados = todosLosMunicipios
+      const filtrados = todosLosMunicipios
         .filter(m => parseInt(m.parent_code, 10) === targetId)
         .map(m => m.label);
-    } 
-    
-    // Si no hay nada por ID, intentamos por nombre de provincia (fallback)
-    if (filtrados.length === 0) {
-      filtrados = todosLosMunicipios
-        .filter(m => m.provincia && normalize(m.provincia) === provNorm)
-        .map(m => m.label);
+      setMunicipiosSugeridos(filtrados);
     }
-
-    setMunicipiosSugeridos(filtrados);
   }, [provincia, todosLosMunicipios]);
 
-  const buscarMunicipioPorCP = async (codigo: string) => {
-    try {
-      const response = await fetch(`https://api.zippopotam.us/es/${codigo}`);
-      if (response.ok) {
-        const data = await response.json();
-        const place = data.places[0];
-        setPoblacion(place['place name']);
-      }
-    } catch (error) {
-       console.error("Error buscando municipio por CP");
-    }
-  };
-
   const fetchProveedores = async () => {
-    if (!supabase) {
-      setLoading(false);
-      return;
-    }
+    if (!supabase) return;
     setLoading(true);
-    const { data, error } = await supabase
-      .from("proveedores")
-      .select("*")
-      .order("nombre", { ascending: true });
-
-    if (error) {
-      console.error("Error cargando proveedores:", error);
-    } else {
+    try {
+      const { data } = await supabase.from("proveedores").select("*").order("nombre");
       setProveedores(data || []);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleAddProveedor = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nombre || !supabase) return;
-
-    const { error } = await supabase
-      .from("proveedores")
-      .insert([{ 
-        nombre, 
-        nif, 
-        email, 
-        direccion, 
-        codigo_postal: cp, 
-        poblacion, 
-        provincia 
-      }]);
-
-    if (error) {
-      alert("Error al guardar: " + error.message);
-    } else {
-      setNombre("");
-      setNif("");
-      setEmail("");
-      setDireccion("");
-      setCp("");
-      setPoblacion("");
-      setProvincia("");
+    const { error } = await supabase.from("proveedores").insert([{ nombre, nif, email, direccion, codigo_postal: cp, poblacion, provincia }]);
+    if (error) alert(error.message);
+    else {
       setIsModalOpen(false);
       fetchProveedores();
     }
   };
 
   const filteredProveedores = proveedores.filter(p => 
-    p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    p.nif?.toLowerCase().includes(searchTerm.toLowerCase())
+    p.nombre.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -174,171 +110,55 @@ export default function ProveedoresPage() {
         <header className="flex justify-between items-center mb-10">
           <div>
             <h1 className="text-3xl font-bold font-head tracking-tight mb-1 text-[var(--foreground)]">Proveedores</h1>
-            <p className="text-[var(--muted)] font-medium">Gestión de suministros y acreedores.</p>
+            <p className="text-[var(--muted)] font-medium">Gestión de suministros.</p>
           </div>
-          <button 
-            onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--accent)] text-white font-bold hover:shadow-lg transition-all active:scale-[0.98]"
-          >
+          <button onClick={() => setIsModalOpen(true)} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--accent)] text-white font-bold hover:shadow-lg transition-all active:scale-[0.98]">
             <Plus size={18} />
             Nuevo Proveedor
           </button>
         </header>
 
-        {/* Modal de Nuevo Proveedor */}
         {isModalOpen && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md border border-[var(--border)] animate-in fade-in zoom-in duration-200">
-              <h2 className="text-xl font-bold font-head mb-6">🏪 Añadir Proveedor</h2>
+            <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md animate-in fade-in zoom-in duration-200">
+              <h2 className="text-xl font-bold mb-6">➕ Añadir Proveedor</h2>
               <form onSubmit={handleAddProveedor} className="space-y-4">
-                <div>
-                  <label className="block text-[11px] font-bold text-[var(--muted)] uppercase mb-1">Nombre Comercial *</label>
-                  <input 
-                    type="text" 
-                    value={nombre} 
-                    onChange={(e) => setNombre(e.target.value)}
-                    className="w-full p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)]"
-                    placeholder="Ej: Suministros Industriales SL"
-                    required
-                  />
-                </div>
-                
+                <input type="text" placeholder="Nombre Comercial" value={nombre} onChange={(e) => setNombre(e.target.value)} className="w-full p-2.5 rounded-lg border border-[var(--border)]" required />
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[11px] font-bold text-[var(--muted)] uppercase mb-1">NIF / CIF</label>
-                    <input 
-                      type="text" 
-                      value={nif} 
-                      onChange={(e) => setNif(e.target.value)}
-                      className="w-full p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)]"
-                      placeholder="B98765432"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-[var(--muted)] uppercase mb-1">Email Contacto</label>
-                    <input 
-                      type="email" 
-                      value={email} 
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="w-full p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)]"
-                      placeholder="compras@..."
-                    />
-                  </div>
+                  <input type="text" placeholder="NIF" value={nif} onChange={(e) => setNif(e.target.value)} className="p-2.5 rounded-lg border border-[var(--border)]" />
+                  <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="p-2.5 rounded-lg border border-[var(--border)]" />
                 </div>
-
-                <div className="border-t border-[var(--border)] pt-4 mt-2">
-                  <label className="block text-[11px] font-bold text-[var(--muted)] uppercase mb-1 text-[var(--accent)]">📍 Ubicación Inteligente</label>
-                  <div className="space-y-3">
-                    <div>
-                      <input 
-                        type="text" 
-                        autoComplete="off"
-                        value={direccion} 
-                        onChange={(e) => setDireccion(e.target.value)}
-                        className="w-full p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)]"
-                        placeholder="Dirección fiscal"
-                      />
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                       <input 
-                        type="text" 
-                        autoComplete="off"
-                        value={cp} 
-                        maxLength={5}
-                        onChange={(e) => setCp(e.target.value)}
-                        className="p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)] font-mono"
-                        placeholder="C.P."
-                      />
-                      
-                      <div className="relative">
-                        <input 
-                          type="text" 
-                          autoComplete="off"
-                          value={provincia} 
-                          onFocus={() => setShowProvList(true)}
-                          onBlur={() => setTimeout(() => setShowProvList(false), 200)}
-                          onChange={(e) => {
-                            setProvincia(e.target.value);
-                            setShowProvList(true);
-                          }}
-                          className="w-full p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)]"
-                          placeholder="Provincia..."
-                        />
-                        {showProvList && (
-                          <div className="absolute z-[110] left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white border border-[var(--border)] rounded-xl shadow-2xl py-2">
-                             {PROVINCIAS_ESPANOLAS
-                               .filter(p => !provincia || p.nombre.toLowerCase().includes(provincia.toLowerCase()))
-                               .map(p => (
-                                 <button
-                                   key={p.id}
-                                   type="button"
-                                   onClick={() => {
-                                     setProvincia(p.nombre);
-                                     setShowProvList(false);
-                                   }}
-                                   className="w-full text-left px-4 py-2 hover:bg-[var(--accent)]/10 text-sm"
-                                 >
-                                   {p.nombre}
-                                 </button>
-                               ))
-                             }
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="relative">
-                        <input 
-                          type="text" 
-                          autoComplete="off"
-                          value={poblacion} 
-                          onFocus={() => setShowMunList(true)}
-                          onBlur={() => setTimeout(() => setShowMunList(false), 200)}
-                          onChange={(e) => {
-                            setPoblacion(e.target.value);
-                            setShowMunList(true);
-                          }}
-                          className="w-full p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)]"
-                          placeholder={todosLosMunicipios.length === 0 ? "Cargando..." : "Municipio..."}
-                        />
-                         {showMunList && municipiosSugeridos.length > 0 && (
-                          <div className="absolute z-[110] left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white border border-[var(--border)] rounded-xl shadow-2xl py-2">
-                             {municipiosSugeridos
-                               .filter(m => !poblacion || m.toLowerCase().includes(poblacion.toLowerCase()))
-                               .map((m, idx) => (
-                                 <button
-                                   key={idx}
-                                   type="button"
-                                   onClick={() => {
-                                     setPoblacion(m);
-                                     setShowMunList(false);
-                                   }}
-                                   className="w-full text-left px-4 py-2 hover:bg-[var(--accent)]/10 text-sm"
-                                 >
-                                   {m}
-                                 </button>
-                               ))
-                             }
-                          </div>
-                        )}
-                      </div>
+                <div className="space-y-3">
+                  <input type="text" placeholder="Dirección" value={direccion} onChange={(e) => setDireccion(e.target.value)} className="w-full p-2.5 rounded-lg border border-[var(--border)]" />
+                  <div className="grid grid-cols-3 gap-3">
+                    <input type="text" placeholder="C.P." value={cp} maxLength={5} onChange={(e) => setCp(e.target.value)} className="p-2.5 rounded-lg border border-[var(--border)] font-mono" />
+                    <div className="relative col-span-2">
+                       <input type="text" placeholder="Provincia" value={provincia} onFocus={() => setShowProvList(true)} onBlur={() => setTimeout(() => setShowProvList(false), 200)} onChange={(e) => setProvincia(e.target.value)} className="w-full p-2.5 rounded-lg border border-[var(--border)]" />
+                       {showProvList && (
+                         <div className="absolute z-[110] left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white border border-[var(--border)] rounded-xl shadow-2xl py-2">
+                           {PROVINCIAS_ESPANOLAS.filter(p => !provincia || p.nombre.toLowerCase().includes(provincia.toLowerCase())).map(p => (
+                             <button key={p.id} type="button" onClick={() => { setProvincia(p.nombre); setShowProvList(false); }} className="w-full text-left px-4 py-2 hover:bg-[var(--accent)]/10 text-sm">{p.nombre}</button>
+                           ))}
+                         </div>
+                       )}
                     </div>
                   </div>
+                  <div className="relative">
+                    <input type="text" placeholder="Municipio" value={poblacion} onFocus={() => setShowMunList(true)} onBlur={() => setTimeout(() => setShowMunList(false), 200)} onChange={(e) => setPoblacion(e.target.value)} className="w-full p-2.5 rounded-lg border border-[var(--border)]" />
+                    {showMunList && municipiosSugeridos.length > 0 && (
+                      <div className="absolute z-[110] left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white border border-[var(--border)] rounded-xl shadow-2xl py-2">
+                        {municipiosSugeridos.filter(m => !poblacion || m.toLowerCase().includes(poblacion.toLowerCase())).map((m, i) => (
+                          <button key={i} type="button" onClick={() => { setPoblacion(m); setShowMunList(false); }} className="w-full text-left px-4 py-2 hover:bg-[var(--accent)]/10 text-sm">{m}</button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
-
                 <div className="flex gap-3 mt-8">
-                  <button 
-                    type="button"
-                    onClick={() => setIsModalOpen(false)}
-                    className="flex-1 py-2.5 text-sm font-bold text-[var(--muted)] hover:bg-gray-100 rounded-xl transition-all border border-[var(--border)]"
-                  >
-                    Cancelar
-                  </button>
-                  <button 
-                    type="submit"
-                    className="flex-1 py-2.5 text-sm font-bold bg-[var(--accent)] text-white rounded-xl shadow-md hover:shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2"
-                  >
+                  <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-2.5 text-sm font-bold text-[var(--muted)] hover:bg-gray-100 rounded-xl transition-all border border-[var(--border)]">Cancelar</button>
+                  <button type="submit" className="flex-1 py-2.5 text-sm font-bold bg-[var(--accent)] text-white rounded-xl shadow-md hover:shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2">
                     <Plus size={18} />
-                    Guardar Proveedor
+                    Guardar
                   </button>
                 </div>
               </form>
@@ -346,60 +166,37 @@ export default function ProveedoresPage() {
           </div>
         )}
 
-        {/* Listado */}
         <div className="glass-card bg-white shadow-sm border-[var(--border)] overflow-hidden">
-          <div className="p-4 border-b border-[var(--border)] flex justify-between items-center bg-[#fafafa]">
-            <div className="relative w-72">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]" size={16} />
-              <input 
-                type="text" 
-                placeholder="Buscar proveedor..." 
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)] transition-colors"
-              />
-            </div>
+          <div className="p-4 border-b border-[var(--border)] bg-[#fafafa]">
+             <div className="relative w-72">
+               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]" size={16} />
+               <input type="text" placeholder="Buscar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm" />
+             </div>
           </div>
-          
-          <div className="overflow-x-auto min-h-[300px] flex flex-col">
+          <div className="overflow-x-auto">
             {loading ? (
-              <div className="flex-1 flex flex-col items-center justify-center p-20 text-[var(--muted)] gap-3">
+              <div className="p-20 flex flex-col items-center justify-center gap-3 text-[var(--muted)]">
                 <Loader2 className="animate-spin" size={32} />
-                <p className="text-sm font-medium">Cargando proveedores...</p>
+                <p>Cargando proveedores...</p>
               </div>
             ) : filteredProveedores.length === 0 ? (
-              <div className="flex-1 flex flex-col items-center justify-center p-20 text-[var(--muted)] gap-4 text-center">
-                <div className="w-16 h-16 rounded-full bg-[var(--background)] flex items-center justify-center">
-                  <Factory size={32} className="opacity-20" />
-                </div>
-                <div>
-                  <p className="font-bold text-[var(--foreground)]">No hay proveedores registrados</p>
-                  <p className="text-sm">Registra tu primer proveedor para gestionar sus costes.</p>
-                </div>
-              </div>
+              <div className="p-20 text-center text-[var(--muted)]">No hay proveedores registrados</div>
             ) : (
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-[#fcfaf7] border-b border-[var(--border)]">
-                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">Proveedor</th>
-                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">NIF/CIF</th>
-                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">Ubicación</th>
-                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Acciones</th>
+                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase">Proveedor</th>
+                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase">NIF</th>
+                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase text-right">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--border)]">
                   {filteredProveedores.map((p) => (
                     <tr key={p.id} className="hover:bg-[#fcfaf7] transition-colors group">
-                      <td className="px-6 py-4">
-                        <div className="font-bold text-[var(--foreground)]">{p.nombre}</div>
-                        <div className="text-[10px] text-[var(--muted)] uppercase tracking-wider">{p.email}</div>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-[var(--muted)] font-medium">{p.nif || '—'}</td>
-                      <td className="px-6 py-4 text-sm text-[var(--muted)]">
-                        {p.poblacion ? `${p.poblacion} (${p.provincia})` : '—'}
-                      </td>
+                      <td className="px-6 py-4 font-bold">{p.nombre}</td>
+                      <td className="px-6 py-4 text-sm text-[var(--muted)]">{p.nif || '—'}</td>
                       <td className="px-6 py-4 text-right">
-                        <button className="p-2 hover:bg-[var(--background)] rounded-lg transition-colors text-[var(--muted)]">
+                        <button className="p-2 hover:bg-gray-100 rounded-lg text-[var(--muted)]">
                           <MoreHorizontal size={18} />
                         </button>
                       </td>
