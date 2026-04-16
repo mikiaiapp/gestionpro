@@ -64,8 +64,8 @@ export default function ClientesPage() {
 
   // Cargar Municipios al cambiar Provincia manualmente
   useEffect(() => {
-    if (!provincia) {
-      setFilteredMunicipios([]);
+    if (!provincia || todosLosMunicipios.length === 0) {
+      setMunicipiosSugeridos([]);
       return;
     }
 
@@ -73,14 +73,24 @@ export default function ClientesPage() {
     const normalize = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
     const provNorm = normalize(provincia);
 
-    const filtered = allMunicipios.filter(m => {
-      const muniProvNorm = normalize(m.provincia);
-      return muniProvNorm === provNorm || muniProvNorm.includes(provNorm) || provNorm.includes(muniProvNorm);
-    });
+    // Buscar el ID de la provincia primero
+    const provData = PROVINCIAS_ESPANOLAS.find(p => normalize(p.nombre) === provNorm);
+    
+    let filtrados: string[] = [];
+    if (provData) {
+      filtrados = todosLosMunicipios
+        .filter(m => m.id_prov === provData.id)
+        .map(m => m.nm);
+    } else {
+      // Fallback por nombre de provincia en el JSON
+      filtrados = todosLosMunicipios
+        .filter(m => normalize(m.provincia || "") === provNorm)
+        .map(m => m.nm);
+    }
 
-    setFilteredMunicipios(filtered);
-    console.log("Municipios filtrados para:", provincia, filtered.length);
-  }, [provincia, allMunicipios]);
+    setMunicipiosSugeridos(filtrados);
+    console.log("Municipios filtrados para:", provincia, filtrados.length);
+  }, [provincia, todosLosMunicipios]);
 
   const buscarMunicipioPorCP = async (codigo: string) => {
     try {
