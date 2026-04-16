@@ -17,29 +17,36 @@ export default function ResumenPage() {
   const fetchResumen = async () => {
     if (!supabase) return;
     setLoading(true);
+
+    // Fail-safe: si en 2 segundos no ha terminado, liberamos la UI
+    const timeout = setTimeout(() => setLoading(false), 2000);
     
-    // Obtenemos Proyectos, Ventas y Costes para consolidar
-    const { data: projs } = await supabase.from("proyectos").select("*, clientes(nombre)");
-    const { data: vts } = await supabase.from("ventas").select("proyecto_id, total");
-    const { data: csts } = await supabase.from("costes").select("proyecto_id, total");
+    try {
+      // Obtenemos Proyectos, Ventas y Costes para consolidar
+      const { data: projs } = await supabase.from("proyectos").select("*, clientes(nombre)");
+      const { data: vts } = await supabase.from("ventas").select("proyecto_id, total");
+      const { data: csts } = await supabase.from("costes").select("proyecto_id, total");
 
-    const consolidated = projs?.map(p => {
-      const totalVentas = vts?.filter(v => v.proyecto_id === p.id).reduce((acc, curr) => acc + curr.total, 0) || 0;
-      const totalCostes = csts?.filter(c => c.proyecto_id === p.id).reduce((acc, curr) => acc + curr.total, 0) || 0;
-      const margen = totalVentas - totalCostes;
-      const margenPct = totalVentas > 0 ? (margen / totalVentas) * 100 : 0;
+      const consolidated = projs?.map(p => {
+        const totalVentas = vts?.filter(v => v.proyecto_id === p.id).reduce((acc, curr) => acc + curr.total, 0) || 0;
+        const totalCostes = csts?.filter(c => c.proyecto_id === p.id).reduce((acc, curr) => acc + curr.total, 0) || 0;
+        const margen = totalVentas - totalCostes;
+        const margenPct = totalVentas > 0 ? (margen / totalVentas) * 100 : 0;
 
-      return {
-        ...p,
-        totalVentas,
-        totalCostes,
-        margen,
-        margenPct
-      };
-    }) || [];
+        return {
+          ...p,
+          totalVentas,
+          totalCostes,
+          margen,
+          margenPct
+        };
+      }) || [];
 
-    setProyectos(consolidated);
-    setLoading(false);
+      setProyectos(consolidated);
+    } finally {
+      clearTimeout(timeout);
+      setLoading(false);
+    }
   };
 
   const filtered = proyectos.filter(p => 
