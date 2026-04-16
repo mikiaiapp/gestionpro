@@ -38,7 +38,6 @@ const menuStructure: MenuSection[] = [
   {
     label: "GENERAL",
     items: [
-      { icon: LayoutDashboard, label: "Dashboard", href: "/" },
       { icon: FolderKanban, label: "Proyectos", href: "/proyectos" },
       { icon: Receipt, label: "Ventas", href: "/ventas" },
       { icon: Download, label: "Costes", href: "/costes" },
