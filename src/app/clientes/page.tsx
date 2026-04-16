@@ -162,7 +162,7 @@ export default function ClientesPage() {
     }
   };
 
-  const filteredClientes = clientes.filter(c => 
+  const filteredClientes = clientes.filter((c: any) => 
     c.nombre.toLowerCase().includes(searchTerm.toLowerCase()) || 
     c.nif?.toLowerCase().includes(searchTerm.toLowerCase())
   );
