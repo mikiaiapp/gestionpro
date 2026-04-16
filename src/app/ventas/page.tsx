@@ -258,7 +258,13 @@ export default function VentasPage() {
                 <h1 className="text-3xl font-bold font-head tracking-tight mb-1 text-[var(--foreground)]">Facturación</h1>
                 <p className="text-[var(--muted)] font-medium">Gestión y emisión de facturas profesionales.</p>
               </div>
-              <button onClick={() => setIsEditorOpen(true)} className="flex items-center gap-2 px-6 py-3 rounded-xl bg-[var(--accent)] text-white font-bold hover:shadow-lg transition-all active:scale-[0.98]">
+              <button 
+                onClick={() => {
+                  fetchData();
+                  setIsEditorOpen(true);
+                }} 
+                className="flex items-center gap-2 px-6 py-3 rounded-xl bg-[var(--accent)] text-white font-bold hover:shadow-lg transition-all active:scale-[0.98]"
+              >
                 <Plus size={18} /> Crear Factura
               </button>
             </header>

@@ -33,6 +33,7 @@ export default function AjustesPage() {
     const timeout = setTimeout(() => setLoading(false), 2000);
 
     try {
+      console.log("Fetching Ajustes data...");
       // Intentar cargar perfil (ID 1 es el fijo)
       const { data: perfil } = await supabase.from("perfil_negocio").select("*").eq("id", 1).maybeSingle();
       if (perfil) {
@@ -47,8 +48,9 @@ export default function AjustesPage() {
       const { data: fbc } = await supabase.from("formas_cobro").select("*").order("nombre");
       setFormasCobro(fbc || []);
     } catch (e: any) {
-      console.error("Error cargando ajustes:", e.message);
+      console.error("Error cargando ajustes:", e);
     } finally {
+      console.log("Ajustes load finished.");
       clearTimeout(timeout);
       setLoading(false);
     }

@@ -103,10 +103,13 @@ export function Sidebar() {
       </nav>
 
       <div className="mt-auto border-t border-[var(--border)] pt-4">
-        <button className="w-full flex items-center gap-3 px-3 py-2 text-[var(--muted)] hover:text-red-600 transition-colors text-[13px] font-semibold">
+        <button className="w-full flex items-center gap-3 px-3 py-2 text-[var(--muted)] hover:text-red-600 transition-colors text-[13px] font-semibold mb-2">
           <LogOut size={18} />
           <span>Cerrar Sesión</span>
         </button>
+        <div className="text-[10px] text-center text-gray-400 font-bold uppercase tracking-widest pb-2">
+          GestiónPro v1.5 - Build OK
+        </div>
       </div>
     </aside>
   );
