@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { 
@@ -8,9 +10,9 @@ import {
   Trash2, 
   Save, 
   Loader2,
-  MapPin,
   TrendingDown
 } from 'lucide-react';
+import { Sidebar } from '@/components/Sidebar';
 
 export default function ProveedoresPage() {
   const [proveedores, setProveedores] = useState<any[]>([]);
@@ -109,7 +111,9 @@ export default function ProveedoresPage() {
   );
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 animate-in fade-in duration-500">
+    <div className="flex bg-[var(--background)] min-h-screen text-left">
+      <Sidebar />
+      <div className="flex-1 p-8 space-y-6 animate-in fade-in duration-500 overflow-y-auto">
         <header className="flex items-center justify-between bg-white/50 backdrop-blur-md p-6 rounded-2xl border border-white shadow-sm">
           <div>
             <h1 className="text-4xl font-black font-head tracking-tight text-[var(--foreground)]">Proveedores</h1>
@@ -135,7 +139,6 @@ export default function ProveedoresPage() {
                   <input type="text" placeholder="NIF/CIF" value={nif} onChange={(e) => setNif(e.target.value)} className="p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] focus:outline-none" />
                   <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] focus:outline-none" />
                 </div>
-                <input type="text" placeholder="Dirección" value={direccion} onChange={(e) => setDireccion(e.target.value)} className="w-full p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)]" />
                 <div className="flex gap-4">
                   <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-2.5 text-sm font-bold text-[var(--muted)] border rounded-xl">Cancelar</button>
                   <button type="submit" disabled={saving} className="flex-1 py-2.5 text-sm font-bold bg-[var(--accent)] text-white rounded-xl shadow-md disabled:opacity-50">
@@ -147,11 +150,11 @@ export default function ProveedoresPage() {
           </div>
         )}
 
-        <div className="glass-card bg-white shadow-sm border-[var(--border)] overflow-hidden">
+        <div className="glass-card bg-white shadow-sm border-[var(--border)] overflow-hidden rounded-2xl">
           <div className="p-4 border-b border-[var(--border)] bg-[#fafafa]">
              <div className="relative w-72">
                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]" size={16} />
-               <input type="text" placeholder="Buscar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none" />
+               <input type="text" placeholder="Buscar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 rounded-lg border border-[var(--border)] bg-white text-sm focus:outline-none" />
              </div>
           </div>
           <div className="overflow-x-auto min-h-[200px]">
@@ -187,7 +190,6 @@ export default function ProveedoresPage() {
                             <MoreHorizontal size={20} />
                           </button>
                         </div>
-
                         {openMenuId === p.id && (
                           <div className="absolute right-6 top-12 w-48 bg-white rounded-xl shadow-xl border z-50 py-2 animate-in fade-in slide-in-from-top-2 duration-200">
                             <button onClick={() => openEditModal(p)} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors"><Save size={16} /> Editar</button>
@@ -203,6 +205,7 @@ export default function ProveedoresPage() {
             )}
           </div>
         </div>
+      </div>
     </div>
   );
 }
