@@ -1,24 +1,24 @@
+"use client";
+
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { 
   Building2, 
   Save, 
-  Database, 
-  Settings2, 
-  MapPin, 
-  CreditCard, 
-  ShieldCheck,
   Percent,
   Plus,
   Trash2,
   RefreshCcw,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Loader2
 } from 'lucide-react';
-import { getInfoPorCP, PROVINCIAS_ESPANOLAS } from '@/lib/geoData';
+import { Sidebar } from '@/components/Sidebar';
+import { getProvinciaPorCP, PROVINCIAS_ESPANOLAS } from '@/lib/geoData';
 import { validateNIF, validateIBAN, formatIBAN } from '@/lib/validations';
 
 export default function AjustesPage() {
+  const [loading, setLoading] = useState(true);
   const [nombre, setNombre] = useState('Mi Empresa');
   const [nif, setNif] = useState('');
   const [cuentaBancaria, setCuentaBancaria] = useState('');
@@ -34,36 +34,30 @@ export default function AjustesPage() {
   const [tiposIrpf, setTiposIrpf] = useState<any[]>([]);
   const [newIvaNombre, setNewIvaNombre] = useState('');
   const [newIvaValor, setNewIvaValor] = useState(0);
-  const [newIrpfNombre, setNewIrpfNombre] = useState('');
-  const [newIrpfValor, setNewIrpfValor] = useState(0);
   const [syncing, setSyncing] = useState(false);
   
   const [showProvList, setShowProvList] = useState(false);
-  const [showMunList, setShowMunList] = useState(false);
-  const [municipiosSugeridos, setMunicipiosSugeridos] = useState<string[]>([]);
+  const [municipiosSugeridos, setMunicipiosSugeridos] = useState<any[]>([]);
 
   useEffect(() => {
     fetchPerfil();
     fetchTipos();
   }, []);
 
+  // CP Lookup Logic
   useEffect(() => {
     if (cp.length === 5) {
-      const info = getInfoPorCP(cp);
+      const info = getProvinciaPorCP(cp);
       if (info) {
-        setProvincia(info.provincia);
-        if (info.municipio) {
-          setPoblacion(info.municipio);
-        }
-        const muns = info.municipios || [];
-        setMunicipiosSugeridos(muns);
+        setProvincia(info.nombre);
       }
     }
   }, [cp]);
 
   const fetchPerfil = async () => {
+    setLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) { setLoading(false); return; }
     
     const { data } = await supabase
       .from('perfil_negocio')
@@ -83,6 +77,7 @@ export default function AjustesPage() {
       setTieneRetencion(data.tiene_retencion || false);
       setIrpfDefault(Number(data.irpf_default) || 0);
     }
+    setLoading(false);
   };
 
   const fetchTipos = async () => {
@@ -109,150 +104,117 @@ export default function AjustesPage() {
       gemini_key: geminiKey,
       tiene_retencion: tieneRetencion,
       irpf_default: irpfDefault
-    });
+    }, { onConflict: 'user_id' });
 
-    if (error) {
-      alert("Error al guardar: " + error.message);
-    } else {
-      alert("Configuración personal de empresa guardada correctamente");
-    }
+    if (error) alert("Error: " + error.message);
+    else alert("Perfil actualizado");
     setIsSaving(false);
   };
 
   const handleSyncOfficial = async () => {
     setSyncing(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("No sesión");
+    const officialIva = [
+      { nombre: 'IVA General', valor: 21 },
+      { nombre: 'IVA Reducido', valor: 10 },
+      { nombre: 'IVA Superreducido', valor: 4 },
+      { nombre: 'Exento', valor: 0 }
+    ];
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
 
-      // Carga directa de presets
-      const officialIva = [
-        { nombre: 'IVA General', valor: 21 },
-        { nombre: 'IVA Reducido', valor: 10 },
-        { nombre: 'IVA Superreducido', valor: 4 },
-        { nombre: 'Exento / Exportación', valor: 0 }
-      ];
-
-      for (const t of officialIva) {
-        await supabase.from('tipos_iva').upsert({ user_id: user.id, nombre: t.nombre, valor: t.valor });
-      }
-      
-      await fetchTipos();
-      alert("¡Sincronización fiscal completada!");
-    } catch (e) {
-      alert("Error en sincronización");
+    for (const item of officialIva) {
+      await supabase.from('tipos_iva').upsert({ user_id: user.id, nombre: item.nombre, valor: item.valor }, { onConflict: 'user_id,valor' });
     }
+    await fetchTipos();
     setSyncing(false);
+    alert("Fiscalidad sincronizada");
   };
 
-  return (
-    <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-500 pb-12">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold font-head tracking-tight text-[var(--foreground)]">Ajustes</h1>
-          <p className="text-[var(--muted)] mt-1">Configuración de empresa e identidad fiscal.</p>
-        </div>
-      </div>
+  if (loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin" /></div>;
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-6">
-          <div className="glass-card p-8 bg-white border border-[var(--border)] shadow-sm rounded-2xl">
+  return (
+    <div className="flex bg-[var(--background)] min-h-screen">
+      <Sidebar />
+      <div className="flex-1 p-8 space-y-8 animate-in fade-in duration-500 overflow-y-auto">
+        <header>
+          <h1 className="text-3xl font-bold font-head tracking-tight text-[var(--foreground)]">Ajustes</h1>
+          <p className="text-[var(--muted)] mt-1">Gestión de identidad fiscal y fiscalidad.</p>
+        </header>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-20">
+          <div className="lg:col-span-2 bg-white rounded-2xl border p-8 shadow-sm">
             <h2 className="text-xl font-bold font-head mb-8 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
-                <Building2 size={22} />
-              </div>
-              Datos del Emisor
+              <Building2 className="text-blue-600" /> Datos del Emisor
             </h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="md:col-span-2 space-y-2">
-                <label className="text-[10px] font-bold text-[var(--muted)] uppercase tracking-widest pl-1">Nombre Comercial</label>
-                <input type="text" value={nombre} onChange={(e) => setNombre(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-[var(--border)] bg-[#fafafa] focus:ring-2 focus:ring-blue-500/20 transition-all outline-none" placeholder="Ej: Reformas Miguel SL" />
+              <div className="md:col-span-2 space-y-1">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Nombre Comercial</label>
+                <input type="text" value={nombre} onChange={e => setNombre(e.target.value)} className="w-full px-4 py-3 rounded-xl border bg-gray-50 focus:ring-2 focus:ring-blue-500/20 transition-all outline-none" />
               </div>
 
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold text-[var(--muted)] uppercase tracking-widest pl-1">NIF / CIF</label>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">NIF / CIF</label>
                 <div className="relative">
-                  <input type="text" value={nif} onChange={(e) => setNif(e.target.value.toUpperCase())} className={`w-full px-4 py-3 rounded-xl border ${nif && !validateNIF(nif) ? 'border-red-300 ring-2 ring-red-50' : 'border-[var(--border)]'} bg-[#fafafa] outline-none transition-all`} placeholder="B12345678" />
+                  <input type="text" value={nif} onChange={e => setNif(e.target.value.toUpperCase())} className={`w-full px-4 py-3 rounded-xl border ${nif && !validateNIF(nif) ? 'border-red-300' : 'border-gray-200'} bg-gray-50 outline-none`} />
                   {nif && (validateNIF(nif) ? <CheckCircle2 size={16} className="absolute right-3 top-4 text-green-500" /> : <AlertCircle size={16} className="absolute right-3 top-4 text-red-500" />)}
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold text-[var(--muted)] uppercase tracking-widest pl-1">IBAN</label>
-                <input type="text" value={cuentaBancaria} onChange={(e) => setCuentaBancaria(formatIBAN(e.target.value))} className={`w-full px-4 py-3 rounded-xl border ${cuentaBancaria && !validateIBAN(cuentaBancaria) ? 'border-red-300 ring-2 ring-red-50' : 'border-[var(--border)]'} bg-[#fafafa] outline-none transition-all font-mono text-sm`} placeholder="ES00 0000 0000..." />
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">IBAN</label>
+                <input type="text" value={cuentaBancaria} onChange={e => setCuentaBancaria(formatIBAN(e.target.value))} className="w-full px-4 py-3 rounded-xl border bg-gray-50 font-mono text-sm" />
               </div>
 
-              <div className="md:col-span-2 space-y-2">
-                <label className="text-[10px] font-bold text-[var(--muted)] uppercase tracking-widest pl-1">Dirección Física</label>
-                <input type="text" value={direccion} onChange={(e) => setDireccion(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-[var(--border)] bg-[#fafafa] outline-none" />
+              <div className="md:col-span-2 space-y-1">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Dirección</label>
+                <input type="text" value={direccion} onChange={e => setDireccion(e.target.value)} className="w-full px-4 py-3 rounded-xl border bg-gray-50" />
               </div>
 
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold text-[var(--muted)] uppercase tracking-widest pl-1">C.P.</label>
-                <input type="text" value={cp} maxLength={5} onChange={(e) => setCp(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-[var(--border)] bg-[#fafafa] outline-none font-mono" />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 md:col-span-2">
-                <div className="space-y-2 relative">
-                  <label className="text-[10px] font-bold text-[var(--muted)] uppercase tracking-widest pl-1">Provincia</label>
-                  <input type="text" value={provincia} onFocus={() => setShowProvList(true)} onBlur={() => setTimeout(() => setShowProvList(false), 200)} onChange={(e) => setProvincia(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-[var(--border)] bg-[#fafafa] outline-none" />
-                  {showProvList && (
-                    <div className="absolute z-50 left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white border rounded-xl shadow-2xl py-2">
-                      {PROVINCIAS_ESPANOLAS.filter(p => !provincia || p.nombre.toLowerCase().includes(provincia.toLowerCase())).map(p => (
-                        <button key={p.id} type="button" onClick={() => setProvincia(p.nombre)} className="w-full text-left px-4 py-2 hover:bg-blue-50 text-sm">{p.nombre}</button>
-                      ))}
-                    </div>
-                  )}
+              <div className="grid grid-cols-3 gap-4 md:col-span-2">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">C.P.</label>
+                  <input type="text" value={cp} maxLength={5} onChange={e => setCp(e.target.value)} className="w-full px-4 py-3 rounded-xl border bg-gray-50 font-mono" />
                 </div>
-                <div className="space-y-2 relative">
-                  <label className="text-[10px] font-bold text-[var(--muted)] uppercase tracking-widest pl-1">Municipio</label>
-                  <input type="text" value={poblacion} onFocus={() => setShowMunList(true)} onBlur={() => setTimeout(() => setShowMunList(false), 200)} onChange={(e) => setPoblacion(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-[var(--border)] bg-[#fafafa] outline-none" />
-                  {showMunList && municipiosSugeridos.length > 0 && (
-                    <div className="absolute z-50 left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white border rounded-xl shadow-2xl py-2">
-                      {municipiosSugeridos.filter(m => !poblacion || m.toLowerCase().includes(poblacion.toLowerCase())).map((m, i) => (
-                        <button key={i} type="button" onClick={() => setPoblacion(m)} className="w-full text-left px-4 py-2 hover:bg-blue-50 text-sm">{m}</button>
-                      ))}
-                    </div>
-                  )}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Municipio</label>
+                  <input type="text" value={poblacion} onChange={e => setPoblacion(e.target.value)} className="w-full px-4 py-3 rounded-xl border bg-gray-50" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Provincia</label>
+                  <input type="text" value={provincia} onChange={e => setProvincia(e.target.value)} className="w-full px-4 py-3 rounded-xl border bg-gray-50" />
                 </div>
               </div>
             </div>
 
-            <button onClick={handleSavePerfil} disabled={isSaving} className="w-full mt-8 py-4 bg-[var(--accent)] text-white font-bold rounded-2xl shadow-lg hover:shadow-xl active:scale-[0.99] transition-all flex items-center justify-center gap-2">
-              {isSaving ? <RefreshCcw className="animate-spin" size={20} /> : <Save size={20} />}
-              Guardar Perfil
+            <button onClick={handleSavePerfil} disabled={isSaving} className="w-full mt-8 py-4 bg-blue-600 text-white font-bold rounded-2xl shadow-lg hover:bg-blue-700 transition-all flex items-center justify-center gap-2">
+              {isSaving ? <RefreshCcw className="animate-spin" /> : <Save size={20} />} Guardar Perfil
             </button>
           </div>
-        </div>
 
-        <div className="space-y-6">
-          <div className="glass-card p-6 bg-white border border-[var(--border)] shadow-sm rounded-2xl">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="font-bold font-head flex items-center gap-2 text-green-600">
-                <Percent size={18} /> % IVA
-              </h2>
-              <button onClick={handleSyncOfficial} disabled={syncing} className="text-[10px] font-bold text-blue-500 hover:text-blue-700 flex items-center gap-1 uppercase tracking-tighter transition-all">
-                <RefreshCcw size={12} className={syncing ? 'animate-spin' : ''} /> Sincronizar oficial
-              </button>
-            </div>
-            <div className="space-y-3">
-              {tiposIva.map(tipo => (
-                <div key={tipo.id} className="flex items-center justify-between p-3 rounded-xl bg-[#fafafa] border border-[var(--border)]">
-                  <span className="text-sm font-medium">{tipo.nombre}</span>
-                  <div className="flex items-center gap-3">
-                    <span className="font-bold">{tipo.valor}%</span>
-                    <button onClick={() => deleteIva(tipo.id)} className="text-red-400 hover:text-red-600 p-1"><Trash2 size={14} /></button>
+          <div className="space-y-6">
+            <div className="bg-white rounded-2xl border p-6 shadow-sm">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="font-bold font-head flex items-center gap-2 text-green-600"><Percent size={18} /> IVA</h2>
+                <button onClick={handleSyncOfficial} disabled={syncing} className="text-[10px] font-bold text-blue-500 uppercase flex items-center gap-1">
+                  <RefreshCcw size={12} className={syncing ? 'animate-spin' : ''} /> Sync
+                </button>
+              </div>
+              <div className="space-y-2">
+                {tiposIva.map(t => (
+                  <div key={t.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-xl border">
+                    <span className="text-sm font-medium">{t.nombre}</span>
+                    <span className="font-bold">{t.valor}%</span>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
         </div>
-      </div>
-
-      <div className="text-center pt-8 border-t border-[var(--border)]">
-        <p className="text-[var(--muted)] text-[10px] font-bold uppercase tracking-[0.2em]">GestiónPro V2.0 - ÚLTIMA VERSIÓN</p>
+        
+        <div className="text-center pt-10 border-t">
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">GestiónPro V2.0.2 - STABLE BUILD</p>
+        </div>
       </div>
     </div>
   );
