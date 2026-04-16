@@ -9,7 +9,8 @@ import {
   RefreshCcw,
   CheckCircle2,
   AlertCircle,
-  Loader2
+  Loader2,
+  Lock
 } from 'lucide-react';
 import { Sidebar } from '@/components/Sidebar';
 import { getProvinciaPorCP } from '@/lib/geoData';
@@ -17,6 +18,7 @@ import { validateNIF, validateIBAN, formatIBAN } from '@/lib/validations';
 
 export default function AjustesPage() {
   const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<any>(null);
   const [nombre, setNombre] = useState('Mi Empresa');
   const [nif, setNif] = useState('');
   const [cuentaBancaria, setCuentaBancaria] = useState('');
@@ -28,13 +30,21 @@ export default function AjustesPage() {
   const [tiposIva, setTiposIva] = useState<any[]>([]);
   const [syncing, setSyncing] = useState(false);
 
-  // ID fijo para instalaciones sin login (Acceso Directo)
-  const PUBLIC_ID = '00000000-0000-0000-0000-000000000000';
-
   useEffect(() => {
-    fetchPerfil();
-    fetchTipos();
+    checkUser();
   }, []);
+
+  const checkUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      setUser(null);
+      setLoading(false);
+      return;
+    }
+    setUser(user);
+    fetchPerfil(user.id);
+    fetchTipos();
+  };
 
   useEffect(() => {
     if (cp.length === 5) {
@@ -43,13 +53,13 @@ export default function AjustesPage() {
     }
   }, [cp]);
 
-  const fetchPerfil = async () => {
+  const fetchPerfil = async (userId: string) => {
     try {
-      // Intentamos obtener perfil (público o privado)
       const { data } = await supabase
         .from('perfil_negocio')
         .select('*')
-        .maybeSingle(); // Tomamos el primero que haya
+        .eq('user_id', userId)
+        .maybeSingle();
         
       if (data) {
         setNombre(data.nombre || '');
@@ -73,14 +83,11 @@ export default function AjustesPage() {
   };
 
   const handleSavePerfil = async () => {
+    if (!user) return;
     setIsSaving(true);
     try {
-      // Obtenemos el ID de usuario si existe, si no el PUBLIC_ID
-      const { data: authData } = await supabase.auth.getUser();
-      const userId = authData?.user?.id || PUBLIC_ID;
-
       const { error } = await supabase.from('perfil_negocio').upsert({
-        user_id: userId,
+        user_id: user.id,
         nombre,
         nif,
         cuenta_bancaria: cuentaBancaria.replace(/\s/g, ''),
@@ -90,13 +97,8 @@ export default function AjustesPage() {
         provincia
       }, { onConflict: 'user_id' });
 
-      if (error) {
-        // Si falla por RLS, avisamos
-        if (error.code === '42501') alert("❌ Error de permisos: Ejecuta el SQL de 'Acceso Público' en Supabase.");
-        else alert("❌ Error BD: " + error.message);
-      } else {
-        alert("✅ Configuración guardada (Acceso Directo)");
-      }
+      if (error) alert("❌ Error: " + error.message);
+      else alert("✅ Perfil Privado Guardado");
     } catch (e: any) {
       alert("❌ Error: " + e.message);
     } finally {
@@ -104,121 +106,57 @@ export default function AjustesPage() {
     }
   };
 
-  const handleSyncOfficial = async () => {
-    setSyncing(true);
-    try {
-      const { data: authData } = await supabase.auth.getUser();
-      const userId = authData?.user?.id || PUBLIC_ID;
-
-      const officialIva = [
-        { nombre: 'IVA General', valor: 21 },
-        { nombre: 'IVA Reducido', valor: 10 },
-        { nombre: 'IVA Superreducido', valor: 4 },
-        { nombre: 'Exento', valor: 0 }
-      ];
-
-      for (const item of officialIva) {
-        await supabase.from('tipos_iva').upsert({ 
-          user_id: userId, 
-          nombre: item.nombre, 
-          valor: item.valor 
-        }, { onConflict: 'user_id,valor' });
-      }
-      
-      await fetchTipos();
-      alert("✅ IVA sincronizado");
-    } catch (e) {
-      alert("❌ Error al sincronizar");
-    } finally {
-      setSyncing(false);
-    }
-  };
-
-  if (loading) return (
-    <div className="flex bg-[var(--background)] min-h-screen items-center justify-center">
-      <Loader2 className="animate-spin text-blue-500" size={40} />
+  if (!user && !loading) return (
+    <div className="flex h-screen items-center justify-center bg-gray-50 p-4 font-sans">
+      <div className="bg-white p-10 rounded-3xl shadow-2xl border max-w-md w-full text-center space-y-6">
+        <div className="bg-blue-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto">
+          <Lock className="text-blue-600" size={32} />
+        </div>
+        <h2 className="text-2xl font-black text-gray-800">Acceso Privado</h2>
+        <p className="text-gray-500 text-sm">Para tener tu propia contabilidad, necesitas iniciar sesión o registrarte.</p>
+        <div className="flex flex-col gap-3">
+          <a href="/login" className="w-full py-4 bg-blue-600 text-white font-bold rounded-2xl shadow-lg hover:bg-blue-700 transition-all">Iniciar Sesión</a>
+          <a href="/signup" className="text-sm font-bold text-blue-600 hover:underline">O crear una cuenta nueva</a>
+        </div>
+      </div>
     </div>
   );
+
+  if (loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin" /></div>;
 
   return (
     <div className="flex bg-[var(--background)] min-h-screen">
       <Sidebar />
       <div className="flex-1 p-8 space-y-8 animate-in fade-in duration-500 overflow-y-auto text-left">
-        <header>
-          <h1 className="text-3xl font-bold font-head tracking-tight text-[var(--foreground)]">Ajustes</h1>
-          <p className="text-[var(--muted)] mt-1">Modo Acceso Directo (Sin Login) V2.0.5</p>
+        <header className="flex justify-between items-start">
+          <div>
+            <h1 className="text-3xl font-bold font-head tracking-tight text-[var(--foreground)]">Ajustes</h1>
+            <p className="text-[var(--muted)] mt-1">Tu perfil privado: {user.email}</p>
+          </div>
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-20">
           <div className="lg:col-span-2 bg-white rounded-2xl border p-8 shadow-sm">
             <h2 className="text-xl font-bold font-head mb-8 flex items-center gap-3">
-              <Building2 className="text-blue-600" /> Datos Globales
+              <Building2 className="text-blue-600" /> Identidad Fiscal
             </h2>
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="md:col-span-2 space-y-1">
                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Nombre Comercial</label>
-                <input type="text" value={nombre} onChange={e => setNombre(e.target.value)} className="w-full px-4 py-3 rounded-xl border bg-gray-50 focus:ring-2 focus:ring-blue-500/20 transition-all outline-none" />
+                <input type="text" value={nombre} onChange={e => setNombre(e.target.value)} className="w-full px-4 py-3 rounded-xl border bg-gray-50 outline-none" />
               </div>
-
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">NIF / CIF</label>
-                <div className="relative">
-                  <input type="text" value={nif} onChange={e => setNif(e.target.value.toUpperCase())} className={`w-full px-4 py-3 rounded-xl border ${nif && !validateNIF(nif) ? 'border-red-300' : 'border-gray-200'} bg-gray-50 outline-none`} />
-                  {nif && (validateNIF(nif) ? <CheckCircle2 size={16} className="absolute right-3 top-4 text-green-500" /> : <AlertCircle size={16} className="absolute right-3 top-4 text-red-500" />)}
-                </div>
+                <input type="text" value={nif} onChange={e => setNif(e.target.value.toUpperCase())} className="w-full px-4 py-3 rounded-xl border bg-gray-50" />
               </div>
-
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">IBAN</label>
-                <input type="text" value={cuentaBancaria} onChange={e => setCuentaBancaria(formatIBAN(e.target.value))} className="w-full px-4 py-3 rounded-xl border bg-gray-50 font-mono text-sm" />
-              </div>
-
-              <div className="md:col-span-2 space-y-1">
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Dirección</label>
-                <input type="text" value={direccion} onChange={e => setDireccion(e.target.value)} className="w-full px-4 py-3 rounded-xl border bg-gray-50" />
-              </div>
-
-              <div className="grid grid-cols-3 gap-4 md:col-span-2">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">C.P.</label>
-                  <input type="text" value={cp} maxLength={5} onChange={e => setCp(e.target.value)} className="w-full px-4 py-3 rounded-xl border bg-gray-50 font-mono" />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Municipio</label>
-                  <input type="text" value={poblacion} onChange={e => setPoblacion(e.target.value)} className="w-full px-4 py-3 rounded-xl border bg-gray-50" />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Provincia</label>
-                  <input type="text" value={provincia} onChange={e => setProvincia(e.target.value)} className="w-full px-4 py-3 rounded-xl border bg-gray-50" />
-                </div>
+                <input type="text" value={cuentaBancaria} onChange={e => setCuentaBancaria(formatIBAN(e.target.value))} className="w-full px-4 py-3 rounded-xl border bg-gray-50" />
               </div>
             </div>
-
-            <button 
-              onClick={handleSavePerfil} 
-              disabled={isSaving} 
-              className="w-full mt-8 py-4 bg-blue-600 text-white font-bold rounded-2xl shadow-lg hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
-            >
-              {isSaving ? <RefreshCcw className="animate-spin" /> : <Save size={20} />} Guardar Perfil
+            <button onClick={handleSavePerfil} disabled={isSaving} className="w-full mt-8 py-4 bg-blue-600 text-white font-bold rounded-2xl shadow-lg hover:bg-blue-700 transition-all">
+              {isSaving ? <RefreshCcw className="animate-spin mx-auto" /> : "Guardar en mi Contabilidad"}
             </button>
-          </div>
-
-          <div className="bg-white rounded-2xl border p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="font-bold font-head flex items-center gap-2 text-green-600"><Percent size={18} /> Sincronizar Fiscalidad</h2>
-              <button onClick={handleSyncOfficial} disabled={syncing} className="p-2 hover:bg-blue-50 rounded-lg text-blue-500">
-                <RefreshCcw size={16} className={syncing ? 'animate-spin' : ''} />
-              </button>
-            </div>
-            <div className="space-y-2">
-              {tiposIva.map(t => (
-                <div key={t.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-xl border border-gray-100">
-                  <span className="text-sm font-medium">{t.nombre}</span>
-                  <span className="font-bold">{t.valor}%</span>
-                </div>
-              ))}
-            </div>
           </div>
         </div>
       </div>
