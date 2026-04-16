@@ -167,40 +167,47 @@ export default function ClientesPage() {
                     <div>
                       <input 
                         type="text" 
+                        autoComplete="off"
                         value={direccion} 
                         onChange={(e) => setDireccion(e.target.value)}
                         className="w-full p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)]"
                         placeholder="Dirección completa"
                       />
                     </div>
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                        <input 
                         type="text" 
+                        autoComplete="off"
                         value={cp} 
                         maxLength={5}
                         onChange={(e) => setCp(e.target.value)}
                         className="p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)] font-mono"
                         placeholder="C.P."
                       />
-                      <input 
-                        type="text" 
+                      
+                      <select 
                         value={provincia} 
                         onChange={(e) => setProvincia(e.target.value)}
-                        list="provincias-list"
-                        className="p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)]"
-                        placeholder="Provincia"
-                      />
-                      <datalist id="provincias-list">
-                        {PROVINCIAS_ESPANOLAS.map(p => <option key={p} value={p} />)}
-                      </datalist>
-                      
+                        className="p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)] cursor-pointer"
+                      >
+                        <option value="">Provincia...</option>
+                        {PROVINCIAS_ESPANOLAS.map(p => (
+                          <option key={p} value={p}>{p}</option>
+                        ))}
+                      </select>
+
                       <input 
                         type="text" 
+                        autoComplete="off"
                         value={poblacion} 
+                        list="municipios-list"
                         onChange={(e) => setPoblacion(e.target.value)}
                         className="p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)]"
                         placeholder="Municipio"
                       />
+                      <datalist id="municipios-list">
+                         <option value={poblacion} />
+                      </datalist>
                     </div>
                   </div>
                 </div>
