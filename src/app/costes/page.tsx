@@ -119,35 +119,45 @@ export default function CostesPage() {
   const cuotaIva = serie === "A" ? totalBase * (tipoIva / 100) : 0;
   const totalFactura = totalBase + cuotaIva;
 
+  const [saving, setSaving] = useState(false);
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!supabase) return;
+    if (!supabase) {
+      alert("Error: No hay conexión con la base de datos.");
+      return;
+    }
 
-    const { error } = await supabase
-      .from("costes")
-      .insert([{
-        serie,
-        num_interno: numInterno,
-        num_factura_proveedor: numFactProv,
-        fecha,
-        proveedor_id: proveedorId || null,
-        tipo_gasto: tipoGasto,
-        proyecto_id: tipoGasto === "proyecto" ? proyectoId : null,
-        base_imponible: totalBase,
-        iva_pct: serie === "A" ? tipoIva : 0,
-        iva_importe: cuotaIva,
-        total: totalFactura
-      }]);
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from("costes")
+        .insert([{
+          serie,
+          num_interno: numInterno,
+          num_factura_proveedor: numFactProv,
+          fecha,
+          proveedor_id: proveedorId || null,
+          tipo_gasto: tipoGasto,
+          proyecto_id: tipoGasto === "proyecto" ? proyectoId : null,
+          base_imponible: totalBase,
+          iva_pct: serie === "A" ? tipoIva : 0,
+          iva_importe: cuotaIva,
+          total: totalFactura
+        }]);
 
-    if (error) {
-      alert("Error: " + error.message);
-    } else {
+      if (error) throw error;
+
       setIsModalOpen(false);
       // Limpiar
       setNumFactProv("");
       setBaseImponible("");
       setProveedorId("");
       fetchData();
+    } catch (err: any) {
+      alert("Error al guardar coste: " + err.message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -291,12 +301,13 @@ export default function CostesPage() {
                   >
                     Cancelar
                   </button>
-                  <button 
+                   <button 
                     type="submit" 
-                    className="flex-1 py-2.5 text-sm font-bold bg-[var(--accent)] text-white rounded-xl shadow-md hover:shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                    disabled={saving}
+                    className="flex-1 py-2.5 text-sm font-bold bg-[var(--accent)] text-white rounded-xl shadow-md hover:shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                   >
-                    <Plus size={18} />
-                    Guardar Coste
+                    {saving ? <Loader2 className="animate-spin" size={18} /> : <Plus size={18} />}
+                    {saving ? "Guardando..." : "Guardar Coste"}
                   </button>
                 </div>
               </form>

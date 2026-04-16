@@ -95,43 +95,53 @@ export default function VentasPage() {
   const cuotaIva = serie === "A" ? baseImponible * 0.21 : 0;
   const totalFactura = baseImponible + cuotaIva;
 
+  const [saving, setSaving] = useState(false);
+
   const handleSaveInvoice = async () => {
     if (!clienteId || !numFactura) {
       alert("Faltan datos obligatorios (Cliente, Nº Factura)");
       return;
     }
 
-    const { data: venta, error: vError } = await supabase.from("ventas").insert([{
-      serie,
-      num_factura: numFactura,
-      fecha,
-      cliente_id: clienteId,
-      proyecto_id: proyectoId || null,
-      forma_cobro_id: formaCobroId || null,
-      base_imponible: baseImponible,
-      iva_pct: serie === "A" ? 21 : 0,
-      total: totalFactura
-    }]).select().single();
-
-    if (vError) {
-      alert("Error al guardar cabecera: " + vError.message);
+    if (!supabase) {
+      alert("Error: No hay conexión con la base de datos.");
       return;
     }
 
-    const lineasToInsert = lineas.map(l => ({
-      venta_id: venta.id,
-      unidades: l.unidades,
-      descripcion: l.descripcion,
-      precio_unitario: l.precio_unitario
-    }));
+    setSaving(true);
+    try {
+      const { data: venta, error: vError } = await supabase.from("ventas").insert([{
+        serie,
+        num_factura: numFactura,
+        fecha,
+        cliente_id: clienteId,
+        proyecto_id: proyectoId || null,
+        forma_cobro_id: formaCobroId || null,
+        base_imponible: baseImponible,
+        iva_pct: serie === "A" ? 21 : 0,
+        total: totalFactura
+      }]).select().single();
 
-    const { error: lError } = await supabase.from("venta_lineas").insert(lineasToInsert);
+      if (vError) throw vError;
 
-    if (lError) {
-      alert("Error al guardar líneas: " + lError.message);
-    } else {
+      const lineasToInsert = lineas.map(l => ({
+        venta_id: venta.id,
+        unidades: l.unidades,
+        descripcion: l.descripcion,
+        precio_unitario: l.precio_unitario
+      }));
+
+      const { error: lError } = await supabase.from("venta_lineas").insert(lineasToInsert);
+      if (lError) throw lError;
+
       setIsEditorOpen(false);
+      // Resetear campos
+      setLineas([{ unidades: 1, descripcion: "", precio_unitario: 0 }]);
       fetchData();
+    } catch (err: any) {
+      alert("Error al guardar: " + err.message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -330,9 +340,11 @@ export default function VentasPage() {
                 </button>
                 <button 
                   onClick={handleSaveInvoice} 
-                  className="flex items-center gap-2 px-6 py-2.5 bg-[var(--accent)] text-white rounded-xl font-bold shadow-md hover:shadow-lg active:scale-[0.98] transition-all"
+                  disabled={saving}
+                  className="flex items-center gap-2 px-6 py-2.5 bg-[var(--accent)] text-white rounded-xl font-bold shadow-md hover:shadow-lg active:scale-[0.98] transition-all disabled:opacity-50"
                 >
-                  <Save size={18} /> Guardar y Emitir
+                  {saving ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
+                  {saving ? "Emitiendo..." : "Guardar y Emitir"}
                 </button>
               </div>
             </div>

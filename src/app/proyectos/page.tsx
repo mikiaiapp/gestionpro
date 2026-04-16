@@ -51,29 +51,41 @@ export default function ProyectosPage() {
     }
   };
 
+  const [saving, setSaving] = useState(false);
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!nombre || !supabase) return;
+    if (!nombre) return;
+    
+    if (!supabase) {
+      alert("Error: No hay conexión con la base de datos.");
+      return;
+    }
 
-    const { error } = await supabase
-      .from("proyectos")
-      .insert([{
-        nombre,
-        cliente_id: clienteId || null,
-        estado,
-        presupuesto: parseFloat(presupuesto) || 0,
-        coste_previsto: parseFloat(costePrevisto) || 0
-      }]);
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from("proyectos")
+        .insert([{
+          nombre,
+          cliente_id: clienteId || null,
+          estado,
+          presupuesto: parseFloat(presupuesto) || 0,
+          coste_previsto: parseFloat(costePrevisto) || 0
+        }]);
 
-    if (error) {
-      alert("Error: " + error.message);
-    } else {
+      if (error) throw error;
+
       setNombre("");
       setClienteId("");
       setPresupuesto("");
       setCostePrevisto("");
       setIsModalOpen(false);
       fetchData();
+    } catch (err: any) {
+      alert("Error al crear proyecto: " + err.message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -166,10 +178,11 @@ export default function ProyectosPage() {
                   </button>
                   <button 
                     type="submit" 
-                    className="flex-1 py-2.5 text-sm font-bold bg-[var(--accent)] text-white rounded-xl shadow-md hover:shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                    disabled={saving}
+                    className="flex-1 py-2.5 text-sm font-bold bg-[var(--accent)] text-white rounded-xl shadow-md hover:shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                   >
-                    <Plus size={18} />
-                    Crear Proyecto
+                    {saving ? <Loader2 className="animate-spin" size={18} /> : <Plus size={18} />}
+                    {saving ? "Creando..." : "Crear Proyecto"}
                   </button>
                 </div>
               </form>

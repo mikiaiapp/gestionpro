@@ -51,24 +51,38 @@ export default function PagosPage() {
     }
   };
 
+  const [saving, setSaving] = useState(false);
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!costeId || !supabase) return;
+    if (!costeId) return;
+    
+    if (!supabase) {
+      alert("Error: No hay conexión con la base de datos.");
+      return;
+    }
 
-    const { error } = await supabase
-      .from("pagos")
-      .insert([{
-        coste_id: costeId,
-        fecha,
-        importe: parseFloat(importe) || 0,
-        forma_pago: formaPago
-      }]);
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from("pagos")
+        .insert([{
+          coste_id: costeId,
+          fecha,
+          importe: parseFloat(importe) || 0,
+          forma_pago: formaPago
+        }]);
 
-    if (error) {
-       alert("Error: " + error.message);
-    } else {
+      if (error) throw error;
+
       setIsModalOpen(false);
+      setImporte("");
+      setCosteId("");
       fetchData();
+    } catch (err: any) {
+      alert("Error al registrar pago: " + err.message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -129,7 +143,10 @@ export default function PagosPage() {
 
                 <div className="flex gap-3 mt-6">
                   <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-2.5 text-sm font-bold text-[var(--muted)] hover:bg-[var(--background)] rounded-lg transition-colors border border-[var(--border)]">Cancelar</button>
-                  <button type="submit" className="flex-1 py-2.5 text-sm font-bold bg-orange-600 text-white rounded-lg shadow-md hover:shadow-lg transition-all">Confirmar Pago</button>
+                  <button type="submit" disabled={saving} className="flex-1 py-2.5 text-sm font-bold bg-orange-600 text-white rounded-lg shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50">
+                    {saving ? <Loader2 className="animate-spin" size={18} /> : null}
+                    {saving ? "Registrando..." : "Confirmar Pago"}
+                  </button>
                 </div>
               </form>
             </div>
