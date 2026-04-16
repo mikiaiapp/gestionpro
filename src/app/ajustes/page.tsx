@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Sidebar } from "@/components/Sidebar";
-import { Settings, Save, CreditCard, Building, Plus, Trash2, Loader2, Image as ImageIcon } from "lucide-react";
+import { Settings, Save, CreditCard, Building, Plus, Trash2, Loader2, Image as ImageIcon, Percent, CheckCircle, Info } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 export default function AjustesPage() {
@@ -15,11 +15,23 @@ export default function AjustesPage() {
   const [cuentaBancaria, setCuentaBancaria] = useState("");
   const [direccion, setDireccion] = useState("");
   const [geminiKey, setGeminiKey] = useState("");
+  const [tieneRetencion, setTieneRetencion] = useState(false);
+  const [irpfDefault, setIrpfDefault] = useState(0);
   const [geminiStatus, setGeminiStatus] = useState({ msg: "", type: "muted" });
   
   // Formas de Cobro
   const [formasCobro, setFormasCobro] = useState<any[]>([]);
   const [nuevaForma, setNuevaForma] = useState("");
+
+  // Tipos IVA
+  const [tiposIva, setTiposIva] = useState<any[]>([]);
+  const [nuevoIvaNombre, setNuevoIvaNombre] = useState("");
+  const [nuevoIvaValor, setNuevoIvaValor] = useState(0);
+
+  // Tipos IRPF
+  const [tiposIrpf, setTiposIrpf] = useState<any[]>([]);
+  const [nuevoIrpfNombre, setNuevoIrpfNombre] = useState("");
+  const [nuevoIrpfValor, setNuevoIrpfValor] = useState(0);
 
   useEffect(() => {
     fetchAjustes();
@@ -31,13 +43,7 @@ export default function AjustesPage() {
       return;
     }
     setLoading(true);
-    
-    // Fail-safe: liberar la UI en 2 segundos si hay lag
-    const timeout = setTimeout(() => setLoading(false), 2000);
-
     try {
-      console.log("Fetching Ajustes data...");
-      // Intentar cargar perfil (ID 1 es el fijo)
       const { data: perfil } = await supabase.from("perfil_negocio").select("*").eq("id", 1).maybeSingle();
       if (perfil) {
         setNombre(perfil.nombre || "");
@@ -45,206 +51,161 @@ export default function AjustesPage() {
         setCuentaBancaria(perfil.cuenta_bancaria || "");
         setDireccion(perfil.direccion || "");
         setGeminiKey(perfil.gemini_key || "");
+        setTieneRetencion(perfil.tiene_retencion || false);
+        setIrpfDefault(perfil.irpf_default || 0);
       }
-
-      // Cargar formas de cobro
       const { data: fbc } = await supabase.from("formas_cobro").select("*").order("nombre");
+      const { data: iva } = await supabase.from("tipos_iva").select("*").order("valor", { ascending: false });
+      const { data: irpf } = await supabase.from("tipos_irpf").select("*").order("valor", { ascending: false });
       setFormasCobro(fbc || []);
-    } catch (e: any) {
-      console.error("Error cargando ajustes:", e);
+      setTiposIva(iva || []);
+      setTiposIrpf(irpf || []);
     } finally {
-      console.log("Ajustes load finished.");
-      clearTimeout(timeout);
       setLoading(false);
     }
   };
 
   const handleSavePerfil = async () => {
     setIsSaving(true);
-    const { error } = await supabase.from("perfil_negocio").upsert({
-      id: 1, // Usamos un ID fijo para el perfil único
+    await supabase.from("perfil_negocio").upsert({
+      id: 1,
       nombre,
       nif,
       cuenta_bancaria: cuentaBancaria,
       direccion,
-      gemini_key: geminiKey
+      gemini_key: geminiKey,
+      tiene_retencion: tieneRetencion,
+      irpf_default: irpfDefault
     });
-    
-    if (error) alert("Error al guardar: " + error.message);
-    else alert("Configuración guardada correctamente");
+    alert("Configuración guardada");
     setIsSaving(false);
   };
 
   const handleAddForma = async () => {
     if (!nuevaForma) return;
-    const { error } = await supabase.from("formas_cobro").insert([{ nombre: nuevaForma }]);
-    if (!error) {
-      setNuevaForma("");
-      fetchAjustes();
-    }
+    await supabase.from("formas_cobro").insert([{ nombre: nuevaForma }]);
+    setNuevaForma("");
+    fetchAjustes();
   };
 
-  const handleDeleteForma = async (id: string) => {
-    const { error } = await supabase.from("formas_cobro").delete().eq("id", id);
-    if (!error) fetchAjustes();
+  const handleAddIva = async () => {
+    if (!nuevoIvaNombre) return;
+    await supabase.from("tipos_iva").insert([{ nombre: nuevoIvaNombre, valor: nuevoIvaValor }]);
+    setNuevoIvaNombre(""); setNuevoIvaValor(0);
+    fetchAjustes();
+  };
+
+  const handleAddIrpf = async () => {
+    if (!nuevoIrpfNombre) return;
+    await supabase.from("tipos_irpf").insert([{ nombre: nuevoIrpfNombre, valor: nuevoIrpfValor }]);
+    setNuevoIrpfNombre(""); setNuevoIrpfValor(0);
+    fetchAjustes();
+  };
+
+  const handleDelete = async (table: string, id: string) => {
+    await supabase.from(table).delete().eq("id", id);
+    fetchAjustes();
   };
 
   const testGeminiKey = async () => {
-    if (!geminiKey) {
-      setGeminiStatus({ msg: "Introduce la clave primero", type: "red" });
-      return;
-    }
+    if (!geminiKey) return;
     setGeminiStatus({ msg: "Verificando...", type: "muted" });
     try {
       const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${geminiKey}&pageSize=1`);
-      const data = await res.json();
-      if (data.error) throw new Error(data.error.message);
-      setGeminiStatus({ msg: "✓ Conexión establecida correctamente", type: "green" });
-    } catch (e: any) {
-      setGeminiStatus({ msg: "✕ Error: " + e.message, type: "red" });
+      setGeminiStatus(res.ok ? { msg: "✓ OK", type: "green" } : { msg: "✕ API Key inválida", type: "red" });
+    } catch {
+      setGeminiStatus({ msg: "✕ Error", type: "red" });
     }
   };
 
   if (loading) return (
     <div className="flex bg-[var(--background)] min-h-screen">
       <Sidebar />
-      <div className="flex-1 flex items-center justify-center">
-        <Loader2 className="animate-spin text-[var(--accent)]" size={40} />
-      </div>
+      <div className="flex-1 flex items-center justify-center"><Loader2 className="animate-spin" size={40} /></div>
     </div>
   );
 
   return (
-    <div className="flex bg-[var(--background)] min-h-screen">
+    <div className="flex bg-[var(--background)] min-h-screen text-left">
       <Sidebar />
       <div className="flex-1 p-8 overflow-y-auto">
         <header className="mb-10">
-          <h1 className="text-3xl font-bold font-head tracking-tight mb-1 text-[var(--foreground)]">Ajustes</h1>
-          <p className="text-[var(--muted)] font-medium">Configuración de empresa, identidad fiscal y tesorería.</p>
+          <h1 className="text-3xl font-bold font-head tracking-tight mb-1">Ajustes</h1>
+          <p className="text-[var(--muted)] font-medium">Configuración de empresa e identidad fiscal.</p>
         </header>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          
-          {/* PERFIL EMPRESA / EMISOR */}
-          <div className="bg-white rounded-2xl border border-[var(--border)] shadow-sm p-8 h-fit">
-            <h2 className="text-xl font-bold font-head mb-6 flex items-center gap-2">
-              <Building className="text-[var(--accent)]" /> Datos del Emisor
-            </h2>
-            <div className="space-y-6">
-              <div className="flex items-center gap-4 p-4 border border-dashed border-gray-200 rounded-xl bg-gray-50 mb-6">
-                <div className="w-16 h-16 rounded-lg bg-white border border-gray-200 flex items-center justify-center text-gray-300">
-                  <ImageIcon size={24} />
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-gray-700">Logo de Empresa</p>
-                  <p className="text-[10px] text-gray-400 font-bold uppercase">Click para subir (PNG/JPG)</p>
-                </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 pb-20">
+          <div className="bg-white rounded-2xl border border-[var(--border)] shadow-sm p-8 space-y-6">
+            <h2 className="text-xl font-bold font-head mb-6 flex items-center gap-2"><Building className="text-[var(--accent)]" /> Datos del Emisor</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="md:col-span-2">
+                <label className="block text-[11px] font-bold text-gray-400 uppercase mb-1">Nombre Comercial</label>
+                <input type="text" value={nombre} onChange={e => setNombre(e.target.value)} className="w-full p-3 rounded-xl border border-gray-200 font-bold" />
               </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-gray-400 uppercase mb-1">Nombre Comercial / Razón Social</label>
-                <input type="text" value={nombre} onChange={e => setNombre(e.target.value)} className="w-full p-3 rounded-xl border border-gray-200 focus:outline-none focus:border-[var(--accent)] font-bold" />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[11px] font-bold text-gray-400 uppercase mb-1">NIF / CIF</label>
-                  <input type="text" value={nif} onChange={e => setNif(e.target.value)} className="w-full p-3 rounded-xl border border-gray-200 focus:outline-none focus:border-[var(--accent)] uppercase" />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-gray-400 uppercase mb-1">Cuenta Bancaria (IBAN)</label>
-                  <input type="text" value={cuentaBancaria} onChange={e => setCuentaBancaria(e.target.value)} className="w-full p-3 rounded-xl border border-gray-200 focus:outline-none focus:border-[var(--accent)] font-mono text-sm" placeholder="ES00 0000..." />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-gray-400 uppercase mb-1">Dirección Fiscal</label>
-                <textarea value={direccion} onChange={e => setDireccion(e.target.value)} className="w-full p-3 rounded-xl border border-gray-200 focus:outline-none focus:border-[var(--accent)] text-sm" rows={3} />
-              </div>
-
-              <button 
-                onClick={handleSavePerfil}
-                disabled={isSaving}
-                className="w-full flex items-center justify-center gap-2 py-3 bg-[var(--accent)] text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all"
-              >
-                {isSaving ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
-                {isSaving ? "Guardando..." : "Guardar Configuración"}
-              </button>
+              <div><label className="block text-[11px] font-bold text-gray-400 uppercase mb-1">NIF / CIF</label><input type="text" value={nif} onChange={e => setNif(e.target.value)} className="w-full p-3 rounded-xl border border-gray-200 uppercase" /></div>
+              <div><label className="block text-[11px] font-bold text-gray-400 uppercase mb-1">IBAN</label><input type="text" value={cuentaBancaria} onChange={e => setCuentaBancaria(e.target.value)} className="w-full p-3 rounded-xl border border-gray-200 font-mono text-sm" /></div>
             </div>
-          </div>
-
-          {/* INTELIGENCIA ARTIFICIAL (GEMINI) */}
-          <div className="bg-white rounded-2xl border border-[var(--border)] shadow-sm p-8 h-fit">
-            <h2 className="text-xl font-bold font-head mb-6 flex items-center gap-2">
-              <span className="text-xl">✨</span> Inteligencia Artificial (Gemini)
-            </h2>
-            <p className="text-sm text-[var(--muted)] mb-6">Configura tu API Key de Google para activar el importador automático de facturas en PDF.</p>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-[11px] font-bold text-gray-400 uppercase mb-1">Google Gemini API KEY</label>
-                <div className="flex gap-2">
-                  <input 
-                    type="password" 
-                    value={geminiKey} 
-                    onChange={e => setGeminiKey(e.target.value)}
-                    placeholder="AIzaSy..."
-                    className="flex-1 p-3 rounded-xl border border-gray-200 focus:outline-none focus:border-[var(--accent)] font-mono text-sm"
-                  />
-                  <button onClick={testGeminiKey} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-xs transition-colors">
-                    Probar
-                  </button>
-                </div>
-                {geminiStatus.msg && (
-                  <p className={`text-[10px] mt-2 font-bold uppercase ${geminiStatus.type === 'green' ? 'text-green-600' : 'text-red-500'}`}>
-                    {geminiStatus.msg}
-                  </p>
-                )}
-                <p className="text-[10px] mt-3 text-gray-400">
-                  Consigue tu clave gratuita en <a href="https://aistudio.google.com/apikey" target="_blank" className="text-[var(--accent)] underline">Google AI Studio</a>.
-                </p>
+            <div className="p-4 rounded-xl bg-blue-50/50 border border-blue-100">
+              <div className="flex items-center gap-2 mb-1">
+                <input type="checkbox" id="ret" checked={tieneRetencion} onChange={e => setTieneRetencion(e.target.checked)} className="w-4 h-4" />
+                <label htmlFor="ret" className="text-sm font-bold text-gray-700">Facturar con IRPF</label>
               </div>
-            </div>
-          </div>
-
-          {/* FORMAS DE COBRO */}
-          <div className="bg-white rounded-2xl border border-[var(--border)] shadow-sm p-8 h-fit">
-            <h2 className="text-xl font-bold font-head mb-6 flex items-center gap-2">
-              <CreditCard className="text-[var(--accent)]" /> Formas de Cobro
-            </h2>
-            <p className="text-sm text-[var(--muted)] mb-6">Estas opciones aparecerán en el editor al crear nuevas facturas.</p>
-            
-            <div className="flex gap-2 mb-6">
-              <input 
-                type="text" 
-                value={nuevaForma} 
-                onChange={e => setNuevaForma(e.target.value)}
-                placeholder="Ej: Transferencia 30 días"
-                className="flex-1 p-2.5 rounded-lg border border-gray-200 focus:outline-none focus:border-[var(--accent)] transition-colors"
-                onKeyPress={e => e.key === 'Enter' && handleAddForma()}
-              />
-              <button onClick={handleAddForma} className="p-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors">
-                <Plus size={20} />
-              </button>
-            </div>
-
-            <div className="space-y-2">
-              {formasCobro.map(f => (
-                <div key={f.id} className="flex justify-between items-center p-4 bg-gray-50 rounded-xl border border-transparent hover:border-gray-200 transition-all group">
-                  <span className="font-bold text-gray-700">{f.nombre}</span>
-                  <button onClick={() => handleDeleteForma(f.id)} className="p-2 text-red-200 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all">
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              ))}
-              {formasCobro.length === 0 && (
-                <div className="text-center p-8 border-2 border-dashed border-gray-100 rounded-2xl text-gray-400 italic text-sm">
-                  No hay formas de cobro definidas.
-                </div>
+              {tieneRetencion && (
+                <div className="mt-2"><label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">% Retención por defecto</label><input type="number" value={irpfDefault} onChange={e => setIrpfDefault(parseFloat(e.target.value))} className="w-24 p-2 rounded-lg border border-blue-200" /></div>
               )}
             </div>
+            <button onClick={handleSavePerfil} disabled={isSaving} className="w-full flex items-center justify-center gap-2 py-3 bg-[var(--accent)] text-white font-bold rounded-xl">{isSaving ? <Loader2 className="animate-spin" /> : <Save size={18} />} Guardar</button>
           </div>
-
+          <div className="space-y-8">
+             <div className="bg-white rounded-2xl border p-8">
+                <h2 className="text-xl font-bold font-head mb-6 flex items-center gap-2"><Percent className="text-green-600" /> IVA</h2>
+                <div className="flex gap-2 mb-4">
+                  <input type="text" placeholder="Nombre" value={nuevoIvaNombre} onChange={e => setNuevoIvaNombre(e.target.value)} className="flex-1 p-2 border rounded-lg text-sm" />
+                  <input type="number" value={nuevoIvaValor} onChange={e => setNuevoIvaValor(parseFloat(e.target.value))} className="w-16 p-2 border rounded-lg text-center" />
+                  <button onClick={handleAddIva} className="p-2 bg-green-50 text-green-700 rounded-lg"><Plus size={20}/></button>
+                </div>
+                <div className="space-y-2">{tiposIva.map(v => (
+                  <div key={v.id} className="flex justify-between items-center p-2 bg-gray-50 rounded-lg group">
+                    <span className="text-sm font-bold">{v.nombre} ({v.valor}%)</span>
+                    <button onClick={() => handleDelete('tipos_iva', v.id)} className="text-red-300 hover:text-red-500 opacity-0 group-hover:opacity-100"><Trash2 size={16}/></button>
+                  </div>
+                ))}</div>
+             </div>
+             <div className="bg-white rounded-2xl border p-8">
+                <h2 className="text-xl font-bold font-head mb-6 flex items-center gap-2"><Percent className="text-orange-600" /> IRPF</h2>
+                <div className="flex gap-2 mb-4">
+                  <input type="text" placeholder="Nombre" value={nuevoIrpfNombre} onChange={e => setNuevoIrpfNombre(e.target.value)} className="flex-1 p-2 border rounded-lg text-sm" />
+                  <input type="number" value={nuevoIrpfValor} onChange={e => setNuevoIrpfValor(parseFloat(e.target.value))} className="w-16 p-2 border rounded-lg text-center" />
+                  <button onClick={handleAddIrpf} className="p-2 bg-orange-50 text-orange-700 rounded-lg"><Plus size={20}/></button>
+                </div>
+                <div className="space-y-2">{tiposIrpf.map(v => (
+                  <div key={v.id} className="flex justify-between items-center p-2 bg-gray-50 rounded-lg group">
+                    <span className="text-sm font-bold">{v.nombre} ({v.valor}%)</span>
+                    <button onClick={() => handleDelete('tipos_irpf', v.id)} className="text-red-300 hover:text-red-500 opacity-0 group-hover:opacity-100"><Trash2 size={16}/></button>
+                  </div>
+                ))}</div>
+             </div>
+          </div>
+          <div className="bg-white rounded-2xl border p-8">
+            <h2 className="text-xl font-bold font-head mb-6 flex items-center gap-2"><CreditCard className="text-blue-600" /> Pagos/Cobros</h2>
+            <div className="flex gap-2 mb-4">
+              <input type="text" value={nuevaForma} onChange={e => setNuevaForma(e.target.value)} placeholder="Forma pago" className="flex-1 p-2 border rounded-lg text-sm" />
+              <button onClick={handleAddForma} className="p-2 bg-blue-50 text-blue-700 rounded-lg"><Plus size={20} /></button>
+            </div>
+            <div className="space-y-2">{formasCobro.map(f => (
+              <div key={f.id} className="flex justify-between items-center p-2 bg-gray-50 rounded-lg group">
+                <span className="text-sm font-bold">{f.nombre}</span>
+                <button onClick={() => handleDelete('formas_cobro', f.id)} className="text-red-300 hover:text-red-500 opacity-0 group-hover:opacity-100"><Trash2 size={16} /></button>
+              </div>
+            ))}</div>
+          </div>
+          <div className="bg-white rounded-2xl border p-8">
+            <h2 className="text-xl font-bold font-head mb-6 flex items-center gap-2">✨ Gemini AI</h2>
+            <div className="space-y-4">
+                <input type="password" value={geminiKey} onChange={e => setGeminiKey(e.target.value)} placeholder="API KEY" className="w-full p-3 border rounded-xl font-mono text-sm" />
+                <button onClick={testGeminiKey} className="w-full py-2 bg-gray-100 rounded-xl font-bold">Probar</button>
+                {geminiStatus.msg && <p className="text-[10px] font-bold uppercase">{geminiStatus.msg}</p>}
+            </div>
+          </div>
         </div>
       </div>
     </div>
