@@ -17,6 +17,15 @@ export default function CobrosPage() {
   const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
   const [importe, setImporte] = useState("");
   const [formaPago, setFormaPago] = useState("Transferencia");
+  const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleClickOutside = () => setOpenMenuId(null);
+    window.addEventListener("click", handleClickOutside);
+    return () => window.removeEventListener("click", handleClickOutside);
+  }, []);
 
   useEffect(() => {
     fetchData();
@@ -248,23 +257,34 @@ export default function CobrosPage() {
                       <td className="px-6 py-4 text-right font-mono text-sm font-bold text-green-700">
                         {new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(cb.importe || 0)}
                       </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex justify-end items-center gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button 
-                            onClick={() => openEditModal(cb)}
-                            className="p-2 hover:bg-blue-50 text-blue-600 rounded-lg transition-colors"
-                            title="Editar Cobro"
-                          >
-                            <Save size={16} />
-                          </button>
-                          <button 
-                            onClick={() => handleDeleteCobro(cb.id)}
-                            className="p-2 hover:bg-red-50 text-red-600 rounded-lg transition-colors"
-                            title="Eliminar Cobro"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
+                      <td className="px-6 py-4 text-center relative">
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenMenuId(openMenuId === cb.id ? null : cb.id);
+                          }}
+                          className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-400 hover:text-gray-600"
+                        >
+                          <MoreHorizontal size={20} />
+                        </button>
+
+                        {openMenuId === cb.id && (
+                          <div className="absolute right-6 top-12 w-48 bg-white rounded-xl shadow-xl border border-[var(--border)] z-50 py-2 animate-in fade-in slide-in-from-top-2 duration-200 text-left">
+                            <button 
+                              onClick={() => openEditModal(cb)}
+                              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-700 transition-colors"
+                            >
+                              <Save size={16} /> Editar Cobro
+                            </button>
+                            <div className="h-px bg-gray-100 my-1 mx-2"></div>
+                            <button 
+                              onClick={() => handleDeleteCobro(cb.id)}
+                              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                            >
+                              <Trash2 size={16} /> Eliminar Cobro
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))}

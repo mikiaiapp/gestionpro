@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { Sidebar } from "@/components/Sidebar";
 import { Receipt, Plus, Search, MoreHorizontal, Loader2, Trash2, Save, FileText, Download, Printer, FolderKanban } from "lucide-react";
 import { supabase } from "@/lib/supabase";
@@ -12,6 +13,15 @@ interface LineaFactura {
 }
 
 export default function VentasPage() {
+  return (
+    <Suspense fallback={<div className="flex h-screen items-center justify-center bg-[var(--background)]"><Loader2 className="animate-spin text-[var(--accent)]" size={40} /></div>}>
+      <VentasContent />
+    </Suspense>
+  );
+}
+
+function VentasContent() {
+  const searchParams = useSearchParams();
   const [ventas, setVentas] = useState<any[]>([]);
   const [clientes, setClientes] = useState<any[]>([]);
   const [proyectos, setProyectos] = useState<any[]>([]);
@@ -19,8 +29,32 @@ export default function VentasPage() {
   const [perfil, setPerfil] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
+  const [invoicingMode, setInvoicingMode] = useState<"manual" | "avance" | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  // Estados temporales del Wizard
+  const [selectedProjId, setSelectedProjId] = useState("");
+  const [pct, setPct] = useState("10");
+
+  useEffect(() => {
+    const pId = searchParams.get("proyectoId");
+    const mode = searchParams.get("mode");
+    if (pId && mode === "avance") {
+      setSelectedProjId(pId);
+      setInvoicingMode("avance");
+      setEditingId(null);
+      setIsWizardOpen(true);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    const handleClickOutside = () => setOpenMenuId(null);
+    window.addEventListener("click", handleClickOutside);
+    return () => window.removeEventListener("click", handleClickOutside);
+  }, []);
 
   // Estados del Editor
   const [serie, setSerie] = useState("A");
@@ -403,22 +437,137 @@ export default function VentasPage() {
                   Libro IVA
                 </button>
                 <button 
-                  onClick={async () => {
-                    setEditingId(null);
-                    setLineas([{ unidades: 1, descripcion: "", precio_unitario: 0 }]);
-                    // Propone un número base antes de consultar para que nunca salga vacío
-                    const currentYear = new Date().getFullYear();
-                    if (!numFactura) setNumFactura(`${currentYear}-001`);
-                    
-                    await fetchData();
-                    setIsEditorOpen(true);
-                  }} 
+                  onClick={() => setIsWizardOpen(true)}
                   className="flex items-center gap-2 px-6 py-3 rounded-xl bg-[var(--accent)] text-white font-bold hover:shadow-lg transition-all active:scale-[0.98]"
                 >
                   <Plus size={18} /> Crear Factura
                 </button>
               </div>
             </header>
+
+            {/* ASISTENTE DE FACTURACIÓN */}
+            {isWizardOpen && (
+              <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+                <div className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-lg border border-[var(--border)] animate-in zoom-in duration-200">
+                  <h2 className="text-2xl font-bold font-head mb-2 text-[var(--foreground)]">Asistente de Facturación</h2>
+                  <p className="text-[var(--muted)] mb-8">
+                    {invoicingMode === "avance" ? "Configura el avance del proyecto" : "¿Cómo deseas generar esta factura?"}
+                  </p>
+                  
+                  {!invoicingMode ? (
+                    <div className="grid grid-cols-1 gap-4">
+                      <button 
+                        onClick={() => setInvoicingMode("avance")}
+                        className="flex items-center gap-4 p-5 rounded-2xl border-2 border-gray-100 hover:border-[var(--accent)] hover:bg-orange-50/30 transition-all text-left group"
+                      >
+                        <div className="w-12 h-12 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                          <FolderKanban size={24} />
+                        </div>
+                        <div>
+                          <div className="font-bold text-gray-800">Grado de Avance de Proyecto</div>
+                          <div className="text-xs text-gray-500">Factura un % específico sobre un presupuesto existente.</div>
+                        </div>
+                      </button>
+
+                      <button 
+                        onClick={() => {
+                          setInvoicingMode("manual");
+                          setIsWizardOpen(false);
+                          setEditingId(null);
+                          setProyectoId("");
+                          setLineas([{ unidades: 1, descripcion: "", precio_unitario: 0 }]);
+                          setIsEditorOpen(true);
+                        }}
+                        className="flex items-center gap-4 p-5 rounded-2xl border-2 border-gray-100 hover:border-[var(--accent)] hover:bg-orange-50/30 transition-all text-left group"
+                      >
+                        <div className="w-12 h-12 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                          <FileText size={24} />
+                        </div>
+                        <div>
+                          <div className="font-bold text-gray-800">Otras facturas (Manual)</div>
+                          <div className="text-xs text-gray-500">Crea una factura libre añadiendo líneas manualmente.</div>
+                        </div>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
+                      <div>
+                        <label className="block text-[11px] font-bold text-gray-400 uppercase mb-2">Seleccionar Proyecto</label>
+                        <select 
+                          value={selectedProjId} 
+                          onChange={(e) => setSelectedProjId(e.target.value)}
+                          className="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white font-bold"
+                        >
+                          <option value="">— Seleccionar —</option>
+                          {proyectos.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+                        </select>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[11px] font-bold text-gray-400 uppercase mb-2">% de Avance</label>
+                          <div className="relative">
+                            <input 
+                              type="number" 
+                              value={pct}
+                              onChange={(e) => setPct(e.target.value)}
+                              className="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white font-bold text-lg text-orange-600"
+                            />
+                            <span className="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-gray-400">%</span>
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-gray-400 uppercase mb-2">Importe Estimado</label>
+                          <div className="p-3 rounded-xl bg-gray-50 border border-gray-100 font-mono font-bold text-gray-600 h-[52px] flex items-center">
+                            {new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(
+                              ((proyectos.find(p => p.id === selectedProjId)?.venta_prevista || 0) * parseFloat(pct || "0")) / 100
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-3 pt-4">
+                        <button 
+                          onClick={() => setInvoicingMode(null)}
+                          className="flex-1 py-3 text-sm font-bold text-gray-500 hover:bg-gray-100 rounded-xl transition-all"
+                        >
+                          Volver
+                        </button>
+                        <button 
+                          disabled={!selectedProjId || !pct}
+                          onClick={() => {
+                            const proj = proyectos.find(p => p.id === selectedProjId);
+                            const importeVal = ((proj?.venta_prevista || 0) * parseFloat(pct)) / 100;
+                            
+                            setProyectoId(selectedProjId);
+                            setClienteId(proj?.cliente_id || "");
+                            setLineas([{
+                              unidades: 1,
+                              descripcion: `${pct}% Avance proyecto: ${proj?.nombre}`,
+                              precio_unitario: importeVal
+                            }]);
+                            setIsWizardOpen(false);
+                            setIsEditorOpen(true);
+                          }}
+                          className="flex-1 py-3 bg-[var(--accent)] text-white font-bold rounded-xl shadow-md hover:shadow-lg disabled:opacity-50 transition-all"
+                        >
+                          Generar Factura
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {!invoicingMode && (
+                    <button 
+                      onClick={() => setIsWizardOpen(false)}
+                      className="w-full mt-6 py-3 text-sm font-bold text-gray-400 hover:text-gray-600 transition-colors"
+                    >
+                      Cerrar ahora
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
 
             <div className="glass-card bg-white shadow-sm border-[var(--border)] overflow-hidden">
                 <table className="w-full text-left border-collapse">
@@ -428,7 +577,7 @@ export default function VentasPage() {
                       <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">Fecha</th>
                       <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">Cliente</th>
                       <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Total</th>
-                      <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right text-red-600">Acciones</th>
+                      <th className="px-6 py-4 text-[11px] font-bold text-center text-red-600">Acciones</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[var(--border)]">
@@ -438,30 +587,43 @@ export default function VentasPage() {
                         <td className="px-6 py-4 text-sm text-[var(--muted)]">{new Date(v.fecha).toLocaleDateString()}</td>
                         <td className="px-6 py-4 text-sm">{v.clientes?.nombre}</td>
                         <td className="px-6 py-4 text-right font-bold text-[var(--accent)]">{new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(v.total)}</td>
-                        <td className="px-6 py-4 text-right">
-                          <div className="flex justify-end gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button 
-                              onClick={() => downloadInvoice(v)}
-                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                              title="Descargar PDF / Imprimir"
-                            >
-                              <Printer size={16} />
-                            </button>
-                            <button 
-                              onClick={() => openEditVenta(v)}
-                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                              title="Editar Factura"
-                            >
-                              <Save size={16} />
-                            </button>
-                            <button 
-                              onClick={() => handleDeleteVenta(v.id, `${v.serie}-${v.num_factura}`, v.serie, v.num_factura)}
-                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                              title="Eliminar Factura"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
+                        <td className="px-6 py-4 text-center relative">
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenMenuId(openMenuId === v.id ? null : v.id);
+                            }}
+                            className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-400 hover:text-gray-600"
+                          >
+                            <MoreHorizontal size={20} />
+                          </button>
+
+                          {openMenuId === v.id && (
+                            <div className="absolute right-6 top-12 w-48 bg-white rounded-xl shadow-xl border border-[var(--border)] z-50 py-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                              <button 
+                                onClick={() => downloadInvoice(v)}
+                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-700 transition-colors"
+                              >
+                                <Printer size={16} /> Imprimir / PDF
+                              </button>
+                              <button 
+                                onClick={() => {
+                                  setInvoicingMode("manual");
+                                  openEditVenta(v);
+                                }}
+                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-700 transition-colors"
+                              >
+                                <Save size={16} /> Editar Factura
+                              </button>
+                              <div className="h-px bg-gray-100 my-1 mx-2"></div>
+                              <button 
+                                onClick={() => handleDeleteVenta(v.id, `${v.serie}-${v.num_factura}`, v.serie, v.num_factura)}
+                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                              >
+                                <Trash2 size={16} /> Eliminar Factura
+                              </button>
+                            </div>
+                          )}
                         </td>
                       </tr>
                     ))}
