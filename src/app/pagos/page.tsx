@@ -25,21 +25,27 @@ export default function PagosPage() {
   const fetchData = async () => {
     if (!supabase) return;
     setLoading(true);
+
+    // Fail-safe: si en 2 segundos no ha cargado, desbloqueamos la UI
+    const timeout = setTimeout(() => setLoading(false), 2000);
     
-    const { data: pgs } = await supabase
-      .from("pagos")
-      .select("*, costes(num_interno, serie, proveedores(nombre))")
-      .order("fecha", { ascending: false });
+    try {
+      const { data: pgs } = await supabase
+        .from("pagos")
+        .select("*, costes(num_interno, serie, proveedores(nombre))")
+        .order("fecha", { ascending: false });
 
-    // Cargar Costes para el selector
-    const { data: csts } = await supabase
-      .from("costes")
-      .select("id, num_interno, serie, total, proveedores(nombre)")
-      .order("num_interno");
+      const { data: csts } = await supabase
+        .from("costes")
+        .select("id, num_interno, serie, total, proveedores(nombre)")
+        .order("num_interno");
 
-    setPagos(pgs || []);
-    setCostes(csts || []);
-    setLoading(false);
+      setPagos(pgs || []);
+      setCostes(csts || []);
+    } finally {
+      clearTimeout(timeout);
+      setLoading(false);
+    }
   };
 
   const handleSave = async (e: React.FormEvent) => {

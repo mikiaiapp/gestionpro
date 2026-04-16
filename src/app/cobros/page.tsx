@@ -25,21 +25,27 @@ export default function CobrosPage() {
   const fetchData = async () => {
     if (!supabase) return;
     setLoading(true);
+
+    // Fail-safe: si en 2 segundos no ha cargado, desbloqueamos la UI
+    const timeout = setTimeout(() => setLoading(false), 2000);
     
-    const { data: cbs } = await supabase
-      .from("cobros")
-      .select("*, ventas(num_factura, serie, clientes(nombre))")
-      .order("fecha", { ascending: false });
+    try {
+      const { data: cbs } = await supabase
+        .from("cobros")
+        .select("*, ventas(num_factura, serie, clientes(nombre))")
+        .order("fecha", { ascending: false });
 
-    // Cargar Ventas con pendiente (lo ideal sería calcular el pendiente real)
-    const { data: vts } = await supabase
-      .from("ventas")
-      .select("id, num_factura, serie, total, clientes(nombre)")
-      .order("num_factura");
+      const { data: vts } = await supabase
+        .from("ventas")
+        .select("id, num_factura, serie, total, clientes(nombre)")
+        .order("num_factura");
 
-    setCobros(cbs || []);
-    setVentas(vts || []);
-    setLoading(false);
+      setCobros(cbs || []);
+      setVentas(vts || []);
+    } finally {
+      clearTimeout(timeout);
+      setLoading(false);
+    }
   };
 
   const handleSave = async (e: React.FormEvent) => {
