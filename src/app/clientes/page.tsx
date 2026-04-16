@@ -58,7 +58,14 @@ export default function ClientesPage() {
         const filtrados = todosLosMunicipios
           .filter(m => parseInt(m.parent_code, 10) === parseInt(resp.id, 10))
           .map(m => m.label);
+        
         setMunicipiosSugeridos(filtrados);
+        
+        // Si encontramos municipios para ese código de provincia, proponemos el primero 
+        // (Suele ser el más probable o el único en CPs pequeños)
+        if (filtrados.length > 0 && !poblacion) {
+          setPoblacion(filtrados[0]);
+        }
       }
     }
   }, [cp, todosLosMunicipios]);

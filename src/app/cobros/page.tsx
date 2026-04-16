@@ -29,8 +29,8 @@ export default function CobrosPage() {
     }
     setLoading(true);
 
-    // Fail-safe: si en 2 segundos no ha cargado, desbloqueamos la UI
-    const timeout = setTimeout(() => setLoading(false), 2000);
+    // Fail-safe: si en 3 segundos no ha cargado, desbloqueamos la UI
+    const timeout = setTimeout(() => setLoading(false), 3000);
     
     try {
       const { data: cbs } = await supabase
@@ -51,7 +51,23 @@ export default function CobrosPage() {
     }
   };
 
-  const [saving, setSaving] = useState(false);
+  const openAddModal = () => {
+    setEditingId(null);
+    setVentaId("");
+    setFecha(new Date().toISOString().split('T')[0]);
+    setImporte("");
+    setFormaPago("Transferencia");
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (cb: any) => {
+    setEditingId(cb.id);
+    setVentaId(cb.venta_id);
+    setFecha(cb.fecha);
+    setImporte(cb.importe?.toString() || "");
+    setFormaPago(cb.forma_pago || "Transferencia");
+    setIsModalOpen(true);
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,26 +80,40 @@ export default function CobrosPage() {
 
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from("cobros")
-        .insert([{
-          venta_id: ventaId,
-          fecha,
-          importe: parseFloat(importe) || 0,
-          forma_pago: formaPago
-        }]);
+      const payload = {
+        venta_id: ventaId,
+        fecha,
+        importe: parseFloat(importe) || 0,
+        forma_pago: formaPago
+      };
+
+      let error;
+      if (editingId) {
+        const { error: updateError } = await supabase.from("cobros").update([payload]).eq("id", editingId);
+        error = updateError;
+      } else {
+        const { error: insertError } = await supabase.from("cobros").insert([payload]);
+        error = insertError;
+      }
 
       if (error) throw error;
 
       setIsModalOpen(false);
-      setImporte("");
-      setVentaId("");
       fetchData();
     } catch (err: any) {
-      alert("Error al registrar cobro: " + err.message);
+      alert("Error al guardar cobro: " + err.message);
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleDeleteCobro = async (id: string) => {
+    if (!supabase) return;
+    if (!confirm("¿Estás seguro de que deseas eliminar este registro de cobro?")) return;
+
+    const { error } = await supabase.from("cobros").delete().eq("id", id);
+    if (error) alert("Error al eliminar: " + error.message);
+    else fetchData();
   };
 
   return (
@@ -96,7 +126,7 @@ export default function CobrosPage() {
             <p className="text-[var(--muted)] font-medium">Tesorería: Entrada de fondos de clientes.</p>
           </div>
           <button 
-            onClick={() => setIsModalOpen(true)}
+            onClick={openAddModal}
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--accent)] text-white font-bold hover:shadow-lg transition-all active:scale-[0.98]"
           >
             <Plus size={18} />
@@ -107,8 +137,11 @@ export default function CobrosPage() {
         {isModalOpen && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
             <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md border border-[var(--border)] animate-in fade-in zoom-in duration-200">
-              <h2 className="text-xl font-bold font-head mb-6">💰 Registrar Cobro</h2>
-              <form onSubmit={handleSave} className="space-y-4">
+              <h2 className="text-xl font-bold font-head mb-6 flex items-center gap-2">
+                {editingId ? <Save className="text-[var(--accent)]" size={20} /> : <HandCoins className="text-[var(--accent)]" size={20} />}
+                {editingId ? "Editar Cobro" : "Registrar Cobro"}
+              </h2>
+              <form onSubmit={handleSave} className="space-y-4 text-left">
                 <div>
                   <label className="block text-[11px] font-bold text-[var(--muted)] uppercase mb-1">Factura Emitida</label>
                   <select value={ventaId} onChange={(e) => setVentaId(e.target.value)} className="w-full p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)]">
@@ -141,11 +174,11 @@ export default function CobrosPage() {
                   </select>
                 </div>
 
-                <div className="flex gap-3 mt-6">
+                <div className="flex gap-3 mt-8">
                   <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-2.5 text-sm font-bold text-[var(--muted)] hover:bg-[var(--background)] rounded-lg transition-colors border border-[var(--border)]">Cancelar</button>
                   <button type="submit" disabled={saving} className="flex-1 py-2.5 text-sm font-bold bg-[var(--accent)] text-white rounded-lg shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50">
-                    {saving ? <Loader2 className="animate-spin" size={18} /> : null}
-                    {saving ? "Registrando..." : "Confirmar Cobro"}
+                    {saving ? <Loader2 className="animate-spin" size={18} /> : (editingId ? <Save size={18} /> : <Plus size={18} />)}
+                    {saving ? "Guardando..." : (editingId ? "Actualizar" : "Confirmar Cobro")}
                   </button>
                 </div>
               </form>
@@ -191,7 +224,7 @@ export default function CobrosPage() {
                     <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">Factura Origen</th>
                     <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">Forma de Pago</th>
                     <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Importe</th>
-                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Acciones</th>
+                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right text-red-600">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--border)]">
@@ -212,13 +245,26 @@ export default function CobrosPage() {
                             {cb.forma_pago}
                          </span>
                       </td>
-                      <td className="px-6 py-4 text-right font-mono text-sm font-bold text-[var(--green)]">
+                      <td className="px-6 py-4 text-right font-mono text-sm font-bold text-green-700">
                         {new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(cb.importe || 0)}
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <button className="p-2 hover:bg-[var(--background)] rounded-lg transition-colors text-[var(--muted)]">
-                          <MoreHorizontal size={18} />
-                        </button>
+                        <div className="flex justify-end items-center gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button 
+                            onClick={() => openEditModal(cb)}
+                            className="p-2 hover:bg-blue-50 text-blue-600 rounded-lg transition-colors"
+                            title="Editar Cobro"
+                          >
+                            <Save size={16} />
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteCobro(cb.id)}
+                            className="p-2 hover:bg-red-50 text-red-600 rounded-lg transition-colors"
+                            title="Eliminar Cobro"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

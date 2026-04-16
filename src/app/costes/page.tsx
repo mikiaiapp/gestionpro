@@ -120,6 +120,34 @@ export default function CostesPage() {
   const totalFactura = totalBase + cuotaIva;
 
   const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const openAddModal = () => {
+    setEditingId(null);
+    setSerie("A");
+    setNumInterno("");
+    setNumFactProv("");
+    setFecha(new Date().toISOString().split('T')[0]);
+    setProveedorId("");
+    setTipoGasto("general");
+    setProyectoId("");
+    setBaseImponible("");
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (c: any) => {
+    setEditingId(c.id);
+    setSerie(c.serie);
+    setNumInterno(c.num_interno || "");
+    setNumFactProv(c.num_factura_proveedor || "");
+    setFecha(c.fecha);
+    setProveedorId(c.proveedor_id || "");
+    setTipoGasto(c.tipo_gasto);
+    setProyectoId(c.proyecto_id || "");
+    setBaseImponible(c.base_imponible?.toString() || "");
+    setTipoIva(c.iva_pct || 21);
+    setIsModalOpen(true);
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -130,35 +158,64 @@ export default function CostesPage() {
 
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from("costes")
-        .insert([{
-          serie,
-          num_interno: numInterno,
-          num_factura_proveedor: numFactProv,
-          fecha,
-          proveedor_id: proveedorId || null,
-          tipo_gasto: tipoGasto,
-          proyecto_id: tipoGasto === "proyecto" ? proyectoId : null,
-          base_imponible: totalBase,
-          iva_pct: serie === "A" ? tipoIva : 0,
-          iva_importe: cuotaIva,
-          total: totalFactura
-        }]);
+      const payload = {
+        serie,
+        num_interno: numInterno,
+        num_factura_proveedor: numFactProv,
+        fecha,
+        proveedor_id: proveedorId || null,
+        tipo_gasto: tipoGasto,
+        proyecto_id: tipoGasto === "proyecto" ? proyectoId : null,
+        base_imponible: totalBase,
+        iva_pct: serie === "A" ? tipoIva : 0,
+        iva_importe: cuotaIva,
+        total: totalFactura
+      };
+
+      let error;
+      if (editingId) {
+        const { error: updateError } = await supabase.from("costes").update([payload]).eq("id", editingId);
+        error = updateError;
+      } else {
+        const { error: insertError } = await supabase.from("costes").insert([payload]);
+        error = insertError;
+      }
 
       if (error) throw error;
 
       setIsModalOpen(false);
-      // Limpiar
-      setNumFactProv("");
-      setBaseImponible("");
-      setProveedorId("");
       fetchData();
     } catch (err: any) {
       alert("Error al guardar coste: " + err.message);
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleDeleteCoste = async (id: string, ref: string) => {
+    if (!supabase) return;
+
+    // Integridad: ¿Tiene pagos?
+    const { count, error: countErr } = await supabase
+      .from("pagos")
+      .select("*", { count: 'exact', head: true })
+      .eq("coste_id", id);
+
+    if (countErr) {
+      alert("Error al verificar integridad: " + countErr.message);
+      return;
+    }
+
+    if (count && count > 0) {
+      alert(`No se puede eliminar el coste ${ref} porque ya tiene ${count} pagos registrados. Elimina primero los pagos.`);
+      return;
+    }
+
+    if (!confirm(`¿Estás seguro de que deseas eliminar el coste ${ref}?`)) return;
+
+    const { error } = await supabase.from("costes").delete().eq("id", id);
+    if (error) alert("Error al eliminar: " + error.message);
+    else fetchData();
   };
 
   return (
@@ -179,7 +236,7 @@ export default function CostesPage() {
                 Importar PDF
               </button>
               <button 
-                onClick={() => setIsModalOpen(true)}
+                onClick={openAddModal}
                 className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--accent)] text-white font-bold hover:shadow-lg transition-all active:scale-[0.98]"
               >
                 <Plus size={18} />
@@ -221,7 +278,10 @@ export default function CostesPage() {
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
             <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-lg border border-[var(--border)] animate-in fade-in zoom-in duration-200 overflow-y-auto max-h-[90vh]">
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold font-head flex items-center gap-2"><FileText className="text-[var(--accent)]" /> Registrar Coste</h2>
+                <h2 className="text-xl font-bold font-head flex items-center gap-2">
+                  {editingId ? <Save className="text-[var(--accent)]" size={20} /> : <FileText className="text-[var(--accent)]" size={20} />}
+                  {editingId ? "Editar Coste" : "Registrar Coste"}
+                </h2>
                 <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600"><X size={20}/></button>
               </div>
               <form onSubmit={handleSave} className="space-y-4 text-left">
@@ -389,9 +449,22 @@ export default function CostesPage() {
                         {new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(c.total || 0)}
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <button className="p-2 hover:bg-[var(--background)] rounded-lg transition-colors text-[var(--muted)]">
-                          <MoreHorizontal size={18} />
-                        </button>
+                        <div className="flex justify-end items-center gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button 
+                            onClick={() => openEditModal(c)}
+                            className="p-2 hover:bg-blue-50 text-blue-600 rounded-lg transition-colors"
+                            title="Editar Coste"
+                          >
+                            <Save size={16} />
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteCoste(c.id, c.num_interno)}
+                            className="p-2 hover:bg-red-50 text-red-600 rounded-lg transition-colors"
+                            title="Eliminar Coste"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

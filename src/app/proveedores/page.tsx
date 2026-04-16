@@ -89,31 +89,83 @@ export default function ProveedoresPage() {
   };
 
   const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
-  const handleAddProveedor = async (e: React.FormEvent) => {
+  const openAddModal = () => {
+    setEditingId(null);
+    setNombre(""); setNif(""); setEmail(""); setDireccion(""); setCp(""); setPoblacion(""); setProvincia("");
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (p: any) => {
+    setEditingId(p.id);
+    setNombre(p.nombre);
+    setNif(p.nif || "");
+    setEmail(p.email || "");
+    setDireccion(p.direccion || "");
+    setCp(p.codigo_postal || "");
+    setPoblacion(p.poblacion || "");
+    setProvincia(p.provincia || "");
+    setIsModalOpen(true);
+  };
+
+  const handleSaveProveedor = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nombre) return;
     
     if (!supabase) {
-      alert("Error: No hay conexión con la base de datos. Completa las variables de entorno en Vercel.");
+      alert("Error: No hay conexión con la base de datos.");
       return;
     }
 
     setSaving(true);
     try {
-      const { error } = await supabase.from("proveedores").insert([{ nombre, nif, email, direccion, codigo_postal: cp, poblacion, provincia }]);
-      if (error) alert("Error Supabase: " + error.message);
-      else {
-        setIsModalOpen(false);
-        // Limpiar formulario
-        setNombre(""); setNif(""); setEmail(""); setDireccion(""); setCp(""); setPoblacion(""); setProvincia("");
-        fetchProveedores();
+      const payload = { nombre, nif, email, direccion, codigo_postal: cp, poblacion, provincia };
+      
+      let error;
+      if (editingId) {
+        const { error: updateError } = await supabase.from("proveedores").update([payload]).eq("id", editingId);
+        error = updateError;
+      } else {
+        const { error: insertError } = await supabase.from("proveedores").insert([payload]);
+        error = insertError;
       }
+
+      if (error) throw error;
+
+      setIsModalOpen(false);
+      fetchProveedores();
     } catch (err: any) {
-      alert("Error inesperado: " + err.message);
+      alert("Error al guardar: " + err.message);
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleDeleteProveedor = async (id: string, nombreProv: string) => {
+    if (!supabase) return;
+
+    // Integridad: ¿Tiene costes?
+    const { count, error: countErr } = await supabase
+      .from("costes")
+      .select("*", { count: 'exact', head: true })
+      .eq("proveedor_id", id);
+
+    if (countErr) {
+      alert("Error al verificar integridad: " + countErr.message);
+      return;
+    }
+
+    if (count && count > 0) {
+      alert(`No se puede eliminar a "${nombreProv}" porque tiene ${count} facturas de costes registradas. Elimina primero los costes.`);
+      return;
+    }
+
+    if (!confirm(`¿Estás seguro de que quieres eliminar al proveedor "${nombreProv}"?`)) return;
+
+    const { error } = await supabase.from("proveedores").delete().eq("id", id);
+    if (error) alert("Error al eliminar: " + error.message);
+    else fetchProveedores();
   };
 
   const filteredProveedores = proveedores.filter(p => 
@@ -129,7 +181,7 @@ export default function ProveedoresPage() {
             <h1 className="text-3xl font-bold font-head tracking-tight mb-1 text-[var(--foreground)]">Proveedores</h1>
             <p className="text-[var(--muted)] font-medium">Gestión de suministros.</p>
           </div>
-          <button onClick={() => setIsModalOpen(true)} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--accent)] text-white font-bold hover:shadow-lg transition-all active:scale-[0.98]">
+          <button onClick={openAddModal} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--accent)] text-white font-bold hover:shadow-lg transition-all active:scale-[0.98]">
             <Plus size={18} />
             Nuevo Proveedor
           </button>
@@ -137,20 +189,23 @@ export default function ProveedoresPage() {
 
         {isModalOpen && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md animate-in fade-in zoom-in duration-200">
-              <h2 className="text-xl font-bold mb-6">➕ Añadir Proveedor</h2>
-              <form onSubmit={handleAddProveedor} className="space-y-4">
-                <input type="text" placeholder="Nombre Comercial" value={nombre} onChange={(e) => setNombre(e.target.value)} className="w-full p-2.5 rounded-lg border border-[var(--border)]" required />
+            <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md animate-in fade-in zoom-in duration-200 border border-[var(--border)]">
+              <h2 className="text-xl font-bold font-head mb-6 flex items-center gap-2">
+                {editingId ? <Save className="text-[var(--accent)]" size={20} /> : <Plus className="text-[var(--accent)]" size={20} />}
+                {editingId ? "Editar Proveedor" : "Añadir Proveedor"}
+              </h2>
+              <form onSubmit={handleSaveProveedor} className="space-y-4">
+                <input type="text" placeholder="Nombre Comercial / Razón Social *" value={nombre} onChange={(e) => setNombre(e.target.value)} className="w-full p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] focus:outline-none focus:border-[var(--accent)]" required />
                 <div className="grid grid-cols-2 gap-4">
-                  <input type="text" placeholder="NIF" value={nif} onChange={(e) => setNif(e.target.value)} className="p-2.5 rounded-lg border border-[var(--border)]" />
-                  <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="p-2.5 rounded-lg border border-[var(--border)]" />
+                  <input type="text" placeholder="NIF/DNI" value={nif} onChange={(e) => setNif(e.target.value)} className="p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] focus:outline-none focus:border-[var(--accent)]" />
+                  <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] focus:outline-none focus:border-[var(--accent)]" />
                 </div>
                 <div className="space-y-3">
-                  <input type="text" placeholder="Dirección" value={direccion} onChange={(e) => setDireccion(e.target.value)} className="w-full p-2.5 rounded-lg border border-[var(--border)]" />
-                  <div className="grid grid-cols-3 gap-3">
-                    <input type="text" placeholder="C.P." value={cp} maxLength={5} onChange={(e) => setCp(e.target.value)} className="p-2.5 rounded-lg border border-[var(--border)] font-mono" />
-                    <div className="relative col-span-2">
-                       <input type="text" placeholder="Provincia" value={provincia} onFocus={() => setShowProvList(true)} onBlur={() => setTimeout(() => setShowProvList(false), 200)} onChange={(e) => setProvincia(e.target.value)} className="w-full p-2.5 rounded-lg border border-[var(--border)]" />
+                  <input type="text" placeholder="Dirección" value={direccion} onChange={(e) => setDireccion(e.target.value)} className="w-full p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] focus:outline-none focus:border-[var(--accent)]" />
+                  <div className="grid grid-cols-2 gap-3">
+                    <input type="text" placeholder="C.P." value={cp} maxLength={5} onChange={(e) => setCp(e.target.value)} className="p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] focus:outline-none focus:border-[var(--accent)] font-mono" />
+                    <div className="relative">
+                       <input type="text" placeholder="Provincia" value={provincia} onFocus={() => setShowProvList(true)} onBlur={() => setTimeout(() => setShowProvList(false), 200)} onChange={(e) => setProvincia(e.target.value)} className="w-full p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] focus:outline-none focus:border-[var(--accent)]" />
                        {showProvList && (
                          <div className="absolute z-[110] left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white border border-[var(--border)] rounded-xl shadow-2xl py-2">
                            {PROVINCIAS_ESPANOLAS.filter(p => !provincia || p.nombre.toLowerCase().includes(provincia.toLowerCase())).map(p => (
@@ -161,7 +216,7 @@ export default function ProveedoresPage() {
                     </div>
                   </div>
                   <div className="relative">
-                    <input type="text" placeholder="Municipio" value={poblacion} onFocus={() => setShowMunList(true)} onBlur={() => setTimeout(() => setShowMunList(false), 200)} onChange={(e) => setPoblacion(e.target.value)} className="w-full p-2.5 rounded-lg border border-[var(--border)]" />
+                    <input type="text" placeholder="Municipio" value={poblacion} onFocus={() => setShowMunList(true)} onBlur={() => setTimeout(() => setShowMunList(false), 200)} onChange={(e) => setPoblacion(e.target.value)} className="w-full p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] focus:outline-none focus:border-[var(--accent)]" />
                     {showMunList && municipiosSugeridos.length > 0 && (
                       <div className="absolute z-[110] left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white border border-[var(--border)] rounded-xl shadow-2xl py-2">
                         {municipiosSugeridos.filter(m => !poblacion || m.toLowerCase().includes(poblacion.toLowerCase())).map((m, i) => (
@@ -174,8 +229,8 @@ export default function ProveedoresPage() {
                 <div className="flex gap-3 mt-8">
                   <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-2.5 text-sm font-bold text-[var(--muted)] hover:bg-gray-100 rounded-xl transition-all border border-[var(--border)]">Cancelar</button>
                   <button type="submit" disabled={saving} className="flex-1 py-2.5 text-sm font-bold bg-[var(--accent)] text-white rounded-xl shadow-md hover:shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50">
-                    {saving ? <Loader2 className="animate-spin" size={18} /> : <Plus size={18} />}
-                    {saving ? "Guardando..." : "Guardar"}
+                    {saving ? <Loader2 className="animate-spin" size={18} /> : (editingId ? <Save size={18} /> : <Plus size={18} />)}
+                    {saving ? "Guardando..." : (editingId ? "Actualizar" : "Guardar")}
                   </button>
                 </div>
               </form>
@@ -187,35 +242,54 @@ export default function ProveedoresPage() {
           <div className="p-4 border-b border-[var(--border)] bg-[#fafafa]">
              <div className="relative w-72">
                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]" size={16} />
-               <input type="text" placeholder="Buscar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm" />
+               <input type="text" placeholder="Buscar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)]" />
              </div>
           </div>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto min-h-[200px]">
             {loading ? (
               <div className="p-20 flex flex-col items-center justify-center gap-3 text-[var(--muted)]">
                 <Loader2 className="animate-spin" size={32} />
-                <p>Cargando proveedores...</p>
+                <p className="text-sm font-medium">Sincronizando proveedores...</p>
               </div>
             ) : filteredProveedores.length === 0 ? (
-              <div className="p-20 text-center text-[var(--muted)]">No hay proveedores registrados</div>
+              <div className="p-20 text-center text-[var(--muted)]">
+                <p className="font-bold text-[var(--foreground)] mb-1">No hay proveedores registrados</p>
+                <p className="text-sm">Empieza añadiendo tu primer proveedor.</p>
+              </div>
             ) : (
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-[#fcfaf7] border-b border-[var(--border)]">
-                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase">Proveedor</th>
-                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase">NIF</th>
-                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase text-right">Acciones</th>
+                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">Proveedor</th>
+                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">NIF</th>
+                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--border)]">
                   {filteredProveedores.map((p) => (
                     <tr key={p.id} className="hover:bg-[#fcfaf7] transition-colors group">
-                      <td className="px-6 py-4 font-bold">{p.nombre}</td>
+                      <td className="px-6 py-4">
+                        <div className="font-bold text-[var(--foreground)]">{p.nombre}</div>
+                        <div className="text-[10px] text-[var(--muted)] uppercase tracking-wider">{p.poblacion} {p.provincia}</div>
+                      </td>
                       <td className="px-6 py-4 text-sm text-[var(--muted)]">{p.nif || '—'}</td>
                       <td className="px-6 py-4 text-right">
-                        <button className="p-2 hover:bg-gray-100 rounded-lg text-[var(--muted)]">
-                          <MoreHorizontal size={18} />
-                        </button>
+                        <div className="flex justify-end items-center gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button 
+                            onClick={() => openEditModal(p)}
+                            className="p-2 hover:bg-blue-50 text-blue-600 rounded-lg transition-colors"
+                            title="Editar Proveedor"
+                          >
+                            <Save size={16} />
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteProveedor(p.id, p.nombre)}
+                            className="p-2 hover:bg-red-50 text-red-600 rounded-lg transition-colors"
+                            title="Eliminar Proveedor"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

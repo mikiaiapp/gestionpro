@@ -29,8 +29,8 @@ export default function PagosPage() {
     }
     setLoading(true);
 
-    // Fail-safe: si en 2 segundos no ha cargado, desbloqueamos la UI
-    const timeout = setTimeout(() => setLoading(false), 2000);
+    // Fail-safe: si en 3 segundos no ha cargado, desbloqueamos la UI
+    const timeout = setTimeout(() => setLoading(false), 3000);
     
     try {
       const { data: pgs } = await supabase
@@ -51,7 +51,23 @@ export default function PagosPage() {
     }
   };
 
-  const [saving, setSaving] = useState(false);
+  const openAddModal = () => {
+    setEditingId(null);
+    setCosteId("");
+    setFecha(new Date().toISOString().split('T')[0]);
+    setImporte("");
+    setFormaPago("Transferencia");
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (pg: any) => {
+    setEditingId(pg.id);
+    setCosteId(pg.coste_id);
+    setFecha(pg.fecha);
+    setImporte(pg.importe?.toString() || "");
+    setFormaPago(pg.forma_pago || "Transferencia");
+    setIsModalOpen(true);
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,26 +80,40 @@ export default function PagosPage() {
 
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from("pagos")
-        .insert([{
-          coste_id: costeId,
-          fecha,
-          importe: parseFloat(importe) || 0,
-          forma_pago: formaPago
-        }]);
+      const payload = {
+        coste_id: costeId,
+        fecha,
+        importe: parseFloat(importe) || 0,
+        forma_pago: formaPago
+      };
+
+      let error;
+      if (editingId) {
+        const { error: updateError } = await supabase.from("pagos").update([payload]).eq("id", editingId);
+        error = updateError;
+      } else {
+        const { error: insertError } = await supabase.from("pagos").insert([payload]);
+        error = insertError;
+      }
 
       if (error) throw error;
 
       setIsModalOpen(false);
-      setImporte("");
-      setCosteId("");
       fetchData();
     } catch (err: any) {
-      alert("Error al registrar pago: " + err.message);
+      alert("Error al guardar pago: " + err.message);
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleDeletePago = async (id: string) => {
+    if (!supabase) return;
+    if (!confirm("¿Estás seguro de que deseas eliminar este registro de pago?")) return;
+
+    const { error } = await supabase.from("pagos").delete().eq("id", id);
+    if (error) alert("Error al eliminar: " + error.message);
+    else fetchData();
   };
 
   return (
@@ -96,7 +126,7 @@ export default function PagosPage() {
             <p className="text-[var(--muted)] font-medium">Tesorería: Salida de fondos a proveedores y gastos.</p>
           </div>
           <button 
-            onClick={() => setIsModalOpen(true)}
+            onClick={openAddModal}
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-orange-600 text-white font-bold hover:shadow-lg transition-all active:scale-[0.98]"
           >
             <Plus size={18} />
@@ -107,8 +137,11 @@ export default function PagosPage() {
         {isModalOpen && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
             <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md border border-[var(--border)] animate-in fade-in zoom-in duration-200">
-              <h2 className="text-xl font-bold font-head mb-6">💸 Registrar Pago</h2>
-              <form onSubmit={handleSave} className="space-y-4">
+              <h2 className="text-xl font-bold font-head mb-6 flex items-center gap-2">
+                {editingId ? <Save className="text-orange-600" size={20} /> : <CreditCard className="text-orange-600" size={20} />}
+                {editingId ? "Editar Pago" : "Registrar Pago"}
+              </h2>
+              <form onSubmit={handleSave} className="space-y-4 text-left">
                 <div>
                   <label className="block text-[11px] font-bold text-[var(--muted)] uppercase mb-1">Factura de Coste</label>
                   <select value={costeId} onChange={(e) => setCosteId(e.target.value)} className="w-full p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)]">
@@ -141,11 +174,11 @@ export default function PagosPage() {
                   </select>
                 </div>
 
-                <div className="flex gap-3 mt-6">
+                <div className="flex gap-3 mt-8">
                   <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-2.5 text-sm font-bold text-[var(--muted)] hover:bg-[var(--background)] rounded-lg transition-colors border border-[var(--border)]">Cancelar</button>
                   <button type="submit" disabled={saving} className="flex-1 py-2.5 text-sm font-bold bg-orange-600 text-white rounded-lg shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50">
-                    {saving ? <Loader2 className="animate-spin" size={18} /> : null}
-                    {saving ? "Registrando..." : "Confirmar Pago"}
+                    {saving ? <Loader2 className="animate-spin" size={18} /> : (editingId ? <Save size={18} /> : <Plus size={18} />)}
+                    {saving ? "Guardando..." : (editingId ? "Actualizar" : "Confirmar Pago")}
                   </button>
                 </div>
               </form>
@@ -191,7 +224,7 @@ export default function PagosPage() {
                     <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">Coste Origen</th>
                     <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">Forma de Pago</th>
                     <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Importe</th>
-                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Acciones</th>
+                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right text-red-600">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--border)]">
@@ -219,9 +252,22 @@ export default function PagosPage() {
                         {new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(pg.importe || 0)}
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <button className="p-2 hover:bg-[var(--background)] rounded-lg transition-colors text-[var(--muted)]">
-                          <MoreHorizontal size={18} />
-                        </button>
+                        <div className="flex justify-end items-center gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button 
+                            onClick={() => openEditModal(pg)}
+                            className="p-2 hover:bg-blue-50 text-blue-600 rounded-lg transition-colors"
+                            title="Editar Pago"
+                          >
+                            <Save size={16} />
+                          </button>
+                          <button 
+                            onClick={() => handleDeletePago(pg.id)}
+                            className="p-2 hover:bg-red-50 text-red-600 rounded-lg transition-colors"
+                            title="Eliminar Pago"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

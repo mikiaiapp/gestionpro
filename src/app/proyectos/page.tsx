@@ -2,15 +2,18 @@
 
 import { useEffect, useState } from "react";
 import { Sidebar } from "@/components/Sidebar";
-import { FolderKanban, Plus, Search, MoreHorizontal, Loader2, User } from "lucide-react";
+import { FolderKanban, Plus, Search, MoreHorizontal, Loader2, User, Printer, Save, Trash2, FileText, Download } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 export default function ProyectosPage() {
   const [proyectos, setProyectos] = useState<any[]>([]);
   const [clientes, setClientes] = useState<any[]>([]);
+  const [perfil, setPerfil] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   // Formulario
   const [nombre, setNombre] = useState("");
@@ -42,8 +45,11 @@ export default function ProyectosPage() {
         .select("id, nombre")
         .order("nombre");
 
+      const { data: perf } = await supabase.from("perfil_negocio").select("*").single();
+
       if (!errP) setProyectos(projs || []);
       if (!errC) setClientes(clis || []);
+      setPerfil(perf);
     } catch (e: any) {
       console.error("Error sincronizando proyectos:", e.message);
     } finally {
@@ -51,9 +57,98 @@ export default function ProyectosPage() {
     }
   };
 
-  const [saving, setSaving] = useState(false);
+  const downloadBudget = (p: any) => {
+    if (!perfil) {
+      alert("Configura tus datos de empresa en Ajustes primero.");
+      return;
+    }
 
-  const handleCreate = async (e: React.FormEvent) => {
+    const fmt = (n: number) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(n);
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>PRESUPUESTO - ${p.nombre}</title>
+        <style>
+          body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #333; margin: 0; padding: 40px; line-height: 1.6; }
+          .header { display: flex; justify-content: space-between; margin-bottom: 60px; }
+          .logo { max-height: 80px; }
+          .doc-title { font-size: 32px; font-weight: bold; color: #f59e0b; }
+          .details { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-bottom: 40px; }
+          .section-title { font-size: 10px; font-weight: bold; text-transform: uppercase; color: #999; margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 4px; }
+          .total-box { margin-top: 40px; padding: 20px; background: #fffcf0; border: 2px solid #f59e0b; border-radius: 12px; font-size: 20px; font-weight: bold; text-align: right; }
+          .footer { margin-top: 100px; padding-top: 20px; border-top: 1px solid #eee; font-size: 10px; color: #666; text-align: center; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div>
+            ${perfil.logo_url ? `<img src="${perfil.logo_url}" class="logo">` : `<div style="font-size: 24px; font-weight: bold; color: #f59e0b;">${perfil.nombre}</div>`}
+          </div>
+          <div style="text-align: right;">
+            <div class="doc-title">PRESUPUESTO</div>
+            <div style="font-weight: bold;">Ref: PRJ-${p.id.slice(0,6).toUpperCase()}</div>
+            <div style="color: #666;">Fecha: ${new Date().toLocaleDateString()}</div>
+          </div>
+        </div>
+
+        <div class="details">
+          <div>
+            <div class="section-title">De:</div>
+            <div style="font-weight: bold;">${perfil.nombre}</div>
+            <div>${perfil.nif}</div>
+            <div>${perfil.direccion || ''}</div>
+          </div>
+          <div>
+            <div class="section-title">Para:</div>
+            <div style="font-weight: bold;">${p.clientes?.nombre || 'Particular'}</div>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 40px;">
+          <div class="section-title">Concepto del Proyecto</div>
+          <div style="font-size: 18px; font-weight: bold; margin-bottom: 10px;">${p.nombre}</div>
+          <p>Ejecución integral según especificaciones técnicas y requerimientos acordados. Este presupuesto tiene una validez de 30 días.</p>
+        </div>
+
+        <div class="total-box">
+          <span style="color: #999; font-size: 14px; text-transform: uppercase; margin-right: 20px;">Total Presupuestado:</span>
+          <span style="color: #f59e0b;">${fmt(p.venta_prevista)}</span>
+        </div>
+
+        <div class="footer">
+          <div>Este documento no es una factura legal. El presupuesto incluye IVA según normativa vigente.</div>
+          <div style="margin-top: 10px;">Propuesta técnica generada mediante GestiónPro v1.5</div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const win = window.open('', '_blank');
+    if (win) {
+      win.document.write(html);
+      win.document.close();
+      setTimeout(() => win.print(), 500);
+    }
+  };
+
+  const openAddModal = () => {
+    setEditingId(null);
+    setNombre(""); setClienteId(""); setPresupuesto(""); setCostePrevisto("");
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (p: any) => {
+    setEditingId(p.id);
+    setNombre(p.nombre);
+    setClienteId(p.cliente_id || "");
+    setPresupuesto(p.venta_prevista?.toString() || "");
+    setCostePrevisto(p.coste_previsto?.toString() || "");
+    setIsModalOpen(true);
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nombre) return;
     
@@ -64,29 +159,58 @@ export default function ProyectosPage() {
 
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from("proyectos")
-        .insert([{
-          nombre,
-          cliente_id: clienteId || null,
-          estado,
-          presupuesto: parseFloat(presupuesto) || 0,
-          coste_previsto: parseFloat(costePrevisto) || 0
-        }]);
+      const payload = {
+        nombre,
+        cliente_id: clienteId || null,
+        estado,
+        venta_prevista: parseFloat(presupuesto) || 0,
+        coste_previsto: parseFloat(costePrevisto) || 0
+      };
+
+      let error;
+      if (editingId) {
+        const { error: updateError } = await supabase.from("proyectos").update([payload]).eq("id", editingId);
+        error = updateError;
+      } else {
+        const { error: insertError } = await supabase.from("proyectos").insert([payload]);
+        error = insertError;
+      }
 
       if (error) throw error;
 
-      setNombre("");
-      setClienteId("");
-      setPresupuesto("");
-      setCostePrevisto("");
       setIsModalOpen(false);
       fetchData();
     } catch (err: any) {
-      alert("Error al crear proyecto: " + err.message);
+      alert("Error al guardar proyecto: " + err.message);
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleDeleteProyecto = async (id: string, nombreProj: string) => {
+    if (!supabase) return;
+
+    // Integridad: ¿Tiene ventas?
+    const { count, error: countErr } = await supabase
+      .from("ventas")
+      .select("*", { count: 'exact', head: true })
+      .eq("proyecto_id", id);
+
+    if (countErr) {
+      alert("Error al verificar integridad: " + countErr.message);
+      return;
+    }
+
+    if (count && count > 0) {
+      alert(`No se puede eliminar "${nombreProj}" porque ya tiene ${count} facturas de ventas emitidas. Debes eliminarlas primero.`);
+      return;
+    }
+
+    if (!confirm(`¿Estás seguro de que quieres eliminar el proyecto "${nombreProj}"?`)) return;
+
+    const { error } = await supabase.from("proyectos").delete().eq("id", id);
+    if (error) alert("Error al eliminar: " + error.message);
+    else fetchData();
   };
 
   const filtered = proyectos.filter(p => 
@@ -104,7 +228,7 @@ export default function ProyectosPage() {
             <p className="text-[var(--muted)] font-medium">Control y seguimiento de trabajos activos.</p>
           </div>
           <button 
-            onClick={() => setIsModalOpen(true)}
+            onClick={openAddModal}
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--accent)] text-white font-bold hover:shadow-lg transition-all active:scale-[0.98]"
           >
             <Plus size={18} />
@@ -115,8 +239,11 @@ export default function ProyectosPage() {
         {isModalOpen && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
             <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md border border-[var(--border)] animate-in fade-in zoom-in duration-200">
-              <h2 className="text-xl font-bold font-head mb-6">📁 Nuevo Proyecto</h2>
-              <form onSubmit={handleCreate} className="space-y-4">
+              <h2 className="text-xl font-bold font-head mb-6 flex items-center gap-2">
+                {editingId ? <Save className="text-[var(--accent)]" size={20} /> : <Plus className="text-[var(--accent)]" size={20} />}
+                {editingId ? "Editar Proyecto" : "Nuevo Proyecto"}
+              </h2>
+              <form onSubmit={handleSave} className="space-y-4">
                 <div>
                   <label className="block text-[11px] font-bold text-[var(--muted)] uppercase mb-1">Nombre del Proyecto *</label>
                   <input 
@@ -181,8 +308,8 @@ export default function ProyectosPage() {
                     disabled={saving}
                     className="flex-1 py-2.5 text-sm font-bold bg-[var(--accent)] text-white rounded-xl shadow-md hover:shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                   >
-                    {saving ? <Loader2 className="animate-spin" size={18} /> : <Plus size={18} />}
-                    {saving ? "Creando..." : "Crear Proyecto"}
+                    {saving ? <Loader2 className="animate-spin" size={18} /> : (editingId ? <Save size={18} /> : <Plus size={18} />)}
+                    {saving ? "Guardando..." : (editingId ? "Actualizar" : "Crear Proyecto")}
                   </button>
                 </div>
               </form>
@@ -229,9 +356,7 @@ export default function ProyectosPage() {
                     <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">Estado</th>
                     <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Presup. Venta</th>
                     <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Coste Prev.</th>
-                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Margen Prev.</th>
-                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">%</th>
-                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Acciones</th>
+                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right text-red-600">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--border)]">
@@ -241,11 +366,8 @@ export default function ProyectosPage() {
                         <div className="font-bold text-[var(--foreground)]">{p.nombre}</div>
                         <div className="text-[10px] text-[var(--muted)] uppercase tracking-wider">ID: {p.id.slice(0,8)}</div>
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2 text-sm text-[var(--muted)] font-medium">
-                          <User size={14} />
-                          {p.clientes?.nombre || 'Particular'}
-                        </div>
+                      <td className="px-6 py-4 text-sm text-[var(--muted)] font-medium">
+                        {p.clientes?.nombre || 'Particular'}
                       </td>
                       <td className="px-6 py-4">
                         <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${
@@ -256,23 +378,35 @@ export default function ProyectosPage() {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right font-mono text-sm font-bold text-green-700">
-                        {new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(p.presupuesto || 0)}
+                        {new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(p.venta_prevista || 0)}
                       </td>
                       <td className="px-6 py-4 text-right font-mono text-sm font-bold text-red-700">
                         {new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(p.coste_previsto || 0)}
                       </td>
-                      <td className={`px-6 py-4 text-right font-mono text-sm font-bold ${(p.presupuesto - (p.coste_previsto || 0)) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(p.presupuesto - (p.coste_previsto || 0))}
-                      </td>
-                      <td className={`px-6 py-4 text-right font-mono text-[10px] font-bold ${(p.presupuesto - (p.coste_previsto || 0)) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {p.presupuesto > 0 
-                          ? (((p.presupuesto - (p.coste_previsto || 0)) / p.presupuesto) * 100).toFixed(1) + '%' 
-                          : '0%'}
-                      </td>
                       <td className="px-6 py-4 text-right">
-                        <button className="p-2 hover:bg-[var(--background)] rounded-lg transition-colors text-[var(--muted)]">
-                          <MoreHorizontal size={18} />
-                        </button>
+                        <div className="flex justify-end items-center gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button 
+                            onClick={() => downloadBudget(p)}
+                            className="p-2 hover:bg-orange-50 text-orange-600 rounded-lg transition-colors"
+                            title="Imprimir Presupuesto"
+                          >
+                            <Printer size={16} />
+                          </button>
+                          <button 
+                            onClick={() => openEditModal(p)}
+                            className="p-2 hover:bg-blue-50 text-blue-600 rounded-lg transition-colors"
+                            title="Editar Proyecto"
+                          >
+                            <Save size={16} />
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteProyecto(p.id, p.nombre)}
+                            className="p-2 hover:bg-red-50 text-red-600 rounded-lg transition-colors"
+                            title="Eliminar Proyecto"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

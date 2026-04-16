@@ -1,18 +1,20 @@
-# 📁 GestiónPro v3.0 (Versión Profesional)
+# 📁 GestiónPro v1.5 (Build OK)
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fmikiaiapp%2Fgestionpro2)
 
-GestiónPro es una plataforma SaaS de gestión empresarial moderna, diseñada para autónomos y pequeñas empresas que buscan profesionalizar su facturación y control de proyectos.
+GestiónPro es una plataforma SaaS de gestión empresarial moderna y profesional, diseñada para cumplir con los estándares de facturación más exigentes.
 
 ## ✨ Características Principales
-- 📑 **Invoicing Pro**: Editor de facturas con líneas de detalle y cálculos automáticos.
+- 📑 **Invoicing & Budgets**: Gestión de facturas y presupuestos profesionales con exportación a PDF.
+- 🏗️ **Project Advance Invoicing**: Sistema de facturación por hitos/porcentaje (Certificaciones de obra) con cálculo automático sobre el presupuesto del proyecto.
+- ⚖️ **Compliance Legal**: Preparada para la **Ley Crea y Crece** y la normativa **Veri*factu**, incluyendo identificadores de trazabilidad y códigos QR.
+- 🔒 **Integridad de Datos**: Bloqueos inteligentes para evitar saltos de numeración y eliminación de registros con dependencias activas.
+- 📊 **Análisis de Rentabilidad**: Resumen dinámico de márgenes por proyecto con comparativa de ventas vs costes reales.
 - 🤖 **AI Import**: Importación de facturas en PDF mediante **Google Gemini API**.
 - 📍 **Geo-Intelligence**: Autocompletado de municipios y provincias por Código Postal.
-- 📈 **Análisis Financiero**: Control de márgenes previstos vs reales por proyecto.
-- 🔒 **Security First**: Aislamiento total de datos mediante Row Level Security (RLS).
-- 📱 **Multi-dispositivo**: Diseño premium adaptado a móviles y tablets.
 
 ## 🚀 Instalación en 2 Pasos
+... (Misma estructura de instalación) ...
 
 ### 1. Despliegue en Vercel
 Haz clic en el botón **"Deploy with Vercel"** de arriba. Deberás configurar las siguientes variables de entorno:

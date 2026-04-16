@@ -33,6 +33,34 @@ export default function VentasPage() {
     fetchData();
   }, [supabase]);
 
+  const getNextNumber = (targetSerie: string, allVentas: any[]) => {
+    const currentYear = new Date().getFullYear();
+    const yearPrefix = `${currentYear}-`;
+    const filteredVentas = allVentas.filter(v => 
+      v.serie === targetSerie && 
+      v.num_factura && 
+      v.num_factura.startsWith(yearPrefix)
+    );
+
+    if (filteredVentas.length > 0) {
+      const numbers = filteredVentas.map(v => {
+        const parts = v.num_factura.split("-");
+        return parseInt(parts[1], 10) || 0;
+      });
+      const nextNum = Math.max(...numbers) + 1;
+      return `${yearPrefix}${nextNum.toString().padStart(3, "0")}`;
+    }
+    return `${yearPrefix}001`;
+  };
+
+  useEffect(() => {
+    // Solo auto-calculamos el número si es una factura NUEVA y el editor está abierto
+    if (isEditorOpen && !editingId) {
+      const next = getNextNumber(serie, ventas);
+      setNumFactura(next);
+    }
+  }, [serie, isEditorOpen, editingId, ventas]);
+
   const fetchData = async () => {
     if (!supabase) {
       console.error("Supabase connection missing!");
@@ -51,22 +79,6 @@ export default function VentasPage() {
     setProyectos(projs || []);
     setFormasCobro(fbc || []);
     setPerfil(perf);
-
-    // Lógica de contador automático (Año-XXX)
-    const currentYear = new Date().getFullYear();
-    const yearPrefix = `${currentYear}-`;
-    const yearVentas = (vts || []).filter(v => v.num_factura && v.num_factura.startsWith(yearPrefix));
-
-    if (yearVentas.length > 0) {
-      const numbers = yearVentas.map(v => {
-        const parts = v.num_factura.split("-");
-        return parseInt(parts[1], 10) || 0;
-      });
-      const nextNum = Math.max(...numbers) + 1;
-      setNumFactura(`${yearPrefix}${nextNum.toString().padStart(3, "0")}`);
-    } else {
-      setNumFactura(`${yearPrefix}001`);
-    }
 
     setLoading(false);
   };
@@ -96,6 +108,28 @@ export default function VentasPage() {
   const totalFactura = baseImponible + cuotaIva;
 
   const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const openEditVenta = (v: any) => {
+    setEditingId(v.id);
+    setSerie(v.serie);
+    setNumFactura(v.num_factura);
+    setFecha(v.fecha);
+    setClienteId(v.cliente_id);
+    setProyectoId(v.proyecto_id || "");
+    setFormaCobroId(v.forma_cobro_id || "");
+    
+    if (v.venta_lineas && v.venta_lineas.length > 0) {
+      setLineas(v.venta_lineas.map((l: any) => ({
+        unidades: l.unidades,
+        descripcion: l.descripcion,
+        precio_unitario: l.precio_unitario
+      })));
+    } else {
+      setLineas([{ unidades: 1, descripcion: "", precio_unitario: 0 }]);
+    }
+    setIsEditorOpen(true);
+  };
 
   const handleSaveInvoice = async () => {
     if (!clienteId || !numFactura) {
@@ -110,7 +144,7 @@ export default function VentasPage() {
 
     setSaving(true);
     try {
-      const { data: venta, error: vError } = await supabase.from("ventas").insert([{
+      const payload = {
         serie,
         num_factura: numFactura,
         fecha,
@@ -120,12 +154,23 @@ export default function VentasPage() {
         base_imponible: baseImponible,
         iva_pct: serie === "A" ? 21 : 0,
         total: totalFactura
-      }]).select().single();
+      };
 
-      if (vError) throw vError;
+      let currentVentaId = editingId;
+
+      if (editingId) {
+        const { error: vError } = await supabase.from("ventas").update([payload]).eq("id", editingId);
+        if (vError) throw vError;
+        // Borramos líneas antiguas para re-insertar
+        await supabase.from("venta_lineas").delete().eq("venta_id", editingId);
+      } else {
+        const { data: venta, error: vError } = await supabase.from("ventas").insert([payload]).select().single();
+        if (vError) throw vError;
+        currentVentaId = venta.id;
+      }
 
       const lineasToInsert = lineas.map(l => ({
-        venta_id: venta.id,
+        venta_id: currentVentaId,
         unidades: l.unidades,
         descripcion: l.descripcion,
         precio_unitario: l.precio_unitario
@@ -135,7 +180,7 @@ export default function VentasPage() {
       if (lError) throw lError;
 
       setIsEditorOpen(false);
-      // Resetear campos
+      setEditingId(null);
       setLineas([{ unidades: 1, descripcion: "", precio_unitario: 0 }]);
       fetchData();
     } catch (err: any) {
@@ -143,6 +188,51 @@ export default function VentasPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleDeleteVenta = async (id: string, ref: string, serieVenta: string, numVenta: string) => {
+    if (!supabase) return;
+
+    // 1. Integridad Legal: ¿Es la última factura de la serie?
+    // Buscamos si existe alguna factura con número mayor en la misma serie
+    const { data: facturasMayores, error: seqErr } = await supabase
+      .from("ventas")
+      .select("num_factura")
+      .eq("serie", serieVenta)
+      .gt("num_factura", numVenta)
+      .limit(1);
+
+    if (seqErr) {
+      alert("Error al verificar secuencia: " + seqErr.message);
+      return;
+    }
+
+    if (facturasMayores && facturasMayores.length > 0) {
+      alert(`No se puede eliminar la factura ${ref} porque no es la última de la serie. Para mantener la correlatividad legal, debes realizar una factura rectificativa.`);
+      return;
+    }
+
+    // 2. Integridad de Cobros: ¿Tiene cobros?
+    const { count, error: countErr } = await supabase
+      .from("cobros")
+      .select("*", { count: 'exact', head: true })
+      .eq("venta_id", id);
+
+    if (countErr) {
+      alert("Error al verificar integridad: " + countErr.message);
+      return;
+    }
+
+    if (count && count > 0) {
+      alert(`No se puede eliminar la factura ${ref} porque ya tiene ${count} cobros registrados. Elimina primero los cobros.`);
+      return;
+    }
+
+    if (!confirm(`¿Estás seguro de que deseas eliminar la factura ${ref}? Esta acción es irreversible.`)) return;
+
+    const { error } = await supabase.from("ventas").delete().eq("id", id);
+    if (error) alert("Error al eliminar: " + error.message);
+    else fetchData();
   };
 
   const downloadInvoice = (venta: any) => {
@@ -179,7 +269,9 @@ export default function VentasPage() {
           .totals { margin-top: 40px; width: 300px; margin-left: auto; }
           .total-row { display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px; }
           .total-final { font-size: 20px; font-weight: bold; color: #2563eb; margin-top: 12px; border-top: 2px solid #2563eb; padding-top: 12px; }
-          .footer { margin-top: 100px; padding-top: 20px; border-top: 1px solid #eee; font-size: 10px; color: #666; text-align: center; }
+          .legal-footer { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 60px; padding-top: 20px; border-top: 1px solid #eee; }
+          .qr-placeholder { width: 100px; height: 100px; background: #f3f4f6; border: 1px solid #e5e7eb; display: flex; align-items: center; text-align: center; font-size: 8px; color: #999; }
+          .footer-text { font-size: 9px; color: #666; max-width: 400px; }
           @media print { body { padding: 0; } .no-print { display: none; } }
         </style>
       </head>
@@ -240,11 +332,17 @@ export default function VentasPage() {
           </div>
         </div>
 
-        <div class="footer">
-          <div style="font-weight: bold; margin-bottom: 4px;">Información de Pago</div>
-          <div>Forma de Cobro: <strong>${formasCobro.find(f => f.id === venta.forma_cobro_id)?.nombre || 'Transferencia'}</strong></div>
-          <div>Cuenta para el ingreso (IBAN): <strong>${perfil.cuenta_bancaria}</strong></div>
-          <div style="margin-top: 20px; color: #999;">Gracias por su confianza. Documento emitido mediante GestiónPro.</div>
+        <div class="legal-footer">
+          <div class="footer-text">
+            <div style="font-weight: bold; margin-bottom: 4px;">Información de Pago</div>
+            <div>Forma de Cobro: <strong>${formasCobro.find(f => f.id === venta.forma_cobro_id)?.nombre || 'Transferencia'}</strong></div>
+            <div>Cuenta para el ingreso (IBAN): <strong>${perfil.cuenta_bancaria}</strong></div>
+            <div style="margin-top: 15px;">Documento generado conforme a la Ley 18/2022 de creación y crecimiento de empresas (Ley Crea y Crece). Trazabilidad digital garantizada.</div>
+          </div>
+          <div style="text-align: right;">
+            <div class="qr-placeholder">CÓDIGO QR<br>VERI*FACTU<br>PENDIENTE FIRMA</div>
+            <div style="font-size: 8px; color: #999; margin-top: 4px;">ID: ${venta.id.slice(0,13)}</div>
+          </div>
         </div>
       </body>
       </html>
@@ -274,6 +372,8 @@ export default function VentasPage() {
               </div>
               <button 
                 onClick={async () => {
+                  setEditingId(null);
+                  setLineas([{ unidades: 1, descripcion: "", precio_unitario: 0 }]);
                   // Propone un número base antes de consultar para que nunca salga vacío
                   const currentYear = new Date().getFullYear();
                   if (!numFactura) setNumFactura(`${currentYear}-001`);
@@ -295,27 +395,38 @@ export default function VentasPage() {
                       <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">Fecha</th>
                       <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">Cliente</th>
                       <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Total</th>
-                      <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider"></th>
+                      <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right text-red-600">Acciones</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[var(--border)]">
                     {ventas.map(v => (
-                      <tr key={v.id} className="hover:bg-gray-50">
+                      <tr key={v.id} className="hover:bg-gray-50 group transition-colors">
                         <td className="px-6 py-4 text-sm font-bold">{v.serie}-{v.num_factura}</td>
                         <td className="px-6 py-4 text-sm text-[var(--muted)]">{new Date(v.fecha).toLocaleDateString()}</td>
                         <td className="px-6 py-4 text-sm">{v.clientes?.nombre}</td>
                         <td className="px-6 py-4 text-right font-bold text-[var(--accent)]">{new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(v.total)}</td>
                         <td className="px-6 py-4 text-right">
-                          <div className="flex justify-end gap-2">
+                          <div className="flex justify-end gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
                             <button 
                               onClick={() => downloadInvoice(v)}
                               className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                              title="Descargar PDF"
+                              title="Descargar PDF / Imprimir"
                             >
-                              <Download size={18} />
+                              <Printer size={16} />
                             </button>
-                            <button className="p-2 text-gray-400 hover:bg-gray-50 rounded-lg transition-colors">
-                              <MoreHorizontal size={18} />
+                            <button 
+                              onClick={() => openEditVenta(v)}
+                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                              title="Editar Factura"
+                            >
+                              <Save size={16} />
+                            </button>
+                            <button 
+                              onClick={() => handleDeleteVenta(v.id, `${v.serie}-${v.num_factura}`, v.serie, v.num_factura)}
+                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              title="Eliminar Factura"
+                            >
+                              <Trash2 size={16} />
                             </button>
                           </div>
                         </td>
@@ -381,6 +492,56 @@ export default function VentasPage() {
                     {proyectos.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
                   </select>
                 </div>
+                {proyectoId && !editingId && (
+                  <div className="md:col-span-4 bg-blue-50/50 p-4 rounded-xl border border-blue-100 flex items-center justify-between animate-in fade-in slide-in-from-top-2">
+                    <div>
+                      <div className="text-[10px] font-bold text-blue-600 uppercase mb-1 flex items-center gap-1">
+                        <FolderKanban size={10} /> Herramienta de Avance (%)
+                      </div>
+                      <p className="text-xs text-blue-700">Factura un porcentaje del presupuesto total del proyecto.</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="relative">
+                        <input 
+                          id="pct-input"
+                          type="number" 
+                          placeholder="%" 
+                          className="w-20 p-2 pr-6 rounded-lg border border-blue-200 text-sm font-bold text-blue-700 focus:outline-none focus:border-blue-400 box-content"
+                        />
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-bold text-blue-400">%</span>
+                      </div>
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          const pct = parseFloat((document.getElementById('pct-input') as HTMLInputElement).value);
+                          if (pct > 0) {
+                            const proj = proyectos.find(p => p.id === proyectoId);
+                            const totalVenta = proj?.venta_prevista || 0;
+                            const importeAvance = (totalVenta * pct) / 100;
+                            
+                            // Si la primera línea está vacía, la usamos
+                            if (lineas.length === 1 && lineas[0].descripcion === "") {
+                              setLineas([{
+                                unidades: 1,
+                                descripcion: `${pct}% Avance proyecto nº ${proj?.nombre || proyectoId.slice(0,6)}`,
+                                precio_unitario: importeAvance
+                              }]);
+                            } else {
+                              setLineas([...lineas, {
+                                unidades: 1,
+                                descripcion: `${pct}% Avance proyecto nº ${proj?.nombre || proyectoId.slice(0,6)}`,
+                                precio_unitario: importeAvance
+                              }]);
+                            }
+                          }
+                        }}
+                        className="px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+                      >
+                        Aplicar Hito
+                      </button>
+                    </div>
+                  </div>
+                )}
                 <div className="md:col-span-2">
                   <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">
                     Cliente {proyectoId && <span className="text-[var(--accent)] normal-case font-medium ml-2">(Fijado por proyecto)</span>}
