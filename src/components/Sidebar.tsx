@@ -29,6 +29,12 @@ type MenuSection = {
 
 const menuStructure: MenuSection[] = [
   {
+    label: "ANÁLISIS",
+    items: [
+      { icon: BarChart3, label: "Resumen Proyectos", href: "/resumen" },
+    ]
+  },
+  {
     label: "MAESTROS",
     items: [
       { icon: Users, label: "Clientes", href: "/clientes" },
@@ -48,12 +54,6 @@ const menuStructure: MenuSection[] = [
     items: [
       { icon: Wallet, label: "Cobros", href: "/cobros" },
       { icon: CreditCard, label: "Pagos", href: "/pagos" },
-    ]
-  },
-  {
-    label: "ANÁLISIS",
-    items: [
-      { icon: BarChart3, label: "Resumen Proyectos", href: "/resumen" },
     ]
   },
   {
@@ -108,7 +108,7 @@ export function Sidebar() {
           <span>Cerrar Sesión</span>
         </button>
         <div className="text-[10px] text-center text-gray-400 font-bold uppercase tracking-widest pb-2">
-          GestiónPro v1.5 - Build OK
+          GestiónPro v2.3.1 - Build OK
         </div>
       </div>
     </aside>
