@@ -12,9 +12,13 @@ import {
   MapPin,
   X,
   AlertTriangle,
-  UserCheck
+  UserCheck,
+  ChevronUp,
+  ChevronDown,
+  Filter
 } from 'lucide-react';
 import { Sidebar } from '@/components/Sidebar';
+import { DataTableHeader } from '@/components/DataTableHeader';
 import { getFullLocationByCP } from '@/lib/geoData';
 import { cleanNIF } from '@/lib/format';
 
@@ -24,6 +28,10 @@ export default function ClientesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // Sorting and Filtering State
+  const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>({ key: 'nombre', direction: 'asc' });
+  const [columnFilters, setColumnFilters] = useState<{ [key: string]: string }>({});
 
   // Form State
   const [nombre, setNombre] = useState('');
@@ -146,10 +154,41 @@ export default function ClientesPage() {
     }
   };
 
-  const filteredClientes = clientes.filter(c => 
-    c.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (c.nif && c.nif.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const handleSort = (field: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === field && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key: field, direction });
+  };
+
+  const handleFilter = (field: string, value: string) => {
+    setColumnFilters(prev => ({ ...prev, [field]: value }));
+  };
+
+  const filteredClientes = clientes.filter(c => {
+    // Global search
+    const matchesGlobal = searchTerm === '' || 
+      c.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (c.nif && c.nif.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    // Column filters
+    const matchesColumns = Object.keys(columnFilters).every(key => {
+      if (!columnFilters[key]) return true;
+      const val = c[key] || '';
+      return val.toString().toLowerCase().includes(columnFilters[key].toLowerCase());
+    });
+
+    return matchesGlobal && matchesColumns;
+  }).sort((a, b) => {
+    if (!sortConfig) return 0;
+    const aVal = a[sortConfig.key] || '';
+    const bVal = b[sortConfig.key] || '';
+    
+    if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+    if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+    return 0;
+  });
 
   return (
     <div className="flex bg-[var(--background)] min-h-screen text-left">
@@ -261,9 +300,9 @@ export default function ClientesPage() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-gray-50/50 border-b">
-                    <th className="px-10 py-6 text-[11px] font-black text-gray-400 uppercase tracking-widest">Identidad Comercial</th>
-                    <th className="px-10 py-6 text-[11px] font-black text-gray-400 uppercase tracking-widest">NIF / Identificación</th>
-                    <th className="px-10 py-6 text-[11px] font-black text-gray-400 uppercase tracking-widest">Ubicación Actual</th>
+                    <DataTableHeader label="Identidad Comercial" field="nombre" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.nombre || ''} onFilter={handleFilter} />
+                    <DataTableHeader label="NIF / Identificación" field="nif" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.nif || ''} onFilter={handleFilter} />
+                    <DataTableHeader label="Ubicación Actual" field="poblacion" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.poblacion || ''} onFilter={handleFilter} />
                     <th className="px-10 py-6 text-[11px] font-black text-gray-400 uppercase tracking-widest text-right">Acciones</th>
                   </tr>
                 </thead>

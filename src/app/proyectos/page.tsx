@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Sidebar } from "@/components/Sidebar";
-import { SearchableSelect } from "@/components/SearchableSelect";
-import { FolderKanban, Plus, Search, MoreHorizontal, Loader2, Save, Trash2, Printer } from "lucide-react";
+import { FolderKanban, Plus, Search, MoreHorizontal, Loader2, Save, Trash2, Printer, ChevronUp, ChevronDown, Filter } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { Sidebar } from "@/components/Sidebar";
+import { DataTableHeader } from "@/components/DataTableHeader";
 import { generatePDF } from "@/lib/pdfGenerator";
 import { formatCurrency } from "@/lib/format";
 
@@ -25,6 +25,10 @@ export default function ProyectosPage() {
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+
+  // Sorting and Filtering State
+  const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>({ key: 'created_at', direction: 'desc' });
+  const [columnFilters, setColumnFilters] = useState<{ [key: string]: string }>({});
 
   useEffect(() => {
     const handleClickOutside = () => setOpenMenuId(null);
@@ -271,12 +275,28 @@ export default function ProyectosPage() {
     }
 
     try {
+      // Necesitamos cargar las líneas para el PDF ya que no están en el objeto de la lista
+      const { data: lineasData, error: lineasErr } = await supabase
+        .from("proyecto_lineas")
+        .select("*")
+        .eq("proyecto_id", p.id);
+
+      if (lineasErr) throw lineasErr;
+
+      // Calcular totales si no vienen (por precaución)
+      const base = p.base_imponible || 0;
+      const iva_pct = p.iva_pct || 21;
+      const iva_importe = p.iva_importe || (base * (iva_pct / 100));
+      const retencion_pct = p.retencion_pct || 0;
+      const retencion_importe = p.retencion_importe || (base * (retencion_pct / 100));
+      const total = p.total || (base + iva_importe - retencion_importe);
+
       await generatePDF({
         tipo: 'PRESUPUESTO',
-        numero: `${p.serie}-${p[columnKey]}`,
+        numero: `${p.serie || 'P'}-${p[columnKey] || p.num_proyecto || 'S/N'}`,
         fecha: p.fecha,
         cliente: {
-          nombre: p.clientes?.nombre || '',
+          nombre: p.clientes?.nombre || 'Cliente Final',
           nif: p.clientes?.nif || '',
           direccion: p.clientes?.direccion || '',
           poblacion: p.clientes?.poblacion || '',
@@ -294,27 +314,74 @@ export default function ProyectosPage() {
           logo_url: perfil.logo_url || '',
           condiciones_legales: perfil.condiciones_legales || ''
         },
-        lineas: (p.proyecto_lineas || []).map((l: any) => ({
+        lineas: (lineasData || []).map((l: any) => ({
           unidades: l.unidades,
           descripcion: l.descripcion,
           precio_unitario: l.precio_unitario
         })),
         totales: {
-          base: p.base_imponible,
-          iva_pct: 21,
-          iva_importe: p.iva_importe,
-          retencion_pct: p.retencion_pct,
-          retencion_importe: p.retencion_importe,
-          total: p.total
+          base: base,
+          iva_pct: iva_pct,
+          iva_importe: iva_importe,
+          retencion_pct: retencion_pct,
+          retencion_importe: retencion_importe,
+          total: total
         }
       });
-    } catch (err) {
-      console.error("Error generating PDF:", err);
-      alert("Error al generar el PDF profesional.");
+    } catch (err: any) {
+      console.error("Error al generar PDF:", err);
+      alert("Error al generar el presupuesto: " + err.message);
     }
   };
 
-  const filtered = proyectos.filter(p => p.nombre.toLowerCase().includes(searchTerm.toLowerCase()));
+  const handleSort = (field: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === field && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key: field, direction });
+  };
+
+  const handleFilter = (field: string, value: string) => {
+    setColumnFilters(prev => ({ ...prev, [field]: value }));
+  };
+
+  const filtered = proyectos.filter(p => {
+    // Global search
+    const matchesGlobal = searchTerm === '' || 
+      p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (p.clientes?.nombre && p.clientes.nombre.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    // Column filters
+    const matchesColumns = Object.keys(columnFilters).every(key => {
+      if (!columnFilters[key]) return true;
+      let val = '';
+      if (key === 'cliente') val = p.clientes?.nombre || '';
+      else if (key === 'ref') val = `${p.serie}-${p[columnKey]}` || '';
+      else val = p[key] || '';
+      return val.toString().toLowerCase().includes(columnFilters[key].toLowerCase());
+    });
+
+    return matchesGlobal && matchesColumns;
+  }).sort((a, b) => {
+    if (!sortConfig) return 0;
+    let aVal, bVal;
+    
+    if (sortConfig.key === 'cliente') {
+      aVal = a.clientes?.nombre || '';
+      bVal = b.clientes?.nombre || '';
+    } else if (sortConfig.key === 'ref') {
+      aVal = `${a.serie}-${a[columnKey]}` || '';
+      bVal = `${b.serie}-${b[columnKey]}` || '';
+    } else {
+      aVal = a[sortConfig.key] || '';
+      bVal = b[sortConfig.key] || '';
+    }
+    
+    if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+    if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+    return 0;
+  });
 
   return (
     <div className="flex bg-[var(--background)] min-h-screen text-left">
@@ -335,8 +402,8 @@ export default function ProyectosPage() {
               </button>
             </header>
 
-            <div className="glass-card bg-white shadow-sm border-[var(--border)] overflow-hidden">
-               <div className="p-4 border-b border-[var(--border)] flex justify-between items-center bg-[#fafafa]">
+            <div className="glass-card bg-white shadow-sm border-[var(--border)] overflow-visible min-h-[400px] mb-20">
+               <div className="p-4 border-b border-[var(--border)] flex justify-between items-center bg-[#fafafa] rounded-t-xl">
                  <div className="relative w-72">
                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]" size={16} />
                    <input type="text" placeholder="Buscar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)]" />
@@ -345,10 +412,10 @@ export default function ProyectosPage() {
                
                <table className="w-full border-collapse">
                  <thead>
-                   <tr className="bg-[#fcfaf7] border-b border-[var(--border)]">
-                     <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">Ref / Nombre</th>
-                     <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">Cliente</th>
-                     <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Total</th>
+                   <tr className="bg-[#fcfaf7] border-b border-[var(--border)] rounded-t-xl">
+                     <DataTableHeader label="Ref / Nombre" field="nombre" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.nombre || ''} onFilter={handleFilter} />
+                     <DataTableHeader label="Cliente" field="cliente" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.cliente || ''} onFilter={handleFilter} />
+                     <DataTableHeader label="Total" field="total" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.total || ''} onFilter={handleFilter} />
                      <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Acciones</th>
                    </tr>
                  </thead>

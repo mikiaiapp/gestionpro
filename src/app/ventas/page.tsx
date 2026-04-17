@@ -2,10 +2,11 @@
 
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { Sidebar } from "@/components/Sidebar";
-import { SearchableSelect } from "@/components/SearchableSelect";
-import { Receipt, Plus, Search, MoreHorizontal, Loader2, Trash2, Save, FileText, Download, Printer, FolderKanban } from "lucide-react";
+import { Receipt, Plus, Search, MoreHorizontal, Loader2, Trash2, Save, FileText, Download, Printer, FolderKanban, ChevronUp, ChevronDown, Filter } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { Sidebar } from "@/components/Sidebar";
+import { DataTableHeader } from "@/components/DataTableHeader";
+import { SearchableSelect } from "@/components/SearchableSelect";
 import { generatePDF } from "@/lib/pdfGenerator";
 import { formatCurrency } from "@/lib/format";
 
@@ -38,6 +39,11 @@ function VentasContent() {
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
+  // Sorting and Filtering State
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>({ key: 'fecha', direction: 'desc' });
+  const [columnFilters, setColumnFilters] = useState<{ [key: string]: string }>({});
+
   // Estados temporales del Wizard
   const [selectedProjId, setSelectedProjId] = useState("");
   const [pct, setPct] = useState("10");
@@ -46,12 +52,43 @@ function VentasContent() {
     const pId = searchParams.get("proyectoId");
     const mode = searchParams.get("mode");
     if (pId && mode === "avance") {
-      setSelectedProjId(pId);
-      setInvoicingMode("avance");
-      setEditingId(null);
       setIsWizardOpen(true);
     }
   }, [searchParams]);
+
+  const handleProjectToInvoice = async (projId: string) => {
+    const proj = proyectos.find(p => p.id === projId);
+    if (!proj) return;
+
+    setLoading(true);
+    try {
+      const { data: pLineas } = await supabase.from("proyecto_lineas").select("*").eq("proyecto_id", projId);
+      
+      setEditingId(null);
+      setClienteId(proj.cliente_id);
+      setProyectoId(proj.id);
+      setRetencionPct(proj.retencion_pct || 0);
+      setSerie("A");
+      setFecha(new Date().toISOString().split('T')[0]);
+      
+      if (pLineas && pLineas.length > 0) {
+        setLineas(pLineas.map((l: any) => ({
+          unidades: l.unidades,
+          descripcion: l.descripcion,
+          precio_unitario: l.precio_unitario
+        })));
+      } else {
+        setLineas([{ unidades: 1, descripcion: proj.nombre, precio_unitario: proj.base_imponible || 0 }]);
+      }
+      
+      setIsWizardOpen(false);
+      setIsEditorOpen(true);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     const handleClickOutside = () => setOpenMenuId(null);
@@ -251,6 +288,58 @@ function VentasContent() {
       alert("Error al generar la factura PDF.");
     }
   };
+  const handleSort = (field: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === field && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key: field, direction });
+  };
+
+  const handleFilter = (field: string, value: string) => {
+    setColumnFilters(prev => ({ ...prev, [field]: value }));
+  };
+
+  const filteredVentas = ventas.filter(v => {
+    // Global search
+    const matchesGlobal = searchTerm === '' || 
+      v.num_factura.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (v.clientes?.nombre && v.clientes.nombre.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    // Column filters
+    const matchesColumns = Object.keys(columnFilters).every(key => {
+      if (!columnFilters[key]) return true;
+      let val = '';
+      if (key === 'cliente') val = v.clientes?.nombre || '';
+      else if (key === 'factura') val = `${v.serie}-${v.num_factura}` || '';
+      else if (key === 'total_str') val = v.total.toString() || '';
+      else val = v[key] || '';
+      return val.toString().toLowerCase().includes(columnFilters[key].toLowerCase());
+    });
+
+    return matchesGlobal && matchesColumns;
+  }).sort((a, b) => {
+    if (!sortConfig) return 0;
+    let aVal, bVal;
+    
+    if (sortConfig.key === 'cliente') {
+      aVal = a.clientes?.nombre || '';
+      bVal = b.clientes?.nombre || '';
+    } else if (sortConfig.key === 'factura') {
+      aVal = `${a.serie}-${a[num_factura]}` || ''; // Note: mapping needs careful key check
+      bVal = `${b.serie}-${b[num_factura]}` || '';
+    } else if (sortConfig.key === 'total_str') {
+      aVal = a.total || 0;
+      bVal = b.total || 0;
+    } else {
+      aVal = a[sortConfig.key] || '';
+      bVal = b[sortConfig.key] || '';
+    }
+    
+    if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+    if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+    return 0;
+  });
 
   return (
     <div className="flex bg-[var(--background)] min-h-screen">
@@ -270,19 +359,25 @@ function VentasContent() {
               </div>
             </header>
 
-            <div className="glass-card bg-white shadow-sm border-[var(--border)] overflow-hidden text-left">
+            <div className="glass-card bg-white shadow-sm border-[var(--border)] overflow-visible text-left min-h-[400px]">
+                <div className="p-4 border-b border-[var(--border)] flex justify-between items-center bg-[#fafafa] rounded-t-xl">
+                  <div className="relative w-72">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]" size={16} />
+                    <input type="text" placeholder="Buscar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)]" />
+                  </div>
+                </div>
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-[#fcfaf7] border-b border-[var(--border)]">
-                      <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">Factura</th>
-                      <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">Fecha</th>
-                      <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">Cliente</th>
-                      <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Total</th>
+                      <DataTableHeader label="Factura" field="num_factura" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.num_factura || ''} onFilter={handleFilter} />
+                      <DataTableHeader label="Fecha" field="fecha" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.fecha || ''} onFilter={handleFilter} />
+                      <DataTableHeader label="Cliente" field="cliente" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.cliente || ''} onFilter={handleFilter} />
+                      <DataTableHeader label="Total" field="total" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.total || ''} onFilter={handleFilter} />
                       <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Acciones</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[var(--border)]">
-                    {ventas.map(v => (
+                    {filteredVentas.map(v => (
                       <tr key={v.id} className="hover:bg-gray-50 group transition-colors">
                         <td className="px-6 py-4 text-sm font-bold">{v.serie}-{v.num_factura}</td>
                         <td className="px-6 py-4 text-sm text-[var(--muted)]">{new Date(v.fecha).toLocaleDateString()}</td>
@@ -292,6 +387,26 @@ function VentasContent() {
                           <button onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === v.id ? null : v.id); }} className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-400 hover:text-gray-600">
                             <MoreHorizontal size={20} />
                           </button>
+
+                          {openMenuId === v.id && (
+                            <div className="absolute right-6 top-12 w-48 bg-white rounded-xl shadow-xl border border-[var(--border)] z-50 py-2 animate-in fade-in slide-in-from-top-2 duration-200 text-left">
+                              <button onClick={() => downloadInvoice(v)} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-700 transition-colors">
+                                <Printer size={16}/> Imprimir PDF
+                              </button>
+                              <button onClick={() => openEditVenta(v)} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-700 transition-colors">
+                                <Save size={16}/> Editar Factura
+                              </button>
+                              <div className="h-px bg-gray-100 my-1 mx-2"></div>
+                              <button 
+                                onClick={() => {
+                                  if (confirm("¿Eliminar factura?")) supabase.from("ventas").delete().eq("id", v.id).then(() => fetchData());
+                                }} 
+                                className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                              >
+                                <Trash2 size={16}/> Eliminar
+                              </button>
+                            </div>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -330,6 +445,24 @@ function VentasContent() {
                     <option value="">— Seleccionar —</option>
                     {formasCobro.map(f => <option key={f.id} value={f.id}>{f.nombre}</option>)}
                   </select>
+                </div>
+                <div className="md:col-span-2">
+                  <SearchableSelect 
+                    label="Cliente"
+                    options={clientes}
+                    value={clienteId}
+                    onChange={(id) => setClienteId(id)}
+                    placeholder="Buscar cliente..."
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <SearchableSelect 
+                    label="Vincular a Proyecto (Opcional)"
+                    options={proyectos}
+                    value={proyectoId}
+                    onChange={(id) => setProyectoId(id)}
+                    placeholder="Seleccionar proyecto..."
+                  />
                 </div>
               </div>
 
@@ -370,6 +503,50 @@ function VentasContent() {
                   <div className="flex justify-between text-xl font-bold pt-3 border-t-2 border-gray-200"><span>TOTAL:</span><span className="text-[var(--accent)]">{formatCurrency(totalFactura)}</span></div>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Wizard Modal */}
+        {isWizardOpen && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8 animate-in zoom-in-95 duration-200">
+               <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-xl font-bold font-head">Nueva Factura</h3>
+                  <button onClick={() => setIsWizardOpen(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+               </div>
+               
+               <div className="grid gap-4">
+                  <button 
+                    onClick={() => { setEditingId(null); setClienteId(""); setProyectoId(""); setLineas([{ unidades: 1, descripcion: "", precio_unitario: 0 }]); setIsWizardOpen(false); setIsEditorOpen(true); }}
+                    className="flex items-center gap-4 p-4 rounded-xl border-2 border-dashed border-gray-200 hover:border-[var(--accent)] hover:bg-orange-50 transition-all text-left group"
+                  >
+                    <div className="p-3 rounded-lg bg-gray-100 group-hover:bg-orange-100 text-gray-500 group-hover:text-[var(--accent)]"><Plus size={24}/></div>
+                    <div>
+                      <div className="font-bold">Factura Manual</div>
+                      <div className="text-xs text-gray-500">Crear una factura desde cero.</div>
+                    </div>
+                  </button>
+
+                  <div className="py-2 flex items-center gap-4"><div className="h-px bg-gray-200 flex-1"></div><span className="text-[10px] font-bold text-gray-400 uppercase">Ó facturar proyecto</span><div className="h-px bg-gray-200 flex-1"></div></div>
+
+                  <div className="space-y-4">
+                    <SearchableSelect 
+                      label="Seleccionar Proyecto para Facturar"
+                      options={proyectos}
+                      value={selectedProjId}
+                      onChange={(id) => setSelectedProjId(id)}
+                      placeholder="Buscar por nombre de proyecto..."
+                    />
+                    <button 
+                      disabled={!selectedProjId}
+                      onClick={() => handleProjectToInvoice(selectedProjId)}
+                      className="w-full py-3 bg-[var(--accent)] text-white rounded-xl font-bold disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+                    >
+                      <FolderKanban size={18} /> Facturar Proyecto Seleccionado
+                    </button>
+                  </div>
+               </div>
             </div>
           </div>
         )}

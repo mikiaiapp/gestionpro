@@ -172,7 +172,7 @@ export default function AjustesPage() {
         .getPublicUrl(filePath);
 
       setLogoUrl(publicUrl);
-      alert('✅ Logo subido correctamente. Recuerda Guardar al terminar.');
+      alert('✅ Logo subido correctamente. Pulsa "Guardar Configuración" al final para aplicar los cambios en toda la App.');
     } catch (error: any) {
       alert('⚠️ ' + error.message);
     } finally {

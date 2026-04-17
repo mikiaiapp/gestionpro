@@ -13,9 +13,13 @@ import {
   TrendingDown,
   MapPin,
   X,
-  AlertTriangle
+  AlertTriangle,
+  ChevronUp,
+  ChevronDown,
+  Filter
 } from 'lucide-react';
 import { Sidebar } from '@/components/Sidebar';
+import { DataTableHeader } from '@/components/DataTableHeader';
 import { getFullLocationByCP } from '@/lib/geoData';
 import { cleanNIF } from '@/lib/format';
 
@@ -26,6 +30,10 @@ export default function ProveedoresPage() {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // Sorting and Filtering State
+  const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>({ key: 'nombre', direction: 'asc' });
+  const [columnFilters, setColumnFilters] = useState<{ [key: string]: string }>({});
 
   // Form State
   const [nombre, setNombre] = useState('');
@@ -160,10 +168,41 @@ export default function ProveedoresPage() {
     }
   };
 
-  const filteredProveedores = proveedores.filter(p => 
-    p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (p.nif && p.nif.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const handleSort = (field: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === field && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key: field, direction });
+  };
+
+  const handleFilter = (field: string, value: string) => {
+    setColumnFilters(prev => ({ ...prev, [field]: value }));
+  };
+
+  const filteredProveedores = proveedores.filter(p => {
+    // Global search
+    const matchesGlobal = searchTerm === '' || 
+      p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (p.nif && p.nif.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    // Column filters
+    const matchesColumns = Object.keys(columnFilters).every(key => {
+      if (!columnFilters[key]) return true;
+      const val = p[key] || '';
+      return val.toString().toLowerCase().includes(columnFilters[key].toLowerCase());
+    });
+
+    return matchesGlobal && matchesColumns;
+  }).sort((a, b) => {
+    if (!sortConfig) return 0;
+    const aVal = a[sortConfig.key] || '';
+    const bVal = b[sortConfig.key] || '';
+    
+    if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+    if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+    return 0;
+  });
 
   return (
     <div className="flex bg-[var(--background)] min-h-screen text-left">
@@ -275,9 +314,9 @@ export default function ProveedoresPage() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-gray-50/50 border-b">
-                    <th className="px-10 py-6 text-[11px] font-black text-gray-400 uppercase tracking-widest">Identidad Comercial</th>
-                    <th className="px-10 py-6 text-[11px] font-black text-gray-400 uppercase tracking-widest">NIF / Identificación</th>
-                    <th className="px-10 py-6 text-[11px] font-black text-gray-400 uppercase tracking-widest">Ubicación Actual</th>
+                    <DataTableHeader label="Identidad Comercial" field="nombre" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.nombre || ''} onFilter={handleFilter} />
+                    <DataTableHeader label="NIF / Identificación" field="nif" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.nif || ''} onFilter={handleFilter} />
+                    <DataTableHeader label="Ubicación Actual" field="poblacion" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.poblacion || ''} onFilter={handleFilter} />
                     <th className="px-10 py-6 text-[11px] font-black text-gray-400 uppercase tracking-widest text-right">Acciones</th>
                   </tr>
                 </thead>
@@ -297,16 +336,24 @@ export default function ProveedoresPage() {
                         </span>
                       </td>
                       <td className="px-10 py-6">
-                        {p.poblacion ? (
-                          <div className="text-xs font-bold text-gray-600 flex items-center gap-2">
-                            <MapPin size={14} className="text-orange-500 fill-orange-50"/>
-                            {p.poblacion}, {p.provincia}
-                          </div>
-                        ) : (
-                          <div className="text-xs text-gray-300 flex items-center gap-2 italic">
-                            <AlertTriangle size={14} /> Faltan datos geográficos
-                          </div>
-                        )}
+                        <div className="flex flex-col gap-1">
+                          {p.direccion && (
+                            <div className="text-sm font-bold text-gray-800 flex items-start gap-2">
+                              <MapPin size={14} className="mt-1 text-orange-500 shrink-0" />
+                              <span>{p.direccion}</span>
+                            </div>
+                          )}
+                          {p.poblacion ? (
+                            <div className={`text-xs ${p.direccion ? 'pl-6 text-gray-500 font-medium' : 'font-bold text-gray-600 flex items-center gap-2'}`}>
+                              {!p.direccion && <MapPin size={14} className="text-orange-500 fill-orange-50"/>}
+                              {p.poblacion}{p.provincia ? `, ${p.provincia}` : ''}{p.codigo_postal ? ` (${p.codigo_postal})` : ''}
+                            </div>
+                          ) : !p.direccion && (
+                            <div className="text-xs text-gray-300 flex items-center gap-2 italic">
+                              <AlertTriangle size={14} /> Faltan datos geográficos
+                            </div>
+                          )}
+                        </div>
                       </td>
                       <td className="px-10 py-6 text-right">
                         <div className="flex justify-end gap-2">

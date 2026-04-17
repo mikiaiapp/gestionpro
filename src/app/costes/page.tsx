@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Sidebar } from "@/components/Sidebar";
-import { SearchableSelect } from "@/components/SearchableSelect";
-import { Plus, MoreHorizontal, Loader2, Receipt, Upload, Save, Trash2, X, Sparkles, AlertCircle, UserPlus } from "lucide-react";
+import { Plus, MoreHorizontal, Loader2, Receipt, Upload, Save, Trash2, X, Sparkles, AlertCircle, UserPlus, ChevronUp, ChevronDown, Filter } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { Sidebar } from "@/components/Sidebar";
+import { DataTableHeader } from "@/components/DataTableHeader";
 import { formatCurrency, cleanNIF } from "@/lib/format";
 import { extractDataFromInvoice } from "@/lib/aiService";
 
@@ -40,6 +40,12 @@ export default function CostesPage() {
 
   // Nuevo Proveedor Detectado (IA)
   const [detectedProvider, setDetectedProvider] = useState<any>(null);
+  const [isProviderReviewModalOpen, setIsProviderReviewModalOpen] = useState(false);
+
+  // Sorting and Filtering State
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>({ key: 'fecha', direction: 'desc' });
+  const [columnFilters, setColumnFilters] = useState<{ [key: string]: string }>({});
 
   useEffect(() => {
     fetchData();
@@ -126,8 +132,11 @@ export default function CostesPage() {
               nombre: result.proveedor_nombre, 
               nif: cleanedNIF,
               direccion: result.proveedor_direccion || "",
-              cp: result.proveedor_cp || ""
+              cp: result.proveedor_cp || "",
+              poblacion: "",
+              provincia: ""
             });
+            setIsProviderReviewModalOpen(true);
           }
 
           // 5. Rellenar formulario
@@ -168,32 +177,28 @@ export default function CostesPage() {
   const handleCreateDetectedProvider = async () => {
     if (!detectedProvider) return;
     try {
-      // Intentamos sacar provincia por CP para que el alta sea completa
-      let provincia = "";
-      if (detectedProvider.cp && detectedProvider.cp.length === 5) {
-        const geo = await getFullLocationByCP(detectedProvider.cp);
-        if (geo) provincia = geo.provincia;
-      }
-
       const { data, error } = await supabase.from('proveedores')
         .insert([{ 
           nombre: detectedProvider.nombre, 
           nif: cleanNIF(detectedProvider.nif),
           direccion: detectedProvider.direccion,
           codigo_postal: detectedProvider.cp,
-          provincia: provincia
+          poblacion: detectedProvider.poblacion,
+          provincia: detectedProvider.provincia,
+          user_id: (await supabase.auth.getUser()).data.user?.id
         }])
         .select().single();
       
       if (error) throw error;
       
-      alert("✅ Proveedor creado: " + detectedProvider.nombre);
+      alert("✅ Proveedor creado: " + data.nombre);
       const newProv = { id: data.id, nombre: data.nombre, nif: data.nif };
       setProveedores([...proveedores, newProv]);
       setProveedorId(data.id);
       setDetectedProvider(null);
-    } catch (err) {
-      alert("Error al crear proveedor auto.");
+      setIsProviderReviewModalOpen(false);
+    } catch (err: any) {
+      alert("Error al crear proveedor: " + err.message);
     }
   };
 
@@ -305,6 +310,55 @@ export default function CostesPage() {
       setSaving(false);
     }
   };
+  const handleSort = (field: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === field && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key: field, direction });
+  };
+
+  const handleFilter = (field: string, value: string) => {
+    setColumnFilters(prev => ({ ...prev, [field]: value }));
+  };
+
+  const filteredCostes = (costes || []).filter(c => {
+    // Global search
+    const matchesGlobal = searchTerm === '' || 
+      (c.proveedores?.nombre && c.proveedores.nombre.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (c.proyectos?.nombre && c.proyectos.nombre.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    // Column filters
+    const matchesColumns = Object.keys(columnFilters).every(key => {
+      if (!columnFilters[key]) return true;
+      let val = '';
+      if (key === 'proveedor') val = c.proveedores?.nombre || '';
+      else if (key === 'proyecto') val = c.proyectos?.nombre || '';
+      else if (key === 'num_factura') val = c.num_factura_proveedor || '';
+      else val = c[key] || '';
+      return val.toString().toLowerCase().includes(columnFilters[key].toLowerCase());
+    });
+
+    return matchesGlobal && matchesColumns;
+  }).sort((a, b) => {
+    if (!sortConfig) return 0;
+    let aVal, bVal;
+    
+    if (sortConfig.key === 'proveedor') {
+      aVal = a.proveedores?.nombre || '';
+      bVal = b.proveedores?.nombre || '';
+    } else if (sortConfig.key === 'proyecto') {
+      aVal = a.proyectos?.nombre || '';
+      bVal = b.proyectos?.nombre || '';
+    } else {
+      aVal = a[sortConfig.key] || '';
+      bVal = b[sortConfig.key] || '';
+    }
+    
+    if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+    if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+    return 0;
+  });
 
   return (
     <div className="flex bg-[var(--background)] min-h-screen text-left">
@@ -348,6 +402,74 @@ export default function CostesPage() {
                 )}
              </div>
           </div>
+        {isProviderReviewModalOpen && detectedProvider && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[300] flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl shadow-2xl p-10 w-full max-w-lg animate-in fade-in zoom-in duration-300 border overflow-y-auto max-h-[90vh]">
+              <div className="flex justify-between items-center mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-orange-100 rounded-2xl flex items-center justify-center text-orange-600">
+                    <UserPlus size={24} />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-black tracking-tight">Validar Nuevo Proveedor</h2>
+                    <p className="text-xs text-gray-500 font-medium">Revisa los datos extraídos por la IA</p>
+                  </div>
+                </div>
+                <button onClick={() => setIsProviderReviewModalOpen(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                  <X size={20} className="text-gray-400" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Razón Social</label>
+                  <input type="text" value={detectedProvider.nombre} onChange={(e) => setDetectedProvider({...detectedProvider, nombre: e.target.value})} className="w-full p-4 rounded-xl border bg-gray-50 font-bold focus:ring-4 focus:ring-orange-500/10 outline-none transition-all" />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">NIF/CIF</label>
+                    <input type="text" value={detectedProvider.nif} onChange={(e) => setDetectedProvider({...detectedProvider, nif: e.target.value})} className="w-full p-4 rounded-xl border bg-gray-50 font-mono focus:ring-4 focus:ring-orange-500/10 outline-none transition-all" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Código Postal</label>
+                    <input type="text" value={detectedProvider.cp} maxLength={5} onChange={(e) => {
+                      const newCp = e.target.value;
+                      setDetectedProvider({...detectedProvider, cp: newCp});
+                      if (newCp.length === 5) {
+                        getFullLocationByCP(newCp).then(geo => {
+                          if (geo) setDetectedProvider(prev => ({...prev, poblacion: geo.poblacion, provincia: geo.provincia}));
+                        });
+                      }
+                    }} className="w-full p-4 rounded-xl border bg-gray-50 font-mono font-bold focus:ring-4 focus:ring-orange-500/10 outline-none transition-all" />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Dirección Postal</label>
+                  <input type="text" value={detectedProvider.direccion} onChange={(e) => setDetectedProvider({...detectedProvider, direccion: e.target.value})} className="w-full p-4 rounded-xl border bg-gray-50 focus:ring-4 focus:ring-orange-500/10 outline-none transition-all" />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Población</label>
+                    <input type="text" value={detectedProvider.poblacion} onChange={(e) => setDetectedProvider({...detectedProvider, poblacion: e.target.value})} className="w-full p-4 rounded-xl border bg-gray-50 focus:ring-4 focus:ring-orange-500/10 outline-none transition-all" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Provincia</label>
+                    <input type="text" value={detectedProvider.provincia} onChange={(e) => setDetectedProvider({...detectedProvider, provincia: e.target.value})} className="w-full p-4 rounded-xl border bg-gray-50 focus:ring-4 focus:ring-orange-500/10 outline-none transition-all" />
+                  </div>
+                </div>
+
+                <div className="pt-6">
+                  <button onClick={handleCreateDetectedProvider} className="w-full py-4 bg-orange-600 text-white font-black rounded-2xl shadow-xl hover:bg-orange-700 transition-all active:scale-[0.98] flex items-center justify-center gap-3">
+                    <Save size={20} />
+                    Confirmar Alta Proveedor
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
 
         {isModalOpen && (
@@ -370,8 +492,8 @@ export default function CostesPage() {
                           <p className="text-xs text-orange-700">{detectedProvider.nombre} ({detectedProvider.nif})</p>
                        </div>
                     </div>
-                    <button onClick={handleCreateDetectedProvider} className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg font-bold text-xs hover:bg-orange-700 transition-all">
-                       <UserPlus size={14} /> Dar de alta ahora
+                    <button type="button" onClick={() => setIsProviderReviewModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg font-bold text-xs hover:bg-orange-700 transition-all">
+                       <UserPlus size={14} /> Revisar y Validar
                     </button>
                   </div>
                 )}
@@ -463,18 +585,25 @@ export default function CostesPage() {
           </div>
         )}
 
-        <div className="glass-card bg-white shadow-sm border-[var(--border)] overflow-hidden">
+        <div className="glass-card bg-white shadow-sm border-[var(--border)] overflow-visible text-left min-h-[400px]">
+          <div className="p-4 border-b border-[var(--border)] flex justify-between items-center bg-[#fafafa] rounded-t-xl">
+            <div className="relative w-72">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]" size={16} />
+              <input type="text" placeholder="Buscar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)]" />
+            </div>
+          </div>
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-[#fcfaf7] border-b text-[11px] font-bold text-gray-400 uppercase">
-                <th className="px-6 py-4">Factura / Prov.</th>
-                <th className="px-6 py-4">Fecha</th>
-                <th className="px-6 py-4">Gasto / Proyecto</th>
-                <th className="px-6 py-4 text-right">Total</th>
+                <DataTableHeader label="Factura / Prov." field="proveedor" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.proveedor || ''} onFilter={handleFilter} />
+                <DataTableHeader label="Fecha" field="fecha" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.fecha || ''} onFilter={handleFilter} />
+                <DataTableHeader label="Gasto / Proyecto" field="proyecto" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.proyecto || ''} onFilter={handleFilter} />
+                <DataTableHeader label="Total" field="total" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.total || ''} onFilter={handleFilter} />
+                <th className="px-6 py-4 text-[11px] font-bold text-gray-400 uppercase text-right">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--border)]">
-              {costes.map(c => (
+              {filteredCostes.map(c => (
                 <tr key={c.id} className="hover:bg-gray-50 transition-colors group">
                   <td className="px-6 py-4">
                      <div className="text-[10px] font-bold text-blue-600 mb-0.5">{c.num_interno}</div>
@@ -488,6 +617,15 @@ export default function CostesPage() {
                      </span>
                   </td>
                   <td className="px-6 py-4 text-right font-mono font-bold text-red-600">{formatCurrency(c.total)}</td>
+                  <td className="px-6 py-4 text-right">
+                    <button 
+                      onClick={() => { if(confirm("¿Eliminar este coste?")) supabase.from("costes").delete().eq("id", c.id).then(() => fetchData()); }}
+                      className="p-2 hover:bg-red-50 rounded-lg text-gray-400 hover:text-red-600 transition-colors"
+                      title="Eliminar Coste"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
