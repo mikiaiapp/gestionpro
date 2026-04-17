@@ -207,7 +207,10 @@ export default function ProyectosPage() {
         });
 
         if (Object.keys(patch).length > 0) {
-          await supabase.from("proyectos").update(patch).eq("id", data.id);
+          const { error: patchError } = await supabase.from("proyectos").update(patch).eq("id", data.id);
+          if (patchError) {
+             alert(`⚠️ SE GUARDÓ EL NOMBRE, PERO FALLÓ EL RESTO:\n${patchError.message}\n\nCampos: ${Object.keys(patch).join(', ')}`);
+          }
         }
         
         currentId = data.id;

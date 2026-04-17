@@ -277,7 +277,10 @@ export default function CostesPage() {
         if (realKeys.includes('retencion_pct')) patch.retencion_pct = retencionPct;
 
         if (Object.keys(patch).length > 0) {
-          await supabase.from("costes").update(patch).eq("id", currentId);
+          const { error: patchError } = await supabase.from("costes").update(patch).eq("id", currentId);
+          if (patchError) {
+             alert(`⚠️ SE CREÓ EL REGISTRO BASE, PERO FALLÓ EL RESTO:\n${patchError.message}\n\nCampos: ${Object.keys(patch).join(', ')}`);
+          }
         }
       }
 
