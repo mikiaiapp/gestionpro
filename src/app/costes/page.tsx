@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, MoreHorizontal, Loader2, Receipt, Upload, Save, Trash2, X, Sparkles, AlertCircle, UserPlus, ChevronUp, ChevronDown, Filter } from "lucide-react";
+import { Plus, MoreHorizontal, Loader2, Receipt, Upload, Save, Trash2, X, Sparkles, AlertCircle, UserPlus, ChevronUp, ChevronDown, Filter, Search } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Sidebar } from "@/components/Sidebar";
 import { DataTableHeader } from "@/components/DataTableHeader";
@@ -323,12 +323,10 @@ export default function CostesPage() {
   };
 
   const filteredCostes = (costes || []).filter(c => {
-    // Global search
     const matchesGlobal = searchTerm === '' || 
       (c.proveedores?.nombre && c.proveedores.nombre.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (c.proyectos?.nombre && c.proyectos.nombre.toLowerCase().includes(searchTerm.toLowerCase()));
     
-    // Column filters
     const matchesColumns = Object.keys(columnFilters).every(key => {
       if (!columnFilters[key]) return true;
       let val = '';
