@@ -403,7 +403,7 @@ function VentasContent() {
           <>
             <header className="flex justify-between items-center mb-10">
               <div>
-                <h1 className="text-3xl font-bold font-head tracking-tight mb-1 text-[var(--foreground)]">Facturación</h1>
+                <h1 className="text-3xl font-bold font-head tracking-tight mb-1 text-[var(--foreground)]">Facturas Emitidas</h1>
                 <p className="text-[var(--muted)] font-medium">Gestión y emisión de facturas profesionales.</p>
               </div>
               <div className="flex gap-3">

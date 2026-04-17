@@ -274,13 +274,13 @@ export default function CostesPage() {
       <div className="flex-1 p-8 overflow-y-auto">
         <header className="flex justify-between items-center mb-10">
           <div>
-            <h1 className="text-3xl font-bold font-head tracking-tight mb-1">Costes</h1>
+            <h1 className="text-3xl font-bold font-head tracking-tight mb-1">Facturas Recibidas</h1>
             <p className="text-[var(--muted)] font-medium">Gestión de facturas recibidas y multi-IVA.</p>
           </div>
           <div className="flex gap-3">
              <button onClick={exportPDF} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white border border-[var(--border)] font-bold text-gray-600 hover:shadow-md transition-all active:scale-[0.98]"><FileText size={18} className="text-red-500" /> Exportar PDF</button>
              <button onClick={() => setIsAiModalOpen(true)} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white border border-[var(--border)] font-bold text-purple-600 hover:shadow-md transition-all active:scale-[0.98]"><Sparkles size={18}/> Importar PDF</button>
-             <button onClick={openAddModal} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--accent)] text-white font-bold hover:shadow-lg transition-all active:scale-[0.98]"><Plus size={18}/> Nuevo Coste</button>
+             <button onClick={openAddModal} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--accent)] text-white font-bold hover:shadow-lg transition-all active:scale-[0.98]"><Plus size={18}/> Nueva Factura Recibida</button>
           </div>
         </header>
 
@@ -300,7 +300,7 @@ export default function CostesPage() {
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
              <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-4xl border border-[var(--border)] overflow-y-auto max-h-[90vh]">
                 <div className="flex justify-between items-center mb-8 pb-4 border-b">
-                   <h2 className="text-2xl font-bold font-head flex items-center gap-2"><Receipt className="text-purple-600" /> {editingId ? "Editar Factura Recibida" : "Registrar Coste"}</h2>
+                   <h2 className="text-2xl font-bold font-head flex items-center gap-2"><Receipt className="text-purple-600" /> {editingId ? "Editar Factura Recibida" : "Registrar Factura Recibida"}</h2>
                    <button onClick={() => setIsModalOpen(false)}><X size={24} className="text-gray-400"/></button>
                 </div>
                 
