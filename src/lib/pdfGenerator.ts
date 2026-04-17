@@ -177,7 +177,8 @@ export const generatePDF = async (data: PDFData) => {
   let legalBlocks: string[] = [];
 
   const mainFooter = data.perfil.condiciones_legales;
-  if (mainFooter && mainFooter.trim()) {
+  // Solo mostramos condicionado general si no es una FACTURA (ej. en presupuestos)
+  if (data.tipo !== 'FACTURA' && mainFooter && mainFooter.trim()) {
     legalBlocks.push("CONDICIONADO GENERAL:\n" + injectEmail(mainFooter));
   }
 
@@ -213,7 +214,35 @@ export const generatePDF = async (data: PDFData) => {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7);
   doc.setTextColor(180);
-  doc.text(`Página 1 de 1 - Documento profesional generado por GestiónPro`, PAGE_WIDTH / 2, pageHeight - 8, { align: 'center' });
+  doc.text(`Página 1 de 1 - Documento profesional generado por GestiónPro`, PAGE_WIDTH / 2, pageHeight - 5, { align: 'center' });
+
+  // 7. Bloque VERIFACTU (Solo para facturas)
+  if (data.tipo === 'FACTURA') {
+    const qrSize = 25;
+    const qrX = PAGE_WIDTH - MARGIN - qrSize;
+    const qrY = pageHeight - MARGIN - 25;
+    
+    // Texto legal VeriFactu
+    doc.setFontSize(6);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0);
+    doc.text("Factura verificable en la sede", qrX - 5, qrY + 8, { align: 'right' });
+    doc.text("electrónica de la AEAT", qrX - 5, qrY + 11, { align: 'right' });
+    
+    doc.setFontSize(8);
+    doc.setTextColor(100, 100, 100);
+    doc.text("SISTEMA VERI*FACTU", qrX - 5, qrY + 17, { align: 'right' });
+
+    // Generar QR (vía API para evitar dependencias conflictivas de node)
+    const qrData = `https://www2.agenciatributaria.gob.es/wlpl/zsce-itst/verifactu/verificar-factura?nif=${data.perfil.nif}&numero=${data.numero}&fecha=${data.fecha}&importe=${data.totales.total}`;
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(qrData)}`;
+    
+    try {
+      doc.addImage(qrUrl, 'JPEG', qrX, qrY, qrSize, qrSize);
+    } catch (err) {
+      console.warn("No se pudo cargar el QR de VeriFactu");
+    }
+  }
 
   // Guardar archivo
   doc.save(`${data.tipo.toLowerCase()}_${data.numero}.pdf`);
