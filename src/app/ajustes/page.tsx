@@ -15,7 +15,8 @@ import {
   ImageIcon,
   Wallet,
   ExternalLink,
-  Upload
+  Upload,
+  Trash2
 } from 'lucide-react';
 import { Sidebar } from '@/components/Sidebar';
 import { getProvinciaPorCP } from '@/lib/geoData';
