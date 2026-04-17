@@ -8,6 +8,8 @@ import { supabase } from "@/lib/supabase";
 import { formatCurrency, cleanNIF } from "@/lib/format";
 import { extractDataFromInvoice } from "@/lib/aiService";
 
+import { getFullLocationByCP } from '@/lib/geoData';
+
 interface LineaCoste {
   unidades: number;
   descripcion: string;
@@ -120,7 +122,12 @@ export default function CostesPage() {
           if (provExistente) {
             setProveedorId(provExistente.id);
           } else {
-            setDetectedProvider({ nombre: result.proveedor_nombre, nif: cleanedNIF });
+            setDetectedProvider({ 
+              nombre: result.proveedor_nombre, 
+              nif: cleanedNIF,
+              direccion: result.proveedor_direccion || "",
+              cp: result.proveedor_cp || ""
+            });
           }
 
           // 5. Rellenar formulario
@@ -161,8 +168,21 @@ export default function CostesPage() {
   const handleCreateDetectedProvider = async () => {
     if (!detectedProvider) return;
     try {
+      // Intentamos sacar provincia por CP para que el alta sea completa
+      let provincia = "";
+      if (detectedProvider.cp && detectedProvider.cp.length === 5) {
+        const geo = await getFullLocationByCP(detectedProvider.cp);
+        if (geo) provincia = geo.provincia;
+      }
+
       const { data, error } = await supabase.from('proveedores')
-        .insert([{ nombre: detectedProvider.nombre, nif: cleanNIF(detectedProvider.nif) }])
+        .insert([{ 
+          nombre: detectedProvider.nombre, 
+          nif: cleanNIF(detectedProvider.nif),
+          direccion: detectedProvider.direccion,
+          codigo_postal: detectedProvider.cp,
+          provincia: provincia
+        }])
         .select().single();
       
       if (error) throw error;
