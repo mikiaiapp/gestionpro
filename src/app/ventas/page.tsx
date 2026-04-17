@@ -53,22 +53,31 @@ function VentasContent() {
   useEffect(() => {
     const pId = searchParams.get("proyectoId");
     const mode = searchParams.get("mode");
-    if (pId && mode === "avance") {
-      if (proyectos.length > 0 && !hasAutoInvoiced) {
-        handleProjectToInvoice(pId);
-        setHasAutoInvoiced(true);
-      } else if (!hasAutoInvoiced) {
-        setIsWizardOpen(true);
-      }
+    if (pId && mode === "avance" && !hasAutoInvoiced) {
+      setSelectedProjId(pId);
+      setIsWizardOpen(true);
+      setHasAutoInvoiced(true);
     }
-  }, [searchParams, proyectos, hasAutoInvoiced]);
+  }, [searchParams, hasAutoInvoiced]);
 
-  const handleProjectToInvoice = async (projId: string) => {
+  const handleProjectToInvoice = async (projId: string, pctRequested: number = 100) => {
     const proj = proyectos.find(p => p.id === projId);
     if (!proj) return;
 
     setLoading(true);
     try {
+      // 1. Calcular lo facturado anteriormente
+      const { data: vtsAnteriores } = await supabase.from("ventas").select("base_imponible").eq("proyecto_id", projId);
+      const totalFacturadoAnterior = (vtsAnteriores || []).reduce((acc, v) => acc + (v.base_imponible || 0), 0);
+      const baseProy = proj.base_imponible || 0;
+      const pctAnterior = baseProy > 0 ? (totalFacturadoAnterior / baseProy) * 100 : 0;
+
+      if (pctAnterior + pctRequested > 100.01) { // Pequeño margen para redondeo
+        alert(`Error: No puedes facturar un ${pctRequested}%. Ya se ha facturado un ${pctAnterior.toFixed(2)}% de este proyecto. El total no puede exceder el 100%.`);
+        setLoading(false);
+        return;
+      }
+
       const { data: pLineas } = await supabase.from("proyecto_lineas").select("*").eq("proyecto_id", projId);
       
       setEditingId(null);
@@ -78,14 +87,17 @@ function VentasContent() {
       setSerie("A");
       setFecha(new Date().toISOString().split('T')[0]);
       
+      const factor = pctRequested / 100;
+      const suffix = pctRequested < 100 ? ` (${pctRequested}% avance)` : "";
+
       if (pLineas && pLineas.length > 0) {
         setLineas(pLineas.map((l: any) => ({
           unidades: l.unidades,
-          descripcion: l.descripcion,
-          precio_unitario: l.precio_unitario
+          descripcion: l.descripcion + suffix,
+          precio_unitario: l.precio_unitario * factor
         })));
       } else {
-        setLineas([{ unidades: 1, descripcion: proj.nombre, precio_unitario: proj.base_imponible || 0 }]);
+        setLineas([{ unidades: 1, descripcion: proj.nombre + suffix, precio_unitario: (proj.base_imponible || 0) * factor }]);
       }
       
       setIsWizardOpen(false);
@@ -161,12 +173,28 @@ function VentasContent() {
       return { ...v, totalCobrado, estadoPago };
     });
 
+    // Calcular facturación acumulada por proyecto
+    const facturacionPorProyecto = (vts || []).reduce((acc: any, v: any) => {
+      if (!v.proyecto_id) return acc;
+      acc[v.proyecto_id] = (acc[v.proyecto_id] || 0) + (v.base_imponible || 0);
+      return acc;
+    }, {});
+
     setVentas(preparedVentas);
     setClientes(clis || []);
     
     // Preparar proyectos con nombre de cliente para el selector
+    // Filtrar solo abiertos/pendientes Y que no estén facturados al 100%
     const preparedProjs = (projs || [])
-      .filter(p => !p.estado || p.estado === 'Abierto' || p.estado === 'Pendiente')
+      .filter(p => {
+        const estadoOk = !p.estado || p.estado === 'Abierto' || p.estado === 'Pendiente';
+        if (!estadoOk) return false;
+        
+        const yaFacturado = facturacionPorProyecto[p.id] || 0;
+        const totalProy = p.base_imponible || 0;
+        // Permitir si falta algo por facturar (margen de 0.01 para redondeos)
+        return totalProy > 0 && yaFacturado < (totalProy - 0.01);
+      })
       .map(p => ({
         ...p,
         nombre: `[${p.clientes?.nombre || 'S/C'}] ${p.nombre} ${p.num_proyecto ? `(${p.num_proyecto})` : ''}`
@@ -603,12 +631,37 @@ function VentasContent() {
                       onChange={(id) => setSelectedProjId(id)}
                       placeholder="Buscar por nombre de cliente o proyecto..."
                     />
+                    <div className="p-4 bg-orange-50 rounded-xl border border-orange-100 space-y-3">
+                      <label className="block text-[10px] font-bold text-orange-600 uppercase tracking-widest ml-1">Grado de Avance de Facturación (%)</label>
+                      <div className="flex items-center gap-4">
+                        <input 
+                          type="range" 
+                          min="1" 
+                          max="100" 
+                          value={pct} 
+                          onChange={(e) => setPct(e.target.value)} 
+                          className="flex-1 accent-orange-600"
+                        />
+                        <div className="w-16">
+                          <input 
+                            type="number" 
+                            min="1" 
+                            max="100" 
+                            value={pct} 
+                            onChange={(e) => setPct(e.target.value)} 
+                            className="w-full p-2 rounded-lg border border-orange-200 text-center font-bold text-orange-700 focus:outline-none"
+                          />
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-orange-500 font-medium italic">Se facturará un {pct}% del presupuesto total del proyecto.</p>
+                    </div>
+
                     <button 
                       disabled={!selectedProjId}
-                      onClick={() => handleProjectToInvoice(selectedProjId)}
-                      className="w-full py-3 bg-[var(--accent)] text-white rounded-xl font-bold disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+                      onClick={() => handleProjectToInvoice(selectedProjId, parseFloat(pct))}
+                      className="w-full py-4 bg-[var(--accent)] text-white rounded-xl font-bold disabled:opacity-50 transition-all flex items-center justify-center gap-2 shadow-lg shadow-orange-200 hover:shadow-orange-300 active:scale-[0.98]"
                     >
-                      <FolderKanban size={18} /> Facturar Proyecto Seleccionado
+                      <Receipt size={18} /> Facturar {pct}% del Proyecto
                     </button>
                   </div>
                </div>
