@@ -66,6 +66,17 @@ export default function CostesPage() {
     fetchData();
   }, []);
 
+  // Numeración correlativa automática (Libro de IVA Soportado)
+  useEffect(() => {
+    if (!editingId && isModalOpen && costes.length >= 0) {
+       const maxNum = costes.reduce((acc, c) => {
+         const n = parseInt(c.num_interno);
+         return isNaN(n) ? acc : Math.max(acc, n);
+       }, 0);
+       setNumInterno((maxNum + 1).toString());
+    }
+  }, [isModalOpen, editingId, costes]);
+
   const fetchData = async () => {
     setLoading(true);
     const { data: csts } = await supabase.from("costes").select("*, proveedores(nombre), proyectos(nombre), coste_lineas(*), pagos(importe)").order("fecha", { ascending: false });
@@ -299,97 +310,48 @@ export default function CostesPage() {
       alert("Proveedor y Nº de Factura son obligatorios.");
       return;
     }
-    setSaving(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuario no autenticado");
 
+      // DETECCIÓN DE COLUMNAS REALES (PRE-FLIGHT)
+      const { data: colProbe } = await supabase.from("costes").select("*").limit(1);
+      const availableCols = (colProbe && colProbe.length > 0) ? Object.keys(colProbe[0]) : [];
+      const foundKey = (options: string[]) => options.find(o => availableCols.includes(o));
+
+      const payload: any = {
+        fecha,
+        total: totalFactura,
+        user_id: user.id,
+        proveedor_id: proveedorId,
+        tipo_gasto: tipoGasto
+      };
+
+      const setIfFound = (options: string[], value: any) => {
+        const key = foundKey(options);
+        if (key) payload[key] = value;
+      };
+
+      setIfFound(['num_interno', 'registro_interno'], numInterno);
+      setIfFound(['num_factura_proveedor', 'numero_factura', 'num_factura', 'factura_prov', 'referencia'], numFactProv);
+      setIfFound(['base_imponible', 'base', 'subtotal'], baseImponible);
+      setIfFound(['iva_importe', 'cuota_iva', 'iva_total', 'iva'], totalIva);
+      setIfFound(['retencion_importe', 'irpf_importe', 'retencion', 'irpf'], retencionImporte);
+      setIfFound(['serie', 'serie_id'], serie);
+      setIfFound(['estado_pago', 'pagado', 'status_pago'], estadoPago);
+      setIfFound(['proyecto_id', 'id_proyecto'], tipoGasto === "proyecto" ? proyectoId : null);
+      if (availableCols.includes('iva_pct')) payload.iva_pct = 21;
+      if (availableCols.includes('retencion_pct')) payload.retencion_pct = retencionPct;
+
       let currentId = editingId;
       if (editingId) {
-        // ESTRATEGIA DETECTIVE PARA ACTUALIZACIÓN
-        const { data: sample } = await supabase.from("costes").select("*").eq("id", editingId).single();
-        if (!sample) throw new Error("No se encontró el registro para actualizar.");
-        
-        const realKeys = Object.keys(sample);
-        const foundKey = (options: string[]) => options.find(o => realKeys.includes(o));
-        
-        const colFactura = foundKey(['numero_factura', 'num_factura', 'factura_prov', 'num_factura_proveedor', 'referencia']);
-        const colBase = foundKey(['base_imponible', 'base', 'subtotal']);
-        const colIvaImporte = foundKey(['iva_importe', 'cuota_iva', 'iva_total', 'iva']);
-        const colRetImporte = foundKey(['retencion_importe', 'irpf_importe', 'retencion', 'irpf']);
-        const colSerie = foundKey(['serie', 'serie_id', 'tipo_serie']);
-        const colEstadoPago = foundKey(['estado_pago', 'pagado', 'status_pago']);
-        const colProyecto = foundKey(['proyecto_id', 'id_proyecto']);
-        const colTipoGasto = foundKey(['tipo_gasto', 'categoria_gasto']);
-
-        const patch: any = {
-          fecha,
-          total: totalFactura,
-          user_id: user.id
-        };
-
-        if (colFactura) patch[colFactura] = numFactProv;
-        if (colBase) patch[colBase] = baseImponible;
-        if (colIvaImporte) patch[colIvaImporte] = totalIva;
-        if (colRetImporte) patch[colRetImporte] = retencionImporte;
-        if (colSerie) patch[colSerie] = serie;
-        if (colEstadoPago) patch[colEstadoPago] = estadoPago;
-        if (colTipoGasto) patch[colTipoGasto] = tipoGasto;
-        if (colProyecto) patch[colProyecto] = tipoGasto === "proyecto" ? proyectoId : null;
-        
-        if (realKeys.includes('iva_pct')) patch.iva_pct = 21;
-        if (realKeys.includes('retencion_pct')) patch.retencion_pct = retencionPct;
-        if (realKeys.includes('proveedor_id')) patch.proveedor_id = proveedorId;
-        if (realKeys.includes('num_interno')) patch.num_interno = numInterno;
-
-        await supabase.from("costes").update(patch).eq("id", editingId);
+        const { error: uErr } = await supabase.from("costes").update(payload).eq("id", editingId);
+        if (uErr) throw uErr;
         await supabase.from("coste_lineas").delete().eq("coste_id", editingId);
       } else {
-        // ESTRATEGIA DETECTIVE: Inserción mínima para descubrir columnas reales en 'costes'
-        const minimalPayload: any = {
-          proveedor_id: proveedorId,
-          fecha,
-          total: totalFactura,
-          user_id: user.id
-        };
-
-        if (proyectoId && tipoGasto === "proyecto") {
-          minimalPayload.proyecto_id = proyectoId;
-        }
-
-        const { data, error } = await supabase.from("costes").insert([minimalPayload]).select().single();
-        
-        if (error) {
-          throw new Error("No se pudo iniciar el registro de coste. Error: " + error.message);
-        }
-        currentId = data.id;
-
-        // ¡DETECTAR COLUMNAS REALES!
-        const realKeys = Object.keys(data);
-        const patch: any = {};
-        const foundKey = (options: string[]) => options.find(o => realKeys.includes(o));
-        
-        const colFactura = foundKey(['numero_factura', 'num_factura', 'factura_prov', 'num_factura_proveedor', 'referencia']);
-        const colBase = foundKey(['base_imponible', 'base', 'subtotal']);
-        const colIvaImporte = foundKey(['iva_importe', 'cuota_iva', 'iva_total', 'iva']);
-        const colRetImporte = foundKey(['retencion_importe', 'irpf_importe', 'retencion', 'irpf']);
-        const colSerie = foundKey(['serie', 'serie_id', 'tipo_serie']);
-        const colEstadoPago = foundKey(['estado_pago', 'pagado', 'status_pago']);
-
-        if (colFactura) patch[colFactura] = numFactProv;
-        if (colBase) patch[colBase] = baseImponible;
-        if (colIvaImporte) patch[colIvaImporte] = totalIva;
-        if (colRetImporte) patch[colRetImporte] = retencionImporte;
-        if (colSerie) patch[colSerie] = serie;
-        if (colEstadoPago) patch[colEstadoPago] = estadoPago;
-        
-        // Ivas y Retenciones porcentuales si existen
-        if (realKeys.includes('iva_pct')) patch.iva_pct = 21;
-        if (realKeys.includes('retencion_pct')) patch.retencion_pct = retencionPct;
-
-        if (Object.keys(patch).length > 0) {
-          await supabase.from("costes").update(patch).eq("id", currentId);
-        }
+        const { data: newCoste, error: iErr } = await supabase.from("costes").insert([payload]).select().single();
+        if (iErr) throw iErr;
+        currentId = newCoste.id;
       }
 
       const lineasConId = lineas.map(l => ({
@@ -583,7 +545,7 @@ export default function CostesPage() {
                 <div className="flex justify-between items-center mb-6 pb-4 border-b">
                    <h2 className="text-2xl font-bold font-head flex items-center gap-2 tracking-tight text-gray-800">
                      <Receipt className="text-purple-600" /> 
-                     {editingId ? "Editar Gasto" : "Propuesta de Registro"}
+                     {editingId ? "Editar Factura" : "Factura Registrada"}
                    </h2>
                    <button onClick={() => setIsModalOpen(false)}><X size={24} className="text-gray-400"/></button>
                 </div>
@@ -611,6 +573,7 @@ export default function CostesPage() {
                           <option value="B">Serie B (sin IVA)</option>
                         </select>
                       </div>
+                      <div><label className="block text-[10px] font-bold text-gray-400 uppercase mb-1 whitespace-nowrap">Nº Registro (Asiento)</label><input type="text" value={numInterno} readOnly className="w-full p-2.5 rounded-lg border border-gray-200 bg-gray-100 font-bold text-gray-500" /></div>
                       <div><label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Factura Prov.</label><input type="text" value={numFactProv} onChange={(e) => setNumFactProv(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200 font-bold text-blue-600" /></div>
                       <div><label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Fecha</label><input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200" /></div>
                       <div className="md:col-span-2">
