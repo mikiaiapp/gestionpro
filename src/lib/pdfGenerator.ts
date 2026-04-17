@@ -169,10 +169,15 @@ export const generatePDF = async (data: PDFData) => {
 
   // 6. Pie Legal (Condiciones y LOPD)
   const pageHeight = doc.internal.pageSize.getHeight();
-  const footerText = data.perfil.condiciones_legales || CONDICIONADO_GRAL;
+  // Inyectar el email dinámicamente si existe
+  let footerText = data.perfil.condiciones_legales || CONDICIONADO_GRAL;
+  if (data.perfil.email) {
+    footerText = footerText.replace("el email facilitado en este documento", data.perfil.email);
+  }
   
   doc.setFontSize(7);
-  doc.setTextColor(120);
+  doc.setFont('helvetica', 'bold'); // Todo en negrita según petición
+  doc.setTextColor(60);
   
   // Dividir el texto en líneas que quepan en el ancho de la página
   const footerLines = doc.splitTextToSize(footerText, PAGE_WIDTH - (MARGIN * 2));
@@ -185,16 +190,9 @@ export const generatePDF = async (data: PDFData) => {
   footerLines.forEach((line: string, index: number) => {
     const yPos = footerY + (index * 3.2);
     
-    // REGLA 1: Títulos en MAYÚSCULAS o que terminan con ":"
-    const isTitle = (line.length > 3 && line === line.toUpperCase() && line.length < 60) || line.includes(': ');
-    
-    if (isTitle) {
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(60); // Un gris muy oscuro para títulos
-    } else {
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(120); // Gris suave para el cuerpo
-    }
+    // REGLA 1: Mantener siempre en negrita
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(60);
 
     // Dibujar la línea
     doc.text(line, MARGIN, yPos);
