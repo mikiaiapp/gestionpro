@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { Receipt, Plus, Search, MoreHorizontal, Loader2, Trash2, Save, FileText, Download, Printer, FolderKanban, ChevronUp, ChevronDown, Filter } from "lucide-react";
+import { Receipt, Plus, Search, MoreHorizontal, Loader2, Trash2, Save, FileText, Download, Printer, FolderKanban, ChevronUp, ChevronDown, Filter, HandCoins } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Sidebar } from "@/components/Sidebar";
 import { DataTableHeader } from "@/components/DataTableHeader";
@@ -47,6 +47,11 @@ function VentasContent() {
   // Estados temporales del Wizard
   const [selectedProjId, setSelectedProjId] = useState("");
   const [pct, setPct] = useState("10");
+  const [selectedVenta, setSelectedVenta] = useState<any>(null);
+  const [isCobroModalOpen, setIsCobroModalOpen] = useState(false);
+  const [cobroFecha, setCobroFecha] = useState(new Date().toISOString().split('T')[0]);
+  const [cobroImporte, setCobroImporte] = useState("");
+  const [cobroForma, setCobroForma] = useState("Transferencia");
 
   const [hasAutoInvoiced, setHasAutoInvoiced] = useState(false);
 
@@ -103,6 +108,38 @@ function VentasContent() {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRegisterCobro = async () => {
+    if (!selectedVenta || !cobroImporte) return;
+    
+    setSaving(true);
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const user = userData?.user;
+      
+      const payload: any = {
+        venta_id: selectedVenta.id,
+        fecha: cobroFecha,
+        importe: parseFloat(cobroImporte) || 0,
+        entidad: selectedVenta.clientes?.nombre || "Cliente",
+        categoria: "Ventas",
+        forma_pago: cobroForma,
+        user_id: user?.id
+      };
+
+      const { error } = await supabase.from("cobros").insert([payload]);
+      if (error) throw error;
+
+      setIsCobroModalOpen(false);
+      setCobroImporte("");
+      fetchData();
+      alert("✅ Cobro registrado correctamente");
+    } catch (err: any) {
+      alert("Error al registrar cobro: " + err.message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -498,9 +535,17 @@ function VentasContent() {
                               <button onClick={() => downloadInvoice(v)} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-700 transition-colors">
                                 <Printer size={16}/> Imprimir PDF
                               </button>
-                              <button onClick={() => openEditVenta(v)} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-700 transition-colors">
-                                <Save size={16}/> Editar Factura
-                              </button>
+                               <button onClick={() => {
+                                  setSelectedVenta(v);
+                                  setCobroImporte((v.total - (v.totalCobrado || 0)).toFixed(2));
+                                  setIsCobroModalOpen(true);
+                                  setOpenMenuId(null);
+                                }} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-green-600 hover:bg-green-50 transition-colors">
+                                  <HandCoins size={16} className="text-green-500"/> Registrar Cobro
+                                </button>
+                                <button onClick={() => openEditVenta(v)} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-700 transition-colors">
+                                  <Save size={16}/> Editar Factura
+                                </button>
                               <div className="h-px bg-gray-100 my-1 mx-2"></div>
                               <button 
                                 onClick={() => {
@@ -674,6 +719,53 @@ function VentasContent() {
                     >
                       <Receipt size={18} /> Facturar {pct}% del Proyecto
                     </button>
+                  </div>
+               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Cobro */}
+        {isCobroModalOpen && (
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl animate-in zoom-in duration-300">
+               <div className="flex justify-between items-center mb-6 text-left">
+                  <h3 className="text-xl font-black tracking-tight">Registrar Cobro</h3>
+                  <button onClick={() => setIsCobroModalOpen(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+               </div>
+               <div className="space-y-4 text-left">
+                  <div>
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Cliente</label>
+                    <div className="p-4 rounded-xl bg-gray-50 border font-bold text-gray-800">{selectedVenta?.clientes?.nombre}</div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Fecha de Cobro</label>
+                      <input type="date" value={cobroFecha} onChange={e => setCobroFecha(e.target.value)} className="w-full p-4 rounded-xl border bg-gray-50 focus:bg-white transition-all outline-none" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Importe (€)</label>
+                      <input type="number" step="0.01" value={cobroImporte} onChange={e => setCobroImporte(e.target.value)} className="w-full p-4 rounded-xl border bg-gray-50 focus:bg-white font-mono font-bold text-[var(--accent)] outline-none transition-all" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Forma de Cobro</label>
+                    <select value={cobroForma} onChange={e => setCobroForma(e.target.value)} className="w-full p-4 rounded-xl border bg-gray-50 focus:bg-white font-bold outline-none transition-all">
+                       <option value="Transferencia">Transferencia</option>
+                       <option value="Tarjeta">Tarjeta</option>
+                       <option value="Efectivo">Efectivo</option>
+                       <option value="Giro Bancario">Giro Bancario</option>
+                    </select>
+                  </div>
+                  <div className="pt-4">
+                     <button 
+                       disabled={saving}
+                       onClick={handleRegisterCobro}
+                       className="w-full py-4 bg-green-600 text-white font-black rounded-2xl shadow-xl hover:bg-green-700 transition-all flex items-center justify-center gap-2"
+                     >
+                       {saving ? <Loader2 className="animate-spin" size={20} /> : <HandCoins size={20} />}
+                       Confirmar Cobro
+                     </button>
                   </div>
                </div>
             </div>
