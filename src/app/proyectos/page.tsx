@@ -20,6 +20,7 @@ export default function ProyectosPage() {
   const [perfil, setPerfil] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [columnKey, setColumnKey] = useState("num_proyecto"); // Se detectará en fetchData
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -49,13 +50,13 @@ export default function ProyectosPage() {
     const yearPrefix = `${currentYear}-`;
     const filtered = allProjs.filter(p => 
       p.serie === targetSerie && 
-      p.num_referencia && 
-      p.num_referencia.startsWith(yearPrefix)
+      p[columnKey] && 
+      p[columnKey].startsWith(yearPrefix)
     );
 
     if (filtered.length > 0) {
       const numbers = filtered.map(p => {
-        const parts = p.num_referencia.split("-");
+        const parts = p[columnKey].split("-");
         return parseInt(parts[1], 10) || 0;
       });
       const nextNum = Math.max(...numbers) + 1;
@@ -103,7 +104,7 @@ export default function ProyectosPage() {
     setEditingId(p.id);
     setNombre(p.nombre);
     setSerie(p.serie || "P");
-    setNumReferencia(p.num_referencia || "");
+    setNumReferencia(p[columnKey] || "");
     setFecha(p.fecha || new Date().toISOString().split('T')[0]);
     setClienteId(p.cliente_id || "");
     setRetencionPct(p.retencion_pct || 0);
@@ -128,12 +129,18 @@ export default function ProyectosPage() {
 
     setSaving(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      const payload = {
+      // Autodetectar nombre de columna para el número/referencia
+      const { data: sample } = await supabase.from('proyectos').select('*').limit(1);
+      let columnKey = 'num_proyecto'; // valor por defecto
+      if (sample && sample.length > 0) {
+        const keys = Object.keys(sample[0]);
+        columnKey = keys.find(k => ['num_proyecto', 'num_referencia', 'numero', 'referencia'].includes(k)) || 'num_proyecto';
+      }
+
+      const payload: any = {
         nombre,
         cliente_id: clienteId,
         serie,
-        num_referencia: numReferencia, // Probando con 'num_referencia' tras fallar 'referencia', 'numero' y 'num_proyecto'
         fecha,
         base_imponible: baseImponible,
         iva_pct: 21,
@@ -143,6 +150,9 @@ export default function ProyectosPage() {
         total: totalProyecto,
         user_id: user?.id
       };
+      
+      // Asignar el número a la columna correcta detectada
+      payload[columnKey] = numReferencia;
 
       let currentId = editingId;
       if (editingId) {
@@ -184,7 +194,7 @@ export default function ProyectosPage() {
     try {
       await generatePDF({
         tipo: 'PRESUPUESTO',
-        numero: `${p.serie}-${p.num_referencia}`,
+        numero: `${p.serie}-${p[columnKey]}`,
         fecha: p.fecha,
         cliente: {
           nombre: p.clientes?.nombre || '',
@@ -267,7 +277,7 @@ export default function ProyectosPage() {
                    {filtered.map(p => (
                      <tr key={p.id} className="hover:bg-gray-50 transition-colors">
                        <td className="px-6 py-4">
-                         <div className="text-[10px] font-bold text-orange-600 uppercase mb-0.5">{p.serie}-{p.num_referencia}</div>
+                         <div className="text-[10px] font-bold text-orange-600 uppercase mb-0.5">{p.serie}-{p[columnKey]}</div>
                          <div className="font-bold">{p.nombre}</div>
                        </td>
                        <td className="px-6 py-4 text-sm font-medium text-gray-600">{p.clientes?.nombre}</td>
