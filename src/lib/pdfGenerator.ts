@@ -33,7 +33,10 @@ interface PDFData {
     cuenta_bancaria: string;
     condiciones_legales?: string;
     email?: string;
+    lopd_text?: string;
   };
+  condiciones_particulares?: string;
+  lopd_text?: string;
   lineas: Array<{
     unidades: number;
     descripcion: string;
@@ -51,12 +54,16 @@ interface PDFData {
 
 const CONDICIONADO_GRAL = `CONDICIONES GENERALES:
 1. El presente presupuesto no contempla trabajos no descritos ni vicios ocultos de la estructura. 
+
 2. No están incluidos en el presupuesto las licencias o tasas municipales ni proyectos técnicos necesarios. 
+
 3. Validez del presupuesto: 35 días naturales. 
+
 4. Forma de pago: 50% como provisión de fondos 30 días antes del inicio y 50% a la finalización del trabajo. 
+
 5. Mora: El impago a su vencimiento devengará un interés del 1,5% mensual.
 
-PROTECCIÓN DE DATOS: De conformidad con el RGPD y la LOPDGDD, trataremos sus datos para la gestión administrativa y facturación. Puede ejercer sus derechos de acceso, rectificación y otros en el email facilitado en este documento.`;
+PROTECCIÓN DE DATOS: De conformidad con el RGPD y la LOPDGDD, trataremos sus datos para la gestión administrativa y facturación. Puede ejercer sus derechos de acceso, rectificación y otros en el email EMAIL_PLACEHOLDER`;
 
 export const generatePDF = async (data: PDFData) => {
   const doc = new jsPDF();
@@ -169,18 +176,37 @@ export const generatePDF = async (data: PDFData) => {
 
   // 6. Pie Legal (Condiciones y LOPD)
   const pageHeight = doc.internal.pageSize.getHeight();
-  // Inyectar el email dinámicamente si existe
-  let footerText = data.perfil.condiciones_legales || CONDICIONADO_GRAL;
-  if (data.perfil.email) {
-    footerText = footerText.replace("el email facilitado en este documento", data.perfil.email);
+  
+  // Reemplazar marcador o referencia genérica por el email real
+  const userEmail = data.perfil.email || "empresa@gestionpro.com";
+  const injectEmail = (text: string) => (text || "")
+    .replace("EMAIL_PLACEHOLDER", userEmail)
+    .replace("el email facilitado en este documento", userEmail)
+    .replace("cristinamoya@gmail.com", userEmail);
+
+  // Construir bloques legales
+  let legalBlocks: string[] = [];
+
+  if (data.condiciones_particulares) {
+    legalBlocks.push("CONDICIONES PARTICULARES:\n" + injectEmail(data.condiciones_particulares));
   }
+
+  const mainFooter = data.perfil.condiciones_legales || CONDICIONADO_GRAL;
+  legalBlocks.push("CONDICIONES GENERALES:\n" + injectEmail(mainFooter));
+
+  const lopdText = data.lopd_text || data.perfil.lopd_text;
+  if (lopdText) {
+    legalBlocks.push("PROTECCIÓN DE DATOS (LOPD):\n" + injectEmail(lopdText));
+  }
+
+  const fullFooterText = legalBlocks.join("\n\n");
   
   doc.setFontSize(7);
-  doc.setFont('helvetica', 'bold'); // Todo en negrita según petición
+  doc.setFont('helvetica', 'bold');
   doc.setTextColor(60);
   
   // Dividir el texto en líneas que quepan en el ancho de la página
-  const footerLines = doc.splitTextToSize(footerText, PAGE_WIDTH - (MARGIN * 2));
+  const footerLines = doc.splitTextToSize(fullFooterText, PAGE_WIDTH - (MARGIN * 2));
   
   // Calcular posición: 15mm desde el fondo por cada línea o un margen fijo
   const footerHeight = footerLines.length * 3.5;
@@ -189,12 +215,7 @@ export const generatePDF = async (data: PDFData) => {
   // Dibujar líneas con formato inteligente
   footerLines.forEach((line: string, index: number) => {
     const yPos = footerY + (index * 3.2);
-    
-    // REGLA 1: Mantener siempre en negrita
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(60);
-
-    // Dibujar la línea
     doc.text(line, MARGIN, yPos);
   });
   

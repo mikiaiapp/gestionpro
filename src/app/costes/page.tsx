@@ -37,6 +37,7 @@ export default function CostesPage() {
   const [tipoGasto, setTipoGasto] = useState("general");
   const [proyectoId, setProyectoId] = useState("");
   const [retencionPct, setRetencionPct] = useState(0);
+  const [estadoPago, setEstadoPago] = useState("Pendiente");
   const [lineas, setLineas] = useState<LineaCoste[]>([{ unidades: 1, descripcion: "", precio_unitario: 0, iva_pct: 21 }]);
 
   // Nuevo Proveedor Detectado (IA)
@@ -216,15 +217,6 @@ export default function CostesPage() {
     setSaving(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      const payload = {
-        serie, num_interno: numInterno || `REC-${Date.now()}`, num_factura_proveedor: numFactProv, fecha, 
-        proveedor_id: proveedorId, tipo_gasto: tipoGasto,
-        proyecto_id: tipoGasto === "proyecto" ? proyectoId : null,
-        base_imponible: baseImponible, iva_pct: 21, iva_importe: totalIva,
-        retencion_pct: retencionPct, retencion_importe: retencionImporte, 
-        total: totalFactura,
-        user_id: user?.id
-      };
       if (!user) throw new Error("Usuario no autenticado");
 
       let currentId = editingId;
@@ -236,7 +228,8 @@ export default function CostesPage() {
           base_imponible: baseImponible, iva_pct: 21, iva_importe: totalIva,
           retencion_pct: retencionPct, retencion_importe: retencionImporte, 
           total: totalFactura,
-          user_id: user?.id
+          estado_pago: estadoPago,
+          user_id: user.id
         };
         await supabase.from("costes").update(payload).eq("id", editingId);
         await supabase.from("coste_lineas").delete().eq("coste_id", editingId);
@@ -249,12 +242,10 @@ export default function CostesPage() {
           user_id: user.id
         };
 
-        // Si hay proyecto vinculado, lo intentamos con el nombre que solemos usar
         if (proyectoId && tipoGasto === "proyecto") {
           minimalPayload.proyecto_id = proyectoId;
         }
 
-        // EN ALTA NUEVA: Guardamos solo lo mínimo
         const { data, error } = await supabase.from("costes").insert([minimalPayload]).select().single();
         
         if (error) {
@@ -264,8 +255,7 @@ export default function CostesPage() {
 
         // ¡DETECTAR COLUMNAS REALES!
         const realKeys = Object.keys(data);
-        
-        // Mapeo inteligente
+        const patch: any = {};
         const foundKey = (options: string[]) => options.find(o => realKeys.includes(o));
         
         const colFactura = foundKey(['numero_factura', 'num_factura', 'factura_prov', 'num_factura_proveedor', 'referencia']);
@@ -273,28 +263,22 @@ export default function CostesPage() {
         const colIvaImporte = foundKey(['iva_importe', 'cuota_iva', 'iva_total', 'iva']);
         const colRetImporte = foundKey(['retencion_importe', 'irpf_importe', 'retencion', 'irpf']);
         const colSerie = foundKey(['serie', 'serie_id', 'tipo_serie']);
+        const colEstadoPago = foundKey(['estado_pago', 'pagado', 'status_pago']);
 
-        // Parche con los datos reales
-        const patch: any = {};
         if (colFactura) patch[colFactura] = numFactProv;
         if (colBase) patch[colBase] = baseImponible;
         if (colIvaImporte) patch[colIvaImporte] = totalIva;
         if (colRetImporte) patch[colRetImporte] = retencionImporte;
         if (colSerie) patch[colSerie] = serie;
-        
-        // Ivas y Retenciones porcentuales si existen
+        if (colEstadoPago) patch[colEstadoPago] = estadoPago;
         if (realKeys.includes('iva_pct')) patch.iva_pct = 21;
         if (realKeys.includes('retencion_pct')) patch.retencion_pct = retencionPct;
 
         if (Object.keys(patch).length > 0) {
-          const { error: patchError } = await supabase.from("costes").update(patch).eq("id", currentId);
-          if (patchError) {
-             alert(`⚠️ SE CREÓ EL REGISTRO BASE, PERO FALLÓ EL RESTO:\n${patchError.message}\n\nCampos: ${Object.keys(patch).join(', ')}`);
-          }
+          await supabase.from("costes").update(patch).eq("id", currentId);
         }
       }
 
-      // 3. Guardar Líneas
       const lineasConId = lineas.map(l => ({
         coste_id: currentId,
         descripcion: l.descripcion,
@@ -303,9 +287,7 @@ export default function CostesPage() {
         iva_pct: Number(l.iva_pct)
       }));
 
-      const { error: lineError } = await supabase.from("coste_lineas").insert(lineasConId);
-      if (lineError) throw lineError;
-
+      await supabase.from("coste_lineas").insert(lineasConId);
       setIsModalOpen(false);
       fetchData();
       alert("✅ Gasto registrado correctamente.");
@@ -339,6 +321,7 @@ export default function CostesPage() {
         if (key === 'proveedor') val = c.proveedores?.nombre || '';
         else if (key === 'proyecto') val = c.proyectos?.nombre || '';
         else if (key === 'num_factura') val = c.num_factura_proveedor || '';
+        else if (key === 'estado_pago') val = c.estado_pago || 'Pendiente';
         else val = c[key] || '';
         return val.toString().toLowerCase().includes(columnFilters[key].toLowerCase());
       });
@@ -354,6 +337,9 @@ export default function CostesPage() {
       } else if (sortConfig.key === 'proyecto') {
         aVal = a.proyectos?.nombre || '';
         bVal = b.proyectos?.nombre || '';
+      } else if (sortConfig.key === 'estado_pago') {
+        aVal = a.estado_pago || 'Pendiente';
+        bVal = b.estado_pago || 'Pendiente';
       } else {
         aVal = a[sortConfig.key] || '';
         bVal = b[sortConfig.key] || '';
@@ -388,22 +374,22 @@ export default function CostesPage() {
           <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
              <div className="bg-white rounded-3xl p-10 w-full max-w-md text-center shadow-2xl animate-in zoom-in duration-300">
                 {isExtracting ? (
-                  <div className="space-y-6">
-                    <Loader2 className="animate-spin mx-auto text-purple-600" size={60} />
-                    <p className="font-bold text-gray-700">Gemini IA analizando tu factura...</p>
-                  </div>
+                   <div className="space-y-6">
+                     <Loader2 className="animate-spin mx-auto text-purple-600" size={60} />
+                     <p className="font-bold text-gray-700">Gemini IA analizando tu factura...</p>
+                   </div>
                 ) : (
-                  <div className="space-y-6">
-                    <div className="w-20 h-20 bg-purple-50 rounded-full flex items-center justify-center mx-auto">
-                       <Upload className="text-purple-600" size={32} />
-                    </div>
-                    <div>
-                       <h2 className="text-2xl font-black mb-2 tracking-tight">Importar Factura</h2>
-                       <p className="text-sm text-gray-500">Sube el PDF y extraeremos el proveedor, fecha, bases de IVA y retenciones.</p>
-                    </div>
-                    <input type="file" accept="application/pdf" onChange={handleImportWithAI} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-purple-100 file:text-purple-700 hover:file:bg-purple-200 cursor-pointer" />
-                    <button onClick={() => setIsAiModalOpen(false)} className="text-gray-400 font-bold hover:text-gray-600 transition-colors">Cerrar</button>
-                  </div>
+                   <div className="space-y-6">
+                     <div className="w-20 h-20 bg-purple-50 rounded-full flex items-center justify-center mx-auto">
+                        <Upload className="text-purple-600" size={32} />
+                     </div>
+                     <div>
+                        <h2 className="text-2xl font-black mb-2 tracking-tight">Importar Factura</h2>
+                        <p className="text-sm text-gray-500">Sube el PDF y extraeremos el proveedor, fecha, bases de IVA y retenciones.</p>
+                     </div>
+                     <input type="file" accept="application/pdf" onChange={handleImportWithAI} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-purple-100 file:text-purple-700 hover:file:bg-purple-200 cursor-pointer" />
+                     <button onClick={() => setIsAiModalOpen(false)} className="text-gray-400 font-bold hover:text-gray-600 transition-colors">Cerrar</button>
+                   </div>
                 )}
              </div>
           </div>
@@ -469,7 +455,7 @@ export default function CostesPage() {
 
                 <div className="pt-6">
                   <button onClick={handleCreateDetectedProvider} className="w-full py-4 bg-orange-600 text-white font-black rounded-2xl shadow-xl hover:bg-orange-700 transition-all active:scale-[0.98] flex items-center justify-center gap-3">
-                    <Save size={20} />
+                    <UserPlus size={20} />
                     Confirmar Alta Proveedor
                   </button>
                 </div>
@@ -535,6 +521,14 @@ export default function CostesPage() {
                            />
                         </div>
                       )}
+                      <div>
+                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Estado de Pago</label>
+                        <select value={estadoPago} onChange={(e) => setEstadoPago(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200 bg-gray-50 font-bold">
+                           <option value="Pendiente">Pendiente</option>
+                           <option value="Pagado">Pagado</option>
+                           <option value="Pago Parcial">Pago Parcial</option>
+                        </select>
+                      </div>
                    </div>
 
                    <div className="pt-4">
@@ -606,6 +600,19 @@ export default function CostesPage() {
                 <DataTableHeader label="Fecha" field="fecha" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.fecha || ''} onFilter={handleFilter} />
                 <DataTableHeader label="Gasto / Proyecto" field="proyecto" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.proyecto || ''} onFilter={handleFilter} />
                 <DataTableHeader label="Total" field="total" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.total || ''} onFilter={handleFilter} />
+                <DataTableHeader 
+                  label="Pagadas" 
+                  field="estado_pago" 
+                  sortConfig={sortConfig} 
+                  onSort={handleSort} 
+                  filterValue={columnFilters.estado_pago || ''} 
+                  onFilter={handleFilter} 
+                  filterOptions={[
+                    { label: 'Pagado', value: 'Pagado' },
+                    { label: 'Pendiente', value: 'Pendiente' },
+                    { label: 'Pago Parcial', value: 'Pago Parcial' }
+                  ]}
+                />
                 <th className="px-6 py-4 text-[11px] font-bold text-gray-400 uppercase text-right">Acciones</th>
               </tr>
             </thead>
@@ -624,6 +631,15 @@ export default function CostesPage() {
                      </span>
                   </td>
                   <td className="px-6 py-4 text-right font-mono font-bold text-red-600">{formatCurrency(c.total)}</td>
+                  <td className="px-6 py-4">
+                     <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                       c.estado_pago === 'Pagado' ? 'bg-green-50 text-green-600' : 
+                       c.estado_pago === 'Pago Parcial' ? 'bg-orange-50 text-orange-600' : 
+                       'bg-gray-50 text-gray-500'
+                     }`}>
+                        {c.estado_pago || 'Pendiente'}
+                     </span>
+                  </td>
                   <td className="px-6 py-4 text-right">
                     <button 
                       onClick={() => { if(confirm("¿Eliminar este coste?")) supabase.from("costes").delete().eq("id", c.id).then(() => fetchData()); }}

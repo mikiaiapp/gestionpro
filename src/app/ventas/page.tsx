@@ -139,20 +139,31 @@ function VentasContent() {
 
   const fetchData = async () => {
     setLoading(true);
-    const { data: vts } = await supabase.from("ventas").select("*, clientes(*), proyectos(nombre), venta_lineas(*)").order("fecha", { ascending: false });
+    const { data: vts } = await supabase.from("ventas").select("*, clientes(*), proyectos(nombre), venta_lineas(*), cobros(importe)").order("fecha", { ascending: false });
     const { data: clis } = await supabase.from("clientes").select("*").order("nombre");
     const { data: projs } = await supabase.from("proyectos").select("id, nombre, num_proyecto, estado, cliente_id, base_imponible, clientes(*)").order("nombre");
     const { data: fbc } = await supabase.from("formas_cobro").select("*").order("nombre");
     const { data: perf } = await supabase.from("perfil_negocio").select("*").maybeSingle();
 
-    setVentas(vts || []);
+    const preparedVentas = (vts || []).map(v => {
+      const totalCobrado = (v.cobros || []).reduce((acc: number, c: any) => acc + (c.importe || 0), 0);
+      let estadoPago = 'Pendiente';
+      if (totalCobrado >= v.total) estadoPago = 'Cobrado';
+      else if (totalCobrado > 0) estadoPago = 'Cobro Parcial';
+      
+      return { ...v, totalCobrado, estadoPago };
+    });
+
+    setVentas(preparedVentas);
     setClientes(clis || []);
     
     // Preparar proyectos con nombre de cliente para el selector
-    const preparedProjs = (projs || []).map(p => ({
-      ...p,
-      nombre: `[${p.clientes?.nombre || 'S/C'}] ${p.nombre} ${p.num_proyecto ? `(${p.num_proyecto})` : ''}`
-    }));
+    const preparedProjs = (projs || [])
+      .filter(p => !p.estado || p.estado === 'Abierto' || p.estado === 'Pendiente')
+      .map(p => ({
+        ...p,
+        nombre: `[${p.clientes?.nombre || 'S/C'}] ${p.nombre} ${p.num_proyecto ? `(${p.num_proyecto})` : ''}`
+      }));
     setProyectos(preparedProjs);
     setFormasCobro(fbc || []);
     setPerfil(perf);
@@ -203,30 +214,57 @@ function VentasContent() {
 
     setSaving(true);
     try {
-      const payload = {
+      const { data: userData } = await supabase.auth.getUser();
+      const user = userData?.user;
+      if (!user) throw new Error("No hay sesión activa");
+
+      // Payload base mínimo
+      const minimalPayload: any = {
         serie,
-        num_factura: numFactura,
         fecha,
         cliente_id: clienteId,
-        proyecto_id: proyectoId || null,
-        forma_cobro_id: formaCobroId || null,
-        base_imponible: baseImponible,
-        iva_pct: serie === "A" ? 21 : 0,
-        iva_importe: cuotaIva,
-        retencion_pct: retencionPct,
-        retencion_importe: retencionImporte,
-        total: totalFactura
+        user_id: user.id
       };
 
       let currentVentaId = editingId;
 
       if (editingId) {
-        await supabase.from("ventas").update([payload]).eq("id", editingId);
-        await supabase.from("venta_lineas").delete().eq("venta_id", editingId);
+        await supabase.from("ventas").update([minimalPayload]).eq("id", editingId);
       } else {
-        const { data: venta, error: vError } = await supabase.from("ventas").insert([payload]).select().single();
+        const { data: venta, error: vError } = await supabase.from("ventas").insert([minimalPayload]).select().single();
         if (vError) throw vError;
         currentVentaId = venta.id;
+      }
+
+      // ¡DETECTAR COLUMNAS REALES PARA EL PARCHE!
+      const { data: sample } = await supabase.from("ventas").select("*").eq("id", currentVentaId).single();
+      if (sample) {
+        const realKeys = Object.keys(sample);
+        const patch: any = {};
+        
+        const foundKey = (options: string[]) => options.find(o => realKeys.includes(o));
+        
+        const colNum = foundKey(['num_factura', 'numero', 'referencia']);
+        const colBase = foundKey(['base_imponible', 'base', 'importe']);
+        const colIvaImporte = foundKey(['iva_importe', 'cuota_iva', 'iva']);
+        const colRetImporte = foundKey(['retencion_importe', 'irpf_importe', 'retencion']);
+        const colProj = foundKey(['proyecto_id', 'id_proyecto']);
+        const colTotal = foundKey(['total', 'importe_total']);
+        
+        if (colNum) patch[colNum] = numFactura;
+        if (colBase) patch[colBase] = baseImponible;
+        if (colIvaImporte) patch[colIvaImporte] = cuotaIva;
+        if (colRetImporte) patch[colRetImporte] = retencionImporte;
+        if (colProj) patch[colProj] = proyectoId || null;
+        if (colTotal) patch[colTotal] = totalFactura;
+        
+        // Pct si existen
+        if (realKeys.includes('iva_pct')) patch.iva_pct = (serie === "A" ? 21 : 0);
+        if (realKeys.includes('retencion_pct')) patch.retencion_pct = retencionPct;
+        
+        if (Object.keys(patch).length > 0) {
+          await supabase.from("ventas").update(patch).eq("id", currentVentaId);
+        }
       }
 
       const lineasToInsert = lineas.map(l => ({
@@ -262,7 +300,7 @@ function VentasContent() {
           nif: venta.clientes?.nif || '',
           direccion: venta.clientes?.direccion || '',
           poblacion: venta.clientes?.poblacion || '',
-          cp: venta.clientes?.cp || '',
+          cp: venta.clientes?.codigo_postal || '',
           provincia: venta.clientes?.provincia || '',
         },
         perfil: {
@@ -318,8 +356,9 @@ function VentasContent() {
       if (!columnFilters[key]) return true;
       let val = '';
       if (key === 'cliente') val = v.clientes?.nombre || '';
-      else if (key === 'factura') val = `${v.serie}-${v.num_factura}` || '';
-      else if (key === 'total_str') val = v.total.toString() || '';
+      else if (key === 'num_factura') val = `${v.serie}-${v.num_factura}` || '';
+      else if (key === 'total') val = v.total.toString() || '';
+      else if (key === 'estadoPago') val = v.estadoPago || '';
       else val = v[key] || '';
       return val.toString().toLowerCase().includes(columnFilters[key].toLowerCase());
     });
@@ -332,12 +371,15 @@ function VentasContent() {
     if (sortConfig.key === 'cliente') {
       aVal = a.clientes?.nombre || '';
       bVal = b.clientes?.nombre || '';
-    } else if (sortConfig.key === 'factura') {
-      aVal = `${a.serie}-${a[num_factura]}` || ''; // Note: mapping needs careful key check
-      bVal = `${b.serie}-${b[num_factura]}` || '';
-    } else if (sortConfig.key === 'total_str') {
+    } else if (sortConfig.key === 'num_factura') {
+      aVal = `${a.serie}-${a.num_factura}` || '';
+      bVal = `${b.serie}-${b.num_factura}` || '';
+    } else if (sortConfig.key === 'total') {
       aVal = a.total || 0;
       bVal = b.total || 0;
+    } else if (sortConfig.key === 'estadoPago') {
+      aVal = a.estadoPago || '';
+      bVal = b.estadoPago || '';
     } else {
       aVal = a[sortConfig.key] || '';
       bVal = b[sortConfig.key] || '';
@@ -375,6 +417,19 @@ function VentasContent() {
                       <DataTableHeader label="Fecha" field="fecha" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.fecha || ''} onFilter={handleFilter} />
                       <DataTableHeader label="Cliente" field="cliente" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.cliente || ''} onFilter={handleFilter} />
                       <DataTableHeader label="Total" field="total" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.total || ''} onFilter={handleFilter} />
+                <DataTableHeader 
+                  label="Cobradas" 
+                  field="estadoPago" 
+                  sortConfig={sortConfig} 
+                  onSort={handleSort} 
+                  filterValue={columnFilters.estadoPago || ''} 
+                  onFilter={handleFilter} 
+                  filterOptions={[
+                    { label: 'Cobrado', value: 'Cobrado' },
+                    { label: 'Pendiente', value: 'Pendiente' },
+                    { label: 'Cobro Parcial', value: 'Cobro Parcial' }
+                  ]}
+                />
                       <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Acciones</th>
                     </tr>
                   </thead>
@@ -385,6 +440,15 @@ function VentasContent() {
                         <td className="px-6 py-4 text-sm text-[var(--muted)]">{new Date(v.fecha).toLocaleDateString()}</td>
                         <td className="px-6 py-4 text-sm">{v.clientes?.nombre}</td>
                         <td className="px-6 py-4 text-right font-bold text-[var(--accent)]">{formatCurrency(v.total)}</td>
+                        <td className="px-6 py-4">
+                           <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                             v.estadoPago === 'Cobrado' ? 'bg-green-50 text-green-600' : 
+                             v.estadoPago === 'Cobro Parcial' ? 'bg-orange-50 text-orange-600' : 
+                             'bg-gray-50 text-gray-500'
+                           }`}>
+                              {v.estadoPago}
+                           </span>
+                        </td>
                         <td className="px-6 py-4 text-right relative">
                           <button onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === v.id ? null : v.id); }} className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-400 hover:text-gray-600">
                             <MoreHorizontal size={20} />
@@ -442,9 +506,8 @@ function VentasContent() {
                 </div>
                 <div><label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Nº Factura</label><input type="text" value={numFactura} onChange={(e) => setNumFactura(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200 bg-gray-50 font-mono" /></div>
                 <div><label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Fecha</label><input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200 bg-gray-50" /></div>
-                <div><label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Forma de Pago</label>
-                  <select value={formaCobroId} onChange={(e) => setFormaCobroId(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200 bg-gray-50">
-                    <option value="">— Seleccionar —</option>
+                <div className="hidden">
+                  <select value={formaCobroId} onChange={(e) => setFormaCobroId(e.target.value)}>
                     {formasCobro.map(f => <option key={f.id} value={f.id}>{f.nombre}</option>)}
                   </select>
                 </div>

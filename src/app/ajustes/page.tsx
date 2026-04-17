@@ -42,6 +42,8 @@ export default function AjustesPage() {
   const [tieneRetencion, setTieneRetencion] = useState(false);
   const [irpfDefault, setIrpfDefault] = useState(15);
   const [condicionesLegales, setCondicionesLegales] = useState('');
+  const [lopdText, setLopdText] = useState('');
+  const [condParticulares, setCondParticulares] = useState('');
   
   const [isSaving, setIsSaving] = useState(false);
   const [tiposIva, setTiposIva] = useState<any[]>([]);
@@ -102,6 +104,8 @@ export default function AjustesPage() {
         setTieneRetencion(data.tiene_retencion || false);
         setIrpfDefault(Number(data.irpf_default) || 0);
         setCondicionesLegales(data.condiciones_legales || '');
+        setLopdText(data.lopd_text || '');
+        setCondParticulares(data.condiciones_particulares || '');
       }
     } catch (e) {
       console.error(e);
@@ -136,7 +140,9 @@ export default function AjustesPage() {
         forma_pago_default: formaPago,
         tiene_retencion: tieneRetencion,
         irpf_default: irpfDefault,
-        condiciones_legales: condicionesLegales
+        condiciones_legales: condicionesLegales,
+        lopd_text: lopdText,
+        condiciones_particulares: condParticulares
       }, { onConflict: 'user_id' });
 
       if (error) alert("❌ Error: " + error.message);
@@ -341,7 +347,33 @@ export default function AjustesPage() {
                     onChange={e => setCondicionesLegales(e.target.value)} 
                     rows={4}
                     className="w-full px-5 py-4 rounded-2xl border bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500/10 text-xs text-gray-600 leading-relaxed"
-                    placeholder="Escribe aquí las clausulas legales, LOPD, condiciones de pago..."
+                    placeholder="Escribe aquí las clausulas legales generales..."
+                  />
+                </div>
+
+                <div className="md:col-span-2 space-y-2 pt-4">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">
+                    Condiciones Particulares Predefinidas
+                  </label>
+                  <textarea 
+                    value={condParticulares} 
+                    onChange={e => setCondParticulares(e.target.value)} 
+                    rows={4}
+                    className="w-full px-5 py-4 rounded-2xl border bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500/10 text-xs text-gray-600 leading-relaxed"
+                    placeholder="Condiciones específicas de obra/proyecto..."
+                  />
+                </div>
+
+                <div className="md:col-span-2 space-y-2 pt-4">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">
+                    Clausula LOPD / Privacidad Predefinida
+                  </label>
+                  <textarea 
+                    value={lopdText} 
+                    onChange={e => setLopdText(e.target.value)} 
+                    rows={3}
+                    className="w-full px-5 py-4 rounded-2xl border bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500/10 text-xs text-gray-600 leading-relaxed"
+                    placeholder="Texto de protección de datos..."
                   />
                 </div>
               </div>

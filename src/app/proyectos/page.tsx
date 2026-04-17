@@ -43,8 +43,11 @@ export default function ProyectosPage() {
   const [serie, setSerie] = useState("P");
   const [numReferencia, setNumReferencia] = useState("");
   const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
+  const [estado, setEstado] = useState("Abierto");
   const [retencionPct, setRetencionPct] = useState(0);
   const [lineas, setLineas] = useState<LineaProyecto[]>([{ unidades: 1, descripcion: "", precio_unitario: 0 }]);
+  const [condiciones, setCondiciones] = useState("");
+  const [lopd, setLopd] = useState("");
 
   useEffect(() => {
     fetchData();
@@ -74,8 +77,14 @@ export default function ProyectosPage() {
     if (isEditorOpen && !editingId) {
       const next = getNextNumber(serie, proyectos);
       setNumReferencia(next);
+      
+      // Pre-cargar textos legales de Ajustes
+      if (perfil) {
+        setCondiciones(perfil.condiciones_particulares || "");
+        setLopd(perfil.lopd_text || "");
+      }
     }
-  }, [serie, isEditorOpen, editingId, proyectos]);
+  }, [serie, isEditorOpen, editingId, proyectos, perfil]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -129,7 +138,10 @@ export default function ProyectosPage() {
     setNumReferencia(p[columnKey] || "");
     setFecha(p.fecha || new Date().toISOString().split('T')[0]);
     setClienteId(p.cliente_id || "");
+    setEstado(p.estado || "Abierto");
     setRetencionPct(p.retencion_pct || 0);
+    setCondiciones(p.condiciones_particulares || p.condiciones || "");
+    setLopd(p.lopd_text || p.lopd || "");
 
     // Cargamos las líneas por separado al editar
     const { data: lineasData } = await supabase.from("proyecto_lineas").select("*").eq("proyecto_id", p.id);
@@ -153,7 +165,6 @@ export default function ProyectosPage() {
     }
 
     setSaving(true);
-    setSaving(true);
     try {
       const { data: userData } = await supabase.auth.getUser();
       const user = userData?.user;
@@ -162,18 +173,6 @@ export default function ProyectosPage() {
         throw new Error("No se ha encontrado una sesión de usuario activa. Por favor, vuelve a iniciar sesión.");
       }
       
-      // Escaneo Activo de Columnas (Infalible incluso en tablas vacías)
-      const possibleKeys = ['numero', 'num_proyecto', 'num_referencia', 'referencia'];
-      let columnKey = 'num_proyecto'; // valor por defecto si todo falla
-
-      for (const key of possibleKeys) {
-        const { error: probeError } = await supabase.from('proyectos').select(key).limit(0);
-        if (!probeError) {
-          columnKey = key;
-          break;
-        }
-      }
-
       // Mapeo inteligente del payload basado en el esquema real
       const payload: any = {
         nombre,
@@ -187,7 +186,10 @@ export default function ProyectosPage() {
         iva_importe: cuotaIva,
         retencion_pct: retencionPct,
         retencion_importe: retencionImporte,
-        total: totalProyecto
+        total: totalProyecto,
+        estado: estado,
+        condiciones_particulares: condiciones,
+        lopd_text: lopd
       };
 
       let currentId = editingId;
@@ -216,24 +218,7 @@ export default function ProyectosPage() {
       alert("✅ Proyecto guardado correctamente");
     } catch (err: any) {
       console.error(err);
-      
-      // EXTRACCIÓN DE VERDAD: Si falla, pedimos el esquema real a PostgREST
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/?select=proyectos`, {
-          headers: {
-            'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-            'Authorization': `Bearer ${session?.access_token || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`
-          }
-        });
-        const openApi = await response.json();
-        const tableInfo = openApi.definitions?.proyectos;
-        const realColumns = tableInfo ? Object.keys(tableInfo.properties).join(', ') : "No se pudo obtener el esquema";
-        
-        alert(`❌ ERROR DE BASE DE DATOS: ${err.message}\n\n🔍 COLUMNAS REALES SEGÚN SUPABASE:\n${realColumns}\n\nPor favor, dime qué nombres ves ahí.`);
-      } catch (sniffErr) {
-        alert("Error al guardar: " + err.message);
-      }
+      alert("Error al guardar: " + err.message);
     } finally {
       setSaving(false);
     }
@@ -264,14 +249,14 @@ export default function ProyectosPage() {
 
       await generatePDF({
         tipo: 'PRESUPUESTO',
-        numero: `${p.serie || 'P'}-${p.num_proyecto || 'S/N'} / ${p.nombre}`,
+        numero: `${p.serie || 'P'}-${p.num_proyecto || 'S/N'} - ${p.nombre}`,
         fecha: p.fecha,
         cliente: {
           nombre: p.clientes?.nombre || 'Cliente Final',
           nif: p.clientes?.nif || '',
           direccion: p.clientes?.direccion || '',
           poblacion: p.clientes?.poblacion || '',
-          cp: p.clientes?.cp || '',
+          cp: p.clientes?.codigo_postal || '', // Fixed mapping
           provincia: p.clientes?.provincia || '',
         },
         perfil: {
@@ -284,8 +269,11 @@ export default function ProyectosPage() {
           cuenta_bancaria: perfil.cuenta_bancaria || '',
           logo_url: perfil.logo_url || '',
           condiciones_legales: perfil.condiciones_legales || '',
-          email: perfil.email || ''
+          email: perfil.email || '',
+          lopd_text: perfil.lopd_text || ''
         },
+        condiciones_particulares: p.condiciones_particulares || p.condiciones || '',
+        lopd_text: p.lopd_text || p.lopd || '',
         lineas: (lineasData || []).map((l: any) => ({
           unidades: l.unidades,
           descripcion: l.descripcion,
@@ -345,6 +333,9 @@ export default function ProyectosPage() {
     } else if (sortConfig.key === 'ref') {
       aVal = `${a.serie}-${a[columnKey]}` || '';
       bVal = `${b.serie}-${b[columnKey]}` || '';
+    } else if (sortConfig.key === 'estado') {
+      aVal = a.estado || 'Abierto';
+      bVal = b.estado || 'Abierto';
     } else {
       aVal = a[sortConfig.key] || '';
       bVal = b[sortConfig.key] || '';
@@ -383,6 +374,18 @@ export default function ProyectosPage() {
                      <DataTableHeader label="Ref / Nombre" field="nombre" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.nombre || ''} onFilter={handleFilter} />
                      <DataTableHeader label="Cliente" field="cliente" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.cliente || ''} onFilter={handleFilter} />
                      <DataTableHeader label="Total" field="total" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.total || ''} onFilter={handleFilter} />
+                      <DataTableHeader 
+                        label="Estado" 
+                        field="estado" 
+                        sortConfig={sortConfig} 
+                        onSort={handleSort} 
+                        filterValue={columnFilters.estado || ''} 
+                        onFilter={handleFilter} 
+                        filterOptions={[
+                          { label: 'Abierto', value: 'Abierto' },
+                          { label: 'Cerrado', value: 'Cerrado' }
+                        ]}
+                      />
                      <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Acciones</th>
                    </tr>
                  </thead>
@@ -395,6 +398,11 @@ export default function ProyectosPage() {
                        </td>
                        <td className="px-6 py-4 text-sm font-medium text-gray-600">{p.clientes?.nombre}</td>
                        <td className="px-6 py-4 text-right font-mono font-bold text-gray-700">{formatCurrency(p.total || 0)}</td>
+                        <td className="px-6 py-4">
+                           <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${p.estado === 'Cerrado' ? 'bg-gray-100 text-gray-400' : 'bg-green-100 text-green-600'}`}>
+                             {p.estado || 'Abierto'}
+                           </span>
+                        </td>
                        <td className="px-6 py-4 text-right relative">
                          <button 
                             onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === p.id ? null : p.id); }}
@@ -504,6 +512,17 @@ export default function ProyectosPage() {
                     <div className="flex justify-between text-sm"><span>IVA (21%):</span><span className="font-mono font-bold">{formatCurrency(cuotaIva)}</span></div>
                     {retencionPct > 0 && <div className="flex justify-between text-sm text-red-600"><span>Retención ({retencionPct}%):</span><span className="font-mono font-bold">-{formatCurrency(retencionImporte)}</span></div>}
                     <div className="flex justify-between text-xl font-bold pt-3 border-t-2 border-gray-200 text-gray-800"><span>TOTAL:</span><span className="text-orange-600">{formatCurrency(totalProyecto)}</span></div>
+                  </div>
+               </div>
+
+               <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6 pt-8 border-t border-dashed border-gray-200">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Condiciones Particulares</label>
+                    <textarea value={condiciones} onChange={e => setCondiciones(e.target.value)} rows={3} className="w-full p-4 rounded-xl border bg-gray-50 text-xs focus:bg-white transition-all outline-none" placeholder="Condiciones específicas..." />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Protección de Datos (LOPD)</label>
+                    <textarea value={lopd} onChange={e => setLopd(e.target.value)} rows={3} className="w-full p-4 rounded-xl border bg-gray-50 text-xs focus:bg-white transition-all outline-none" placeholder="Clausula de privacidad..." />
                   </div>
                </div>
             </div>
