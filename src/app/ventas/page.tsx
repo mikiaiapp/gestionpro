@@ -367,12 +367,7 @@ function VentasContent() {
             </header>
 
             <div className="glass-card bg-white shadow-sm border-[var(--border)] overflow-visible text-left min-h-[400px]">
-                <div className="p-4 border-b border-[var(--border)] flex justify-between items-center bg-[#fafafa] rounded-t-xl">
-                  <div className="relative w-72">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]" size={16} />
-                    <input type="text" placeholder="Buscar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)]" />
-                  </div>
-                </div>
+
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-[#fcfaf7] border-b border-[var(--border)]">

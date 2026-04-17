@@ -283,11 +283,7 @@ export default function ProveedoresPage() {
         )}
 
         <div className="bg-white shadow-xl shadow-black/5 border border-gray-100 overflow-hidden rounded-[2rem]">
-          <div className="p-8 border-b border-gray-100 bg-gray-50/30 flex flex-col md:flex-row justify-between items-center gap-6">
-             <div className="relative w-full md:w-96 group">
-               <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-orange-500 transition-colors" size={20} />
-               <input type="text" placeholder="Buscar por nombre o NIF..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-14 pr-6 py-4 rounded-3xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-4 focus:ring-orange-500/5 focus:border-orange-200 transition-all font-medium" />
-             </div>
+          <div className="p-8 border-b border-gray-100 bg-gray-50/30 flex justify-end items-center gap-6">
              <div className="bg-orange-50 px-4 py-2 rounded-xl border border-orange-100">
                 <span className="text-[10px] font-black text-orange-600 uppercase tracking-widest">{filteredProveedores.length} registros totales</span>
              </div>
