@@ -125,7 +125,10 @@ export default function AjustesPage() {
     try {
       // ESTRATEGIA DETECTIVE AVANZADA
       // Probamos qué columnas existen realmente para evitar errores de schema cache de Supabase
-      const checkKeys = ['condiciones_legales', 'lopd_text', 'forma_pago_default', 'irpf_default', 'tiene_retencion'];
+      const checkKeys = [
+        'condiciones_legales', 'lopd_text', 'forma_pago_default', 'irpf_default', 'tiene_retencion',
+        'email', 'mail', 'correo', 'correo_electronico', 'gemini_key', 'logo_url'
+      ];
       const existingKeys: string[] = [];
       
       for (const key of checkKeys) {
@@ -141,17 +144,23 @@ export default function AjustesPage() {
         direccion,
         cp,
         poblacion,
-        provincia,
-        email,
-        gemini_key: geminiKey,
-        logo_url: logoUrl
+        provincia
       };
 
-      if (existingKeys.includes('forma_pago_default')) payload.forma_pago_default = formaPago;
-      if (existingKeys.includes('tiene_retencion')) payload.tiene_retencion = tieneRetencion;
-      if (existingKeys.includes('irpf_default')) payload.irpf_default = irpfDefault;
-      if (existingKeys.includes('condiciones_legales')) payload.condiciones_legales = condicionesLegales;
-      if (existingKeys.includes('lopd_text')) payload.lopd_text = lopdText;
+      // Guardado dinámico condicional
+      const setIfAny = (targets: string[], val: any) => {
+        const found = targets.find(t => existingKeys.includes(t));
+        if (found) payload[found] = val;
+      };
+
+      setIfAny(['email', 'mail', 'correo', 'correo_electronico'], email);
+      setIfAny(['gemini_key'], geminiKey);
+      setIfAny(['logo_url'], logoUrl);
+      setIfAny(['forma_pago_default'], formaPago);
+      setIfAny(['tiene_retencion'], tieneRetencion);
+      setIfAny(['irpf_default'], irpfDefault);
+      setIfAny(['condiciones_legales'], condicionesLegales);
+      setIfAny(['lopd_text'], lopdText);
 
       const { error } = await supabase.from('perfil_negocio').upsert(payload, { onConflict: 'user_id' });
 

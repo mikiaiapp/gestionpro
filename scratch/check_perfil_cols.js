@@ -6,7 +6,14 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function check() {
   const { data, error } = await supabase.from('perfil_negocio').select('*').limit(1);
-  if (error) console.error(error);
-  else console.log('Columns:', data.length > 0 ? Object.keys(data[0]) : 'No data');
+  if (error) {
+    console.error('Error:', error);
+    return;
+  }
+  if (data && data.length > 0) {
+    console.log('Perfil Columns:', Object.keys(data[0]));
+  } else {
+    console.log('No data in perfil_negocio');
+  }
 }
 check();
