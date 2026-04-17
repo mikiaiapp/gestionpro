@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { Plus, MoreHorizontal, Loader2, Receipt, Upload, Save, Trash2, X, Sparkles, AlertCircle, UserPlus, ChevronUp, ChevronDown, Filter, Search } from "lucide-react";
+import { Plus, MoreHorizontal, Loader2, Receipt, Upload, Save, Trash2, X, Sparkles, AlertCircle, UserPlus, ChevronUp, ChevronDown, Filter, Search, HandCoins } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Sidebar } from "@/components/Sidebar";
 import { DataTableHeader } from "@/components/DataTableHeader";
@@ -25,6 +25,8 @@ export default function CostesPage() {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+  const [isPayModalOpen, setIsPayModalOpen] = useState(false);
+  const [selectedCoste, setSelectedCoste] = useState<any>(null);
   const [isExtracting, setIsExtracting] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
@@ -50,6 +52,11 @@ export default function CostesPage() {
   const [detectedProvider, setDetectedProvider] = useState<any>(null);
   const [isProviderReviewModalOpen, setIsProviderReviewModalOpen] = useState(false);
 
+  // Estados Pago Modal
+  const [pagoImporte, setPagoImporte] = useState("");
+  const [pagoFecha, setPagoFecha] = useState(new Date().toISOString().split('T')[0]);
+  const [pagoForma, setPagoForma] = useState("Transferencia");
+
   // Sorting and Filtering State
   const [searchTerm, setSearchTerm] = useState("");
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>({ key: 'fecha', direction: 'desc' });
@@ -61,11 +68,20 @@ export default function CostesPage() {
 
   const fetchData = async () => {
     setLoading(true);
-    const { data: csts } = await supabase.from("costes").select("*, proveedores(nombre), proyectos(nombre), coste_lineas(*)").order("fecha", { ascending: false });
+    const { data: csts } = await supabase.from("costes").select("*, proveedores(nombre), proyectos(nombre), coste_lineas(*), pagos(importe)").order("fecha", { ascending: false });
     const { data: provs } = await supabase.from("proveedores").select("id, nombre, nif").order("nombre");
     const { data: projs } = await supabase.from("proyectos").select("id, nombre, num_proyecto, estado, cliente_id, clientes(nombre)").order("nombre");
 
-    setCostes(csts || []);
+    const preparedCostes = (csts || []).map(c => {
+      const totalPagado = (c.pagos || []).reduce((acc: number, p: any) => acc + (p.importe || 0), 0);
+      let estadoPagoRaw = 'Pendiente';
+      if (totalPagado >= c.total) estadoPagoRaw = 'Pagado';
+      else if (totalPagado > 0) estadoPagoRaw = 'Pago Parcial';
+      
+      return { ...c, totalPagado, estadoPago: estadoPagoRaw };
+    });
+
+    setCostes(preparedCostes);
     setProveedores(provs || []);
     const preparedProjs = (projs || []).map(p => ({
       ...p,
@@ -131,23 +147,40 @@ export default function CostesPage() {
     setIsModalOpen(true);
   };
 
-  const handleUpdateStatus = async (id: string, newStatus: string) => {
+  const handleRegisterPayment = async () => {
+    if (!selectedCoste || !pagoImporte) return;
+    
+    setSaving(true);
     try {
-      // ESTRATEGIA DETECTIVE PARA CAMBIO RÁPIDO DE ESTADO
-      const { data: sample } = await supabase.from("costes").select("*").eq("id", id).single();
-      if (!sample) return;
+      const { data: userData } = await supabase.auth.getUser();
+      const user = userData?.user;
       
-      const realKeys = Object.keys(sample);
-      const colStatus = ['estado_pago', 'pagado', 'status_pago', 'estado'].find(k => realKeys.includes(k));
-      
-      if (colStatus) {
-        const { error } = await supabase.from("costes").update({ [colStatus]: newStatus }).eq("id", id);
-        if (error) throw error;
-        setOpenMenuId(null);
-        fetchData();
+      const payload: any = {
+        entidad: selectedCoste.proveedores?.nombre || "Proveedor",
+        fecha: pagoFecha,
+        importe: parseFloat(pagoImporte) || 0,
+        categoria: "Proveedores",
+        forma_pago: pagoForma,
+        user_id: user?.id
+      };
+
+      // Detectar si la tabla pagos tiene coste_id
+      const { data: sample } = await supabase.from("pagos").select("*").limit(1).maybeSingle();
+      if (sample && Object.keys(sample).includes('coste_id')) {
+        payload.coste_id = selectedCoste.id;
       }
+
+      const { error } = await supabase.from("pagos").insert([payload]);
+      if (error) throw error;
+
+      setIsPayModalOpen(false);
+      setPagoImporte("");
+      fetchData();
+      alert("✅ Pago registrado correctamente");
     } catch (err: any) {
-      alert("Error al actualizar estado: " + err.message);
+      alert("Error al registrar pago: " + err.message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -734,19 +767,18 @@ export default function CostesPage() {
                           <Receipt size={16} className="text-blue-500" /> Editar Factura
                         </button>
                         
-                        <div className="h-px bg-gray-100 my-1 mx-2"></div>
+                        <button 
+                          onClick={() => { 
+                            setSelectedCoste(c); 
+                            setPagoImporte((c.total - (c.totalPagado || 0)).toFixed(2));
+                            setIsPayModalOpen(true); 
+                            setOpenMenuId(null);
+                          }} 
+                          className="w-full flex items-center gap-3 px-4 py-2 text-sm text-green-600 hover:bg-green-50 transition-colors"
+                        >
+                          <HandCoins size={16} className="text-green-500" /> Registrar Pago
+                        </button>
                         
-                        <div className="px-4 py-1.5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Cambiar Estado Pago</div>
-                        <button onClick={() => handleUpdateStatus(c.id, 'Pagado')} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-green-600 hover:bg-green-50 transition-colors">
-                          <div className="w-2 h-2 rounded-full bg-green-500"></div> Pagado
-                        </button>
-                        <button onClick={() => handleUpdateStatus(c.id, 'Pago Parcial')} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-orange-600 hover:bg-orange-50 transition-colors">
-                          <div className="w-2 h-2 rounded-full bg-orange-500"></div> Pago Parcial
-                        </button>
-                        <button onClick={() => handleUpdateStatus(c.id, 'Pendiente')} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
-                          <div className="w-2 h-2 rounded-full bg-gray-400"></div> Pendiente
-                        </button>
-
                         <div className="h-px bg-gray-100 my-1 mx-2"></div>
                         
                         <button 
@@ -763,6 +795,53 @@ export default function CostesPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Modal Pago */}
+        {isPayModalOpen && (
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl animate-in zoom-in duration-300">
+               <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-xl font-black tracking-tight">Registrar Pago</h3>
+                  <button onClick={() => setIsPayModalOpen(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+               </div>
+               <div className="space-y-4">
+                  <div>
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Proveedor</label>
+                    <div className="p-4 rounded-xl bg-gray-50 border font-bold text-gray-800">{selectedCoste?.proveedores?.nombre}</div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Fecha de Pago</label>
+                      <input type="date" value={pagoFecha} onChange={e => setPagoFecha(e.target.value)} className="w-full p-4 rounded-xl border bg-gray-50 focus:bg-white transition-all outline-none" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Importe (€)</label>
+                      <input type="number" step="0.01" value={pagoImporte} onChange={e => setPagoImporte(e.target.value)} className="w-full p-4 rounded-xl border bg-gray-50 focus:bg-white font-mono font-bold text-[var(--accent)] outline-none transition-all" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Forma de Pago</label>
+                    <select value={pagoForma} onChange={e => setPagoForma(e.target.value)} className="w-full p-4 rounded-xl border bg-gray-50 focus:bg-white font-bold outline-none transition-all">
+                       <option value="Transferencia">Transferencia</option>
+                       <option value="Tarjeta">Tarjeta</option>
+                       <option value="Efectivo">Efectivo</option>
+                       <option value="Giro Bancario">Giro Bancario</option>
+                    </select>
+                  </div>
+                  <div className="pt-4">
+                     <button 
+                       disabled={saving}
+                       onClick={handleRegisterPayment}
+                       className="w-full py-4 bg-green-600 text-white font-black rounded-2xl shadow-xl hover:bg-green-700 transition-all flex items-center justify-center gap-2"
+                     >
+                       {saving ? <Loader2 className="animate-spin" size={20} /> : <HandCoins size={20} />}
+                       Confirmar Pago
+                     </button>
+                  </div>
+               </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
