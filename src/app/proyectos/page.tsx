@@ -201,7 +201,15 @@ export default function ProyectosPage() {
       alert("✅ Proyecto guardado correctamente");
     } catch (err: any) {
       console.error(err);
-      alert("Error al guardar: " + err.message);
+      
+      // El "Chivato": Si falla, intentamos ver qué columnas hay realmente
+      try {
+        const { data: sniff } = await supabase.from('proyectos').select('*').limit(1);
+        const columns = sniff && sniff.length > 0 ? Object.keys(sniff[0]).join(', ') : "No hay datos para sniff";
+        alert(`❌ Error al guardar: ${err.message}\n\n🔍 Columnas reales en DB: ${columns}\n(Por favor, dime qué columnas ves aquí arriba)`);
+      } catch (sniffErr) {
+        alert("Error al guardar: " + err.message);
+      }
     } finally {
       setSaving(false);
     }
