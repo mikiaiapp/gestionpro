@@ -43,7 +43,6 @@ export default function AjustesPage() {
   const [irpfDefault, setIrpfDefault] = useState(15);
   const [condicionesLegales, setCondicionesLegales] = useState('');
   const [lopdText, setLopdText] = useState('');
-  const [condParticulares, setCondParticulares] = useState('');
   
   const [isSaving, setIsSaving] = useState(false);
   const [tiposIva, setTiposIva] = useState<any[]>([]);
@@ -105,7 +104,6 @@ export default function AjustesPage() {
         setIrpfDefault(Number(data.irpf_default) || 0);
         setCondicionesLegales(data.condiciones_legales || '');
         setLopdText(data.lopd_text || '');
-        setCondParticulares(data.condiciones_particulares || '');
       }
     } catch (e) {
       console.error(e);
@@ -125,7 +123,11 @@ export default function AjustesPage() {
     if (!user) return;
     setIsSaving(true);
     try {
-      const { error } = await supabase.from('perfil_negocio').upsert({
+      // ESTRATEGIA DETECTIVE PARA GUARDAR SOLO LO QUE EXISTE
+      const { data: colsProbe } = await supabase.from('perfil_negocio').select('*').limit(1);
+      const realKeys = colsProbe && colsProbe.length > 0 ? Object.keys(colsProbe[0]) : [];
+      
+      const payload: any = {
         user_id: user.id,
         nombre,
         nif,
@@ -140,10 +142,14 @@ export default function AjustesPage() {
         forma_pago_default: formaPago,
         tiene_retencion: tieneRetencion,
         irpf_default: irpfDefault,
-        condiciones_legales: condicionesLegales,
-        lopd_text: lopdText,
-        condiciones_particulares: condParticulares
-      }, { onConflict: 'user_id' });
+        condiciones_legales: condicionesLegales
+      };
+
+      if (realKeys.length === 0 || realKeys.includes('lopd_text')) {
+        payload.lopd_text = lopdText;
+      }
+
+      const { error } = await supabase.from('perfil_negocio').upsert(payload, { onConflict: 'user_id' });
 
       if (error) alert("❌ Error: " + error.message);
       else {
@@ -351,18 +357,6 @@ export default function AjustesPage() {
                   />
                 </div>
 
-                <div className="md:col-span-2 space-y-2 pt-4">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">
-                    Condiciones Particulares Predefinidas
-                  </label>
-                  <textarea 
-                    value={condParticulares} 
-                    onChange={e => setCondParticulares(e.target.value)} 
-                    rows={4}
-                    className="w-full px-5 py-4 rounded-2xl border bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500/10 text-xs text-gray-600 leading-relaxed"
-                    placeholder="Condiciones específicas de obra/proyecto..."
-                  />
-                </div>
 
                 <div className="md:col-span-2 space-y-2 pt-4">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">

@@ -52,18 +52,7 @@ interface PDFData {
   };
 }
 
-const CONDICIONADO_GRAL = `CONDICIONES GENERALES:
-1. El presente presupuesto no contempla trabajos no descritos ni vicios ocultos de la estructura. 
-
-2. No están incluidos en el presupuesto las licencias o tasas municipales ni proyectos técnicos necesarios. 
-
-3. Validez del presupuesto: 35 días naturales. 
-
-4. Forma de pago: 50% como provisión de fondos 30 días antes del inicio y 50% a la finalización del trabajo. 
-
-5. Mora: El impago a su vencimiento devengará un interés del 1,5% mensual.
-
-PROTECCIÓN DE DATOS: De conformidad con el RGPD y la LOPDGDD, trataremos sus datos para la gestión administrativa y facturación. Puede ejercer sus derechos de acceso, rectificación y otros en el email EMAIL_PLACEHOLDER`;
+const CONDICIONADO_GRAL = ``;
 
 export const generatePDF = async (data: PDFData) => {
   const doc = new jsPDF();
@@ -187,16 +176,18 @@ export const generatePDF = async (data: PDFData) => {
   // Construir bloques legales
   let legalBlocks: string[] = [];
 
-  if (data.condiciones_particulares) {
+  const mainFooter = data.perfil.condiciones_legales;
+  if (mainFooter && mainFooter.trim()) {
+    legalBlocks.push("CONDICIONADO GENERAL:\n" + injectEmail(mainFooter));
+  }
+
+  if (data.condiciones_particulares && data.condiciones_particulares.trim()) {
     legalBlocks.push("CONDICIONES PARTICULARES:\n" + injectEmail(data.condiciones_particulares));
   }
 
-  const mainFooter = data.perfil.condiciones_legales || CONDICIONADO_GRAL;
-  legalBlocks.push("CONDICIONES GENERALES:\n" + injectEmail(mainFooter));
-
-  const lopdText = data.lopd_text || data.perfil.lopd_text;
-  if (lopdText) {
-    legalBlocks.push("PROTECCIÓN DE DATOS (LOPD):\n" + injectEmail(lopdText));
+  const lopd = data.lopd_text || data.perfil.lopd_text;
+  if (lopd && lopd.trim()) {
+    legalBlocks.push("PROTECCIÓN DE DATOS (LOPD):\n" + injectEmail(lopd));
   }
 
   const fullFooterText = legalBlocks.join("\n\n");
