@@ -28,6 +28,12 @@ export default function CostesPage() {
   const [isExtracting, setIsExtracting] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
+  useEffect(() => {
+    const handleClickOutside = () => setOpenMenuId(null);
+    window.addEventListener("click", handleClickOutside);
+    return () => window.removeEventListener("click", handleClickOutside);
+  }, []);
+
   // Formulario
   const [serie, setSerie] = useState("A");
   const [numInterno, setNumInterno] = useState("");
@@ -95,8 +101,54 @@ export default function CostesPage() {
     setTipoGasto("general");
     setProyectoId("");
     setRetencionPct(0);
+    setEstadoPago("Pendiente");
     setLineas([{ unidades: 1, descripcion: "", precio_unitario: 0, iva_pct: 21 }]);
     setIsModalOpen(true);
+  };
+
+  const openEditModal = (c: any) => {
+    setEditingId(c.id);
+    setSerie(c.serie || "A");
+    setNumInterno(c.num_interno || "");
+    setNumFactProv(c.num_factura_proveedor || "");
+    setFecha(c.fecha);
+    setProveedorId(c.proveedor_id || "");
+    setTipoGasto(c.tipo_gasto || "general");
+    setProyectoId(c.proyecto_id || "");
+    setRetencionPct(c.retencion_pct || 0);
+    setEstadoPago(c.estado_pago || "Pendiente");
+    
+    if (c.coste_lineas && c.coste_lineas.length > 0) {
+      setLineas(c.coste_lineas.map((l: any) => ({
+        unidades: l.unidades,
+        descripcion: l.descripcion,
+        precio_unitario: l.precio_unitario,
+        iva_pct: l.iva_pct
+      })));
+    } else {
+      setLineas([{ unidades: 1, descripcion: "", precio_unitario: 0, iva_pct: 21 }]);
+    }
+    setIsModalOpen(true);
+  };
+
+  const handleUpdateStatus = async (id: string, newStatus: string) => {
+    try {
+      // ESTRATEGIA DETECTIVE PARA CAMBIO RÁPIDO DE ESTADO
+      const { data: sample } = await supabase.from("costes").select("*").eq("id", id).single();
+      if (!sample) return;
+      
+      const realKeys = Object.keys(sample);
+      const colStatus = ['estado_pago', 'pagado', 'status_pago', 'estado'].find(k => realKeys.includes(k));
+      
+      if (colStatus) {
+        const { error } = await supabase.from("costes").update({ [colStatus]: newStatus }).eq("id", id);
+        if (error) throw error;
+        setOpenMenuId(null);
+        fetchData();
+      }
+    } catch (err: any) {
+      alert("Error al actualizar estado: " + err.message);
+    }
   };
 
   const handleImportWithAI = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -221,17 +273,47 @@ export default function CostesPage() {
 
       let currentId = editingId;
       if (editingId) {
-        const payload = {
-          serie, num_interno: numInterno || `REC-${Date.now()}`, num_factura_proveedor: numFactProv, fecha, 
-          proveedor_id: proveedorId, tipo_gasto: tipoGasto,
-          proyecto_id: tipoGasto === "proyecto" ? proyectoId : null,
-          base_imponible: baseImponible, iva_pct: 21, iva_importe: totalIva,
-          retencion_pct: retencionPct, retencion_importe: retencionImporte, 
+        // ESTRATEGIA DETECTIVE PARA ACTUALIZACIÓN
+        const { data: sample } = await supabase.from("costes").select("*").eq("id", editingId).single();
+        if (!sample) throw new Error("No se encontró el registro para actualizar.");
+        
+        const realKeys = Object.keys(sample);
+        const foundKey = (options: string[]) => options.find(o => realKeys.includes(o));
+        
+        const colFactura = foundKey(['numero_factura', 'num_factura', 'factura_prov', 'num_factura_proveedor', 'referencia']);
+        const colBase = foundKey(['base_imponible', 'base', 'subtotal']);
+        const colIvaImporte = foundKey(['iva_importe', 'cuota_iva', 'iva_total', 'iva']);
+        const colRetImporte = foundKey(['retencion_importe', 'irpf_importe', 'retencion', 'irpf']);
+        const colSerie = foundKey(['serie', 'serie_id', 'tipo_serie']);
+        const colEstadoPago = foundKey(['estado_pago', 'pagado', 'status_pago']);
+        const colProyecto = foundKey(['proyecto_id', 'id_proyecto']);
+        const colTipoGasto = foundKey(['tipo_gasto', 'categoria_gasto']);
+
+        const patch: any = {
+          fecha,
           total: totalFactura,
+<<<<<<< HEAD
           estado_pago: estadoPago,
+=======
+>>>>>>> feb92d5 (feat: added edit and pay actions to costes module with dynamic column detection)
           user_id: user.id
         };
-        await supabase.from("costes").update(payload).eq("id", editingId);
+
+        if (colFactura) patch[colFactura] = numFactProv;
+        if (colBase) patch[colBase] = baseImponible;
+        if (colIvaImporte) patch[colIvaImporte] = totalIva;
+        if (colRetImporte) patch[colRetImporte] = retencionImporte;
+        if (colSerie) patch[colSerie] = serie;
+        if (colEstadoPago) patch[colEstadoPago] = estadoPago;
+        if (colTipoGasto) patch[colTipoGasto] = tipoGasto;
+        if (colProyecto) patch[colProyecto] = tipoGasto === "proyecto" ? proyectoId : null;
+        
+        if (realKeys.includes('iva_pct')) patch.iva_pct = 21;
+        if (realKeys.includes('retencion_pct')) patch.retencion_pct = retencionPct;
+        if (realKeys.includes('proveedor_id')) patch.proveedor_id = proveedorId;
+        if (realKeys.includes('num_interno')) patch.num_interno = numInterno;
+
+        await supabase.from("costes").update(patch).eq("id", editingId);
         await supabase.from("coste_lineas").delete().eq("coste_id", editingId);
       } else {
         // ESTRATEGIA DETECTIVE: Inserción mínima para descubrir columnas reales en 'costes'
@@ -271,6 +353,11 @@ export default function CostesPage() {
         if (colRetImporte) patch[colRetImporte] = retencionImporte;
         if (colSerie) patch[colSerie] = serie;
         if (colEstadoPago) patch[colEstadoPago] = estadoPago;
+<<<<<<< HEAD
+=======
+        
+        // Ivas y Retenciones porcentuales si existen
+>>>>>>> feb92d5 (feat: added edit and pay actions to costes module with dynamic column detection)
         if (realKeys.includes('iva_pct')) patch.iva_pct = 21;
         if (realKeys.includes('retencion_pct')) patch.retencion_pct = retencionPct;
 
@@ -640,14 +727,47 @@ export default function CostesPage() {
                         {c.estado_pago || 'Pendiente'}
                      </span>
                   </td>
+<<<<<<< HEAD
                   <td className="px-6 py-4 text-right">
+=======
+                   <td className="px-6 py-4 text-right relative">
+>>>>>>> feb92d5 (feat: added edit and pay actions to costes module with dynamic column detection)
                     <button 
-                      onClick={() => { if(confirm("¿Eliminar este coste?")) supabase.from("costes").delete().eq("id", c.id).then(() => fetchData()); }}
-                      className="p-2 hover:bg-red-50 rounded-lg text-gray-400 hover:text-red-600 transition-colors"
-                      title="Eliminar Coste"
+                      onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === c.id ? null : c.id); }}
+                      className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-gray-600 transition-colors"
                     >
-                      <Trash2 size={18} />
+                      <MoreHorizontal size={20} />
                     </button>
+
+                    {openMenuId === c.id && (
+                      <div className="absolute right-6 top-12 w-48 bg-white rounded-xl shadow-xl border z-50 py-2 animate-in fade-in slide-in-from-top-2 duration-200 text-left">
+                        <button onClick={() => openEditModal(c)} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+                          <Receipt size={16} className="text-blue-500" /> Editar Factura
+                        </button>
+                        
+                        <div className="h-px bg-gray-100 my-1 mx-2"></div>
+                        
+                        <div className="px-4 py-1.5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Cambiar Estado Pago</div>
+                        <button onClick={() => handleUpdateStatus(c.id, 'Pagado')} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-green-600 hover:bg-green-50 transition-colors">
+                          <div className="w-2 h-2 rounded-full bg-green-500"></div> Pagado
+                        </button>
+                        <button onClick={() => handleUpdateStatus(c.id, 'Pago Parcial')} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-orange-600 hover:bg-orange-50 transition-colors">
+                          <div className="w-2 h-2 rounded-full bg-orange-500"></div> Pago Parcial
+                        </button>
+                        <button onClick={() => handleUpdateStatus(c.id, 'Pendiente')} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+                          <div className="w-2 h-2 rounded-full bg-gray-400"></div> Pendiente
+                        </button>
+
+                        <div className="h-px bg-gray-100 my-1 mx-2"></div>
+                        
+                        <button 
+                          onClick={() => { if(confirm("¿Eliminar este coste?")) supabase.from("costes").delete().eq("id", c.id).then(() => fetchData()); }}
+                          className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                        >
+                          <Trash2 size={16} /> Eliminar
+                        </button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}

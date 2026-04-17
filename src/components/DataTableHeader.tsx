@@ -9,6 +9,7 @@ interface DataTableHeaderProps {
   filterValue: string;
   onFilter: (field: string, value: string) => void;
   showSearch?: boolean;
+  filterOptions?: { label: string; value: string }[];
 }
 
 export const DataTableHeader: React.FC<DataTableHeaderProps> = ({
@@ -18,7 +19,8 @@ export const DataTableHeader: React.FC<DataTableHeaderProps> = ({
   onSort,
   filterValue,
   onFilter,
-  showSearch = true
+  showSearch = true,
+  filterOptions
 }) => {
   const [isSearchVisible, setIsSearchVisible] = useState(false);
   const isSorted = sortConfig?.key === field;
@@ -65,22 +67,37 @@ export const DataTableHeader: React.FC<DataTableHeaderProps> = ({
 
       {/* Inline Search Input */}
       {isSearchVisible && (
-        <div className="absolute top-full left-0 w-full px-2 py-2 bg-white shadow-xl border rounded-b-xl z-10 animate-in fade-in slide-in-from-top-1 duration-200">
+        <div className="absolute top-full left-0 w-full px-2 py-2 bg-white shadow-xl border rounded-b-xl z-20 animate-in fade-in slide-in-from-top-1 duration-200">
           <div className="relative">
-             <input 
-               autoFocus
-               type="text" 
-               placeholder={`Filtrar ${label.toLowerCase()}...`}
-               value={filterValue}
-               onChange={(e) => onFilter(field, e.target.value)}
-               className="w-full text-[10px] p-2 pr-6 border rounded bg-gray-50 lowercase font-bold outline-none border-orange-100 focus:border-orange-400 transition-colors"
-             />
-             {filterValue && (
-               <X 
-                 size={10} 
-                 className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer text-gray-400 hover:text-red-500"
-                 onClick={() => onFilter(field, '')}
-               />
+             {filterOptions ? (
+               <select
+                 value={filterValue}
+                 onChange={(e) => onFilter(field, e.target.value)}
+                 className="w-full text-[10px] p-2 border rounded bg-gray-50 lowercase font-bold outline-none border-orange-100 focus:border-orange-400 transition-colors"
+               >
+                 <option value="">Todos</option>
+                 {filterOptions.map(opt => (
+                   <option key={opt.value} value={opt.value}>{opt.label}</option>
+                 ))}
+               </select>
+             ) : (
+               <>
+                 <input 
+                   autoFocus
+                   type="text" 
+                   placeholder={`Filtrar ${label.toLowerCase()}...`}
+                   value={filterValue}
+                   onChange={(e) => onFilter(field, e.target.value)}
+                   className="w-full text-[10px] p-2 pr-6 border rounded bg-gray-50 lowercase font-bold outline-none border-orange-100 focus:border-orange-400 transition-colors"
+                 />
+                 {filterValue && (
+                   <X 
+                     size={10} 
+                     className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer text-gray-400 hover:text-red-500"
+                     onClick={() => onFilter(field, '')}
+                   />
+                 )}
+               </>
              )}
           </div>
         </div>
