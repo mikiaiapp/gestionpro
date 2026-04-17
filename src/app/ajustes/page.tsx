@@ -131,7 +131,6 @@ export default function AjustesPage() {
       if (error) alert("❌ Error: " + error.message);
       else {
         alert("✅ Ajustes Corporativos Guardados");
-        // Refrescar para que otros componentes (sidebar) se enteren
         window.dispatchEvent(new Event('perfil_updated'));
       }
     } catch (e: any) {
@@ -147,25 +146,27 @@ export default function AjustesPage() {
 
     const fileExt = file.name.split('.').pop();
     const fileName = `${user.id}-${Math.random()}.${fileExt}`;
-    const filePath = `logos/${fileName}`;
+    const filePath = `${fileName}`;
 
     setIsSaving(true);
     try {
       const { error: uploadError } = await supabase.storage
-        .from('configuracion') // Usamos un bucket llamado configuracion
+        .from('logos') // Usamos un bucket llamado logos
         .upload(filePath, file);
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('Error Supabase:', uploadError);
+        throw new Error('No se pudo subir. Asegúrate de crear un bucket llamado "logos" en Supabase Storage y marcarlo como PUBLIC.');
+      }
 
       const { data: { publicUrl } } = supabase.storage
-        .from('configuracion')
+        .from('logos')
         .getPublicUrl(filePath);
 
       setLogoUrl(publicUrl);
-      alert('✅ Logo subido correctamente. No olvides dar a "Guardar Configuración" para confirmar los cambios.');
+      alert('✅ Logo subido correctamente. Recuerda Guardar al terminar.');
     } catch (error: any) {
-      console.error('Error completo:', error);
-      alert('No se pudo subir el logo. Asegúrate de que el bucket "configuracion" existe en Supabase Storage y es público. Error: ' + (error.message || 'Desconocido'));
+      alert('⚠️ ' + error.message);
     } finally {
       setIsSaving(false);
     }
@@ -175,7 +176,6 @@ export default function AjustesPage() {
     if (!user) return;
     setSyncing(true);
     try {
-      // 1. Limpiar actuales para evitar conflictos
       await supabase.from('tipos_iva').delete().eq('user_id', user.id);
       await supabase.from('tipos_irpf').delete().eq('user_id', user.id);
 
@@ -191,7 +191,6 @@ export default function AjustesPage() {
         { nombre: 'IRPF Alquileres', valor: 19 }
       ];
 
-      // 2. Insertar los oficiales masivamente
       await supabase.from('tipos_iva').insert(officialIva.map(i => ({ ...i, user_id: user.id })));
       await supabase.from('tipos_irpf').insert(officialIrpf.map(i => ({ ...i, user_id: user.id })));
       
