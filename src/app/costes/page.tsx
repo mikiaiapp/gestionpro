@@ -292,10 +292,6 @@ export default function CostesPage() {
         const patch: any = {
           fecha,
           total: totalFactura,
-<<<<<<< HEAD
-          estado_pago: estadoPago,
-=======
->>>>>>> feb92d5 (feat: added edit and pay actions to costes module with dynamic column detection)
           user_id: user.id
         };
 
@@ -353,11 +349,8 @@ export default function CostesPage() {
         if (colRetImporte) patch[colRetImporte] = retencionImporte;
         if (colSerie) patch[colSerie] = serie;
         if (colEstadoPago) patch[colEstadoPago] = estadoPago;
-<<<<<<< HEAD
-=======
         
         // Ivas y Retenciones porcentuales si existen
->>>>>>> feb92d5 (feat: added edit and pay actions to costes module with dynamic column detection)
         if (realKeys.includes('iva_pct')) patch.iva_pct = 21;
         if (realKeys.includes('retencion_pct')) patch.retencion_pct = retencionPct;
 
@@ -727,11 +720,7 @@ export default function CostesPage() {
                         {c.estado_pago || 'Pendiente'}
                      </span>
                   </td>
-<<<<<<< HEAD
-                  <td className="px-6 py-4 text-right">
-=======
                    <td className="px-6 py-4 text-right relative">
->>>>>>> feb92d5 (feat: added edit and pay actions to costes module with dynamic column detection)
                     <button 
                       onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === c.id ? null : c.id); }}
                       className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-gray-600 transition-colors"

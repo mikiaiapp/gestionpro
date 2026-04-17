@@ -237,11 +237,7 @@ function VentasContent() {
       }
 
       // ¡DETECTAR COLUMNAS REALES PARA EL PARCHE!
-<<<<<<< HEAD
       const { data: sample } = await supabase.from("ventas").select("*").eq("id", currentVentaId).single();
-=======
-      const { data: sample } = await supabase.from("ventas").select("*").eq("id", currentId || currentVentaId).single();
->>>>>>> feb92d5 (feat: added edit and pay actions to costes module with dynamic column detection)
       if (sample) {
         const realKeys = Object.keys(sample);
         const patch: any = {};
