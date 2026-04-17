@@ -225,53 +225,46 @@ function VentasContent() {
       const user = userData?.user;
       if (!user) throw new Error("No hay sesión activa");
 
-      // Payload base mínimo
-      const minimalPayload: any = {
+      // 1. DETECTAR COLUMNAS REALES ANTES DE PROCEDER
+      const { data: colProbe } = await supabase.from("ventas").select("*").limit(1);
+      // Si no hay datos, usamos un set de columnas por defecto basado en el error reportado
+      const realKeys = (colProbe && colProbe.length > 0) ? Object.keys(colProbe[0]) : ['num_factura', 'base_imponible', 'total', 'iva_importe', 'retencion_importe', 'serie', 'fecha', 'cliente_id', 'user_id'];
+      
+      const foundKey = (options: string[]) => options.find(o => realKeys.includes(o));
+      
+      const colNum = foundKey(['num_factura', 'numero', 'referencia']) || 'num_factura';
+      const colBase = foundKey(['base_imponible', 'base', 'importe']) || 'base_imponible';
+      const colIvaImp = foundKey(['iva_importe', 'cuota_iva', 'iva']) || 'iva_importe';
+      const colRetImp = foundKey(['retencion_importe', 'irpf_importe', 'retencion']) || 'retencion_importe';
+      const colProj = foundKey(['proyecto_id', 'id_proyecto']) || 'proyecto_id';
+      const colTotal = foundKey(['total', 'importe_total']) || 'total';
+
+      // 2. CONSTRUIR PAYLOAD COMPLETO
+      const payload: any = {
         serie,
         fecha,
         cliente_id: clienteId,
         user_id: user.id
       };
+      
+      payload[colNum] = numFactura;
+      payload[colBase] = baseImponible;
+      payload[colTotal] = totalFactura;
+      payload[colIvaImp] = cuotaIva;
+      payload[colRetImp] = retencionImporte;
+      if (realKeys.includes(colProj)) payload[colProj] = proyectoId || null;
+      if (realKeys.includes('iva_pct')) payload.iva_pct = (serie === "A" ? 21 : 0);
+      if (realKeys.includes('retencion_pct')) payload.retencion_pct = retencionPct;
 
       let currentVentaId = editingId;
 
       if (editingId) {
-        await supabase.from("ventas").update([minimalPayload]).eq("id", editingId);
+        const { error: uErr } = await supabase.from("ventas").update(payload).eq("id", editingId);
+        if (uErr) throw uErr;
       } else {
-        const { data: venta, error: vError } = await supabase.from("ventas").insert([minimalPayload]).select().single();
+        const { data: venta, error: vError } = await supabase.from("ventas").insert([payload]).select().single();
         if (vError) throw vError;
         currentVentaId = venta.id;
-      }
-
-      // ¡DETECTAR COLUMNAS REALES PARA EL PARCHE!
-      const { data: sample } = await supabase.from("ventas").select("*").eq("id", currentVentaId).single();
-      if (sample) {
-        const realKeys = Object.keys(sample);
-        const patch: any = {};
-        
-        const foundKey = (options: string[]) => options.find(o => realKeys.includes(o));
-        
-        const colNum = foundKey(['num_factura', 'numero', 'referencia']);
-        const colBase = foundKey(['base_imponible', 'base', 'importe']);
-        const colIvaImporte = foundKey(['iva_importe', 'cuota_iva', 'iva']);
-        const colRetImporte = foundKey(['retencion_importe', 'irpf_importe', 'retencion']);
-        const colProj = foundKey(['proyecto_id', 'id_proyecto']);
-        const colTotal = foundKey(['total', 'importe_total']);
-        
-        if (colNum) patch[colNum] = numFactura;
-        if (colBase) patch[colBase] = baseImponible;
-        if (colIvaImporte) patch[colIvaImporte] = cuotaIva;
-        if (colRetImporte) patch[colRetImporte] = retencionImporte;
-        if (colProj) patch[colProj] = proyectoId || null;
-        if (colTotal) patch[colTotal] = totalFactura;
-        
-        // Pct si existen
-        if (realKeys.includes('iva_pct')) patch.iva_pct = (serie === "A" ? 21 : 0);
-        if (realKeys.includes('retencion_pct')) patch.retencion_pct = retencionPct;
-        
-        if (Object.keys(patch).length > 0) {
-          await supabase.from("ventas").update(patch).eq("id", currentVentaId);
-        }
       }
 
       const lineasToInsert = lineas.map(l => ({
