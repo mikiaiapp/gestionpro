@@ -49,13 +49,13 @@ export default function ProyectosPage() {
     const yearPrefix = `${currentYear}-`;
     const filtered = allProjs.filter(p => 
       p.serie === targetSerie && 
-      p.numero && 
-      p.numero.startsWith(yearPrefix)
+      p.num_referencia && 
+      p.num_referencia.startsWith(yearPrefix)
     );
 
     if (filtered.length > 0) {
       const numbers = filtered.map(p => {
-        const parts = p.numero.split("-");
+        const parts = p.num_referencia.split("-");
         return parseInt(parts[1], 10) || 0;
       });
       const nextNum = Math.max(...numbers) + 1;
@@ -103,7 +103,7 @@ export default function ProyectosPage() {
     setEditingId(p.id);
     setNombre(p.nombre);
     setSerie(p.serie || "P");
-    setNumReferencia(p.numero || "");
+    setNumReferencia(p.num_referencia || "");
     setFecha(p.fecha || new Date().toISOString().split('T')[0]);
     setClienteId(p.cliente_id || "");
     setRetencionPct(p.retencion_pct || 0);
@@ -133,7 +133,7 @@ export default function ProyectosPage() {
         nombre,
         cliente_id: clienteId,
         serie,
-        numero: numReferencia, // Intentando 'numero' tras fallo de num_proyecto
+        num_referencia: numReferencia, // Probando con 'num_referencia' tras fallar 'referencia', 'numero' y 'num_proyecto'
         fecha,
         base_imponible: baseImponible,
         iva_pct: 21,
@@ -184,7 +184,7 @@ export default function ProyectosPage() {
     try {
       await generatePDF({
         tipo: 'PRESUPUESTO',
-        numero: `${p.serie}-${p.numero}`,
+        numero: `${p.serie}-${p.num_referencia}`,
         fecha: p.fecha,
         cliente: {
           nombre: p.clientes?.nombre || '',
@@ -267,7 +267,7 @@ export default function ProyectosPage() {
                    {filtered.map(p => (
                      <tr key={p.id} className="hover:bg-gray-50 transition-colors">
                        <td className="px-6 py-4">
-                         <div className="text-[10px] font-bold text-orange-600 uppercase mb-0.5">{p.serie}-{p.numero}</div>
+                         <div className="text-[10px] font-bold text-orange-600 uppercase mb-0.5">{p.serie}-{p.num_referencia}</div>
                          <div className="font-bold">{p.nombre}</div>
                        </td>
                        <td className="px-6 py-4 text-sm font-medium text-gray-600">{p.clientes?.nombre}</td>
