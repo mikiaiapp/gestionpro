@@ -202,11 +202,20 @@ export default function ProyectosPage() {
     } catch (err: any) {
       console.error(err);
       
-      // El "Chivato": Si falla, intentamos ver qué columnas hay realmente
+      // EXTRACCIÓN DE VERDAD: Si falla, pedimos el esquema real a PostgREST
       try {
-        const { data: sniff } = await supabase.from('proyectos').select('*').limit(1);
-        const columns = sniff && sniff.length > 0 ? Object.keys(sniff[0]).join(', ') : "No hay datos para sniff";
-        alert(`❌ Error al guardar: ${err.message}\n\n🔍 Columnas reales en DB: ${columns}\n(Por favor, dime qué columnas ves aquí arriba)`);
+        const { data: { session } } = await supabase.auth.getSession();
+        const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/?select=proyectos`, {
+          headers: {
+            'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+            'Authorization': `Bearer ${session?.access_token || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`
+          }
+        });
+        const openApi = await response.json();
+        const tableInfo = openApi.definitions?.proyectos;
+        const realColumns = tableInfo ? Object.keys(tableInfo.properties).join(', ') : "No se pudo obtener el esquema";
+        
+        alert(`❌ ERROR DE BASE DE DATOS: ${err.message}\n\n🔍 COLUMNAS REALES SEGÚN SUPABASE:\n${realColumns}\n\nPor favor, dime qué nombres ves ahí.`);
       } catch (sniffErr) {
         alert("Error al guardar: " + err.message);
       }
