@@ -15,6 +15,8 @@ import {
   LogOut,
   LayoutDashboard
 } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
 
 type MenuItem = {
   icon: any;
@@ -67,6 +69,22 @@ const menuStructure: MenuSection[] = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    try {
+      console.log("Intentando cerrar sesión...");
+      const { error } = await supabase.auth.signOut();
+      if (error) console.error("Error al salir:", error.message);
+      
+      // Limpiamos todo y redirigimos de forma absoluta
+      localStorage.clear();
+      window.location.href = "/login";
+    } catch (e) {
+      console.error("Fallo crítico en logout:", e);
+      window.location.href = "/login";
+    }
+  };
 
   return (
     <aside className="w-64 bg-[var(--sidebar-bg)] border-r border-[var(--border)] h-screen sticky top-0 flex flex-col p-4 shadow-sm">
@@ -103,12 +121,15 @@ export function Sidebar() {
       </nav>
 
       <div className="mt-auto border-t border-[var(--border)] pt-4">
-        <button className="w-full flex items-center gap-3 px-3 py-2 text-[var(--muted)] hover:text-red-600 transition-colors text-[13px] font-semibold mb-2">
+        <button 
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 px-3 py-2 text-[var(--muted)] hover:text-red-600 transition-colors text-[13px] font-semibold mb-2"
+        >
           <LogOut size={18} />
           <span>Cerrar Sesión</span>
         </button>
         <div className="text-[10px] text-center text-gray-400 font-bold uppercase tracking-widest pb-2">
-          GestiónPro v2.3.1 - Build OK
+          GestiónPro v2.3.3 - Build OK
         </div>
       </div>
     </aside>
