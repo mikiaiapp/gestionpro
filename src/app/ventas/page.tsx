@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, useMemo, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Receipt, Plus, Search, MoreHorizontal, Loader2, Trash2, Save, FileText, Download, Printer, FolderKanban, ChevronUp, ChevronDown, Filter } from "lucide-react";
 import { supabase } from "@/lib/supabase";
@@ -141,13 +141,19 @@ function VentasContent() {
     setLoading(true);
     const { data: vts } = await supabase.from("ventas").select("*, clientes(*), proyectos(nombre), venta_lineas(*)").order("fecha", { ascending: false });
     const { data: clis } = await supabase.from("clientes").select("*").order("nombre");
-    const { data: projs } = await supabase.from("proyectos").select("id, nombre, descripcion, cliente_id, base_imponible").order("nombre");
+    const { data: projs } = await supabase.from("proyectos").select("id, nombre, num_proyecto, estado, cliente_id, base_imponible, clientes(nombre)").order("nombre");
     const { data: fbc } = await supabase.from("formas_cobro").select("*").order("nombre");
     const { data: perf } = await supabase.from("perfil_negocio").select("*").maybeSingle();
 
     setVentas(vts || []);
     setClientes(clis || []);
-    setProyectos(projs || []);
+    
+    // Preparar proyectos con nombre de cliente para el selector
+    const preparedProjs = (projs || []).map(p => ({
+      ...p,
+      nombre: `[${p.clientes?.nombre || 'S/C'}] ${p.nombre} ${p.num_proyecto ? `(${p.num_proyecto})` : ''}`
+    }));
+    setProyectos(preparedProjs);
     setFormasCobro(fbc || []);
     setPerfil(perf);
     setLoading(false);
@@ -534,10 +540,10 @@ function VentasContent() {
                   <div className="space-y-4">
                     <SearchableSelect 
                       label="Seleccionar Proyecto para Facturar"
-                      options={proyectos}
+                      options={proyectos.filter(p => !p.estado || p.estado === 'Abierto' || p.estado === 'Activo')}
                       value={selectedProjId}
                       onChange={(id) => setSelectedProjId(id)}
-                      placeholder="Buscar por nombre de proyecto..."
+                      placeholder="Buscar por nombre de cliente o proyecto..."
                     />
                     <button 
                       disabled={!selectedProjId}

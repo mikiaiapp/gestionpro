@@ -56,11 +56,15 @@ export default function CostesPage() {
     setLoading(true);
     const { data: csts } = await supabase.from("costes").select("*, proveedores(nombre), proyectos(nombre), coste_lineas(*)").order("fecha", { ascending: false });
     const { data: provs } = await supabase.from("proveedores").select("id, nombre, nif").order("nombre");
-    const { data: projs } = await supabase.from("proyectos").select("id, nombre").order("nombre");
+    const { data: projs } = await supabase.from("proyectos").select("id, nombre, num_proyecto, estado, cliente_id, clientes(nombre)").order("nombre");
 
     setCostes(csts || []);
     setProveedores(provs || []);
-    setProyectos(projs || []);
+    const preparedProjs = (projs || []).map(p => ({
+      ...p,
+      nombre: `[${p.clientes?.nombre || 'S/C'}] ${p.nombre} ${p.num_proyecto ? `(${p.num_proyecto})` : ''}`
+    }));
+    setProyectos(preparedProjs);
     setLoading(false);
   };
 
@@ -522,7 +526,13 @@ export default function CostesPage() {
                       </div>
                       {tipoGasto === "proyecto" && (
                         <div className="md:col-span-1">
-                           <SearchableSelect label="Vincular Proyecto" options={proyectos} value={proyectoId} onChange={(id) => setProyectoId(id)} placeholder="Seleccionar..." />
+                           <SearchableSelect 
+                             label="Vincular Proyecto" 
+                             options={proyectos.filter(p => !p.estado || p.estado === 'Abierto' || p.estado === 'Activo')} 
+                             value={proyectoId} 
+                             onChange={(id) => setProyectoId(id)} 
+                             placeholder="Seleccionar..." 
+                           />
                         </div>
                       )}
                    </div>
