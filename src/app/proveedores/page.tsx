@@ -91,7 +91,7 @@ export default function ProveedoresPage() {
         nif: nif.toUpperCase(),
         email,
         direccion,
-        cp,
+        codigo_postal: cp, // NOMBRE CORRECTO EN DB: codigo_postal
         poblacion,
         provincia,
         user_id: user.id
@@ -130,7 +130,7 @@ export default function ProveedoresPage() {
     setNif(p.nif || '');
     setEmail(p.email || '');
     setDireccion(p.direccion || '');
-    setCp(p.cp || '');
+    setCp(p.codigo_postal || ''); // Mapeado desde codigo_postal
     setPoblacion(p.poblacion || '');
     setProvincia(p.provincia || '');
     setIsModalOpen(true);
