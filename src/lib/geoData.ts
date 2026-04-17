@@ -26,9 +26,6 @@ export const getProvinciaPorCP = (cp: string): {id: string, nombre: string, capi
   
   if (!provincia) return null;
 
-  const ultimosTres = cp.substring(2);
-  let capital = "";
-  
   const capitalesMap: {[key: string]: string} = {
     "01": "Vitoria-Gasteiz", "02": "Albacete", "03": "Alicante", "04": "Almería", "05": "Ávila",
     "06": "Badajoz", "07": "Palma de Mallorca", "08": "Barcelona", "09": "Burgos", "10": "Cáceres",
@@ -43,9 +40,36 @@ export const getProvinciaPorCP = (cp: string): {id: string, nombre: string, capi
     "51": "Ceuta", "52": "Melilla"
   };
 
-  if (parseInt(ultimosTres, 10) <= 8 || cp.endsWith("000") || cp === "07001" || cp === "07002") {
+  const ultimosTres = cp.substring(2);
+  let capital = "";
+  if (parseInt(ultimosTres, 10) <= 8 || cp.endsWith("000")) {
     capital = capitalesMap[dosPrimeros] || "";
   }
 
   return { ...provincia, capital };
+};
+
+export const getFullLocationByCP = async (cp: string): Promise<{provincia: string, poblacion: string} | null> => {
+   // 1. Detección de Provincia (Local - Instantáneo)
+   const local = getProvinciaPorCP(cp);
+   if (!local) return null;
+
+   let poblacion = local.capital || "";
+
+   // 2. Si es un CP de pueblo (no capital), consultamos municipio exacto (API Externa Rápida)
+   if (!poblacion && cp.length === 5) {
+      try {
+         const resp = await fetch(`https://api.zippopotam.us/es/${cp}`);
+         if (resp.ok) {
+            const data = await resp.json();
+            if (data.places && data.places.length > 0) {
+               poblacion = data.places[0]['place name'];
+            }
+         }
+      } catch (e) {
+         console.warn("Error buscando población externa:", e);
+      }
+   }
+
+   return { provincia: local.nombre, poblacion };
 };

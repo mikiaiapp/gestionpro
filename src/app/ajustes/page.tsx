@@ -20,7 +20,7 @@ import {
   ShieldCheck
 } from 'lucide-react';
 import { Sidebar } from '@/components/Sidebar';
-import { getProvinciaPorCP } from '@/lib/geoData';
+import { getFullLocationByCP } from '@/lib/geoData';
 import { validateNIF, validateIBAN, formatIBAN } from '@/lib/validations';
 
 export default function AjustesPage() {
@@ -63,16 +63,18 @@ export default function AjustesPage() {
     fetchTipos();
   };
 
-  // Lógica de Geolocalización Inteligente
+  // Lógica de Geolocalización Inteligente Mejorada
   useEffect(() => {
     if (cp.length === 5) {
-      const resp = getProvinciaPorCP(cp);
-      if (resp) {
-        setProvincia(resp.nombre);
-        if (resp.capital && !poblacion) {
-          setPoblacion(resp.capital);
+      getFullLocationByCP(cp).then(resp => {
+        if (resp) {
+          setProvincia(resp.provincia);
+          // Si es un pueblo (especificado) o una capital, lo cargamos
+          if (resp.poblacion) {
+            setPoblacion(resp.poblacion);
+          }
         }
-      }
+      });
     }
   }, [cp]);
 

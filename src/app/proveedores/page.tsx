@@ -14,7 +14,7 @@ import {
   MapPin
 } from 'lucide-react';
 import { Sidebar } from '@/components/Sidebar';
-import { getProvinciaPorCP } from '@/lib/geoData';
+import { getFullLocationByCP } from '@/lib/geoData';
 
 export default function ProveedoresPage() {
   const [proveedores, setProveedores] = useState<any[]>([]);
@@ -38,16 +38,17 @@ export default function ProveedoresPage() {
     fetchProveedores();
   }, []);
 
-  // Lógica de Geolocalización
+  // Lógica de Geolocalización Inteligente Mejorada
   useEffect(() => {
     if (cp.length === 5) {
-      const resp = getProvinciaPorCP(cp);
-      if (resp) {
-        setProvincia(resp.nombre);
-        if (resp.capital && !poblacion) {
-          setPoblacion(resp.capital);
+      getFullLocationByCP(cp).then(resp => {
+        if (resp) {
+          setProvincia(resp.provincia);
+          if (resp.poblacion) {
+            setPoblacion(resp.poblacion);
+          }
         }
-      }
+      });
     }
   }, [cp]);
 
@@ -251,21 +252,13 @@ export default function ProveedoresPage() {
                         {openMenuId === p.id && (
                           <div className="absolute right-8 top-12 w-48 bg-white rounded-2xl shadow-2xl border z-50 py-2 animate-in fade-in slide-in-from-top-2 duration-200 ring-4 ring-black/5">
                             <button onClick={() => openEditModal(p)} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-600 hover:bg-orange-50 transition-colors"><Save size={16} /> Editar</button>
-                            <div className="h-px bg-gray-50 my-1 mx-2"></div>
+                            <div className="h-px bg-gray-100 my-1 mx-2"></div>
                             <button onClick={() => handleDeleteProveedor(p.id, p.nombre)} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors"><Trash2 size={16} /> Eliminar</button>
                           </div>
                         )}
                       </td>
                     </tr>
                   ))}
-                  {filteredProveedores.length === 0 && (
-                    <tr>
-                      <td colSpan={4} className="p-20 text-center">
-                        <Users className="mx-auto text-gray-200 mb-4" size={48} />
-                        <p className="text-gray-400 font-medium">No se han encontrado proveedores.</p>
-                      </td>
-                    </tr>
-                  )}
                 </tbody>
               </table>
             )}

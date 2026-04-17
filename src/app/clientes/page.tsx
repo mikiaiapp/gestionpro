@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Sidebar } from "@/components/Sidebar";
 import { Users, Plus, Search, MoreHorizontal, Loader2, Save, Trash2, MapPin } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { getProvinciaPorCP } from "@/lib/geoData";
+import { getFullLocationByCP } from "@/lib/geoData";
 
 export default function ClientesPage() {
   const [clientes, setClientes] = useState<any[]>([]);
@@ -28,16 +28,17 @@ export default function ClientesPage() {
     fetchClientes();
   }, []);
 
-  // Lógica de Geolocalización Inteligente
+  // Lógica de Geolocalización Inteligente Mejorada
   useEffect(() => {
     if (cp.length === 5) {
-      const resp = getProvinciaPorCP(cp);
-      if (resp) {
-        setProvincia(resp.nombre);
-        if (resp.capital && !poblacion) {
-          setPoblacion(resp.capital);
+      getFullLocationByCP(cp).then(resp => {
+        if (resp) {
+          setProvincia(resp.provincia);
+          if (resp.poblacion) {
+            setPoblacion(resp.poblacion);
+          }
         }
-      }
+      });
     }
   }, [cp]);
 
