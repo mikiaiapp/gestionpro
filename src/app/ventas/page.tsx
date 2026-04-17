@@ -88,7 +88,7 @@ function VentasContent() {
       setFecha(new Date().toISOString().split('T')[0]);
       
       const factor = pctRequested / 100;
-      const numProyStr = proj.num_proyecto ? ` nº ${proj.num_proyecto}` : "";
+      const numProyStr = (proj as any).num_proyecto ? ` nº ${(proj as any).num_proyecto}` : "";
       const descripcionManual = `${pctRequested}% de avance del proyecto${numProyStr} con descripción "${proj.nombre}"`;
       
       setLineas([{ 
@@ -155,17 +155,21 @@ function VentasContent() {
 
   const fetchData = async () => {
     setLoading(true);
-    const { data: vts } = await supabase.from("ventas").select("*, clientes(*), proyectos(nombre), venta_lineas(*), cobros(importe)").order("fecha", { ascending: false });
+    const { data: vts } = await supabase.from("ventas").select("*, clientes(*), proyectos(nombre), venta_lineas(*)").order("fecha", { ascending: false });
+    const { data: cbrs } = await supabase.from("cobros").select("*");
     const { data: clis } = await supabase.from("clientes").select("*").order("nombre");
-    const { data: projs } = await supabase.from("proyectos").select("id, nombre, num_proyecto, estado, cliente_id, base_imponible, clientes(*)").order("nombre");
+    const { data: projs } = await supabase.from("proyectos").select("id, nombre, estado, cliente_id, base_imponible, clientes(*)").order("nombre");
     const { data: fbc } = await supabase.from("formas_cobro").select("*").order("nombre");
     const { data: perf } = await supabase.from("perfil_negocio").select("*").maybeSingle();
 
     const preparedVentas = (vts || []).map(v => {
-      const totalCobrado = (v.cobros || []).reduce((acc: number, c: any) => acc + (c.importe || 0), 0);
+      const misCobros = (cbrs || []).filter((c: any) => c.venta_id === v.id);
+      const totalCobrado = misCobros.reduce((acc: number, c: any) => acc + (c.importe || 0), 0);
       let estadoPago = 'Pendiente';
-      if (totalCobrado >= v.total) estadoPago = 'Cobrado';
-      else if (totalCobrado > 0) estadoPago = 'Cobro Parcial';
+      if (v.total > 0) {
+        if (totalCobrado >= v.total) estadoPago = 'Cobrado';
+        else if (totalCobrado > 0) estadoPago = 'Cobro Parcial';
+      }
       
       return { ...v, totalCobrado, estadoPago };
     });

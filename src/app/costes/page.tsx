@@ -81,15 +81,19 @@ export default function CostesPage() {
 
   const fetchData = async () => {
     setLoading(true);
-    const { data: csts } = await supabase.from("costes").select("*, proveedores(nombre), proyectos(nombre), coste_lineas(*), pagos(importe)").order("fecha", { ascending: false });
+    const { data: csts } = await supabase.from("costes").select("*, proveedores(nombre), proyectos(nombre), coste_lineas(*)").order("fecha", { ascending: false });
+    const { data: pgts } = await supabase.from("pagos").select("*");
     const { data: provs } = await supabase.from("proveedores").select("id, nombre, nif").order("nombre");
-    const { data: projs } = await supabase.from("proyectos").select("id, nombre, num_proyecto, estado, cliente_id, clientes(nombre)").order("nombre");
+    const { data: projs } = await supabase.from("proyectos").select("id, nombre, estado, cliente_id, clientes(nombre)").order("nombre");
 
     const preparedCostes = (csts || []).map(c => {
-      const totalPagado = (c.pagos || []).reduce((acc: number, p: any) => acc + (p.importe || 0), 0);
+      const misPagos = (pgts || []).filter((p: any) => p.coste_id === c.id);
+      const totalPagado = misPagos.reduce((acc: number, p: any) => acc + (p.importe || 0), 0);
       let estadoPagoRaw = 'Pendiente';
-      if (totalPagado >= c.total) estadoPagoRaw = 'Pagado';
-      else if (totalPagado > 0) estadoPagoRaw = 'Pago Parcial';
+      if (c.total > 0) {
+        if (totalPagado >= c.total) estadoPagoRaw = 'Pagado';
+        else if (totalPagado > 0) estadoPagoRaw = 'Pago Parcial';
+      }
       
       return { ...c, totalPagado, estadoPago: estadoPagoRaw };
     });
@@ -98,7 +102,7 @@ export default function CostesPage() {
     setProveedores(provs || []);
     const preparedProjs = (projs || []).map(p => ({
       ...p,
-      nombre: `[${p.clientes?.nombre || 'S/C'}] ${p.nombre} ${p.num_proyecto ? `(${p.num_proyecto})` : ''}`
+      nombre: `[${p.clientes?.nombre || 'S/C'}] ${p.nombre}`
     }));
     setProyectos(preparedProjs);
     setLoading(false);
