@@ -597,14 +597,6 @@ export default function CostesPage() {
                            />
                         </div>
                       )}
-                      <div>
-                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Estado de Pago</label>
-                        <select value={estadoPago} onChange={(e) => setEstadoPago(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200 bg-gray-50 font-bold">
-                           <option value="Pendiente">Pendiente</option>
-                           <option value="Pagado">Pagado</option>
-                           <option value="Pago Parcial">Pago Parcial</option>
-                        </select>
-                      </div>
                    </div>
 
                    <div className="pt-4">
