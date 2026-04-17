@@ -659,6 +659,7 @@ export default function CostesPage() {
                              placeholder="Seleccionar..." 
                            />
                         </div>
+                      )}
                     </div>
 
                     <div className="p-6 bg-purple-50/50 rounded-2xl border border-purple-100/50 space-y-4">
