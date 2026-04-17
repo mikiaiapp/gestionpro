@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Plus, MoreHorizontal, Loader2, Receipt, Upload, Save, Trash2, X, Sparkles, AlertCircle, UserPlus, ChevronUp, ChevronDown, Filter, Search } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Sidebar } from "@/components/Sidebar";
@@ -322,41 +322,43 @@ export default function CostesPage() {
     setColumnFilters(prev => ({ ...prev, [field]: value }));
   };
 
-  const filteredCostes = (costes || []).filter(c => {
-    const matchesGlobal = searchTerm === '' || 
-      (c.proveedores?.nombre && c.proveedores.nombre.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (c.proyectos?.nombre && c.proyectos.nombre.toLowerCase().includes(searchTerm.toLowerCase()));
-    
-    const matchesColumns = Object.keys(columnFilters).every(key => {
-      if (!columnFilters[key]) return true;
-      let val = '';
-      if (key === 'proveedor') val = c.proveedores?.nombre || '';
-      else if (key === 'proyecto') val = c.proyectos?.nombre || '';
-      else if (key === 'num_factura') val = c.num_factura_proveedor || '';
-      else val = c[key] || '';
-      return val.toString().toLowerCase().includes(columnFilters[key].toLowerCase());
-    });
+  const filteredCostes = useMemo(() => {
+    return (costes || []).filter(c => {
+      const matchesGlobal = searchTerm === '' || 
+        (c.proveedores?.nombre && c.proveedores.nombre.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (c.proyectos?.nombre && c.proyectos.nombre.toLowerCase().includes(searchTerm.toLowerCase()));
+      
+      const matchesColumns = Object.keys(columnFilters).every(key => {
+        if (!columnFilters[key]) return true;
+        let val = '';
+        if (key === 'proveedor') val = c.proveedores?.nombre || '';
+        else if (key === 'proyecto') val = c.proyectos?.nombre || '';
+        else if (key === 'num_factura') val = c.num_factura_proveedor || '';
+        else val = c[key] || '';
+        return val.toString().toLowerCase().includes(columnFilters[key].toLowerCase());
+      });
 
-    return matchesGlobal && matchesColumns;
-  }).sort((a, b) => {
-    if (!sortConfig) return 0;
-    let aVal, bVal;
-    
-    if (sortConfig.key === 'proveedor') {
-      aVal = a.proveedores?.nombre || '';
-      bVal = b.proveedores?.nombre || '';
-    } else if (sortConfig.key === 'proyecto') {
-      aVal = a.proyectos?.nombre || '';
-      bVal = b.proyectos?.nombre || '';
-    } else {
-      aVal = a[sortConfig.key] || '';
-      bVal = b[sortConfig.key] || '';
-    }
-    
-    if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
-    if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
-    return 0;
-  });
+      return matchesGlobal && matchesColumns;
+    }).sort((a, b) => {
+      if (!sortConfig) return 0;
+      let aVal, bVal;
+      
+      if (sortConfig.key === 'proveedor') {
+        aVal = a.proveedores?.nombre || '';
+        bVal = b.proveedores?.nombre || '';
+      } else if (sortConfig.key === 'proyecto') {
+        aVal = a.proyectos?.nombre || '';
+        bVal = b.proyectos?.nombre || '';
+      } else {
+        aVal = a[sortConfig.key] || '';
+        bVal = b[sortConfig.key] || '';
+      }
+      
+      if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [costes, searchTerm, sortConfig, columnFilters]);
 
   return (
     <div className="flex bg-[var(--background)] min-h-screen text-left">
