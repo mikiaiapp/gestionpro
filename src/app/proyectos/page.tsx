@@ -79,6 +79,16 @@ export default function ProyectosPage() {
       const { data: clis } = await supabase.from("clientes").select("id, nombre").order("nombre");
       const { data: perf } = await supabase.from("perfil_negocio").select("*").maybeSingle();
 
+      // Escaneo Activo de Columnas
+      const possibleKeys = ['numero', 'num_proyecto', 'num_referencia', 'referencia'];
+      for (const key of possibleKeys) {
+        const { error: probeError } = await supabase.from('proyectos').select(key).limit(0);
+        if (!probeError) {
+          setColumnKey(key);
+          break;
+        }
+      }
+
       setProyectos(projs || []);
       setClientes(clis || []);
       setPerfil(perf);
@@ -137,12 +147,16 @@ export default function ProyectosPage() {
         throw new Error("No se ha encontrado una sesión de usuario activa. Por favor, vuelve a iniciar sesión.");
       }
       
-      // Autodetectar nombre de columna para el número/referencia
-      const { data: sample } = await supabase.from('proyectos').select('*').limit(1);
-      let columnKey = 'num_proyecto'; // valor por defecto
-      if (sample && sample.length > 0) {
-        const keys = Object.keys(sample[0]);
-        columnKey = keys.find(k => ['num_proyecto', 'num_referencia', 'numero', 'referencia'].includes(k)) || 'num_proyecto';
+      // Escaneo Activo de Columnas (Infalible incluso en tablas vacías)
+      const possibleKeys = ['numero', 'num_proyecto', 'num_referencia', 'referencia'];
+      let columnKey = 'num_proyecto'; // valor por defecto si todo falla
+
+      for (const key of possibleKeys) {
+        const { error: probeError } = await supabase.from('proyectos').select(key).limit(0);
+        if (!probeError) {
+          columnKey = key;
+          break;
+        }
       }
 
       const payload: any = {
