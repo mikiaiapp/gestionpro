@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { Sidebar } from "@/components/Sidebar";
-import { Activity, Search, Loader2, TrendingUp, TrendingDown, Target, Building2 } from "lucide-react";
+import { Activity, Search, Loader2, TrendingUp, TrendingDown, Target, Building2, Download as DownloadIcon, FileText } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { generatePDF } from "@/lib/pdfGenerator";
 
 export default function ResumenPage() {
   const [proyectos, setProyectos] = useState<any[]>([]);
+  const [perfil, setPerfil] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -29,6 +31,7 @@ export default function ResumenPage() {
       const { data: projs, error: pe } = await supabase.from("proyectos").select("*, clientes(nombre)");
       const { data: vts, error: ve } = await supabase.from("ventas").select("proyecto_id, total");
       const { data: csts, error: ce } = await supabase.from("costes").select("proyecto_id, total");
+      const { data: perf } = await supabase.from("perfil_negocio").select("*").maybeSingle();
 
       if (pe || ve || ce) {
         console.error("Error cargando datos de resumen:", pe || ve || ce);
@@ -50,11 +53,62 @@ export default function ResumenPage() {
       });
 
       setProyectos(consolidated);
+      setPerfil(perf);
     } catch (err) {
       console.error("Fallo crítico en resumen:", err);
     } finally {
       clearTimeout(timeout);
       setLoading(false);
+    }
+  };
+
+  const exportPDF = async () => {
+    if (!perfil) {
+      alert("Configura tus datos en Ajustes primero.");
+      return;
+    }
+
+    try {
+      await generatePDF({
+        tipo: 'INFORME',
+        numero: `INF-${new Date().getFullYear()}-${(new Date().getMonth()+1).toString().padStart(2, '0')}`,
+        fecha: new Date().toISOString(),
+        cliente: {
+          nombre: 'Control Interno de Rentabilidad',
+          nif: '',
+          direccion: '',
+          poblacion: '',
+          cp: '',
+          provincia: ''
+        },
+        perfil: {
+          nombre: perfil.nombre || '',
+          nif: perfil.nif || '',
+          direccion: perfil.direccion || '',
+          poblacion: perfil.poblacion || '',
+          cp: perfil.cp || '',
+          provincia: perfil.provincia || '',
+          cuenta_bancaria: perfil.cuenta_bancaria || '',
+          logo_url: perfil.logo_url || '',
+          condiciones_legales: 'Informe generado automáticamente por GestiónPro.'
+        },
+        lineas: filtered.map(p => ({
+          unidades: 1,
+          descripcion: `PROYECTO: ${p.nombre} (${p.clientes?.nombre || 'Particular'})`,
+          precio_unitario: p.margen
+        })),
+        totales: {
+          base: filtered.reduce((acc, p) => acc + p.totalVentas, 0),
+          iva_pct: 0,
+          iva_importe: 0,
+          retencion_pct: 0,
+          retencion_importe: 0,
+          total: filtered.reduce((acc, p) => acc + p.margen, 0)
+        }
+      });
+    } catch (error) {
+      console.error("Error exportando informe:", error);
+      alert("Error al generar el PDF del informe.");
     }
   };
 
@@ -72,7 +126,15 @@ export default function ResumenPage() {
             <h1 className="text-3xl font-bold font-head tracking-tight mb-1 text-[var(--foreground)]">Resumen de Proyectos</h1>
             <p className="text-[var(--muted)] font-medium">Análisis de rentabilidad y márgenes de beneficio por obra.</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
+             <button 
+               onClick={exportPDF}
+               className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white border border-[var(--border)] text-gray-700 font-bold hover:shadow-md transition-all active:scale-95"
+             >
+               <FileText size={18} className="text-red-500" />
+               Informe PDF
+             </button>
+             <div className="h-10 w-px bg-gray-200"></div>
              <Target className="text-[var(--accent)]" size={24} />
              <div className="text-right">
                 <div className="text-[10px] font-bold text-[var(--muted)] uppercase">Global Margen Medio</div>

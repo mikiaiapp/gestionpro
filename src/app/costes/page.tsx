@@ -5,6 +5,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { Download, Plus, Search, MoreHorizontal, Loader2, Receipt, FolderKanban, FileText, Sparkles, X, Upload, Save, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { generatePDF } from "@/lib/pdfGenerator";
 
 interface LineaCoste {
   unidades: number;
@@ -17,6 +18,7 @@ export default function CostesPage() {
   const [costes, setCostes] = useState<any[]>([]);
   const [proveedores, setProveedores] = useState<any[]>([]);
   const [proyectos, setProyectos] = useState<any[]>([]);
+  const [perfil, setPerfil] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -57,12 +59,13 @@ export default function CostesPage() {
 
       const { data: provs } = await supabase.from("proveedores").select("id, nombre").order("nombre");
       const { data: projs } = await supabase.from("proyectos").select("id, nombre").order("nombre");
-      const { data: perfil } = await supabase.from("perfil_negocio").select("gemini_key").maybeSingle();
+      const { data: perf } = await supabase.from("perfil_negocio").select("*").maybeSingle();
 
       setCostes(csts || []);
       setProveedores(provs || []);
       setProyectos(projs || []);
-      if (perfil?.gemini_key) setGeminiKey(perfil.gemini_key);
+      setPerfil(perf);
+      if (perf?.gemini_key) setGeminiKey(perf.gemini_key);
     } finally {
       setLoading(false);
     }
@@ -215,6 +218,56 @@ export default function CostesPage() {
     fetchData();
   };
 
+  const exportPDF = async () => {
+    if (!perfil) {
+      alert("Configura tus datos en Ajustes primero.");
+      return;
+    }
+
+    try {
+      await generatePDF({
+        tipo: 'INFORME',
+        numero: `GST-${new Date().getFullYear()}`,
+        fecha: new Date().toISOString(),
+        cliente: {
+          nombre: 'Listado de Facturas Recibidas (Gastos)',
+          nif: '',
+          direccion: '',
+          poblacion: '',
+          cp: '',
+          provincia: ''
+        },
+        perfil: {
+          nombre: perfil.nombre || '',
+          nif: perfil.nif || '',
+          direccion: perfil.direccion || '',
+          poblacion: perfil.poblacion || '',
+          cp: perfil.cp || '',
+          provincia: perfil.provincia || '',
+          cuenta_bancaria: perfil.cuenta_bancaria || '',
+          logo_url: perfil.logo_url || '',
+          condiciones_legales: 'Informe de gastos generado por GestiónPro.'
+        },
+        lineas: costes.map(c => ({
+          unidades: 1,
+          descripcion: `${c.num_interno} | ${c.num_factura_proveedor} | ${c.proveedores?.nombre || 'Prov.'}`,
+          precio_unitario: c.total
+        })),
+        totales: {
+          base: costes.reduce((acc, c) => acc + c.base_imponible, 0),
+          iva_pct: 0,
+          iva_importe: costes.reduce((acc, c) => acc + (c.iva_importe || 0), 0),
+          retencion_pct: 0,
+          retencion_importe: costes.reduce((acc, c) => acc + (c.retencion_importe || 0), 0),
+          total: costes.reduce((acc, c) => acc + c.total, 0)
+        }
+      });
+    } catch (error) {
+      console.error("Error exportando informe:", error);
+      alert("Error al generar el PDF del informe.");
+    }
+  };
+
   return (
     <div className="flex bg-[var(--background)] min-h-screen text-left">
       <Sidebar />
@@ -225,6 +278,7 @@ export default function CostesPage() {
             <p className="text-[var(--muted)] font-medium">Gestión de facturas recibidas y multi-IVA.</p>
           </div>
           <div className="flex gap-3">
+             <button onClick={exportPDF} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white border border-[var(--border)] font-bold text-gray-600 hover:shadow-md transition-all active:scale-[0.98]"><FileText size={18} className="text-red-500" /> Exportar PDF</button>
              <button onClick={() => setIsAiModalOpen(true)} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white border border-[var(--border)] font-bold text-purple-600 hover:shadow-md transition-all active:scale-[0.98]"><Sparkles size={18}/> Importar PDF</button>
              <button onClick={openAddModal} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--accent)] text-white font-bold hover:shadow-lg transition-all active:scale-[0.98]"><Plus size={18}/> Nuevo Coste</button>
           </div>

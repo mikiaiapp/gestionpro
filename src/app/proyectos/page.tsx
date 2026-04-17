@@ -5,6 +5,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { FolderKanban, Plus, Search, MoreHorizontal, Loader2, Save, Trash2, FileText, Download, Printer } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { generatePDF } from "@/lib/pdfGenerator";
 
 interface LineaProyecto {
   unidades: number;
@@ -73,7 +74,7 @@ export default function ProyectosPage() {
     if (!supabase) return;
     setLoading(true);
     try {
-      const { data: projs } = await supabase.from("proyectos").select("*, clientes(nombre), proyecto_lineas(*)").order("created_at", { ascending: false });
+      const { data: projs } = await supabase.from("proyectos").select("*, clientes(nombre, nif, direccion, poblacion, cp, provincia), proyecto_lineas(*)").order("created_at", { ascending: false });
       const { data: clis } = await supabase.from("clientes").select("id, nombre").order("nombre");
       const { data: perf } = await supabase.from("perfil_negocio").select("*").single();
 
@@ -172,118 +173,53 @@ export default function ProyectosPage() {
     }
   };
 
-  const downloadBudget = (p: any) => {
+  const downloadBudget = async (p: any) => {
     if (!perfil) {
       alert("Configura primero tus datos de empresa en Ajustes.");
       return;
     }
 
-    const fmt = (n: number) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(n);
-    const lineasHtml = (p.proyecto_lineas || []).map((l: any) => `
-      <tr>
-        <td style="padding: 12px 0; border-bottom: 1px solid #eee;">${l.unidades}</td>
-        <td style="padding: 12px 0; border-bottom: 1px solid #eee;">${l.descripcion}</td>
-        <td style="padding: 12px 0; border-bottom: 1px solid #eee; text-align: right;">${fmt(l.precio_unitario)}</td>
-        <td style="padding: 12px 0; border-bottom: 1px solid #eee; text-align: right; font-weight: bold;">${fmt(l.total)}</td>
-      </tr>
-    `).join('');
-
-    const html = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <title>PRESUPUESTO - ${p.nombre}</title>
-        <style>
-          body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #333; margin: 0; padding: 40px; line-height: 1.6; }
-          .header { display: flex; justify-content: space-between; margin-bottom: 60px; }
-          .logo { max-height: 80px; }
-          .doc-item { font-size: 32px; font-weight: bold; color: #f59e0b; }
-          .details { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-bottom: 40px; }
-          .section-title { font-size: 10px; font-weight: bold; text-transform: uppercase; color: #999; margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 4px; }
-          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-          th { text-align: left; font-size: 10px; text-transform: uppercase; color: #999; padding-bottom: 12px; border-bottom: 2px solid #333; }
-          .totals { margin-top: 40px; width: 300px; margin-left: auto; }
-          .total-row { display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px; }
-          .total-final { font-size: 20px; font-weight: bold; color: #f59e0b; margin-top: 12px; border-top: 2px solid #f59e0b; padding-top: 12px; }
-          .legal-footer { margin-top: 60px; padding-top: 20px; border-top: 1px solid #eee; font-size: 10px; color: #666; text-align: center; }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <div>
-            ${perfil.logo_url ? `<img src="${perfil.logo_url}" class="logo">` : `<div style="font-size: 24px; font-weight: bold; color: #f59e0b;">${perfil.nombre}</div>`}
-          </div>
-          <div style="text-align: right;">
-            <div class="doc-item">PRESUPUESTO</div>
-            <div style="font-weight: bold;">Ref: ${p.serie}-${p.num_proyecto}</div>
-            <div style="color: #666;">Fecha: ${new Date(p.fecha).toLocaleDateString()}</div>
-          </div>
-        </div>
-
-        <div class="details">
-          <div>
-            <div class="section-title">De</div>
-            <div style="font-weight: bold;">${perfil.nombre}</div>
-            <div>${perfil.nif}</div>
-            <div>${perfil.direccion || ''}</div>
-          </div>
-          <div>
-            <div class="section-title">Para</div>
-            <div style="font-weight: bold;">${p.clientes?.nombre}</div>
-            <div>${p.clientes?.nif || ''}</div>
-            <div>${p.clientes?.direccion || ''}</div>
-          </div>
-        </div>
-
-        <table>
-          <thead>
-            <tr>
-              <th width="10%">Cant.</th>
-              <th width="60%">Descripción</th>
-              <th width="15%" style="text-align: right;">Precio</th>
-              <th width="15%" style="text-align: right;">Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${lineasHtml}
-          </tbody>
-        </table>
-
-        <div class="totals">
-          <div class="total-row">
-            <span>Base Imponible:</span>
-            <span>${fmt(p.base_imponible)}</span>
-          </div>
-          <div class="total-row">
-            <span>IVA (21%):</span>
-            <span>${fmt(p.iva_importe)}</span>
-          </div>
-          ${p.retencion_pct > 0 ? `
-            <div class="total-row" style="color: #666; font-style: italic;">
-              <span>Retención (${p.retencion_pct}%):</span>
-              <span>-${fmt(p.retencion_importe)}</span>
-            </div>
-          ` : ''}
-          <div class="total-row total-final">
-            <span>TOTAL PRESUPUESTO:</span>
-            <span>${fmt(p.total)}</span>
-          </div>
-        </div>
-
-        <div class="legal-footer">
-          <div>Presupuesto válido por 30 días. Sujeto a aceptación por ambas partes.</div>
-          <div style="margin-top: 8px;">${perfil.nombre} | ${perfil.nif}</div>
-        </div>
-      </body>
-      </html>
-    `;
-
-    const win = window.open('', '_blank');
-    if (win) {
-      win.document.write(html);
-      win.document.close();
-      setTimeout(() => win.print(), 500);
+    try {
+      await generatePDF({
+        tipo: 'PRESUPUESTO',
+        numero: `${p.serie}-${p.num_proyecto}`,
+        fecha: p.fecha,
+        cliente: {
+          nombre: p.clientes?.nombre || '',
+          nif: p.clientes?.nif || '',
+          direccion: p.clientes?.direccion || '',
+          poblacion: p.clientes?.poblacion || '',
+          cp: p.clientes?.cp || '',
+          provincia: p.clientes?.provincia || '',
+        },
+        perfil: {
+          nombre: perfil.nombre || '',
+          nif: perfil.nif || '',
+          direccion: perfil.direccion || '',
+          poblacion: perfil.poblacion || '',
+          cp: perfil.cp || '',
+          provincia: perfil.provincia || '',
+          cuenta_bancaria: perfil.cuenta_bancaria || '',
+          logo_url: perfil.logo_url || '',
+          condiciones_legales: perfil.condiciones_legales || ''
+        },
+        lineas: (p.proyecto_lineas || []).map((l: any) => ({
+          unidades: l.unidades,
+          descripcion: l.descripcion,
+          precio_unitario: l.precio_unitario
+        })),
+        totales: {
+          base: p.base_imponible,
+          iva_pct: 21,
+          iva_importe: p.iva_importe,
+          retencion_pct: p.retencion_pct,
+          retencion_importe: p.retencion_importe,
+          total: p.total
+        }
+      });
+    } catch (err) {
+      console.error("Error generating PDF:", err);
+      alert("Error al generar el PDF profesional.");
     }
   };
 

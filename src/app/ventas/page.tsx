@@ -6,6 +6,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { Receipt, Plus, Search, MoreHorizontal, Loader2, Trash2, Save, FileText, Download, Printer, FolderKanban } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { generatePDF } from "@/lib/pdfGenerator";
 
 interface LineaFactura {
   unidades: number;
@@ -268,132 +269,53 @@ function VentasContent() {
     else fetchData();
   };
 
-  const downloadInvoice = (venta: any) => {
+  const downloadInvoice = async (venta: any) => {
     if (!perfil) {
       alert("Configura primero tus datos de empresa en Ajustes.");
       return;
     }
 
-    const fmt = (n: number) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(n);
-    const lineasHtml = (venta.venta_lineas || []).map((l: any) => `
-      <tr>
-        <td style="padding: 12px 0; border-bottom: 1px solid #eee;">${l.unidades}</td>
-        <td style="padding: 12px 0; border-bottom: 1px solid #eee;">${l.descripcion}</td>
-        <td style="padding: 12px 0; border-bottom: 1px solid #eee; text-align: right;">${fmt(l.precio_unitario)}</td>
-        <td style="padding: 12px 0; border-bottom: 1px solid #eee; text-align: right; font-weight: bold;">${fmt(l.total)}</td>
-      </tr>
-    `).join('');
-
-    const html = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <title>Factura ${venta.serie}-${venta.num_factura}</title>
-        <style>
-          body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #333; margin: 0; padding: 40px; line-height: 1.6; }
-          .header { display: flex; justify-content: space-between; margin-bottom: 60px; }
-          .logo { max-height: 80px; }
-          .invoice-item { font-size: 32px; font-weight: bold; color: #2563eb; }
-          .details { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-bottom: 40px; }
-          .section-title { font-size: 10px; font-weight: bold; text-transform: uppercase; color: #999; margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 4px; }
-          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-          th { text-align: left; font-size: 10px; text-transform: uppercase; color: #999; padding-bottom: 12px; border-bottom: 2px solid #333; }
-          .totals { margin-top: 40px; width: 300px; margin-left: auto; }
-          .total-row { display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px; }
-          .total-final { font-size: 20px; font-weight: bold; color: #2563eb; margin-top: 12px; border-top: 2px solid #2563eb; padding-top: 12px; }
-          .legal-footer { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 60px; padding-top: 20px; border-top: 1px solid #eee; }
-          .qr-placeholder { width: 100px; height: 100px; background: #f3f4f6; border: 1px solid #e5e7eb; display: flex; align-items: center; text-align: center; font-size: 8px; color: #999; }
-          .footer-text { font-size: 9px; color: #666; max-width: 400px; }
-          @media print { body { padding: 0; } .no-print { display: none; } }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <div>
-            ${perfil.logo_url ? `<img src="${perfil.logo_url}" class="logo">` : `<div style="font-size: 24px; font-weight: bold; color: #2563eb;">${perfil.nombre}</div>`}
-          </div>
-          <div style="text-align: right;">
-            <div class="invoice-item">FACTURA</div>
-            <div style="font-weight: bold;">${venta.serie}-${venta.num_factura}</div>
-            <div style="color: #666;">Fecha: ${new Date(venta.fecha).toLocaleDateString()}</div>
-          </div>
-        </div>
-
-        <div class="details">
-          <div>
-            <div class="section-title">Emisor</div>
-            <div style="font-weight: bold;">${perfil.nombre}</div>
-            <div>${perfil.nif}</div>
-            <div>${perfil.direccion || ''}</div>
-          </div>
-          <div>
-            <div class="section-title">Cliente</div>
-            <div style="font-weight: bold;">${venta.clientes?.nombre}</div>
-            <div>${venta.clientes?.nif}</div>
-            <div>${venta.clientes?.direccion || ''}</div>
-            <div>${venta.clientes?.codigo_postal || ''} ${venta.clientes?.poblacion || ''}</div>
-          </div>
-        </div>
-
-        <table>
-          <thead>
-            <tr>
-              <th width="10%">Cant.</th>
-              <th width="60%">Descripción</th>
-              <th width="15%" style="text-align: right;">Precio</th>
-              <th width="15%" style="text-align: right;">Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${lineasHtml}
-          </tbody>
-        </table>
-
-        <div class="totals">
-          <div class="total-row">
-            <span>Base Imponible:</span>
-            <span>${fmt(venta.base_imponible)}</span>
-          </div>
-          <div class="total-row">
-            <span>IVA (${venta.iva_pct}%):</span>
-            <span>${fmt(venta.base_imponible * (venta.iva_pct / 100))}</span>
-          </div>
-          ${venta.retencion_pct > 0 ? `
-            <div class="total-row" style="color: #666; font-style: italic;">
-              <span>Retención IRPF (${venta.retencion_pct}%):</span>
-              <span>-${fmt(venta.retencion_importe)}</span>
-            </div>
-          ` : ''}
-          <div class="total-row total-final">
-            <span>TOTAL:</span>
-            <span>${fmt(venta.total)}</span>
-          </div>
-        </div>
-
-        <div class="legal-footer">
-          <div class="footer-text">
-            <div style="font-weight: bold; margin-bottom: 4px;">Información de Pago</div>
-            <div>Forma de Cobro: <strong>${formasCobro.find(f => f.id === venta.forma_cobro_id)?.nombre || 'Transferencia'}</strong></div>
-            <div>Cuenta para el ingreso (IBAN): <strong>${perfil.cuenta_bancaria}</strong></div>
-            <div style="margin-top: 15px;">Documento generado conforme a la Ley 18/2022 de creación y crecimiento de empresas (Ley Crea y Crece). Trazabilidad digital garantizada.</div>
-          </div>
-          <div style="text-align: right;">
-            <div class="qr-placeholder">CÓDIGO QR<br>VERI*FACTU<br>PENDIENTE FIRMA</div>
-            <div style="font-size: 8px; color: #999; margin-top: 4px;">ID: ${venta.id.slice(0,13)}</div>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
-
-    const win = window.open('', '_blank');
-    if (win) {
-      win.document.write(html);
-      win.document.close();
-      setTimeout(() => {
-        win.print();
-      }, 500);
+    try {
+      await generatePDF({
+        tipo: 'FACTURA',
+        numero: `${venta.serie}-${venta.num_factura}`,
+        fecha: venta.fecha,
+        cliente: {
+          nombre: venta.clientes?.nombre || '',
+          nif: venta.clientes?.nif || '',
+          direccion: venta.clientes?.direccion || '',
+          poblacion: venta.clientes?.poblacion || '',
+          cp: venta.clientes?.cp || '',
+          provincia: venta.clientes?.provincia || '',
+        },
+        perfil: {
+          nombre: perfil.nombre || '',
+          nif: perfil.nif || '',
+          direccion: perfil.direccion || '',
+          poblacion: perfil.poblacion || '',
+          cp: perfil.cp || '',
+          provincia: perfil.provincia || '',
+          cuenta_bancaria: perfil.cuenta_bancaria || '',
+          logo_url: perfil.logo_url || '',
+          condiciones_legales: perfil.condiciones_legales || ''
+        },
+        lineas: (venta.venta_lineas || []).map((l: any) => ({
+          unidades: l.unidades,
+          descripcion: l.descripcion,
+          precio_unitario: l.precio_unitario
+        })),
+        totales: {
+          base: venta.base_imponible,
+          iva_pct: venta.iva_pct,
+          iva_importe: venta.iva_importe,
+          retencion_pct: venta.retencion_pct,
+          retencion_importe: venta.retencion_importe,
+          total: venta.total
+        }
+      });
+    } catch (err) {
+      console.error("Error generating PDF:", err);
+      alert("Error al generar la factura PDF.");
     }
   };
 
@@ -423,6 +345,56 @@ function VentasContent() {
     document.body.removeChild(link);
   };
 
+  const exportPDF = async () => {
+    if (!perfil) {
+      alert("Configura tus datos en Ajustes primero.");
+      return;
+    }
+
+    try {
+      await generatePDF({
+        tipo: 'INFORME',
+        numero: `VTA-${new Date().getFullYear()}`,
+        fecha: new Date().toISOString(),
+        cliente: {
+          nombre: 'Listado de Facturas Emitidas',
+          nif: '',
+          direccion: '',
+          poblacion: '',
+          cp: '',
+          provincia: ''
+        },
+        perfil: {
+          nombre: perfil.nombre || '',
+          nif: perfil.nif || '',
+          direccion: perfil.direccion || '',
+          poblacion: perfil.poblacion || '',
+          cp: perfil.cp || '',
+          provincia: perfil.provincia || '',
+          cuenta_bancaria: perfil.cuenta_bancaria || '',
+          logo_url: perfil.logo_url || '',
+          condiciones_legales: 'Informe generado automáticamente por GestiónPro.'
+        },
+        lineas: ventas.map(v => ({
+          unidades: 1,
+          descripcion: `${v.serie}-${v.num_factura} | ${v.clientes?.nombre || 'Cliente'}`,
+          precio_unitario: v.total
+        })),
+        totales: {
+          base: ventas.reduce((acc, v) => acc + v.base_imponible, 0),
+          iva_pct: 21,
+          iva_importe: ventas.reduce((acc, v) => acc + (v.iva_importe || 0), 0),
+          retencion_pct: 0,
+          retencion_importe: ventas.reduce((acc, v) => acc + (v.retencion_importe || 0), 0),
+          total: ventas.reduce((acc, v) => acc + v.total, 0)
+        }
+      });
+    } catch (error) {
+      console.error("Error exportando informe:", error);
+      alert("Error al generar el PDF del informe.");
+    }
+  };
+
   return (
     <div className="flex bg-[var(--background)] min-h-screen">
       <Sidebar />
@@ -435,6 +407,13 @@ function VentasContent() {
                 <p className="text-[var(--muted)] font-medium">Gestión y emisión de facturas profesionales.</p>
               </div>
               <div className="flex gap-3">
+                <button 
+                  onClick={exportPDF}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white border border-[var(--border)] text-gray-700 font-bold hover:shadow-md transition-all active:scale-[0.98]"
+                >
+                  <FileText size={18} className="text-red-500" />
+                  Listado PDF
+                </button>
                 <button 
                   onClick={downloadLibroIVA}
                   className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white border border-[var(--border)] text-gray-700 font-bold hover:shadow-md transition-all active:scale-[0.98]"

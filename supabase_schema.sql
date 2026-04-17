@@ -78,6 +78,7 @@ CREATE TABLE IF NOT EXISTS perfil_negocio (
     tiene_retencion BOOLEAN DEFAULT FALSE,
     irpf_default NUMERIC DEFAULT 0,
     user_id UUID DEFAULT auth.uid() UNIQUE,
+    condiciones_legales TEXT,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 

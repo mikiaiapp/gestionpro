@@ -12,10 +12,10 @@ import {
   Loader2,
   Lock,
   Brain,
-  ShieldCheck,
-  CreditCard,
-  Image as ImageIcon,
-  Wallet
+  ImageIcon,
+  Wallet,
+  ExternalLink,
+  Upload
 } from 'lucide-react';
 import { Sidebar } from '@/components/Sidebar';
 import { getProvinciaPorCP } from '@/lib/geoData';
@@ -38,6 +38,7 @@ export default function AjustesPage() {
   const [formaPago, setFormaPago] = useState('Transferencia Bancaria');
   const [tieneRetencion, setTieneRetencion] = useState(false);
   const [irpfDefault, setIrpfDefault] = useState(15);
+  const [condicionesLegales, setCondicionesLegales] = useState('');
   
   const [isSaving, setIsSaving] = useState(false);
   const [tiposIva, setTiposIva] = useState<any[]>([]);
@@ -88,6 +89,7 @@ export default function AjustesPage() {
         setFormaPago(data.forma_pago_default || 'Transferencia Bancaria');
         setTieneRetencion(data.tiene_retencion || false);
         setIrpfDefault(Number(data.irpf_default) || 0);
+        setCondicionesLegales(data.condiciones_legales || '');
       }
     } catch (e) {
       console.error(e);
@@ -120,13 +122,46 @@ export default function AjustesPage() {
         logo_url: logoUrl,
         forma_pago_default: formaPago,
         tiene_retencion: tieneRetencion,
-        irpf_default: irpfDefault
+        irpf_default: irpfDefault,
+        condiciones_legales: condicionesLegales
       }, { onConflict: 'user_id' });
 
       if (error) alert("❌ Error: " + error.message);
-      else alert("✅ Ajustes Corporativos Guardados");
+      else {
+        alert("✅ Ajustes Corporativos Guardados");
+        // Refrescar para que otros componentes (sidebar) se enteren
+        window.dispatchEvent(new Event('perfil_updated'));
+      }
     } catch (e: any) {
       alert("❌ Error: " + e.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !user) return;
+
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${user.id}-${Math.random()}.${fileExt}`;
+    const filePath = `logos/${fileName}`;
+
+    setIsSaving(true);
+    try {
+      const { error: uploadError } = await supabase.storage
+        .from('configuracion') // Usamos un bucket llamado configuracion
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('configuracion')
+        .getPublicUrl(filePath);
+
+      setLogoUrl(publicUrl);
+    } catch (error: any) {
+      alert('Error subiendo logo: ' + error.message);
     } finally {
       setIsSaving(false);
     }
@@ -156,12 +191,35 @@ export default function AjustesPage() {
       }
       
       await fetchTipos();
-      alert("✅ Fiscalidad Sincronizada");
+      alert("✅ Fiscalidad Sincronizada con la Ley");
     } catch (e) {
       alert("❌ Error al sincronizar");
     } finally {
       setSyncing(false);
     }
+  };
+
+  const handleAddTipo = async (tabla: 'tipos_iva' | 'tipos_irpf') => {
+    if (!user) return;
+    const nombre = prompt("Nombre del tipo (ej: IVA Cultural):");
+    const valor = prompt("Valor porcentual (ej: 21):");
+    if (!nombre || !valor) return;
+
+    const { error } = await supabase.from(tabla).insert({
+      user_id: user.id,
+      nombre,
+      valor: parseFloat(valor)
+    });
+
+    if (error) alert("Error: " + error.message);
+    else fetchTipos();
+  };
+
+  const handleDeleteTipo = async (tabla: 'tipos_iva' | 'tipos_irpf', id: string) => {
+    if (!confirm("¿Eliminar este tipo de impuesto?")) return;
+    const { error } = await supabase.from(tabla).delete().eq('id', id);
+    if (error) alert("Error: " + error.message);
+    else fetchTipos();
   };
 
   if (!user && !loading) return (
@@ -201,11 +259,22 @@ export default function AjustesPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="md:col-span-2 space-y-2">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">URL del Logo (PNG/JPG)</label>
-                  <div className="relative">
-                    <input type="text" value={logoUrl} onChange={e => setLogoUrl(e.target.value)} className="w-full pl-12 pr-4 py-4 rounded-2xl border bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500/10" placeholder="https://..." />
-                    <ImageIcon size={18} className="absolute left-4 top-4.5 text-gray-300" />
+                  <div className="flex flex-col md:flex-row gap-4">
+                    <div className="flex-1 relative">
+                      <input type="text" value={logoUrl} onChange={e => setLogoUrl(e.target.value)} className="w-full pl-12 pr-4 py-4 rounded-2xl border bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500/10" placeholder="https://..." />
+                      <ImageIcon size={18} className="absolute left-4 top-4.5 text-gray-300" />
+                    </div>
+                    <label className="flex items-center gap-2 px-6 py-4 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-2xl cursor-pointer transition-all active:scale-95">
+                      <Upload size={18} />
+                      {isSaving ? 'Subiendo...' : 'Subir Imagen'}
+                      <input type="file" onChange={handleFileUpload} disabled={isSaving} className="hidden" accept="image/*" />
+                    </label>
                   </div>
-                  {logoUrl && <img src={logoUrl} alt="Preview" className="h-12 object-contain mt-2 opacity-80" />}
+                  {logoUrl && (
+                    <div className="mt-4 p-4 rounded-2xl border border-dashed border-gray-200 inline-block bg-white shadow-sm">
+                      <img src={logoUrl} alt="Preview" className="h-16 object-contain opacity-90 mx-auto" />
+                    </div>
+                  )}
                 </div>
 
                 <div className="md:col-span-2 space-y-1">
@@ -240,6 +309,20 @@ export default function AjustesPage() {
                    <input type="text" placeholder="Ciudad" value={poblacion} onChange={e => setPoblacion(e.target.value)} className="px-5 py-4 rounded-2xl border bg-gray-50 outline-none" />
                    <input type="text" placeholder="Provincia" value={provincia} onChange={e => setProvincia(e.target.value)} className="px-5 py-4 rounded-2xl border bg-gray-50 outline-none" />
                 </div>
+
+                <div className="md:col-span-2 space-y-2 pt-4 border-t border-dashed">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1 flex justify-between items-center">
+                    Condicionado General (Pie de Factura/Presupuesto)
+                    <span className="text-[9px] text-blue-500 normal-case font-medium">Aparecerá en todos tus PDFs profesionales</span>
+                  </label>
+                  <textarea 
+                    value={condicionesLegales} 
+                    onChange={e => setCondicionesLegales(e.target.value)} 
+                    rows={4}
+                    className="w-full px-5 py-4 rounded-2xl border bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500/10 text-xs text-gray-600 leading-relaxed"
+                    placeholder="Escribe aquí las clausulas legales, LOPD, condiciones de pago..."
+                  />
+                </div>
               </div>
             </div>
 
@@ -248,8 +331,24 @@ export default function AjustesPage() {
                 <Brain size={24} /> Inteligencia Artificial
               </h2>
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Gemini API Key</label>
-                <input type="password" value={geminiKey} onChange={e => setGeminiKey(e.target.value)} className="w-full px-5 py-4 rounded-2xl border bg-purple-50/20 outline-none font-mono text-xs focus:ring-2 focus:ring-purple-500/10" />
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Gemini API Key</label>
+                  <a 
+                    href="https://aistudio.google.com/app/apikey" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-[10px] font-bold text-purple-600 hover:underline flex items-center gap-1"
+                  >
+                    Conseguir Key <ExternalLink size={10} />
+                  </a>
+                </div>
+                <input 
+                  type="password" 
+                  value={geminiKey} 
+                  onChange={e => setGeminiKey(e.target.value)} 
+                  className="w-full px-5 py-4 rounded-2xl border bg-purple-50/20 outline-none font-mono text-xs focus:ring-2 focus:ring-purple-500/10" 
+                  placeholder="Introduce tu API Key..."
+                />
               </div>
             </div>
           </div>
@@ -268,23 +367,56 @@ export default function AjustesPage() {
 
               <div className="space-y-6">
                 <div className="space-y-3">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Grupos de IVA</p>
+                  <div className="flex justify-between items-center mb-1">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Tipos de IVA</p>
+                    <button onClick={() => handleAddTipo('tipos_iva')} className="text-[10px] font-bold text-blue-600 hover:bg-blue-50 px-2 py-1 rounded-lg">
+                      + Añadir IVA
+                    </button>
+                  </div>
                   {tiposIva.map(t => (
-                    <div key={t.id} className="flex justify-between items-center p-4 bg-gray-50 rounded-2xl border border-gray-100">
-                      <span className="text-xs font-bold text-gray-600">{t.nombre}</span>
-                      <span className="text-sm font-black text-gray-900">{t.valor}%</span>
+                    <div key={t.id} className="flex justify-between items-center p-4 bg-gray-50 rounded-2xl border border-gray-100 group">
+                      <div className="flex flex-col">
+                        <span className="text-xs font-bold text-gray-600">{t.nombre}</span>
+                        <span className="text-xs font-black text-blue-600">{t.valor}%</span>
+                      </div>
+                      <button onClick={() => handleDeleteTipo('tipos_iva', t.id)} className="p-2 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all">
+                        <Trash2 size={16} />
+                      </button>
                     </div>
                   ))}
                 </div>
 
-                <div className="flex items-center justify-between bg-orange-50/30 p-4 rounded-2xl border border-orange-100">
+                <div className="space-y-3 pt-4 border-t border-dashed">
+                  <div className="flex justify-between items-center mb-1">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Tipos de IRPF</p>
+                    <button onClick={() => handleAddTipo('tipos_irpf')} className="text-[10px] font-bold text-orange-600 hover:bg-orange-50 px-2 py-1 rounded-lg">
+                      + Añadir IRPF
+                    </button>
+                  </div>
+                  {tiposIrpf.map(t => (
+                    <div key={t.id} className="flex justify-between items-center p-4 bg-gray-50 rounded-2xl border border-gray-100 group">
+                      <div className="flex flex-col">
+                        <span className="text-xs font-bold text-gray-600">{t.nombre}</span>
+                        <span className="text-xs font-black text-orange-600">{t.valor}%</span>
+                      </div>
+                      <button onClick={() => handleDeleteTipo('tipos_irpf', t.id)} className="p-2 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all">
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex items-center justify-between bg-orange-50/20 p-4 rounded-2xl border border-orange-100">
                   <div className="space-y-1">
-                    <p className="text-sm font-bold text-orange-800 tracking-tight">Aplicar IRPF</p>
-                    <p className="text-[10px] text-orange-600 italic">Retención profesional autónomos</p>
+                    <p className="text-sm font-bold text-orange-800 tracking-tight flex items-center gap-2">
+                       Emitir con IRPF
+                       {tieneRetencion ? <CheckCircle2 size={14} className="text-orange-500" /> : <AlertCircle size={14} className="text-gray-300" />}
+                    </p>
+                    <p className="text-[10px] text-orange-600 italic">¿Debo aplicar retención en mis facturas?</p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input type="checkbox" checked={tieneRetencion} onChange={e => setTieneRetencion(e.target.checked)} className="sr-only peer" />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
+                    <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
                   </label>
                 </div>
               </div>

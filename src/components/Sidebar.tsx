@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 type MenuItem = {
   icon: any;
@@ -70,6 +71,23 @@ const menuStructure: MenuSection[] = [
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchLogo();
+    // Escuchar el evento de actualización del perfil
+    window.addEventListener('perfil_updated', fetchLogo);
+    return () => window.removeEventListener('perfil_updated', fetchLogo);
+  }, []);
+
+  const fetchLogo = async () => {
+    try {
+      const { data } = await supabase.from('perfil_negocio').select('logo_url').maybeSingle();
+      if (data?.logo_url) setLogoUrl(data.logo_url);
+    } catch (e) {
+      console.error("Error fetching logo for sidebar", e);
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -120,16 +138,23 @@ export function Sidebar() {
         ))}
       </nav>
 
-      <div className="mt-auto border-t border-[var(--border)] pt-4">
+      <div className="mt-auto border-t border-[var(--border)] pt-4 flex flex-col items-center">
+        {logoUrl && (
+          <div className="mb-6 px-4 w-full flex justify-center">
+            <div className="p-2 bg-white rounded-xl shadow-sm border border-[var(--border)] w-full flex justify-center overflow-hidden">
+               <img src={logoUrl} alt="Logo" className="max-h-12 w-auto object-contain" />
+            </div>
+          </div>
+        )}
         <button 
           onClick={handleLogout}
-          className="w-full flex items-center gap-3 px-3 py-2 text-[var(--muted)] hover:text-red-600 transition-colors text-[13px] font-semibold mb-2"
+          className="w-full flex items-center justify-center gap-3 px-3 py-3 text-[var(--muted)] hover:text-red-600 hover:bg-red-50 rounded-xl transition-all text-[13px] font-bold mb-4 mx-2"
         >
           <LogOut size={18} />
           <span>Cerrar Sesión</span>
         </button>
-        <div className="text-[10px] text-center text-gray-400 font-bold uppercase tracking-widest pb-2">
-          GestiónPro v2.3.3 - Build OK
+        <div className="text-[9px] text-center text-gray-400 font-bold uppercase tracking-widest pb-4">
+          GestiónPro v2.3.4 - Build OK
         </div>
       </div>
     </aside>
