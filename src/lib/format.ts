@@ -4,3 +4,8 @@ export const formatCurrency = (amount: number): string => {
   parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
   return `${parts.join(',')} €`;
 };
+
+export const cleanNIF = (nif: string): string => {
+  if (!nif) return "";
+  return nif.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+};

@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { Sidebar } from '@/components/Sidebar';
 import { getFullLocationByCP } from '@/lib/geoData';
+import { cleanNIF } from '@/lib/format';
 
 export default function ProveedoresPage() {
   const [proveedores, setProveedores] = useState<any[]>([]);
@@ -88,7 +89,7 @@ export default function ProveedoresPage() {
 
       const payload = {
         nombre,
-        nif: nif.toUpperCase(),
+        nif: cleanNIF(nif),
         email,
         direccion,
         codigo_postal: cp, // NOMBRE CORRECTO EN DB: codigo_postal

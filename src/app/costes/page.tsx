@@ -5,7 +5,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { Plus, MoreHorizontal, Loader2, Receipt, Upload, Save, Trash2, X, Sparkles, AlertCircle, UserPlus } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, cleanNIF } from "@/lib/format";
 import { extractDataFromInvoice } from "@/lib/aiService";
 
 interface LineaCoste {
@@ -110,13 +110,17 @@ export default function CostesPage() {
           
           if (!result) throw new Error("La IA no devolvió datos válidos.");
 
-          // 4. Buscar Proveedor por NIF
-          const provExistente = proveedores.find(p => p.nif === result.proveedor_nif);
+          
+          // 3.5 Limpiar NIF detectado
+          const cleanedNIF = cleanNIF(result.proveedor_nif);
+          
+          // 4. Buscar Proveedor por NIF limpio
+          const provExistente = proveedores.find(p => cleanNIF(p.nif) === cleanedNIF);
           
           if (provExistente) {
             setProveedorId(provExistente.id);
           } else {
-            setDetectedProvider({ nombre: result.proveedor_nombre, nif: result.proveedor_nif });
+            setDetectedProvider({ nombre: result.proveedor_nombre, nif: cleanedNIF });
           }
 
           // 5. Rellenar formulario
@@ -158,7 +162,7 @@ export default function CostesPage() {
     if (!detectedProvider) return;
     try {
       const { data, error } = await supabase.from('proveedores')
-        .insert([{ nombre: detectedProvider.nombre, nif: detectedProvider.nif }])
+        .insert([{ nombre: detectedProvider.nombre, nif: cleanNIF(detectedProvider.nif) }])
         .select().single();
       
       if (error) throw error;
