@@ -57,10 +57,12 @@ export default function CostesPage() {
   const [pagoFecha, setPagoFecha] = useState(new Date().toISOString().split('T')[0]);
   const [pagoForma, setPagoForma] = useState("Transferencia");
 
-  // Sorting and Filtering State
   const [searchTerm, setSearchTerm] = useState("");
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>({ key: 'fecha', direction: 'desc' });
   const [columnFilters, setColumnFilters] = useState<{ [key: string]: string }>({});
+
+  const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -115,8 +117,6 @@ export default function CostesPage() {
   const retencionImporte = (baseImponible * (retencionPct || 0)) / 100;
   const totalFactura = baseImponible + totalIva - retencionImporte;
 
-  const [saving, setSaving] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
 
   const openAddModal = () => {
     setEditingId(null);
