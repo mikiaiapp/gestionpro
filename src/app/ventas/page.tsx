@@ -89,7 +89,7 @@ function VentasContent() {
       
       const factor = pctRequested / 100;
       const numProyStr = (proj as any).num_proyecto ? ` nº ${(proj as any).num_proyecto}` : "";
-      const descripcionManual = `${pctRequested}% de avance del proyecto${numProyStr} con descripción "${proj.nombre}"`;
+      const descripcionManual = `${pctRequested}% de avance del proyecto${numProyStr} con descripción "${(proj as any).originalNombre || proj.nombre}"`;
       
       setLineas([{ 
         unidades: 1, 
@@ -201,6 +201,7 @@ function VentasContent() {
       })
       .map(p => ({
         ...p,
+        originalNombre: p.nombre,
         nombre: `[${p.clientes?.nombre || 'S/C'}] ${p.nombre}`
       }));
     setProyectos(preparedProjs);
