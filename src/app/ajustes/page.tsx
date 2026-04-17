@@ -162,8 +162,10 @@ export default function AjustesPage() {
         .getPublicUrl(filePath);
 
       setLogoUrl(publicUrl);
+      alert('✅ Logo subido correctamente. No olvides dar a "Guardar Configuración" para confirmar los cambios.');
     } catch (error: any) {
-      alert('Error subiendo logo: ' + error.message);
+      console.error('Error completo:', error);
+      alert('No se pudo subir el logo. Asegúrate de que el bucket "configuracion" existe en Supabase Storage y es público. Error: ' + (error.message || 'Desconocido'));
     } finally {
       setIsSaving(false);
     }

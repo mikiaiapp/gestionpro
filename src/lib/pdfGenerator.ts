@@ -165,15 +165,32 @@ export const generatePDF = async (data: PDFData) => {
   // 6. Pie Legal (Condiciones y LOPD)
   const pageHeight = doc.internal.pageSize.getHeight();
   const footerText = data.perfil.condiciones_legales || CONDICIONADO_GRAL;
-  const footerLines = doc.splitTextToSize(footerText, PAGE_WIDTH - (MARGIN * 2));
   
   doc.setFontSize(7);
-  doc.setFont('helvetica', 'italic');
-  doc.setTextColor(150);
-  doc.text(footerLines, MARGIN, pageHeight - 35);
+  doc.setTextColor(120);
+  
+  // Dividir el texto en líneas que quepan en el ancho de la página
+  const footerLines = doc.splitTextToSize(footerText, PAGE_WIDTH - (MARGIN * 2));
+  
+  // Calcular posición: 15mm desde el fondo por cada línea o un margen fijo
+  const footerHeight = footerLines.length * 3.5;
+  const footerY = pageHeight - MARGIN - footerHeight;
+
+  // Dibujar líneas
+  footerLines.forEach((line: string, index: number) => {
+    // Si la línea parece un título (todo mayúsculas y corta), poner en negrita
+    if (line.length > 3 && line === line.toUpperCase() && line.length < 50) {
+      doc.setFont('helvetica', 'bold');
+    } else {
+      doc.setFont('helvetica', 'normal');
+    }
+    doc.text(line, MARGIN, footerY + (index * 3.5));
+  });
   
   doc.setFont('helvetica', 'normal');
-  doc.text(`Página 1 de 1 - Generado por GestiónPro`, PAGE_WIDTH / 2, pageHeight - 10, { align: 'center' });
+  doc.setFontSize(7);
+  doc.setTextColor(180);
+  doc.text(`Página 1 de 1 - Documento profesional generado por GestiónPro`, PAGE_WIDTH / 2, pageHeight - 8, { align: 'center' });
 
   // Guardar archivo
   doc.save(`${data.tipo.toLowerCase()}_${data.numero}.pdf`);
