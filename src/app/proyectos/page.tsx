@@ -81,7 +81,7 @@ export default function ProyectosPage() {
     setLoading(true);
     try {
       // Simplificamos la consulta para que no falle si hay problemas con las líneas (como en el Resumen)
-      const { data: projs, error: fetchError } = await supabase.from("proyectos").select("*, clientes(nombre)").order("created_at", { ascending: false });
+      const { data: projs, error: fetchError } = await supabase.from("proyectos").select("*, clientes(*)").order("created_at", { ascending: false });
       
       if (fetchError) {
         console.error("Error al cargar proyectos:", fetchError);
@@ -264,7 +264,7 @@ export default function ProyectosPage() {
 
       await generatePDF({
         tipo: 'PRESUPUESTO',
-        numero: `${p.serie || 'P'}-${p[columnKey] || p.num_proyecto || 'S/N'}`,
+        numero: `${p.serie || 'P'}-${p.num_proyecto || 'S/N'} / ${p.nombre}`,
         fecha: p.fecha,
         cliente: {
           nombre: p.clientes?.nombre || 'Cliente Final',

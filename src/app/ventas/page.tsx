@@ -141,7 +141,7 @@ function VentasContent() {
     setLoading(true);
     const { data: vts } = await supabase.from("ventas").select("*, clientes(*), proyectos(nombre), venta_lineas(*)").order("fecha", { ascending: false });
     const { data: clis } = await supabase.from("clientes").select("*").order("nombre");
-    const { data: projs } = await supabase.from("proyectos").select("id, nombre, num_proyecto, estado, cliente_id, base_imponible, clientes(nombre)").order("nombre");
+    const { data: projs } = await supabase.from("proyectos").select("id, nombre, num_proyecto, estado, cliente_id, base_imponible, clientes(*)").order("nombre");
     const { data: fbc } = await supabase.from("formas_cobro").select("*").order("nombre");
     const { data: perf } = await supabase.from("perfil_negocio").select("*").maybeSingle();
 
