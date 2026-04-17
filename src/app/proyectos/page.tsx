@@ -7,6 +7,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { DataTableHeader } from "@/components/DataTableHeader";
 import { generatePDF } from "@/lib/pdfGenerator";
 import { formatCurrency } from "@/lib/format";
+import { SearchableSelect } from "@/components/SearchableSelect";
 
 interface LineaProyecto {
   unidades: number;

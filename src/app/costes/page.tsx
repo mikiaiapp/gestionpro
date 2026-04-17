@@ -7,6 +7,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { DataTableHeader } from "@/components/DataTableHeader";
 import { formatCurrency, cleanNIF } from "@/lib/format";
 import { extractDataFromInvoice } from "@/lib/aiService";
+import { SearchableSelect } from "@/components/SearchableSelect";
 
 import { getFullLocationByCP } from '@/lib/geoData';
 
