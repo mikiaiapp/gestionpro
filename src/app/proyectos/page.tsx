@@ -159,6 +159,7 @@ export default function ProyectosPage() {
         }
       }
 
+      // Intentamos guardar SIN la columna conflictiva para ver qué nos devuelve la DB
       const payload: any = {
         nombre,
         cliente_id: clienteId,
@@ -172,17 +173,30 @@ export default function ProyectosPage() {
         total: totalProyecto,
         user_id: user.id
       };
-      
-      // Asignar el número a la columna correcta detectada
-      payload[columnKey] = numReferencia;
 
       let currentId = editingId;
       if (editingId) {
+        // En update también probamos la columna detectada
+        payload[columnKey] = numReferencia;
         await supabase.from("proyectos").update(payload).eq("id", editingId);
-        await supabase.from("proyecto_lineas").delete().eq("proyecto_id", editingId);
       } else {
+        // En INSERT, probamos primero lo básico para que no explote
         const { data, error } = await supabase.from("proyectos").insert([payload]).select().single();
-        if (error) throw error;
+        
+        if (error) {
+          // Si falla lo básico, es que alguna otra columna (quizás cliente_id) es el problema
+          throw error;
+        }
+
+        // ¡ESTO ES LO IMPORTANTE! Si llegamos aquí, 'data' tiene las columnas REALES
+        const realKeys = Object.keys(data);
+        const actualKey = realKeys.find(k => ['num_proyecto', 'num_referencia', 'numero', 'referencia'].includes(k));
+        
+        if (actualKey && actualKey !== columnKey) {
+          // Si encontramos la columna real, actualizamos el registro recién creado
+          await supabase.from("proyectos").update({ [actualKey]: numReferencia }).eq("id", data.id);
+        }
+        
         currentId = data.id;
       }
 
