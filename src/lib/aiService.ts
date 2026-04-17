@@ -1,4 +1,39 @@
 
+async function findBestModel(apiKey: string): Promise<string> {
+  try {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+    const data = await response.json();
+    
+    if (data.error) throw new Error(data.error.message);
+    
+    const models = data.models || [];
+    
+    // Prioridad de modelos (de más moderno/rápido a más estable)
+    const priorities = [
+      "gemini-2.0-flash-exp",
+      "gemini-1.5-flash-latest",
+      "gemini-1.5-flash",
+      "gemini-1.5-pro-latest",
+      "gemini-1.5-pro"
+    ];
+
+    for (const modelId of priorities) {
+      const found = models.find((m: any) => 
+        m.name.includes(modelId) && 
+        m.supportedGenerationMethods.includes("generateContent")
+      );
+      if (found) return found.name;
+    }
+
+    // Fallback al primero que soporte generación si ninguno coincide
+    const fallback = models.find((m: any) => m.supportedGenerationMethods.includes("generateContent"));
+    return fallback?.name || "models/gemini-1.5-flash";
+  } catch (error) {
+    console.warn("No se pudo listar modelos, usando fallback predeterminado:", error);
+    return "models/gemini-1.5-flash";
+  }
+}
+
 export async function extractDataFromInvoice(base64File: string, apiKey: string) {
   const PROMPT = `
     Analiza esta factura de gastos y extrae la información necesaria. 
@@ -21,7 +56,10 @@ export async function extractDataFromInvoice(base64File: string, apiKey: string)
 
   try {
     const cleanApiKey = apiKey.trim();
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${cleanApiKey}`, {
+    const modelName = await findBestModel(cleanApiKey);
+    console.log("Usando modelo dinámico:", modelName);
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/${modelName}:generateContent?key=${cleanApiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
