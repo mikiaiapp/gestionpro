@@ -129,6 +129,8 @@ export default function ProyectosPage() {
 
     setSaving(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
       // Autodetectar nombre de columna para el número/referencia
       const { data: sample } = await supabase.from('proyectos').select('*').limit(1);
       let columnKey = 'num_proyecto'; // valor por defecto
