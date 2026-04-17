@@ -160,7 +160,7 @@ function VentasContent() {
     setLoading(true);
     const { data: vts } = await supabase.from("ventas").select("*, clientes(*), proyectos(nombre), venta_lineas(*), cobros(importe)").order("fecha", { ascending: false });
     const { data: clis } = await supabase.from("clientes").select("*").order("nombre");
-    const { data: projs } = await supabase.from("proyectos").select("id, nombre, num_proyecto, estado, cliente_id, base_imponible, clientes(*)").order("nombre");
+    const { data: projs } = await supabase.from("proyectos").select("id, nombre, estado, cliente_id, base_imponible, clientes(*)").order("nombre");
     const { data: fbc } = await supabase.from("formas_cobro").select("*").order("nombre");
     const { data: perf } = await supabase.from("perfil_negocio").select("*").maybeSingle();
 
@@ -187,17 +187,20 @@ function VentasContent() {
     // Filtrar solo abiertos/pendientes Y que no estén facturados al 100%
     const preparedProjs = (projs || [])
       .filter(p => {
-        const estadoOk = !p.estado || p.estado === 'Abierto' || p.estado === 'Pendiente';
+        const pEstado = (p.estado || "").toLowerCase();
+        const estadoOk = pEstado === 'abierto' || pEstado === 'pendiente' || !pEstado;
         if (!estadoOk) return false;
         
         const yaFacturado = facturacionPorProyecto[p.id] || 0;
         const totalProy = p.base_imponible || 0;
-        // Permitir si falta algo por facturar (margen de 0.01 para redondeos)
-        return totalProy > 0 && yaFacturado < (totalProy - 0.01);
+        // Si no tiene base imponible, no es facturable por avance
+        if (totalProy <= 0) return false;
+
+        return yaFacturado < (totalProy - 0.01);
       })
       .map(p => ({
         ...p,
-        nombre: `[${p.clientes?.nombre || 'S/C'}] ${p.nombre} ${p.num_proyecto ? `(${p.num_proyecto})` : ''}`
+        nombre: `[${p.clientes?.nombre || 'S/C'}] ${p.nombre}`
       }));
     setProyectos(preparedProjs);
     setFormasCobro(fbc || []);
@@ -256,18 +259,10 @@ function VentasContent() {
       // 1. DETECTAR COLUMNAS REALES ANTES DE PROCEDER
       const { data: colProbe } = await supabase.from("ventas").select("*").limit(1);
       // Si no hay datos, usamos un set de columnas por defecto basado en el error reportado
-      const realKeys = (colProbe && colProbe.length > 0) ? Object.keys(colProbe[0]) : ['num_factura', 'base_imponible', 'total', 'iva_importe', 'retencion_importe', 'serie', 'fecha', 'cliente_id', 'user_id'];
-      
-      const foundKey = (options: string[]) => options.find(o => realKeys.includes(o));
-      
-      const colNum = foundKey(['num_factura', 'numero', 'referencia']) || 'num_factura';
-      const colBase = foundKey(['base_imponible', 'base', 'importe']) || 'base_imponible';
-      const colIvaImp = foundKey(['iva_importe', 'cuota_iva', 'iva']) || 'iva_importe';
-      const colRetImp = foundKey(['retencion_importe', 'irpf_importe', 'retencion']) || 'retencion_importe';
-      const colProj = foundKey(['proyecto_id', 'id_proyecto']) || 'proyecto_id';
-      const colTotal = foundKey(['total', 'importe_total']) || 'total';
+      const availableCols = (colProbe && colProbe.length > 0) ? Object.keys(colProbe[0]) : [];
+      const foundKey = (options: string[]) => options.find(o => availableCols.includes(o));
 
-      // 2. CONSTRUIR PAYLOAD COMPLETO
+      // 2. CONSTRUIR PAYLOAD QUIRÚRGICO
       const payload: any = {
         serie,
         fecha,
@@ -275,14 +270,28 @@ function VentasContent() {
         user_id: user.id
       };
       
-      payload[colNum] = numFactura;
-      payload[colBase] = baseImponible;
-      payload[colTotal] = totalFactura;
-      payload[colIvaImp] = cuotaIva;
-      payload[colRetImp] = retencionImporte;
-      if (realKeys.includes(colProj)) payload[colProj] = proyectoId || null;
-      if (realKeys.includes('iva_pct')) payload.iva_pct = (serie === "A" ? 21 : 0);
-      if (realKeys.includes('retencion_pct')) payload.retencion_pct = retencionPct;
+      const setIfFound = (options: string[], value: any) => {
+        const key = foundKey(options);
+        if (key) payload[key] = value;
+      };
+
+      setIfFound(['num_factura', 'numero', 'referencia'], numFactura);
+      setIfFound(['base_imponible', 'base', 'importe'], baseImponible);
+      setIfFound(['iva_importe', 'cuota_iva', 'iva'], cuotaIva);
+      setIfFound(['retencion_importe', 'irpf_importe', 'retencion'], retencionImporte);
+      setIfFound(['total', 'importe_total'], totalFactura);
+      setIfFound(['proyecto_id', 'id_proyecto'], proyectoId || null);
+      setIfFound(['iva_pct'], (serie === "A" ? 21 : 0));
+      setIfFound(['retencion_pct', 'irpf_pct'], retencionPct);
+
+      // Casos críticos de campos obligatorios si realKeys está vacío (primer insert)
+      if (availableCols.length === 0) {
+        payload.num_factura = numFactura;
+        payload.base_imponible = baseImponible;
+        payload.total = totalFactura;
+        payload.iva_importe = cuotaIva;
+        // NO incluimos retencion_importe si no estamos seguros (por eso fallaba)
+      }
 
       let currentVentaId = editingId;
 
