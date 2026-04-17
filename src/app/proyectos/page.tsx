@@ -174,61 +174,31 @@ export default function ProyectosPage() {
         }
       }
 
-      // ESTRATEGIA DE EMERGENCIA: Inserción mínima para descubrir columnas reales
-      const minimalPayload: any = {
+      // Mapeo inteligente del payload basado en el esquema real
+      const payload: any = {
         nombre,
-        user_id: user.id
+        user_id: user.id,
+        serie: serie || 'P',
+        fecha,
+        cliente_id: clienteId,
+        num_proyecto: numReferencia, // Usamos el nombre estándar de nuestro esquema
+        base_imponible: baseImponible,
+        iva_pct: 21,
+        iva_importe: cuotaIva,
+        retencion_pct: retencionPct,
+        retencion_importe: retencionImporte,
+        total: totalProyecto
       };
 
       let currentId = editingId;
       if (editingId) {
-        // En edición, intentamos lo que ya sabemos que funcionaba
-        await supabase.from("proyectos").update(minimalPayload).eq("id", editingId);
+        const { error: updateErr } = await supabase.from("proyectos").update(payload).eq("id", editingId);
+        if (updateErr) throw updateErr;
         await supabase.from("proyecto_lineas").delete().eq("proyecto_id", editingId);
       } else {
-        // EN ALTA NUEVA: Guardamos solo lo mínimo para que no falle nada
-        const { data, error } = await supabase.from("proyectos").insert([minimalPayload]).select().single();
-        
-        if (error) {
-          throw new Error("Ni siquiera pudimos guardar el nombre. ¿Existe la tabla 'proyectos'? Error: " + error.message);
-        }
-
-        // ¡DETECTAR COLUMNAS REALES!
-        const realKeys = Object.keys(data);
-        console.log("Columnas detectadas en caliente:", realKeys);
-
-        // Mapeo inteligente basándonos en lo que encontremos
-        const foundKey = (options: string[]) => options.find(o => realKeys.includes(o));
-        
-        const colNum = foundKey(['num_proyecto', 'num_referencia', 'numero', 'referencia', 'ref']);
-        const colFecha = foundKey(['fecha', 'fecha_creacion', 'created_at']);
-        const colCliente = foundKey(['cliente_id', 'id_cliente', 'id_entidad']);
-        const colTotal = foundKey(['total', 'importe_total', 'total_proyecto']);
-
-        // Segunda pasada: Actualizar el registro con los datos reales usando los nombres que la DB quiera
-        const patch: any = {};
-        if (colNum) patch[colNum] = numReferencia;
-        if (colFecha) patch[colFecha] = fecha;
-        if (colCliente) patch[colCliente] = clienteId;
-        if (colTotal) patch[colTotal] = totalProyecto;
-        
-        // Añadir el resto de campos si existen
-        ['serie', 'base_imponible', 'iva_pct', 'iva_importe', 'retencion_pct', 'retencion_importe'].forEach(k => {
-           if (realKeys.includes(k)) {
-             if (k === 'iva_pct') patch[k] = 21;
-             else if (k === 'base_imponible') patch[k] = baseImponible;
-             // ... etc
-           }
-        });
-
-        if (Object.keys(patch).length > 0) {
-          const { error: patchError } = await supabase.from("proyectos").update(patch).eq("id", data.id);
-          if (patchError) {
-             alert(`⚠️ SE GUARDÓ EL NOMBRE, PERO FALLÓ EL RESTO:\n${patchError.message}\n\nCampos: ${Object.keys(patch).join(', ')}`);
-          }
-        }
-        
-        currentId = data.id;
+        const { data: projData, error: insErr } = await supabase.from("proyectos").insert([payload]).select().single();
+        if (insErr) throw insErr;
+        currentId = projData.id;
       }
 
       const lineasToInsert = lineas.map(l => ({
