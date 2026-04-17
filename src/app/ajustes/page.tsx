@@ -173,6 +173,10 @@ export default function AjustesPage() {
     if (!user) return;
     setSyncing(true);
     try {
+      // 1. Limpiar actuales para evitar conflictos
+      await supabase.from('tipos_iva').delete().eq('user_id', user.id);
+      await supabase.from('tipos_irpf').delete().eq('user_id', user.id);
+
       const officialIva = [
         { nombre: 'IVA General', valor: 21 },
         { nombre: 'IVA Reducido', valor: 10 },
@@ -185,16 +189,14 @@ export default function AjustesPage() {
         { nombre: 'IRPF Alquileres', valor: 19 }
       ];
 
-      for (const item of officialIva) {
-        await supabase.from('tipos_iva').upsert({ user_id: user.id, nombre: item.nombre, valor: item.valor }, { onConflict: 'user_id,valor' });
-      }
-      for (const item of officialIrpf) {
-        await supabase.from('tipos_irpf').upsert({ user_id: user.id, nombre: item.nombre, valor: item.valor }, { onConflict: 'user_id,valor' });
-      }
+      // 2. Insertar los oficiales masivamente
+      await supabase.from('tipos_iva').insert(officialIva.map(i => ({ ...i, user_id: user.id })));
+      await supabase.from('tipos_irpf').insert(officialIrpf.map(i => ({ ...i, user_id: user.id })));
       
       await fetchTipos();
       alert("✅ Fiscalidad Sincronizada con la Ley");
     } catch (e) {
+      console.error(e);
       alert("❌ Error al sincronizar");
     } finally {
       setSyncing(false);
