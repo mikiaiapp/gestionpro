@@ -88,17 +88,14 @@ function VentasContent() {
       setFecha(new Date().toISOString().split('T')[0]);
       
       const factor = pctRequested / 100;
-      const suffix = pctRequested < 100 ? ` (${pctRequested}% avance)` : "";
-
-      if (pLineas && pLineas.length > 0) {
-        setLineas(pLineas.map((l: any) => ({
-          unidades: l.unidades,
-          descripcion: l.descripcion + suffix,
-          precio_unitario: l.precio_unitario * factor
-        })));
-      } else {
-        setLineas([{ unidades: 1, descripcion: proj.nombre + suffix, precio_unitario: (proj.base_imponible || 0) * factor }]);
-      }
+      const numProyStr = proj.num_proyecto ? ` nº ${proj.num_proyecto}` : "";
+      const descripcionManual = `${pctRequested}% de avance del proyecto${numProyStr} con descripción "${proj.nombre}"`;
+      
+      setLineas([{ 
+        unidades: 1, 
+        descripcion: descripcionManual, 
+        precio_unitario: (proj.base_imponible || 0) * factor 
+      }]);
       
       setIsWizardOpen(false);
       setIsEditorOpen(true);
@@ -160,7 +157,7 @@ function VentasContent() {
     setLoading(true);
     const { data: vts } = await supabase.from("ventas").select("*, clientes(*), proyectos(nombre), venta_lineas(*), cobros(importe)").order("fecha", { ascending: false });
     const { data: clis } = await supabase.from("clientes").select("*").order("nombre");
-    const { data: projs } = await supabase.from("proyectos").select("id, nombre, estado, cliente_id, base_imponible, clientes(*)").order("nombre");
+    const { data: projs } = await supabase.from("proyectos").select("id, nombre, num_proyecto, estado, cliente_id, base_imponible, clientes(*)").order("nombre");
     const { data: fbc } = await supabase.from("formas_cobro").select("*").order("nombre");
     const { data: perf } = await supabase.from("perfil_negocio").select("*").maybeSingle();
 
