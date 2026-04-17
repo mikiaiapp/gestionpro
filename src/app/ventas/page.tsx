@@ -535,7 +535,7 @@ function VentasContent() {
                   <div className="space-y-4">
                     <SearchableSelect 
                       label="Seleccionar Proyecto para Facturar"
-                      options={proyectos.filter(p => !p.estado || p.estado === 'Abierto' || p.estado === 'Activo')}
+                      options={proyectos}
                       value={selectedProjId}
                       onChange={(id) => setSelectedProjId(id)}
                       placeholder="Buscar por nombre de cliente o proyecto..."

@@ -528,7 +528,7 @@ export default function CostesPage() {
                         <div className="md:col-span-1">
                            <SearchableSelect 
                              label="Vincular Proyecto" 
-                             options={proyectos.filter(p => !p.estado || p.estado === 'Abierto' || p.estado === 'Activo')} 
+                             options={proyectos} 
                              value={proyectoId} 
                              onChange={(id) => setProyectoId(id)} 
                              placeholder="Seleccionar..." 
