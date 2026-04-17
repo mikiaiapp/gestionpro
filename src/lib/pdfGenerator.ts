@@ -176,15 +176,23 @@ export const generatePDF = async (data: PDFData) => {
   const footerHeight = footerLines.length * 3.5;
   const footerY = pageHeight - MARGIN - footerHeight;
 
-  // Dibujar líneas
+  // Dibujar líneas con formato inteligente
   footerLines.forEach((line: string, index: number) => {
-    // Si la línea parece un título (todo mayúsculas y corta), poner en negrita
-    if (line.length > 3 && line === line.toUpperCase() && line.length < 50) {
+    const yPos = footerY + (index * 3.2);
+    
+    // REGLA 1: Títulos en MAYÚSCULAS o que terminan con ":"
+    const isTitle = (line.length > 3 && line === line.toUpperCase() && line.length < 60) || line.includes(': ');
+    
+    if (isTitle) {
       doc.setFont('helvetica', 'bold');
+      doc.setTextColor(60); // Un gris muy oscuro para títulos
     } else {
       doc.setFont('helvetica', 'normal');
+      doc.setTextColor(120); // Gris suave para el cuerpo
     }
-    doc.text(line, MARGIN, footerY + (index * 3.5));
+
+    // Dibujar la línea
+    doc.text(line, MARGIN, yPos);
   });
   
   doc.setFont('helvetica', 'normal');
