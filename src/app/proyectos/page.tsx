@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import { Sidebar } from "@/components/Sidebar";
 import { SearchableSelect } from "@/components/SearchableSelect";
-import { FolderKanban, Plus, Search, MoreHorizontal, Loader2, Save, Trash2, FileText, Download, Printer } from "lucide-react";
+import { FolderKanban, Plus, Search, MoreHorizontal, Loader2, Save, Trash2, Printer } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { generatePDF } from "@/lib/pdfGenerator";
+import { formatCurrency } from "@/lib/format";
 
 interface LineaProyecto {
   unidades: number;
@@ -34,27 +35,27 @@ export default function ProyectosPage() {
   const [nombre, setNombre] = useState("");
   const [clienteId, setClienteId] = useState("");
   const [serie, setSerie] = useState("P");
-  const [numProyecto, setNumProyecto] = useState("");
+  const [numReferencia, setNumReferencia] = useState("");
   const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
   const [retencionPct, setRetencionPct] = useState(0);
   const [lineas, setLineas] = useState<LineaProyecto[]>([{ unidades: 1, descripcion: "", precio_unitario: 0 }]);
 
   useEffect(() => {
     fetchData();
-  }, [supabase]);
+  }, []);
 
   const getNextNumber = (targetSerie: string, allProjs: any[]) => {
     const currentYear = new Date().getFullYear();
     const yearPrefix = `${currentYear}-`;
     const filtered = allProjs.filter(p => 
       p.serie === targetSerie && 
-      p.num_proyecto && 
-      p.num_proyecto.startsWith(yearPrefix)
+      p.num_referencia && 
+      p.num_referencia.startsWith(yearPrefix)
     );
 
     if (filtered.length > 0) {
       const numbers = filtered.map(p => {
-        const parts = p.num_proyecto.split("-");
+        const parts = p.num_referencia.split("-");
         return parseInt(parts[1], 10) || 0;
       });
       const nextNum = Math.max(...numbers) + 1;
@@ -66,17 +67,16 @@ export default function ProyectosPage() {
   useEffect(() => {
     if (isEditorOpen && !editingId) {
       const next = getNextNumber(serie, proyectos);
-      setNumProyecto(next);
+      setNumReferencia(next);
     }
   }, [serie, isEditorOpen, editingId, proyectos]);
 
   const fetchData = async () => {
-    if (!supabase) return;
     setLoading(true);
     try {
       const { data: projs } = await supabase.from("proyectos").select("*, clientes(nombre, nif, direccion, poblacion, cp, provincia), proyecto_lineas(*)").order("created_at", { ascending: false });
       const { data: clis } = await supabase.from("clientes").select("id, nombre").order("nombre");
-      const { data: perf } = await supabase.from("perfil_negocio").select("*").single();
+      const { data: perf } = await supabase.from("perfil_negocio").select("*").maybeSingle();
 
       setProyectos(projs || []);
       setClientes(clis || []);
@@ -103,7 +103,7 @@ export default function ProyectosPage() {
     setEditingId(p.id);
     setNombre(p.nombre);
     setSerie(p.serie || "P");
-    setNumProyecto(p.num_proyecto || "");
+    setNumReferencia(p.num_referencia || "");
     setFecha(p.fecha || new Date().toISOString().split('T')[0]);
     setClienteId(p.cliente_id || "");
     setRetencionPct(p.retencion_pct || 0);
@@ -121,19 +121,19 @@ export default function ProyectosPage() {
   };
 
   const handleSaveProyecto = async () => {
-    if (!nombre || !clienteId || !numProyecto) {
-      alert("Faltan datos obligatorios (Nombre, Cliente, Nº Proyecto)");
+    if (!nombre || !clienteId || !numReferencia) {
+      alert("Faltan datos obligatorios (Nombre, Cliente, Nº Referencia)");
       return;
     }
 
     setSaving(true);
     try {
-      const userRes = await supabase.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       const payload = {
         nombre,
         cliente_id: clienteId,
         serie,
-        num_proyecto: numProyecto,
+        num_referencia: numReferencia, // Corregido: antes num_proyecto
         fecha,
         base_imponible: baseImponible,
         iva_pct: 21,
@@ -141,7 +141,7 @@ export default function ProyectosPage() {
         retencion_pct: retencionPct,
         retencion_importe: retencionImporte,
         total: totalProyecto,
-        user_id: userRes.data.user?.id
+        user_id: user?.id
       };
 
       let currentId = editingId;
@@ -166,7 +166,9 @@ export default function ProyectosPage() {
       setIsEditorOpen(false);
       setEditingId(null);
       fetchData();
+      alert("✅ Proyecto guardado correctamente");
     } catch (err: any) {
+      console.error(err);
       alert("Error al guardar: " + err.message);
     } finally {
       setSaving(false);
@@ -182,7 +184,7 @@ export default function ProyectosPage() {
     try {
       await generatePDF({
         tipo: 'PRESUPUESTO',
-        numero: `${p.serie}-${p.num_proyecto}`,
+        numero: `${p.serie}-${p.num_referencia}`,
         fecha: p.fecha,
         cliente: {
           nombre: p.clientes?.nombre || '',
@@ -237,7 +239,7 @@ export default function ProyectosPage() {
                 <p className="text-[var(--muted)] font-medium">Planificación y gestión de presupuestos.</p>
               </div>
               <button 
-                onClick={() => { setEditingId(null); setLineas([{ unidades: 1, descripcion: "", precio_unitario: 0 }]); setIsEditorOpen(true); }}
+                onClick={() => { setEditingId(null); setNombre(""); setClienteId(""); setNumReferencia(""); setLineas([{ unidades: 1, descripcion: "", precio_unitario: 0 }]); setIsEditorOpen(true); }}
                 className="flex items-center gap-2 px-6 py-3 rounded-xl bg-[var(--accent)] text-white font-bold hover:shadow-lg transition-all active:scale-[0.98]"
               >
                 <Plus size={18} /> Nuevo Proyecto
@@ -257,7 +259,6 @@ export default function ProyectosPage() {
                    <tr className="bg-[#fcfaf7] border-b border-[var(--border)]">
                      <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">Ref / Nombre</th>
                      <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">Cliente</th>
-                     <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">Estado</th>
                      <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Total</th>
                      <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Acciones</th>
                    </tr>
@@ -266,14 +267,11 @@ export default function ProyectosPage() {
                    {filtered.map(p => (
                      <tr key={p.id} className="hover:bg-gray-50 transition-colors">
                        <td className="px-6 py-4">
-                         <div className="text-[10px] font-bold text-orange-600 uppercase mb-0.5">{p.serie}-{p.num_proyecto}</div>
+                         <div className="text-[10px] font-bold text-orange-600 uppercase mb-0.5">{p.serie}-{p.num_referencia}</div>
                          <div className="font-bold">{p.nombre}</div>
                        </td>
                        <td className="px-6 py-4 text-sm font-medium text-gray-600">{p.clientes?.nombre}</td>
-                       <td className="px-6 py-4">
-                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${p.estado === 'Cerrado' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>{p.estado}</span>
-                       </td>
-                       <td className="px-6 py-4 text-right font-mono font-bold text-gray-700">{new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(p.total || 0)}</td>
+                       <td className="px-6 py-4 text-right font-mono font-bold text-gray-700">{formatCurrency(p.total || 0)}</td>
                        <td className="px-6 py-4 text-right relative">
                          <button 
                             onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === p.id ? null : p.id); }}
@@ -330,13 +328,13 @@ export default function ProyectosPage() {
                  </div>
                  <div>
                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Nº Referencia</label>
-                   <input type="text" value={numProyecto} onChange={(e) => setNumProyecto(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200 bg-gray-50 font-mono focus:bg-white" />
+                   <input type="text" value={numReferencia} onChange={(e) => setNumReferencia(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200 bg-gray-50 font-mono focus:bg-white" />
                  </div>
                  <div>
                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Fecha</label>
                    <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200 bg-gray-50" />
                  </div>
-                 <div className="md:col-span-2">
+                 <div className="md:col-span-4">
                     <SearchableSelect 
                       label="Cliente"
                       options={clientes}
@@ -364,7 +362,7 @@ export default function ProyectosPage() {
                         <td className="py-2 pr-4"><input type="number" value={linea.unidades} onChange={(e) => updateLinea(idx, "unidades", parseFloat(e.target.value))} className="w-full p-2 rounded-lg border border-gray-100 font-bold text-center" /></td>
                         <td className="py-2 pr-4"><textarea rows={1} value={linea.descripcion} onChange={(e) => updateLinea(idx, "descripcion", e.target.value)} className="w-full p-2 rounded-lg border border-gray-100 text-sm" /></td>
                         <td className="py-2 pr-4"><input type="number" value={linea.precio_unitario} onChange={(e) => updateLinea(idx, "precio_unitario", parseFloat(e.target.value))} className="w-full p-2 rounded-lg border border-gray-100 text-right font-mono" /></td>
-                        <td className="py-2 text-right font-bold text-gray-700 font-mono">{new Intl.NumberFormat('es-ES').format(linea.unidades * linea.precio_unitario)}</td>
+                        <td className="py-2 text-right font-bold text-gray-700 font-mono">{formatCurrency(linea.unidades * linea.precio_unitario)}</td>
                         <td className="py-2 text-center">{lineas.length > 1 && <button onClick={() => removeLinea(idx)} className="text-red-300 hover:text-red-500"><Trash2 size={16}/></button>}</td>
                       </tr>
                     ))}
@@ -379,10 +377,10 @@ export default function ProyectosPage() {
                     <input type="number" value={retencionPct} onChange={(e) => setRetencionPct(parseFloat(e.target.value) || 0)} className="w-full p-2 rounded-lg border border-gray-200 font-bold" />
                   </div>
                   <div className="w-full md:w-80 space-y-3">
-                    <div className="flex justify-between text-sm"><span>Base Imponible:</span><span className="font-mono font-bold">{fmt(baseImponible)}</span></div>
-                    <div className="flex justify-between text-sm"><span>IVA (21%):</span><span className="font-mono font-bold">{fmt(cuotaIva)}</span></div>
-                    {retencionPct > 0 && <div className="flex justify-between text-sm text-red-600"><span>Retención ({retencionPct}%):</span><span className="font-mono font-bold">-{fmt(retencionImporte)}</span></div>}
-                    <div className="flex justify-between text-xl font-bold pt-3 border-t-2 border-gray-200 text-gray-800"><span>TOTAL:</span><span>{new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(totalProyecto)}</span></div>
+                    <div className="flex justify-between text-sm"><span>Base Imponible:</span><span className="font-mono font-bold">{formatCurrency(baseImponible)}</span></div>
+                    <div className="flex justify-between text-sm"><span>IVA (21%):</span><span className="font-mono font-bold">{formatCurrency(cuotaIva)}</span></div>
+                    {retencionPct > 0 && <div className="flex justify-between text-sm text-red-600"><span>Retención ({retencionPct}%):</span><span className="font-mono font-bold">-{formatCurrency(retencionImporte)}</span></div>}
+                    <div className="flex justify-between text-xl font-bold pt-3 border-t-2 border-gray-200 text-gray-800"><span>TOTAL:</span><span className="text-orange-600">{formatCurrency(totalProyecto)}</span></div>
                   </div>
                </div>
             </div>
@@ -392,5 +390,3 @@ export default function ProyectosPage() {
     </div>
   );
 }
-
-const fmt = (n: number) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(n);

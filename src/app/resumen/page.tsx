@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { Sidebar } from "@/components/Sidebar";
-import { Activity, Search, Loader2, TrendingUp, TrendingDown, Target, Building2, Download as DownloadIcon, FileText } from "lucide-react";
+import { Activity, Search, Loader2, TrendingUp, TrendingDown, Target, Building2, FileText } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { generatePDF } from "@/lib/pdfGenerator";
+import { formatCurrency } from "@/lib/format";
 
 export default function ResumenPage() {
   const [proyectos, setProyectos] = useState<any[]>([]);
@@ -14,28 +15,15 @@ export default function ResumenPage() {
 
   useEffect(() => {
     fetchResumen();
-  }, [supabase]);
+  }, []);
 
   const fetchResumen = async () => {
-    if (!supabase) {
-      setLoading(false);
-      return;
-    }
-    
     setLoading(true);
-    // Fail-safe: si en 3 segundos no ha terminado, liberamos la UI por si acaso
-    const timeout = setTimeout(() => setLoading(false), 3000);
-    
     try {
-      // Obtenemos Proyectos, Ventas y Costes para consolidar
-      const { data: projs, error: pe } = await supabase.from("proyectos").select("*, clientes(nombre)");
-      const { data: vts, error: ve } = await supabase.from("ventas").select("proyecto_id, total");
-      const { data: csts, error: ce } = await supabase.from("costes").select("proyecto_id, total");
+      const { data: projs } = await supabase.from("proyectos").select("*, clientes(nombre)");
+      const { data: vts } = await supabase.from("ventas").select("proyecto_id, total");
+      const { data: csts } = await supabase.from("costes").select("proyecto_id, total");
       const { data: perf } = await supabase.from("perfil_negocio").select("*").maybeSingle();
-
-      if (pe || ve || ce) {
-        console.error("Error cargando datos de resumen:", pe || ve || ce);
-      }
 
       const consolidated = (projs || []).map(p => {
         const totalVentas = (vts || []).filter(v => v.proyecto_id === p.id).reduce((acc, curr) => acc + (curr.total || 0), 0);
@@ -55,9 +43,8 @@ export default function ResumenPage() {
       setProyectos(consolidated);
       setPerfil(perf);
     } catch (err) {
-      console.error("Fallo crítico en resumen:", err);
+      console.error(err);
     } finally {
-      clearTimeout(timeout);
       setLoading(false);
     }
   };
@@ -75,11 +62,7 @@ export default function ResumenPage() {
         fecha: new Date().toISOString(),
         cliente: {
           nombre: 'Control Interno de Rentabilidad',
-          nif: '',
-          direccion: '',
-          poblacion: '',
-          cp: '',
-          provincia: ''
+          nif: '', direccion: '', poblacion: '', cp: '', provincia: ''
         },
         perfil: {
           nombre: perfil.nombre || '',
@@ -107,7 +90,6 @@ export default function ResumenPage() {
         }
       });
     } catch (error) {
-      console.error("Error exportando informe:", error);
       alert("Error al generar el PDF del informe.");
     }
   };
@@ -118,7 +100,7 @@ export default function ResumenPage() {
   );
 
   return (
-    <div className="flex bg-[var(--background)] min-h-screen">
+    <div className="flex bg-[var(--background)] min-h-screen text-left">
       <Sidebar />
       <div className="flex-1 p-8 overflow-y-auto">
         <header className="flex justify-between items-center mb-10">
@@ -127,25 +109,21 @@ export default function ResumenPage() {
             <p className="text-[var(--muted)] font-medium">Análisis de rentabilidad y márgenes de beneficio por obra.</p>
           </div>
           <div className="flex items-center gap-4">
-             <button 
-               onClick={exportPDF}
-               className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white border border-[var(--border)] text-gray-700 font-bold hover:shadow-md transition-all active:scale-95"
-             >
-               <FileText size={18} className="text-red-500" />
-               Informe PDF
+             <button onClick={exportPDF} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white border border-[var(--border)] text-gray-700 font-bold hover:shadow-md transition-all active:scale-95">
+               <FileText size={18} className="text-red-500" /> Informe PDF
              </button>
              <div className="h-10 w-px bg-gray-200"></div>
              <Target className="text-[var(--accent)]" size={24} />
              <div className="text-right">
                 <div className="text-[10px] font-bold text-[var(--muted)] uppercase">Global Margen Medio</div>
                 <div className="text-xl font-bold text-[var(--foreground)]">
-                   {new Intl.NumberFormat('es-ES', { style: 'percent' }).format(proyectos.reduce((acc, p) => acc + (p.margenPct || 0), 0) / (proyectos.length || 1) / 100)}
+                   {(proyectos.reduce((acc, p) => acc + (p.margenPct || 0), 0) / (proyectos.length || 1)).toFixed(1)}%
                 </div>
              </div>
           </div>
         </header>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10 text-left">
            {filtered.slice(0, 3).map(p => (
               <div key={p.id} className="bg-white p-6 rounded-2xl border border-[var(--border)] shadow-sm">
                  <div className="flex justify-between items-start mb-4">
@@ -160,12 +138,12 @@ export default function ResumenPage() {
                  <p className="text-xs text-[var(--muted)] mb-4">{p.clientes?.nombre || 'Particular'}</p>
                  <div className="flex justify-between items-end border-t border-[var(--border)] pt-4">
                     <div>
-                       <div className="text-[10px] text-[var(--muted)] uppercase font-bold">Ganancia Neta</div>
-                       <div className={`text-lg font-bold ${p.margen >= 0 ? 'text-[var(--green)]' : 'text-red-600'}`}>
-                          {new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(p.margen)}
+                       <div className="text-[10px] text-[var(--muted)] uppercase font-bold text-left">Ganancia Neta</div>
+                       <div className={`text-lg font-bold ${p.margen >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {formatCurrency(p.margen)}
                        </div>
                     </div>
-                    {p.margen >= 0 ? <TrendingUp className="text-[var(--green)]" /> : <TrendingDown className="text-red-600" />}
+                    {p.margen >= 0 ? <TrendingUp className="text-green-600" /> : <TrendingDown className="text-red-600" />}
                  </div>
               </div>
            ))}
@@ -175,32 +153,13 @@ export default function ResumenPage() {
           <div className="p-4 border-b border-[var(--border)] flex justify-between items-center bg-[#fafafa]">
             <div className="relative w-72">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]" size={16} />
-              <input 
-                type="text" 
-                placeholder="Filtrar proyectos..." 
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)] transition-colors"
-              />
+              <input type="text" placeholder="Filtrar proyectos..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)] transition-colors" />
             </div>
           </div>
           
-          <div className="overflow-x-auto min-h-[300px] flex flex-col">
+          <div className="overflow-x-auto">
             {loading ? (
-              <div className="flex-1 flex flex-col items-center justify-center p-20 text-[var(--muted)] gap-3">
-                <Loader2 className="animate-spin" size={32} />
-                <p className="text-sm font-medium">Calculando rentabilidades...</p>
-              </div>
-            ) : filtered.length === 0 ? (
-              <div className="flex-1 flex flex-col items-center justify-center p-20 text-[var(--muted)] gap-4 text-center">
-                <div className="w-16 h-16 rounded-full bg-[var(--background)] flex items-center justify-center">
-                  <Activity size={32} className="opacity-20" />
-                </div>
-                <div>
-                  <p className="font-bold text-[var(--foreground)]">No hay datos suficientes</p>
-                  <p className="text-sm">Registra ventas y costes vinculados a proyectos.</p>
-                </div>
-              </div>
+              <div className="flex flex-col items-center justify-center p-20 text-[var(--muted)] gap-3"><Loader2 className="animate-spin" size={32} /><p className="text-sm font-medium">Calculando rentabilidades...</p></div>
             ) : (
               <table className="w-full text-left border-collapse">
                 <thead>
@@ -215,24 +174,11 @@ export default function ResumenPage() {
                 <tbody className="divide-y divide-[var(--border)]">
                   {filtered.map((p) => (
                     <tr key={p.id} className="hover:bg-[#fcfaf7] transition-colors group">
-                      <td className="px-6 py-4">
-                        <div className="font-bold text-[var(--foreground)]">{p.nombre}</div>
-                        <div className="text-[10px] text-[var(--muted)] uppercase">{p.clientes?.nombre || 'Particular'}</div>
-                      </td>
-                      <td className="px-6 py-4 text-right font-mono text-sm text-[var(--green)]">
-                        {new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(p.totalVentas)}
-                      </td>
-                      <td className="px-6 py-4 text-right font-mono text-sm text-red-600">
-                        {new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(p.totalCostes)}
-                      </td>
-                      <td className={`px-6 py-4 text-right font-mono text-sm font-bold ${p.margen >= 0 ? 'text-[var(--accent)]' : 'text-red-700'}`}>
-                        {new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(p.margen)}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                         <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${p.margenPct >= 15 ? 'bg-green-100 text-green-700' : p.margenPct > 0 ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>
-                            {p.margenPct.toFixed(1)}%
-                         </span>
-                      </td>
+                      <td className="px-6 py-4"><div className="font-bold text-[var(--foreground)]">{p.nombre}</div><div className="text-[10px] text-[var(--muted)] uppercase">{p.clientes?.nombre || 'Particular'}</div></td>
+                      <td className="px-6 py-4 text-right font-mono text-sm text-green-600">{formatCurrency(p.totalVentas)}</td>
+                      <td className="px-6 py-4 text-right font-mono text-sm text-red-600">{formatCurrency(p.totalCostes)}</td>
+                      <td className={`px-6 py-4 text-right font-mono text-sm font-bold ${p.margen >= 0 ? 'text-[var(--accent)]' : 'text-red-700'}`}>{formatCurrency(p.margen)}</td>
+                      <td className="px-6 py-4 text-right"><span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${p.margenPct >= 15 ? 'bg-green-100 text-green-700' : p.margenPct > 0 ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>{p.margenPct.toFixed(1)}%</span></td>
                     </tr>
                   ))}
                 </tbody>

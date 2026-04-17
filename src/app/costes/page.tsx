@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import { Sidebar } from "@/components/Sidebar";
 import { SearchableSelect } from "@/components/SearchableSelect";
-import { Download, Plus, Search, MoreHorizontal, Loader2, Receipt, FolderKanban, FileText, Sparkles, X, Upload, Save, Trash2 } from "lucide-react";
+import { Download, Plus, Search, MoreHorizontal, Loader2, Receipt, Upload, Save, Trash2, X, Sparkles } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { generatePDF } from "@/lib/pdfGenerator";
+import { formatCurrency } from "@/lib/format";
 
 interface LineaCoste {
   unidades: number;
@@ -18,20 +18,10 @@ export default function CostesPage() {
   const [costes, setCostes] = useState<any[]>([]);
   const [proveedores, setProveedores] = useState<any[]>([]);
   const [proyectos, setProyectos] = useState<any[]>([]);
-  const [perfil, setPerfil] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
-  const [isExtracting, setIsExtracting] = useState(false);
-  const [geminiKey, setGeminiKey] = useState("");
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-
-  useEffect(() => {
-    const handleClickOutside = () => setOpenMenuId(null);
-    window.addEventListener("click", handleClickOutside);
-    return () => window.removeEventListener("click", handleClickOutside);
-  }, []);
 
   // Formulario
   const [serie, setSerie] = useState("A");
@@ -46,74 +36,18 @@ export default function CostesPage() {
 
   useEffect(() => {
     fetchData();
-  }, [supabase]);
+  }, []);
 
   const fetchData = async () => {
-    if (!supabase) return;
     setLoading(true);
-    try {
-      const { data: csts } = await supabase
-        .from("costes")
-        .select("*, proveedores(nombre), proyectos(nombre), coste_lineas(*)")
-        .order("fecha", { ascending: false });
+    const { data: csts } = await supabase.from("costes").select("*, proveedores(nombre), proyectos(nombre), coste_lineas(*)").order("fecha", { ascending: false });
+    const { data: provs } = await supabase.from("proveedores").select("id, nombre").order("nombre");
+    const { data: projs } = await supabase.from("proyectos").select("id, nombre").order("nombre");
 
-      const { data: provs } = await supabase.from("proveedores").select("id, nombre").order("nombre");
-      const { data: projs } = await supabase.from("proyectos").select("id, nombre").order("nombre");
-      const { data: perf } = await supabase.from("perfil_negocio").select("*").maybeSingle();
-
-      setCostes(csts || []);
-      setProveedores(provs || []);
-      setProyectos(projs || []);
-      setPerfil(perf);
-      if (perf?.gemini_key) setGeminiKey(perf.gemini_key);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleImportPDF = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !geminiKey) {
-      if (!geminiKey) alert("Configura primero la Gemini API Key en Ajustes.");
-      return;
-    }
-
-    setIsExtracting(true);
-    try {
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        const base64 = (event.target?.result as string).split(',')[1];
-        const prompt = `Analiza esta factura y responde ÚNICAMENTE con un objeto JSON válido. 
-        JSON: { "nif": "CIF emisor", "proveedor": "Nombre emisor", "numfact": "Nº factura", "fecha": "YYYY-MM-DD", "base": 0.00, "ivaPct": 21 }`;
-
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-vision:generateContent?key=${geminiKey}`, {
-          method: 'POST',
-          body: JSON.stringify({ contents: [{ parts: [{ inline_data: { mime_type: 'application/pdf', data: base64 } }, { text: prompt }] }] })
-        });
-
-        const data = await res.json();
-        let raw = data.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
-        raw = raw.replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/\s*```$/,'').trim();
-        const parsed = JSON.parse(raw);
-
-        if (parsed.numfact) setNumFactProv(parsed.numfact);
-        if (parsed.fecha) setFecha(parsed.fecha);
-        if (parsed.base) {
-           setLineas([{ unidades: 1, descripcion: "Importe extraído por IA", precio_unitario: parsed.base, iva_pct: parsed.ivaPct || 21 }]);
-        }
-        
-        const prov = proveedores.find(p => p.nombre.toLowerCase().includes(parsed.proveedor?.toLowerCase()));
-        if (prov) setProveedorId(prov.id);
-
-        setIsAiModalOpen(false);
-        setIsModalOpen(true);
-      };
-      reader.readAsDataURL(file);
-    } catch (e: any) {
-      alert("Error IA: " + e.message);
-    } finally {
-      setIsExtracting(false);
-    }
+    setCostes(csts || []);
+    setProveedores(provs || []);
+    setProyectos(projs || []);
+    setLoading(false);
   };
 
   const addLinea = () => setLineas([...lineas, { unidades: 1, descripcion: "", precio_unitario: 0, iva_pct: 21 }]);
@@ -146,35 +80,11 @@ export default function CostesPage() {
     setIsModalOpen(true);
   };
 
-  const openEditModal = (c: any) => {
-    setEditingId(c.id);
-    setSerie(c.serie);
-    setNumInterno(c.num_interno || "");
-    setNumFactProv(c.num_factura_proveedor || "");
-    setFecha(c.fecha);
-    setProveedorId(c.proveedor_id || "");
-    setTipoGasto(c.tipo_gasto);
-    setProyectoId(c.proyecto_id || "");
-    setRetencionPct(c.retencion_pct || 0);
-    
-    if (c.coste_lineas && c.coste_lineas.length > 0) {
-      setLineas(c.coste_lineas.map((l: any) => ({
-        unidades: l.unidades,
-        descripcion: l.descripcion,
-        precio_unitario: l.precio_unitario,
-        iva_pct: l.iva_pct
-      })));
-    } else {
-      setLineas([{ unidades: 1, descripcion: "Factura Directa", precio_unitario: c.base_imponible, iva_pct: 21 }]);
-    }
-    setIsModalOpen(true);
-  };
-
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!supabase) return;
     setSaving(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
       const payload = {
         serie, num_interno: numInterno, num_factura_proveedor: numFactProv, fecha, 
         proveedor_id: proveedorId || null, tipo_gasto: tipoGasto,
@@ -182,7 +92,7 @@ export default function CostesPage() {
         base_imponible: baseImponible, iva_pct: 21, iva_importe: totalIva,
         retencion_pct: retencionPct, retencion_importe: retencionImporte, 
         total: totalFactura,
-        user_id: (await supabase.auth.getUser()).data.user?.id
+        user_id: user?.id
       };
 
       let currentId = editingId;
@@ -212,62 +122,6 @@ export default function CostesPage() {
     }
   };
 
-  const handleDeleteCoste = async (id: string, ref: string) => {
-    if (!confirm(`¿Eliminar coste ${ref}?`)) return;
-    await supabase.from("costes").delete().eq("id", id);
-    fetchData();
-  };
-
-  const exportPDF = async () => {
-    if (!perfil) {
-      alert("Configura tus datos en Ajustes primero.");
-      return;
-    }
-
-    try {
-      await generatePDF({
-        tipo: 'INFORME',
-        numero: `GST-${new Date().getFullYear()}`,
-        fecha: new Date().toISOString(),
-        cliente: {
-          nombre: 'Listado de Facturas Recibidas (Gastos)',
-          nif: '',
-          direccion: '',
-          poblacion: '',
-          cp: '',
-          provincia: ''
-        },
-        perfil: {
-          nombre: perfil.nombre || '',
-          nif: perfil.nif || '',
-          direccion: perfil.direccion || '',
-          poblacion: perfil.poblacion || '',
-          cp: perfil.cp || '',
-          provincia: perfil.provincia || '',
-          cuenta_bancaria: perfil.cuenta_bancaria || '',
-          logo_url: perfil.logo_url || '',
-          condiciones_legales: 'Informe de gastos generado por GestiónPro.'
-        },
-        lineas: costes.map(c => ({
-          unidades: 1,
-          descripcion: `${c.num_interno} | ${c.num_factura_proveedor} | ${c.proveedores?.nombre || 'Prov.'}`,
-          precio_unitario: c.total
-        })),
-        totales: {
-          base: costes.reduce((acc, c) => acc + c.base_imponible, 0),
-          iva_pct: 0,
-          iva_importe: costes.reduce((acc, c) => acc + (c.iva_importe || 0), 0),
-          retencion_pct: 0,
-          retencion_importe: costes.reduce((acc, c) => acc + (c.retencion_importe || 0), 0),
-          total: costes.reduce((acc, c) => acc + c.total, 0)
-        }
-      });
-    } catch (error) {
-      console.error("Error exportando informe:", error);
-      alert("Error al generar el PDF del informe.");
-    }
-  };
-
   return (
     <div className="flex bg-[var(--background)] min-h-screen text-left">
       <Sidebar />
@@ -277,24 +131,8 @@ export default function CostesPage() {
             <h1 className="text-3xl font-bold font-head tracking-tight mb-1">Facturas Recibidas</h1>
             <p className="text-[var(--muted)] font-medium">Gestión de facturas recibidas y multi-IVA.</p>
           </div>
-          <div className="flex gap-3">
-             <button onClick={exportPDF} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white border border-[var(--border)] font-bold text-gray-600 hover:shadow-md transition-all active:scale-[0.98]"><FileText size={18} className="text-red-500" /> Exportar PDF</button>
-             <button onClick={() => setIsAiModalOpen(true)} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white border border-[var(--border)] font-bold text-purple-600 hover:shadow-md transition-all active:scale-[0.98]"><Sparkles size={18}/> Importar PDF</button>
-             <button onClick={openAddModal} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--accent)] text-white font-bold hover:shadow-lg transition-all active:scale-[0.98]"><Plus size={18}/> Nueva Factura Recibida</button>
-          </div>
+          <button onClick={openAddModal} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--accent)] text-white font-bold hover:shadow-lg transition-all active:scale-[0.98]"><Plus size={18}/> Nueva Factura Recibida</button>
         </header>
-
-        {isAiModalOpen && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-            <div className="bg-white rounded-3xl p-8 w-full max-w-sm text-center">
-              {isExtracting ? <Loader2 className="animate-spin mx-auto text-purple-500 mb-4" size={40} /> : <Upload className="mx-auto text-gray-300 mb-4" size={40} />}
-              <h2 className="text-xl font-bold mb-2">Importar con IA</h2>
-              <p className="text-sm text-gray-500 mb-6">Sube tu factura y extraeremos los datos.</p>
-              {!isExtracting && <input type="file" accept="application/pdf" onChange={handleImportPDF} className="text-xs" />}
-              <button onClick={() => setIsAiModalOpen(false)} className="mt-8 text-gray-400 font-bold block mx-auto">Cerrar</button>
-            </div>
-          </div>
-        )}
 
         {isModalOpen && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
@@ -312,23 +150,11 @@ export default function CostesPage() {
                           <option value="B">Serie B (sin IVA)</option>
                         </select>
                       </div>
-                      <div><label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Nº Interno</label><input type="text" value={numInterno} onChange={(e) => setNumInterno(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200" placeholder="2024-C001" /></div>
                       <div><label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Factura Prov.</label><input type="text" value={numFactProv} onChange={(e) => setNumFactProv(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200 font-bold text-blue-600" /></div>
                       <div><label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Fecha</label><input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200" /></div>
                       <div className="md:col-span-2">
                          <SearchableSelect label="Proveedor" options={proveedores} value={proveedorId} onChange={(id) => setProveedorId(id)} placeholder="Buscar proveedor..." />
                       </div>
-                      <div><label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Gasto</label>
-                        <select value={tipoGasto} onChange={(e) => setTipoGasto(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200 font-bold">
-                          <option value="general">Gasto General</option>
-                          <option value="proyecto">Coste Proyecto</option>
-                        </select>
-                      </div>
-                      {tipoGasto === "proyecto" && (
-                        <div className="md:col-span-1">
-                          <SearchableSelect label="Proyecto" options={proyectos} value={proyectoId} onChange={(id) => setProyectoId(id)} placeholder="Asignar proyecto..." />
-                        </div>
-                      )}
                    </div>
 
                    <div className="pt-4 overflow-x-auto">
@@ -357,7 +183,7 @@ export default function CostesPage() {
                                    <option value="0">0%</option>
                                 </select>
                               </td>
-                              <td className="py-3 text-right font-bold text-gray-700 font-mono">{new Intl.NumberFormat('es-ES').format(linea.unidades * linea.precio_unitario)}</td>
+                              <td className="py-3 text-right font-bold text-gray-700 font-mono">{formatCurrency(linea.unidades * linea.precio_unitario)}</td>
                               <td className="py-3 text-center">{lineas.length > 1 && <button type="button" onClick={() => removeLinea(idx)} className="text-red-300 hover:text-red-500"><Trash2 size={16}/></button>}</td>
                             </tr>
                           ))}
@@ -366,16 +192,16 @@ export default function CostesPage() {
                       <button type="button" onClick={addLinea} className="mt-4 flex items-center gap-2 text-sm font-bold text-purple-600 hover:underline"><Plus size={16}/> Añadir línea (Multi-IVA)</button>
                    </div>
 
-                   <div className="flex flex-col md:flex-row justify-between items-start pt-8 border-t bg-gray-50/50 p-6 rounded-2xl gap-8">
+                   <div className="flex flex-col md:flex-row justify-between pt-8 border-t bg-gray-50/50 p-6 rounded-2xl gap-8">
                       <div className="w-full md:w-64">
                          <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Retención Soportada (%)</label>
                          <input type="number" value={retencionPct} onChange={(e) => setRetencionPct(parseFloat(e.target.value) || 0)} className="w-full p-2.5 rounded-lg border border-gray-200 font-bold" placeholder="0" />
                       </div>
                       <div className="w-full md:w-80 space-y-3">
-                         <div className="flex justify-between text-sm text-gray-500"><span>Base Imponible Tot.:</span><span className="font-mono font-bold text-gray-700">{fmt(baseImponible)}</span></div>
-                         <div className="flex justify-between text-sm text-gray-500"><span>Cuota IVA Tot.:</span><span className="font-mono font-bold text-gray-700">{fmt(totalIva)}</span></div>
-                         {retencionPct > 0 && <div className="flex justify-between text-sm text-red-600 font-bold"><span>Retención (-{retencionPct}%):</span><span className="font-mono">-{fmt(retencionImporte)}</span></div>}
-                         <div className="flex justify-between text-2xl font-bold pt-4 border-t border-gray-200 text-gray-900"><span>TOTAL:</span><span className="text-red-600">{fmt(totalFactura)}</span></div>
+                         <div className="flex justify-between text-sm text-gray-500"><span>Base Imponible Tot.:</span><span className="font-mono font-bold text-gray-700">{formatCurrency(baseImponible)}</span></div>
+                         <div className="flex justify-between text-sm text-gray-500"><span>Cuota IVA Tot.:</span><span className="font-mono font-bold text-gray-700">{formatCurrency(totalIva)}</span></div>
+                         {retencionPct > 0 && <div className="flex justify-between text-sm text-red-600 font-bold"><span>Retención (-{retencionPct}%):</span><span className="font-mono">{formatCurrency(retencionImporte)}</span></div>}
+                         <div className="flex justify-between text-2xl font-bold pt-4 border-t border-gray-200 text-gray-900"><span>TOTAL:</span><span className="text-red-600">{formatCurrency(totalFactura)}</span></div>
                       </div>
                    </div>
 
@@ -397,9 +223,7 @@ export default function CostesPage() {
               <tr className="bg-[#fcfaf7] border-b">
                 <th className="px-6 py-4 text-[11px] font-bold text-gray-400 uppercase">Factura / Prov.</th>
                 <th className="px-6 py-4 text-[11px] font-bold text-gray-400 uppercase">Fecha</th>
-                <th className="px-6 py-4 text-[11px] font-bold text-gray-400 uppercase">Tipo</th>
                 <th className="px-6 py-4 text-[11px] font-bold text-gray-400 uppercase text-right">Total</th>
-                <th className="px-6 py-4 text-[11px] font-bold text-gray-400 uppercase text-right text-transparent">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--border)]">
@@ -411,22 +235,7 @@ export default function CostesPage() {
                      <div className="text-[10px] text-gray-400 font-mono tracking-tighter uppercase">{c.num_factura_proveedor}</div>
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-500">{new Date(c.fecha).toLocaleDateString()}</td>
-                  <td className="px-6 py-4">
-                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${c.tipo_gasto === 'proyecto' ? 'bg-orange-100 text-orange-600' : 'bg-gray-100 text-gray-600'}`}>
-                        {c.tipo_gasto === 'proyecto' ? `P: ${c.proyectos?.nombre}` : 'General'}
-                     </span>
-                  </td>
-                  <td className="px-6 py-4 text-right font-mono font-bold text-red-600">{fmt(c.total)}</td>
-                  <td className="px-6 py-4 text-right relative">
-                    <button onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === c.id ? null : c.id); }} className="p-2 text-gray-400 hover:text-gray-600"><MoreHorizontal size={20}/></button>
-                    {openMenuId === c.id && (
-                      <div className="absolute right-6 top-12 w-48 bg-white rounded-xl shadow-xl border z-50 py-2 animate-in fade-in slide-in-from-top-2 duration-200">
-                        <button onClick={() => openEditModal(c)} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-700 transition-colors"><Save size={16}/> Editar</button>
-                        <div className="h-px bg-gray-100 my-1 mx-2"></div>
-                        <button onClick={() => handleDeleteCoste(c.id, c.num_interno)} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"><Trash2 size={16}/> Eliminar</button>
-                      </div>
-                    )}
-                  </td>
+                  <td className="px-6 py-4 text-right font-mono font-bold text-red-600">{formatCurrency(c.total)}</td>
                 </tr>
               ))}
             </tbody>
@@ -436,5 +245,3 @@ export default function CostesPage() {
     </div>
   );
 }
-
-const fmt = (n: number) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(n);
