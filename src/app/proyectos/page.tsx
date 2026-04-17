@@ -75,7 +75,14 @@ export default function ProyectosPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const { data: projs } = await supabase.from("proyectos").select("*, clientes(nombre, nif, direccion, poblacion, cp, provincia), proyecto_lineas(*)").order("created_at", { ascending: false });
+      // Simplificamos la consulta para que no falle si hay problemas con las líneas (como en el Resumen)
+      const { data: projs, error: fetchError } = await supabase.from("proyectos").select("*, clientes(nombre)").order("created_at", { ascending: false });
+      
+      if (fetchError) {
+        console.error("Error al cargar proyectos:", fetchError);
+        alert("Error al cargar proyectos: " + fetchError.message);
+      }
+
       const { data: clis } = await supabase.from("clientes").select("id, nombre").order("nombre");
       const { data: perf } = await supabase.from("perfil_negocio").select("*").maybeSingle();
 
@@ -110,7 +117,7 @@ export default function ProyectosPage() {
   const retencionImporte = (baseImponible * (retencionPct || 0)) / 100;
   const totalProyecto = baseImponible + cuotaIva - retencionImporte;
 
-  const openEditProyecto = (p: any) => {
+  const openEditProyecto = async (p: any) => {
     setEditingId(p.id);
     setNombre(p.nombre);
     setSerie(p.serie || "P");
@@ -118,9 +125,12 @@ export default function ProyectosPage() {
     setFecha(p.fecha || new Date().toISOString().split('T')[0]);
     setClienteId(p.cliente_id || "");
     setRetencionPct(p.retencion_pct || 0);
+
+    // Cargamos las líneas por separado al editar
+    const { data: lineasData } = await supabase.from("proyecto_lineas").select("*").eq("proyecto_id", p.id);
     
-    if (p.proyecto_lineas && p.proyecto_lineas.length > 0) {
-      setLineas(p.proyecto_lineas.map((l: any) => ({
+    if (lineasData && lineasData.length > 0) {
+      setLineas(lineasData.map((l: any) => ({
         unidades: l.unidades,
         descripcion: l.descripcion,
         precio_unitario: l.precio_unitario
