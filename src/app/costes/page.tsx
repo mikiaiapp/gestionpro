@@ -401,7 +401,7 @@ export default function CostesPage() {
                   </div>
                 )}
              </div>
-          </div>
+          )}
         {isProviderReviewModalOpen && detectedProvider && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[300] flex items-center justify-center p-4">
             <div className="bg-white rounded-3xl shadow-2xl p-10 w-full max-w-lg animate-in fade-in zoom-in duration-300 border overflow-y-auto max-h-[90vh]">
