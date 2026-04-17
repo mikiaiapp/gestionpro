@@ -101,42 +101,55 @@ export default function CostesPage() {
 
       // 2. Convertir a Base64
       const reader = new FileReader();
-      reader.readAsDataURL(file);
       reader.onload = async () => {
-        const base64 = reader.result as string;
-        
-        // 3. Extraer con IA
-        const result = await extractDataFromInvoice(base64, perf.gemini_key);
-        
-        // 4. Buscar Proveedor por NIF
-        const provExistente = proveedores.find(p => p.nif === result.proveedor_nif);
-        
-        if (provExistente) {
-          setProveedorId(provExistente.id);
-        } else {
-          setDetectedProvider({ nombre: result.proveedor_nombre, nif: result.proveedor_nif });
-        }
+        try {
+          const base64 = reader.result as string;
+          
+          // 3. Extraer con IA
+          const result = await extractDataFromInvoice(base64, perf.gemini_key);
+          
+          if (!result) throw new Error("La IA no devolvió datos válidos.");
 
-        // 5. Rellenar formulario
-        setNumFactProv(result.num_factura || "");
-        setFecha(result.fecha || new Date().toISOString().split('T')[0]);
-        setRetencionPct(result.retencion_pct || 0);
-        
-        if (result.lineas && result.lineas.length > 0) {
-          setLineas(result.lineas.map((l: any) => ({
-            unidades: l.unidades || 1,
-            descripcion: l.descripcion || "Concepto extraído por IA",
-            precio_unitario: l.precio_unitario || 0,
-            iva_pct: l.iva_pct || 21
-          })));
-        }
+          // 4. Buscar Proveedor por NIF
+          const provExistente = proveedores.find(p => p.nif === result.proveedor_nif);
+          
+          if (provExistente) {
+            setProveedorId(provExistente.id);
+          } else {
+            setDetectedProvider({ nombre: result.proveedor_nombre, nif: result.proveedor_nif });
+          }
 
-        setIsAiModalOpen(false);
-        setIsModalOpen(true);
+          // 5. Rellenar formulario
+          setNumFactProv(result.num_factura || "");
+          setFecha(result.fecha || new Date().toISOString().split('T')[0]);
+          setRetencionPct(result.retencion_pct || 0);
+          
+          if (result.lineas && result.lineas.length > 0) {
+            setLineas(result.lineas.map((l: any) => ({
+              unidades: l.unidades || 1,
+              descripcion: l.descripcion || "Concepto extraído por IA",
+              precio_unitario: l.precio_unitario || 0,
+              iva_pct: l.iva_pct || 21
+            })));
+          }
+
+          setIsAiModalOpen(false);
+          setIsModalOpen(true);
+        } catch (innerErr: any) {
+          alert("Error al procesar el contenido del PDF: " + innerErr.message);
+        } finally {
+          setIsExtracting(false);
+        }
       };
-    } catch (err) {
-      alert("Error procesando PDF: " + (err as Error).message);
-    } finally {
+      
+      reader.onerror = () => {
+        alert("Error al leer el archivo físico.");
+        setIsExtracting(false);
+      };
+
+      reader.readAsDataURL(file);
+    } catch (err: any) {
+      alert("Error de inicialización: " + err.message);
       setIsExtracting(false);
     }
   };
