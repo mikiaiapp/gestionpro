@@ -48,13 +48,20 @@ function VentasContent() {
   const [selectedProjId, setSelectedProjId] = useState("");
   const [pct, setPct] = useState("10");
 
+  const [hasAutoInvoiced, setHasAutoInvoiced] = useState(false);
+
   useEffect(() => {
     const pId = searchParams.get("proyectoId");
     const mode = searchParams.get("mode");
     if (pId && mode === "avance") {
-      setIsWizardOpen(true);
+      if (proyectos.length > 0 && !hasAutoInvoiced) {
+        handleProjectToInvoice(pId);
+        setHasAutoInvoiced(true);
+      } else if (!hasAutoInvoiced) {
+        setIsWizardOpen(true);
+      }
     }
-  }, [searchParams]);
+  }, [searchParams, proyectos, hasAutoInvoiced]);
 
   const handleProjectToInvoice = async (projId: string) => {
     const proj = proyectos.find(p => p.id === projId);
