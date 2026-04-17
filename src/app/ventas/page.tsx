@@ -111,9 +111,16 @@ function VentasContent() {
     }
   };
 
-  const handleRegisterCobro = async () => {
-    if (!selectedVenta || !cobroImporte) return;
+    const nuevoImporte = parseFloat(cobroImporte) || 0;
+    const yaCobrado = selectedVenta.totalCobrado || 0;
     
+    // Bloqueo si el importe supera el total de la factura
+    if (yaCobrado + nuevoImporte > selectedVenta.total + 0.01) {
+      alert(`⚠️ El importe total cobrado (${(yaCobrado + nuevoImporte).toFixed(2)}€) no puede superar el total de la factura (${selectedVenta.total.toFixed(2)}€). Pendiente: ${(selectedVenta.total - yaCobrado).toFixed(2)}€`);
+      setSaving(false);
+      return;
+    }
+
     setSaving(true);
     try {
       const { data: userData } = await supabase.auth.getUser();
@@ -122,7 +129,7 @@ function VentasContent() {
       const payload: any = {
         venta_id: selectedVenta.id,
         fecha: cobroFecha,
-        importe: parseFloat(cobroImporte) || 0,
+        importe: nuevoImporte,
         entidad: selectedVenta.clientes?.nombre || "Cliente",
         categoria: "Ventas",
         forma_pago: cobroForma,
@@ -537,7 +544,8 @@ function VentasContent() {
                               </button>
                                <button onClick={() => {
                                   setSelectedVenta(v);
-                                  setCobroImporte((v.total - (v.totalCobrado || 0)).toFixed(2));
+                                  const balance = Math.max(0, v.total - (v.totalCobrado || 0));
+                                  setCobroImporte(balance.toFixed(2));
                                   setIsCobroModalOpen(true);
                                   setOpenMenuId(null);
                                 }} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-green-600 hover:bg-green-50 transition-colors">

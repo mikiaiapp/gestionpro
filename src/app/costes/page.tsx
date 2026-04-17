@@ -170,20 +170,25 @@ export default function CostesPage() {
       const { data: userData } = await supabase.auth.getUser();
       const user = userData?.user;
       
+      const nuevoImporte = parseFloat(pagoImporte) || 0;
+      const yaPagado = selectedCoste.totalPagado || 0;
+      
+      // Bloqueo si el importe supera el total de la factura
+      if (yaPagado + nuevoImporte > selectedCoste.total + 0.01) {
+        alert(`⚠️ El importe total pagado (${(yaPagado + nuevoImporte).toFixed(2)}€) no puede superar el total de la factura (${selectedCoste.total.toFixed(2)}€). Pendiente: ${(selectedCoste.total - yaPagado).toFixed(2)}€`);
+        setSaving(false);
+        return;
+      }
+      
       const payload: any = {
+        coste_id: selectedCoste.id,
         entidad: selectedCoste.proveedores?.nombre || "Proveedor",
         fecha: pagoFecha,
-        importe: parseFloat(pagoImporte) || 0,
+        importe: nuevoImporte,
         categoria: "Proveedores",
         forma_pago: pagoForma,
         user_id: user?.id
       };
-
-      // Detectar si la tabla pagos tiene coste_id
-      const { data: sample } = await supabase.from("pagos").select("*").limit(1).maybeSingle();
-      if (sample && Object.keys(sample).includes('coste_id')) {
-        payload.coste_id = selectedCoste.id;
-      }
 
       const { error } = await supabase.from("pagos").insert([payload]);
       if (error) throw error;
@@ -729,7 +734,8 @@ export default function CostesPage() {
                         <button 
                           onClick={() => { 
                             setSelectedCoste(c); 
-                            setPagoImporte((c.total - (c.totalPagado || 0)).toFixed(2));
+                            const balance = Math.max(0, c.total - (c.totalPagado || 0));
+                            setPagoImporte(balance.toFixed(2));
                             setIsPayModalOpen(true); 
                             setOpenMenuId(null);
                           }} 
