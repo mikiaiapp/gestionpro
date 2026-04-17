@@ -313,7 +313,7 @@ export default function ProveedoresPage() {
                     <DataTableHeader label="Identidad Comercial" field="nombre" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.nombre || ''} onFilter={handleFilter} />
                     <DataTableHeader label="NIF / Identificación" field="nif" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.nif || ''} onFilter={handleFilter} />
                     <DataTableHeader label="Ubicación Actual" field="poblacion" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.poblacion || ''} onFilter={handleFilter} />
-                    <th className="px-10 py-6 text-[11px] font-black text-gray-400 uppercase tracking-widest text-right">Acciones</th>
+                    <th className="px-10 py-6 text-[12px] font-black text-gray-500 uppercase tracking-widest text-right">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">

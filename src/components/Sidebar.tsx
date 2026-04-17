@@ -13,7 +13,8 @@ import {
   BarChart3, 
   Settings, 
   LogOut,
-  LayoutDashboard
+  LayoutDashboard,
+  FileArchive
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
@@ -57,6 +58,12 @@ const menuStructure: MenuSection[] = [
     items: [
       { icon: Wallet, label: "Cobros", href: "/cobros" },
       { icon: CreditCard, label: "Pagos", href: "/pagos" },
+    ]
+  },
+  {
+    label: "FISCALIDAD",
+    items: [
+      { icon: FileArchive, label: "Pack Fiscal (ZIP)", href: "/fiscal" },
     ]
   },
   {

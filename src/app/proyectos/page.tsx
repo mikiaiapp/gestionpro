@@ -373,7 +373,7 @@ export default function ProyectosPage() {
                
                <table className="w-full border-collapse">
                  <thead>
-                   <tr className="bg-[#fcfaf7] border-b border-[var(--border)] rounded-t-xl">
+                   <tr className="bg-gray-50/50 border-b border-[var(--border)]">
                      <DataTableHeader label="Ref / Nombre" field="nombre" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.nombre || ''} onFilter={handleFilter} />
                      <DataTableHeader label="Cliente" field="cliente" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.cliente || ''} onFilter={handleFilter} />
                      <DataTableHeader label="Total" field="total" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.total || ''} onFilter={handleFilter} />
@@ -389,7 +389,7 @@ export default function ProyectosPage() {
                           { label: 'Cerrado', value: 'Cerrado' }
                         ]}
                       />
-                     <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Acciones</th>
+                     <th className="px-6 py-4 text-[12px] font-black text-gray-500 uppercase tracking-wider text-right">Acciones</th>
                    </tr>
                  </thead>
                  <tbody className="divide-y divide-[var(--border)]">

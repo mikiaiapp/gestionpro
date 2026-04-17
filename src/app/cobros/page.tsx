@@ -1,15 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Sidebar } from "@/components/Sidebar";
-import { HandCoins, Plus, Search, MoreHorizontal, Loader2, Receipt, Save, Trash2 } from "lucide-react";
+import { HandCoins, Plus, Search, MoreHorizontal, Loader2, Receipt, Save, Trash2, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { DataTableHeader } from "@/components/DataTableHeader";
 
 export default function CobrosPage() {
   const [cobros, setCobros] = useState<any[]>([]);
   const [ventas, setVentas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  
+  // Sorting and Filtering State
+  const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>({ key: 'fecha', direction: 'desc' });
+  const [columnFilters, setColumnFilters] = useState<{ [key: string]: string }>({});
+
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Formulario
@@ -115,6 +121,58 @@ export default function CobrosPage() {
     fetchData();
   };
 
+  const handleSort = (field: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === field && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key: field, direction });
+  };
+
+  const handleFilter = (field: string, value: string) => {
+    setColumnFilters(prev => ({ ...prev, [field]: value }));
+  };
+
+  const filteredCobros = useMemo(() => {
+    return cobros.filter(cb => {
+      // Global search
+      const matchesGlobal = searchTerm === '' || 
+        (cb.ventas?.num_factura || '').toString().includes(searchTerm) ||
+        (cb.ventas?.clientes?.nombre || '').toLowerCase().includes(searchTerm.toLowerCase());
+      
+      // Column filters
+      const matchesColumns = Object.keys(columnFilters).every(key => {
+        if (!columnFilters[key]) return true;
+        
+        let val = '';
+        if (key === 'factura') {
+          val = `${cb.ventas?.serie || ''}-${cb.ventas?.num_factura || ''} ${cb.ventas?.clientes?.nombre || ''}`;
+        } else {
+          val = cb[key] || '';
+        }
+        
+        return val.toString().toLowerCase().includes(columnFilters[key].toLowerCase());
+      });
+
+      return matchesGlobal && matchesColumns;
+    }).sort((a, b) => {
+      if (!sortConfig) return 0;
+      
+      let aVal, bVal;
+      if (sortConfig.key === 'factura') {
+        aVal = a.ventas?.num_factura || '';
+        bVal = b.ventas?.num_factura || '';
+      } else {
+        aVal = a[sortConfig.key] || '';
+        bVal = b[sortConfig.key] || '';
+      }
+      
+      if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [cobros, searchTerm, sortConfig, columnFilters]);
+
   return (
     <div className="flex bg-[var(--background)] min-h-screen">
       <Sidebar />
@@ -217,15 +275,15 @@ export default function CobrosPage() {
             ) : (
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-[#fcfaf7] border-b border-[var(--border)]">
-                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">Fecha</th>
-                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">Factura Origen</th>
-                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Importe</th>
-                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Acciones</th>
+                  <tr className="bg-gray-50/50 border-b border-[var(--border)]">
+                    <DataTableHeader label="Fecha" field="fecha" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.fecha || ''} onFilter={handleFilter} />
+                    <DataTableHeader label="Factura Origen" field="factura" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.factura || ''} onFilter={handleFilter} />
+                    <DataTableHeader label="Importe" field="importe" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.importe || ''} onFilter={handleFilter} />
+                    <th className="px-6 py-4 text-[12px] font-black text-gray-500 uppercase tracking-wider text-right">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--border)]">
-                  {cobros.filter(cb => cb.ventas?.num_factura.includes(searchTerm) || cb.ventas?.clientes?.nombre.toLowerCase().includes(searchTerm.toLowerCase())).map((cb) => (
+                  {filteredCobros.map((cb) => (
                     <tr key={cb.id} className="hover:bg-[#fcfaf7] transition-colors group">
                       <td className="px-6 py-4 text-sm font-medium text-[var(--muted)]">
                         {new Date(cb.fecha).toLocaleDateString()}

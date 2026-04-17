@@ -233,14 +233,25 @@ export const generatePDF = async (data: PDFData) => {
     doc.setTextColor(100, 100, 100);
     doc.text("SISTEMA VERI*FACTU", qrX - 5, qrY + 17, { align: 'right' });
 
-    // Generar QR (vía API para evitar dependencias conflictivas de node)
+    // Función auxiliar para cargar imagen como Base64 (evita fallos de carga asíncrona en jspdf)
+    const getBase64FromUrl = async (url: string): Promise<string> => {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(blob);
+      });
+    };
+
     const qrData = `https://www2.agenciatributaria.gob.es/wlpl/zsce-itst/verifactu/verificar-factura?nif=${data.perfil.nif}&numero=${data.numero}&fecha=${data.fecha}&importe=${data.totales.total}`;
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(qrData)}`;
     
     try {
-      doc.addImage(qrUrl, 'JPEG', qrX, qrY, qrSize, qrSize);
+      const qrBase64 = await getBase64FromUrl(qrUrl);
+      doc.addImage(qrBase64, 'PNG', qrX, qrY, qrSize, qrSize);
     } catch (err) {
-      console.warn("No se pudo cargar el QR de VeriFactu");
+      console.warn("No se pudo cargar el QR de VeriFactu:", err);
     }
   }
 

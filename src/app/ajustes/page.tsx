@@ -22,6 +22,7 @@ import {
 import { Sidebar } from '@/components/Sidebar';
 import { getFullLocationByCP } from '@/lib/geoData';
 import { validateNIF, validateIBAN, formatIBAN } from '@/lib/validations';
+import { encrypt } from '@/lib/encryption';
 
 export default function AjustesPage() {
   const [loading, setLoading] = useState(true);
@@ -43,6 +44,11 @@ export default function AjustesPage() {
   const [irpfDefault, setIrpfDefault] = useState(15);
   const [condicionesLegales, setCondicionesLegales] = useState('');
   const [lopdText, setLopdText] = useState('');
+  
+  // Verifactu State
+  const [verifactuCert, setVerifactuCert] = useState(''); // Base64
+  const [verifactuCertPassword, setVerifactuCertPassword] = useState('');
+  const [verifactuEnv, setVerifactuEnv] = useState<'pruebas' | 'produccion'>('pruebas');
   
   const [isSaving, setIsSaving] = useState(false);
   const [tiposIva, setTiposIva] = useState<any[]>([]);
@@ -104,6 +110,9 @@ export default function AjustesPage() {
         setIrpfDefault(Number(data.irpf_default) || 0);
         setCondicionesLegales(data.condiciones_legales || '');
         setLopdText(data.lopd_text || '');
+        setVerifactuCert(data.verifactu_certificado || '');
+        setVerifactuCertPassword(data.verifactu_pass || '');
+        setVerifactuEnv(data.verifactu_env || 'pruebas');
       }
     } catch (e) {
       console.error(e);
@@ -124,16 +133,22 @@ export default function AjustesPage() {
     setIsSaving(true);
     try {
       // ESTRATEGIA DETECTIVE AVANZADA
-      // Probamos qué columnas existen realmente para evitar errores de schema cache de Supabase
+      // Probamos qué columnas existen realmente
       const checkKeys = [
         'condiciones_legales', 'lopd_text', 'forma_pago_default', 'irpf_default', 'tiene_retencion',
-        'email', 'mail', 'correo', 'correo_electronico', 'gemini_key', 'logo_url'
+        'email', 'mail', 'correo', 'gemini_key', 'logo_url', 
+        'verifactu_certificado', 'verifactu_pass', 'verifactu_env'
       ];
       const existingKeys: string[] = [];
       
-      for (const key of checkKeys) {
-        const { error } = await supabase.from('perfil_negocio').select(key).limit(0);
-        if (!error) existingKeys.push(key);
+      try {
+        for (const key of checkKeys) {
+          const { error } = await supabase.from('perfil_negocio').select(key).limit(0);
+          if (!error) existingKeys.push(key);
+        }
+      } catch (e) {
+        console.warn("Error detecting columns, using defaults");
+        existingKeys.push('email', 'lopd_text', 'condiciones_legales');
       }
       
       const payload: any = {
@@ -147,20 +162,25 @@ export default function AjustesPage() {
         provincia
       };
 
-      // Guardado dinámico condicional
-      const setIfAny = (targets: string[], val: any) => {
-        const found = targets.find(t => existingKeys.includes(t));
-        if (found) payload[found] = val;
-      };
+      // Prioridad alta a los nombres estándar
+      if (existingKeys.includes('email')) payload.email = email;
+      else if (existingKeys.includes('mail')) payload.mail = email;
+      else if (existingKeys.includes('correo')) payload.correo = email;
 
-      setIfAny(['email', 'mail', 'correo', 'correo_electronico'], email);
-      setIfAny(['gemini_key'], geminiKey);
-      setIfAny(['logo_url'], logoUrl);
-      setIfAny(['forma_pago_default'], formaPago);
-      setIfAny(['tiene_retencion'], tieneRetencion);
-      setIfAny(['irpf_default'], irpfDefault);
-      setIfAny(['condiciones_legales'], condicionesLegales);
-      setIfAny(['lopd_text'], lopdText);
+      if (existingKeys.includes('lopd_text')) payload.lopd_text = lopdText;
+      if (existingKeys.includes('condiciones_legales')) payload.condiciones_legales = condicionesLegales;
+      if (existingKeys.includes('forma_pago_default')) payload.forma_pago_default = formaPago;
+      if (existingKeys.includes('tiene_retencion')) payload.tiene_retencion = tieneRetencion;
+      if (existingKeys.includes('irpf_default')) payload.irpf_default = irpfDefault;
+      if (existingKeys.includes('gemini_key')) payload.gemini_key = geminiKey;
+      if (existingKeys.includes('logo_url')) payload.logo_url = logoUrl;
+      
+      if (existingKeys.includes('verifactu_certificado')) payload.verifactu_certificado = verifactuCert;
+      if (existingKeys.includes('verifactu_pass')) {
+        // Solo encriptamos si es un valor nuevo (no encriptado previamente con prefijo IV)
+        payload.verifactu_pass = verifactuCertPassword.includes(':') ? verifactuCertPassword : encrypt(verifactuCertPassword);
+      }
+      if (existingKeys.includes('verifactu_env')) payload.verifactu_env = verifactuEnv;
 
       const { error } = await supabase.from('perfil_negocio').upsert(payload, { onConflict: 'user_id' });
 
@@ -409,6 +429,86 @@ export default function AjustesPage() {
                   className="w-full px-5 py-4 rounded-2xl border bg-purple-50/20 outline-none font-mono text-xs focus:ring-2 focus:ring-purple-500/10" 
                   placeholder="Introduce tu API Key..."
                 />
+              </div>
+            </div>
+
+            <div className="bg-white rounded-3xl border p-8 shadow-sm border-blue-100">
+              <h2 className="text-xl font-bold font-head mb-8 flex items-center gap-3 text-blue-600">
+                <ShieldCheck size={24} /> Certificado Digital & Verifactu
+              </h2>
+              <div className="space-y-4">
+                <div className="flex gap-4 mb-4">
+                  <button 
+                    onClick={() => setVerifactuEnv('pruebas')}
+                    className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${verifactuEnv === 'pruebas' ? 'bg-blue-600 text-white shadow-lg' : 'bg-gray-50 text-gray-400 border border-gray-100'}`}
+                  >
+                    Entorno Pruebas
+                  </button>
+                  <button 
+                    onClick={() => setVerifactuEnv('produccion')}
+                    className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${verifactuEnv === 'produccion' ? 'bg-red-600 text-white shadow-lg' : 'bg-gray-50 text-gray-400 border border-gray-100'}`}
+                  >
+                    PRODUCCIÓN
+                  </button>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Archivo de Certificado (.p12 / .pfx)</label>
+                  <div className="relative group">
+                    <input 
+                      type="file" 
+                      accept=".p12,.pfx"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (event) => {
+                            const base64 = event.target?.result as string;
+                            setVerifactuCert(base64);
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                      className="hidden" 
+                      id="cert-upload"
+                    />
+                    <label 
+                      htmlFor="cert-upload"
+                      className={`w-full flex items-center justify-center gap-3 px-5 py-6 rounded-2xl border-2 border-dashed transition-all cursor-pointer ${verifactuCert ? 'border-green-200 bg-green-50/30' : 'border-gray-200 bg-gray-50 hover:border-blue-300 hover:bg-blue-50/30'}`}
+                    >
+                      {verifactuCert ? (
+                        <>
+                          <CheckCircle2 className="text-green-500" size={24} />
+                          <span className="text-xs font-bold text-green-700">Certificado Cargado Correctamente</span>
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="text-gray-400" size={24} />
+                          <span className="text-xs font-bold text-gray-500">Haz clic para subir tu certificado</span>
+                        </>
+                      )}
+                    </label>
+                    {verifactuCert && (
+                      <button onClick={() => setVerifactuCert('')} className="absolute -top-2 -right-2 p-1 bg-red-100 text-red-600 rounded-full hover:bg-red-200 transition-colors">
+                        <Trash2 size={12} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Contraseña del Certificado</label>
+                  <div className="relative">
+                    <input 
+                      type="password" 
+                      value={verifactuCertPassword} 
+                      onChange={e => setVerifactuCertPassword(e.target.value)} 
+                      className="w-full px-5 py-4 rounded-2xl border bg-gray-50 outline-none font-mono text-xs focus:ring-2 focus:ring-blue-500/10" 
+                      placeholder="Introduce la contraseña del archivo..."
+                    />
+                    <Lock className="absolute right-5 top-4 text-gray-300" size={16} />
+                  </div>
+                </div>
               </div>
             </div>
           </div>

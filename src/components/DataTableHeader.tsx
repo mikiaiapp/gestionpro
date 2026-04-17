@@ -25,80 +25,83 @@ export const DataTableHeader: React.FC<DataTableHeaderProps> = ({
   const [isSearchVisible, setIsSearchVisible] = useState(false);
   const isSorted = sortConfig?.key === field;
   const direction = isSorted ? sortConfig.direction : null;
+  const hasFilter = !!filterValue;
 
   return (
-    <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest relative group">
-      <div className="flex items-center justify-between gap-2">
-        <span className="cursor-pointer hover:text-gray-600 transition-colors flex-1" onClick={() => onSort(field)}>
+    <th className={`px-6 py-4 text-[12px] font-black uppercase tracking-wider relative group transition-colors ${hasFilter ? 'bg-orange-50/50' : ''}`}>
+      <div className="flex items-center justify-between gap-3">
+        <span 
+          className={`cursor-pointer transition-all flex-1 whitespace-nowrap ${isSorted || hasFilter ? 'text-gray-900 scale-[1.02]' : 'text-gray-500 group-hover:text-gray-700'}`} 
+          onClick={() => onSort(field)}
+        >
           {label}
         </span>
         
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          {/* Sorting Icons */}
-          <div className="flex flex-col -space-y-1">
+        <div className={`flex items-center gap-1.5 ${isSorted || hasFilter ? 'opacity-100' : 'opacity-30 group-hover:opacity-100'} transition-opacity`}>
+          {/* Sorting Control */}
+          <div className="flex flex-col -space-y-1.5 cursor-pointer" onClick={(e) => { e.stopPropagation(); onSort(field); }}>
             <ChevronUp 
-              size={12} 
-              className={`cursor-pointer hover:text-orange-500 ${direction === 'asc' ? 'text-orange-600' : 'text-gray-300'}`} 
-              onClick={(e) => { e.stopPropagation(); onSort(field); }} 
+              size={13} 
+              className={`transition-colors ${direction === 'asc' ? 'text-orange-600 stroke-[3]' : 'text-gray-300'}`} 
             />
             <ChevronDown 
-              size={12} 
-              className={`cursor-pointer hover:text-orange-500 ${direction === 'desc' ? 'text-orange-600' : 'text-gray-300'}`} 
-              onClick={(e) => { e.stopPropagation(); onSort(field); }} 
+              size={13} 
+              className={`transition-colors ${direction === 'desc' ? 'text-orange-600 stroke-[3]' : 'text-gray-300'}`} 
             />
           </div>
 
-          {/* Search Icon */}
+          {/* Search/Filter Trigger */}
           {showSearch && (
-            <Search 
-              size={12} 
-              className={`cursor-pointer hover:text-orange-500 ${filterValue ? 'text-orange-600' : 'text-gray-300'}`}
+            <div 
+              className={`p-1 rounded-md transition-all cursor-pointer ${hasFilter || isSearchVisible ? 'bg-orange-100 text-orange-600' : 'hover:bg-gray-100 text-gray-400'}`}
               onClick={(e) => { e.stopPropagation(); setIsSearchVisible(!isSearchVisible); }}
-            />
+            >
+              <Search size={13} />
+            </div>
           )}
-
-          {/* Filter Icon (Simple toggle for now or indicator) */}
-          <Filter 
-             size={12} 
-             className="cursor-pointer text-gray-300 hover:text-orange-500"
-          />
         </div>
       </div>
 
-      {/* Inline Search Input */}
+      {/* Dropdown Filter/Search UI */}
       {isSearchVisible && (
-        <div className="absolute top-full left-0 w-full px-2 py-2 bg-white shadow-xl border rounded-b-xl z-20 animate-in fade-in slide-in-from-top-1 duration-200">
-          <div className="relative">
-             {filterOptions ? (
-               <select
-                 value={filterValue}
-                 onChange={(e) => onFilter(field, e.target.value)}
-                 className="w-full text-[10px] p-2 border rounded bg-gray-50 lowercase font-bold outline-none border-orange-100 focus:border-orange-400 transition-colors"
-               >
-                 <option value="">Todos</option>
-                 {filterOptions.map(opt => (
-                   <option key={opt.value} value={opt.value}>{opt.label}</option>
-                 ))}
-               </select>
-             ) : (
-               <>
-                 <input 
-                   autoFocus
-                   type="text" 
-                   placeholder={`Filtrar ${label.toLowerCase()}...`}
-                   value={filterValue}
-                   onChange={(e) => onFilter(field, e.target.value)}
-                   className="w-full text-[10px] p-2 pr-6 border rounded bg-gray-50 lowercase font-bold outline-none border-orange-100 focus:border-orange-400 transition-colors"
-                 />
-                 {filterValue && (
-                   <X 
-                     size={10} 
-                     className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer text-gray-400 hover:text-red-500"
-                     onClick={() => onFilter(field, '')}
-                   />
-                 )}
-               </>
-             )}
+        <div className="absolute top-full left-0 w-64 px-3 py-3 bg-white shadow-2xl border-x border-b border-orange-100 rounded-b-2xl z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="flex flex-col gap-2">
+             <div className="flex justify-between items-center px-1">
+                <span className="text-[10px] font-black text-orange-600 tracking-widest">{label}</span>
+                <button onClick={() => setIsSearchVisible(false)}><X size={12} className="text-gray-400 hover:text-red-500"/></button>
+             </div>
+             <div className="relative">
+                {filterOptions ? (
+                  <select
+                    value={filterValue}
+                    onChange={(e) => onFilter(field, e.target.value)}
+                    className="w-full text-xs p-3 border-2 rounded-xl bg-gray-50 font-bold outline-none border-orange-50 focus:border-orange-400 focus:bg-white transition-all appearance-none"
+                  >
+                    <option value="">Cualquier {label.toLowerCase()}...</option>
+                    {filterOptions.map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <>
+                    <input 
+                      autoFocus
+                      type="text" 
+                      placeholder={`Buscar por ${label.toLowerCase()}...`}
+                      value={filterValue}
+                      onChange={(e) => onFilter(field, e.target.value)}
+                      className="w-full text-xs p-3 pr-8 border-2 rounded-xl bg-gray-50 font-bold outline-none border-orange-50 focus:border-orange-400 focus:bg-white transition-all"
+                    />
+                    {filterValue && (
+                      <X 
+                        size={14} 
+                        className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-gray-400 hover:text-red-500 bg-white rounded-full p-0.5"
+                        onClick={() => onFilter(field, '')}
+                      />
+                    )}
+                  </>
+                )}
+             </div>
           </div>
         </div>
       )}

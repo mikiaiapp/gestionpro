@@ -9,6 +9,11 @@ import { DataTableHeader } from "@/components/DataTableHeader";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { generatePDF } from "@/lib/pdfGenerator";
 import { formatCurrency } from "@/lib/format";
+import { sendInvoiceToAeat } from "@/lib/aeatService";
+import { encrypt } from "@/lib/encryption";
+import { CloudUpload, ShieldCheck, OctagonAlert } from "lucide-react";
+import { exportVATBookPDF, exportVATBookExcel } from "@/lib/reportingService";
+import { uploadInvoiceFile } from "@/lib/storageService";
 
 interface LineaFactura {
   unidades: number;
@@ -94,7 +99,8 @@ function VentasContent() {
       
       const factor = pctRequested / 100;
       const numProyStr = (proj as any).num_proyecto ? ` nº ${(proj as any).num_proyecto}` : "";
-      const descripcionManual = `${pctRequested}% de avance del proyecto${numProyStr} con descripción "${(proj as any).originalNombre || proj.nombre}"`;
+      const projNombreLimpio = (proj as any).originalNombre || proj.nombre;
+      const descripcionManual = `${pctRequested}% de avance del proyecto con descripción "${projNombreLimpio}"`;
       
       setLineas([{ 
         unidades: 1, 
@@ -111,13 +117,15 @@ function VentasContent() {
     }
   };
 
+  const handleRegisterCobro = async () => {
+    if (!selectedVenta) return;
+    
     const nuevoImporte = parseFloat(cobroImporte) || 0;
     const yaCobrado = selectedVenta.totalCobrado || 0;
     
     // Bloqueo si el importe supera el total de la factura
     if (yaCobrado + nuevoImporte > selectedVenta.total + 0.01) {
       alert(`⚠️ El importe total cobrado (${(yaCobrado + nuevoImporte).toFixed(2)}€) no puede superar el total de la factura (${selectedVenta.total.toFixed(2)}€). Pendiente: ${(selectedVenta.total - yaCobrado).toFixed(2)}€`);
-      setSaving(false);
       return;
     }
 
@@ -141,7 +149,7 @@ function VentasContent() {
 
       setIsCobroModalOpen(false);
       setCobroImporte("");
-      fetchData();
+      await fetchData();
       alert("✅ Cobro registrado correctamente");
     } catch (err: any) {
       alert("Error al registrar cobro: " + err.message);
@@ -368,54 +376,106 @@ function VentasContent() {
     }
   };
 
+  const handleVerifactuSubmit = async (v: any) => {
+    if (!perfil || !perfil.nif) {
+      alert("Configura tu NIF en Ajustes para enviar a Verifactu.");
+      return;
+    }
+
+    let currentPass = perfil.verifactu_pass;
+    
+    // Si no hay contraseña, la pedimos "la primera vez"
+    if (!currentPass) {
+      const p = prompt("Introduce la contraseña de tu certificado digital para este envío (se guardará cifrada para futuros envíos):");
+      if (!p) return;
+      
+      const encrypted = encrypt(p);
+      const { error } = await supabase.from('perfil_negocio').update({ verifactu_pass: encrypted }).eq('user_id', perfil.user_id);
+      if (error) {
+        alert("Error al guardar la contraseña cifrada: " + error.message);
+        return;
+      }
+      currentPass = encrypted;
+      // Actualizamos perfil local para no volver a pedirlo en esta sesión
+      setPerfil({ ...perfil, verifactu_pass: encrypted });
+    }
+
+    if (!confirm(`¿Transmitir la factura ${v.serie}-${v.num_factura} a la AEAT (Verifactu)?`)) return;
+
+    setSaving(true);
+    try {
+      // 1. Obtener última factura enviada para el encadenamiento
+      const { data: lastVenta } = await supabase
+        .from("ventas")
+        .select("verifactu_hash")
+        .not("verifactu_hash", "is", null)
+        .order("fecha", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const record: any = {
+        nifExpedidor: perfil.nif,
+        numFactura: `${v.serie}-${v.num_factura}`,
+        fechaExpedicion: v.fecha,
+        tipoFactura: 'F1', // Factura ordinaria
+        importeTotal: v.total,
+        hashAnterior: lastVenta?.verifactu_hash || ''
+      };
+
+      const result = await sendInvoiceToAeat(record, perfil);
+
+      if (result.success) {
+        // 2. Actualizar registro en DB
+        const { error } = await supabase.from("ventas").update({
+          verifactu_status: 'enviado',
+          verifactu_ref_aeat: result.refAeat,
+          verifactu_fecha_envio: new Date().toISOString(),
+          verifactu_hash: (record.hashAnterior || '') + 'MOCKED_HASH_CHAIN' // En prod esto lo devolvería el service
+        }).eq("id", v.id);
+
+        if (error) throw error;
+        alert("✅ Factura transmitida y aceptada por la AEAT.");
+        fetchData();
+      } else {
+        alert("❌ Error AEAT: " + result.errorMsg);
+      }
+    } catch (err: any) {
+      alert("Error en el proceso Verifactu: " + err.message);
+    } finally {
+      setSaving(false);
+      setOpenMenuId(null);
+    }
+  };
+
   const downloadInvoice = async (venta: any) => {
     if (!perfil) {
       alert("Configura primero tus datos de empresa en Ajustes.");
       return;
     }
+
     try {
-      await generatePDF({
-        tipo: 'FACTURA',
-        numero: `${venta.serie}-${venta.num_factura}`,
-        fecha: venta.fecha,
-        cliente: {
-          nombre: venta.clientes?.nombre || '',
-          nif: venta.clientes?.nif || '',
-          direccion: venta.clientes?.direccion || '',
-          poblacion: venta.clientes?.poblacion || '',
-          cp: venta.clientes?.codigo_postal || '',
-          provincia: venta.clientes?.provincia || '',
-        },
-        perfil: {
-          nombre: perfil.nombre || '',
-          nif: perfil.nif || '',
-          direccion: perfil.direccion || '',
-          poblacion: perfil.poblacion || '',
-          cp: perfil.cp || '',
-          provincia: perfil.provincia || '',
-          cuenta_bancaria: perfil.cuenta_bancaria || '',
-          logo_url: perfil.logo_url || '',
-          condiciones_legales: perfil.condiciones_legales || '',
-          email: perfil.email || ''
-        },
-        lineas: (venta.venta_lineas || []).map((l: any) => ({
-          unidades: l.unidades,
-          descripcion: l.descripcion,
-          precio_unitario: l.precio_unitario
-        })),
-        totales: {
-          base: venta.base_imponible,
-          iva_pct: venta.iva_pct,
-          iva_importe: venta.iva_importe,
-          retencion_pct: venta.retencion_pct,
-          retencion_importe: venta.retencion_importe,
-          total: venta.total
-        }
+      const doc = generatePDF(venta, perfil);
+      const pdfBlob = doc.output('blob');
+
+      // 1. Guardar localmente
+      doc.save(`Factura_${venta.serie}-${venta.num_factura}.pdf`);
+
+      // 2. Subir a Storage si no tiene pdf_url o si queremos actualizarla
+      const publicUrl = await uploadInvoiceFile(pdfBlob, 'ventas', {
+        number: `${venta.serie}-${venta.num_factura}`,
+        entity: venta.clientes?.nombre || 'cliente'
       });
-    } catch (err) {
-      alert("Error al generar la factura PDF.");
+
+      // 3. Actualizar registro en DB si es necesario
+      if (publicUrl && !venta.pdf_url) {
+        await supabase.from("ventas").update({ pdf_url: publicUrl }).eq("id", venta.id);
+        await fetchData();
+      }
+    } catch (err: any) {
+      console.error("Error al generar/guardar PDF:", err);
     }
   };
+
   const handleSort = (field: string) => {
     let direction: 'asc' | 'desc' = 'asc';
     if (sortConfig && sortConfig.key === field && sortConfig.direction === 'asc') {
@@ -485,6 +545,18 @@ function VentasContent() {
                 <p className="text-[var(--muted)] font-medium">Gestión y emisión de facturas profesionales.</p>
               </div>
               <div className="flex gap-3">
+                <button 
+                  onClick={() => exportVATBookPDF('ventas', filteredVentas, perfil)} 
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white text-gray-700 border border-gray-200 font-bold hover:bg-gray-50 transition-all active:scale-95 shadow-sm"
+                >
+                  <Download size={18} /> Libro IVA (PDF)
+                </button>
+                <button 
+                  onClick={() => exportVATBookExcel('ventas', filteredVentas)} 
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white text-green-700 border border-gray-200 font-bold hover:bg-gray-50 transition-all active:scale-95 shadow-sm"
+                >
+                  <Download size={18} /> Libro IVA (Excel)
+                </button>
                 <button onClick={() => setIsWizardOpen(true)} className="flex items-center gap-2 px-6 py-3 rounded-xl bg-[var(--accent)] text-white font-bold hover:shadow-lg transition-all active:scale-[0.98]">
                   <Plus size={18} /> Crear Factura
                 </button>
@@ -495,25 +567,14 @@ function VentasContent() {
 
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="bg-[#fcfaf7] border-b border-[var(--border)]">
+                    <tr className="bg-gray-50/50 border-b border-[var(--border)]">
                       <DataTableHeader label="Factura" field="num_factura" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.num_factura || ''} onFilter={handleFilter} />
                       <DataTableHeader label="Fecha" field="fecha" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.fecha || ''} onFilter={handleFilter} />
                       <DataTableHeader label="Cliente" field="cliente" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.cliente || ''} onFilter={handleFilter} />
                       <DataTableHeader label="Total" field="total" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.total || ''} onFilter={handleFilter} />
-                <DataTableHeader 
-                  label="Cobradas" 
-                  field="estadoPago" 
-                  sortConfig={sortConfig} 
-                  onSort={handleSort} 
-                  filterValue={columnFilters.estadoPago || ''} 
-                  onFilter={handleFilter} 
-                  filterOptions={[
-                    { label: 'Cobrado', value: 'Cobrado' },
-                    { label: 'Pendiente', value: 'Pendiente' },
-                    { label: 'Cobro Parcial', value: 'Cobro Parcial' }
-                  ]}
-                />
-                      <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Acciones</th>
+                      <DataTableHeader label="Cobro" field="estadoPago" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.estadoPago || ''} onFilter={handleFilter} />
+                      <th className="px-6 py-4 text-[12px] font-black text-gray-500 uppercase tracking-wider text-center">VeriFactu</th>
+                      <th className="px-6 py-4 text-[12px] font-black text-gray-500 uppercase tracking-wider text-right">Acciones</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[var(--border)]">
@@ -522,15 +583,27 @@ function VentasContent() {
                         <td className="px-6 py-4 text-sm font-bold">{v.serie}-{v.num_factura}</td>
                         <td className="px-6 py-4 text-sm text-[var(--muted)]">{new Date(v.fecha).toLocaleDateString()}</td>
                         <td className="px-6 py-4 text-sm">{v.clientes?.nombre}</td>
-                        <td className="px-6 py-4 text-right font-bold text-[var(--accent)]">{formatCurrency(v.total)}</td>
-                        <td className="px-6 py-4">
-                           <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                             v.estadoPago === 'Cobrado' ? 'bg-green-50 text-green-600' : 
-                             v.estadoPago === 'Cobro Parcial' ? 'bg-orange-50 text-orange-600' : 
-                             'bg-gray-50 text-gray-500'
-                           }`}>
-                              {v.estadoPago}
-                           </span>
+                        <td className="px-6 py-4 text-center">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                            v.estadoPago === 'Cobrado' ? 'bg-green-50 text-green-600' : 
+                            v.estadoPago === 'Parcial' ? 'bg-orange-50 text-orange-600' : 
+                            'bg-gray-50 text-gray-500'
+                          }`}>
+                            {v.estadoPago || 'Pendiente'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          {v.verifactu_status === 'enviado' ? (
+                            <div className="flex flex-col items-center gap-0.5 text-green-600">
+                              <ShieldCheck size={18} />
+                              <span className="text-[10px] font-black uppercase tracking-tighter">Verificado</span>
+                            </div>
+                          ) : (
+                            <div className="flex flex-col items-center gap-0.5 text-gray-300">
+                              <CloudUpload size={18} />
+                              <span className="text-[10px] font-black uppercase tracking-tighter">Pendiente</span>
+                            </div>
+                          )}
                         </td>
                         <td className="px-6 py-4 text-right relative">
                           <button onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === v.id ? null : v.id); }} className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-400 hover:text-gray-600">
@@ -540,17 +613,31 @@ function VentasContent() {
                           {openMenuId === v.id && (
                             <div className="absolute right-6 top-12 w-48 bg-white rounded-xl shadow-xl border border-[var(--border)] z-50 py-2 animate-in fade-in slide-in-from-top-2 duration-200 text-left">
                               <button onClick={() => downloadInvoice(v)} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-700 transition-colors">
-                                <Printer size={16}/> Imprimir PDF
+                                <Printer size={16}/> Imprimir Factura
                               </button>
-                               <button onClick={() => {
-                                  setSelectedVenta(v);
-                                  const balance = Math.max(0, v.total - (v.totalCobrado || 0));
-                                  setCobroImporte(balance.toFixed(2));
-                                  setIsCobroModalOpen(true);
-                                  setOpenMenuId(null);
-                                }} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-green-600 hover:bg-green-50 transition-colors">
-                                  <HandCoins size={16} className="text-green-500"/> Registrar Cobro
+
+                              {v.pdf_url && (
+                                <a href={v.pdf_url} target="_blank" rel="noopener noreferrer" className="w-full flex items-center gap-3 px-4 py-2 text-sm text-purple-600 hover:bg-purple-50 transition-colors">
+                                  <FileText size={16} className="text-purple-500" /> Ver Factura PDF
+                                </a>
+                              )}
+
+                              {v.verifactu_status !== 'enviado' && (
+                                <button onClick={() => handleVerifactuSubmit(v)} disabled={saving} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-blue-600 hover:bg-blue-50 transition-colors">
+                                  <CloudUpload size={16}/> Transmitir AEAT
                                 </button>
+                              )}
+                               {v.estadoPago !== 'Cobrado' && (
+                                 <button onClick={() => {
+                                    setSelectedVenta(v);
+                                    const balance = Math.max(0, v.total - (v.totalCobrado || 0));
+                                    setCobroImporte(balance.toFixed(2));
+                                    setIsCobroModalOpen(true);
+                                    setOpenMenuId(null);
+                                  }} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-green-600 hover:bg-green-50 transition-colors">
+                                    <HandCoins size={16} className="text-green-500"/> Registrar Cobro
+                                  </button>
+                                )}
                                 <button onClick={() => openEditVenta(v)} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-700 transition-colors">
                                   <Save size={16}/> Editar Factura
                                 </button>

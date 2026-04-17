@@ -1,14 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Sidebar } from "@/components/Sidebar";
-import { HandCoins, Plus, Search, MoreHorizontal, Loader2, Receipt, Save, Trash2, Import } from "lucide-react";
+import { HandCoins, Plus, Search, MoreHorizontal, Loader2, Receipt, Save, Trash2, Import, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { DataTableHeader } from "@/components/DataTableHeader";
 
 export default function PagosPage() {
   const [pagos, setPagos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  
+  // Sorting and Filtering State
+  const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>({ key: 'fecha', direction: 'desc' });
+  const [columnFilters, setColumnFilters] = useState<{ [key: string]: string }>({});
+
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Formulario
@@ -106,6 +112,44 @@ export default function PagosPage() {
     await supabase.from("pagos").delete().eq("id", id);
     fetchData();
   };
+
+  const handleSort = (field: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === field && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key: field, direction });
+  };
+
+  const handleFilter = (field: string, value: string) => {
+    setColumnFilters(prev => ({ ...prev, [field]: value }));
+  };
+
+  const filteredPagos = useMemo(() => {
+    return pagos.filter(p => {
+      // Global search
+      const matchesGlobal = searchTerm === '' || 
+        p.entidad.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (p.categoria && p.categoria.toLowerCase().includes(searchTerm.toLowerCase()));
+      
+      // Column filters
+      const matchesColumns = Object.keys(columnFilters).every(key => {
+        if (!columnFilters[key]) return true;
+        const val = p[key] || '';
+        return val.toString().toLowerCase().includes(columnFilters[key].toLowerCase());
+      });
+
+      return matchesGlobal && matchesColumns;
+    }).sort((a, b) => {
+      if (!sortConfig) return 0;
+      const aVal = a[sortConfig.key] || '';
+      const bVal = b[sortConfig.key] || '';
+      
+      if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [pagos, searchTerm, sortConfig, columnFilters]);
 
   return (
     <div className="flex bg-[var(--background)] min-h-screen">
@@ -217,16 +261,31 @@ export default function PagosPage() {
             ) : (
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-[#fcfaf7] border-b border-[var(--border)]">
-                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">Fecha</th>
-                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">Concepto</th>
-                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">Categoría</th>
-                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Importe</th>
-                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Acciones</th>
+                  <tr className="bg-gray-50/50 border-b border-[var(--border)]">
+                    <DataTableHeader label="Fecha" field="fecha" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.fecha || ''} onFilter={handleFilter} />
+                    <DataTableHeader label="Concepto" field="entidad" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.entidad || ''} onFilter={handleFilter} />
+                    <DataTableHeader 
+                      label="Categoría" 
+                      field="categoria" 
+                      sortConfig={sortConfig} 
+                      onSort={handleSort} 
+                      filterValue={columnFilters.categoria || ''} 
+                      onFilter={handleFilter} 
+                      filterOptions={[
+                        { label: 'Suministros', value: 'Suministros' },
+                        { label: 'Alquiler', value: 'Alquiler' },
+                        { label: 'Nóminas', value: 'Nóminas' },
+                        { label: 'Impuestos', value: 'Impuestos' },
+                        { label: 'Proveedores', value: 'Proveedores' },
+                        { label: 'Otros', value: 'Otros' }
+                      ]}
+                    />
+                    <DataTableHeader label="Importe" field="importe" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.importe || ''} onFilter={handleFilter} />
+                    <th className="px-6 py-4 text-[12px] font-black text-gray-500 uppercase tracking-wider text-right">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--border)]">
-                  {pagos.filter(p => p.entidad.toLowerCase().includes(searchTerm.toLowerCase()) || p.categoria.toLowerCase().includes(searchTerm.toLowerCase())).map((p) => (
+                  {filteredPagos.map((p) => (
                     <tr key={p.id} className="hover:bg-[#fcfaf7] transition-colors group">
                       <td className="px-6 py-4 text-sm font-medium text-[var(--muted)]">
                         {new Date(p.fecha).toLocaleDateString()}

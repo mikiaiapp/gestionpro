@@ -8,7 +8,8 @@ import { DataTableHeader } from "@/components/DataTableHeader";
 import { formatCurrency, cleanNIF } from "@/lib/format";
 import { extractDataFromInvoice } from "@/lib/aiService";
 import { SearchableSelect } from "@/components/SearchableSelect";
-
+import { uploadInvoiceFile, deleteInvoiceFile } from "@/lib/storageService";
+import { exportVATBookPDF, exportVATBookExcel } from "@/lib/reportingService";
 import { getFullLocationByCP } from '@/lib/geoData';
 
 interface LineaCoste {
@@ -63,10 +64,19 @@ export default function CostesPage() {
 
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [pdfUrl, setPdfUrl] = useState<string>("");
+  const [perfil, setPerfil] = useState<any>(null);
 
   useEffect(() => {
     fetchData();
+    fetchPerfil();
   }, []);
+
+  const fetchPerfil = async () => {
+    const { data } = await supabase.from("perfil_negocio").select("*").single();
+    if (data) setPerfil(data);
+  };
 
   // Numeración correlativa automática (Libro de IVA Soportado)
   useEffect(() => {
@@ -148,6 +158,8 @@ export default function CostesPage() {
     setProyectoId(c.proyecto_id || "");
     setRetencionPct(c.retencion_pct || 0);
     setEstadoPago(c.estado_pago || "Pendiente");
+    setPdfUrl(c.pdf_url || "");
+    setPdfFile(null);
     
     if (c.coste_lineas && c.coste_lineas.length > 0) {
       setLineas(c.coste_lineas.map((l: any) => ({
@@ -352,6 +364,23 @@ export default function CostesPage() {
       if (availableCols.includes('iva_pct')) payload.iva_pct = 21;
       if (availableCols.includes('retencion_pct')) payload.retencion_pct = retencionPct;
 
+      // Subida de PDF
+      let finalPdfUrl = pdfUrl;
+      if (pdfFile) {
+        const prov = proveedores.find(p => p.id === proveedorId);
+        finalPdfUrl = await uploadInvoiceFile(pdfFile, 'costes', {
+          number: numInterno,
+          entity: prov?.nombre || 'proveedor'
+        });
+      }
+
+      if (!finalPdfUrl) {
+         alert("⚠️ Es obligatorio subir el PDF de la factura recibida.");
+         setSaving(false);
+         return;
+      }
+      payload.pdf_url = finalPdfUrl;
+
       let currentId = editingId;
       if (editingId) {
         const { error: uErr } = await supabase.from("costes").update(payload).eq("id", editingId);
@@ -444,10 +473,35 @@ export default function CostesPage() {
             <h1 className="text-3xl font-bold font-head tracking-tight mb-1">Facturas Recibidas</h1>
             <p className="text-[var(--muted)] font-medium">Gestión de facturas recibidas y multi-IVA.</p>
           </div>
-          <div className="flex gap-3">
-             <button onClick={() => setIsAiModalOpen(true)} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-purple-50 text-purple-700 border border-purple-100 font-bold hover:shadow-md transition-all active:scale-95">
-               <Sparkles size={18} /> Importar PDF con IA
-             </button>
+              <button onClick={() => {
+                setEditingId(null);
+                setNumFactProv("");
+                setProveedorId("");
+                setTipoGasto("general");
+                setProyectoId("");
+                setRetencionPct(0);
+                setLineas([{ unidades: 1, descripcion: "", precio_unitario: 0, iva_pct: 21 }]);
+                setPdfFile(null);
+                setPdfUrl("");
+                setIsModalOpen(true);
+              }} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gray-800 text-white font-bold hover:bg-black transition-all active:scale-95 shadow-lg">
+                <Plus size={18} /> Nuevo Registro Manual
+              </button>
+              <button 
+                onClick={() => exportVATBookPDF('costes', filteredCostes, perfil)} 
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white text-gray-700 border border-gray-200 font-bold hover:bg-gray-50 transition-all active:scale-95 shadow-sm"
+              >
+                <Download size={18} /> Libro IVA (PDF)
+              </button>
+              <button 
+                onClick={() => exportVATBookExcel('costes', filteredCostes)} 
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white text-green-700 border border-gray-200 font-bold hover:bg-gray-50 transition-all active:scale-95 shadow-sm"
+              >
+                <Download size={18} /> Libro IVA (Excel)
+              </button>
+              <button onClick={() => setIsAiModalOpen(true)} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-purple-50 text-purple-700 border border-purple-100 font-bold hover:shadow-md transition-all active:scale-95">
+                <Sparkles size={18} /> Importar PDF con IA
+              </button>
              <button onClick={openAddModal} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--accent)] text-white font-bold hover:shadow-lg transition-all active:scale-95">
                <Plus size={18}/> Nueva Factura Recibida
              </button>
@@ -605,10 +659,35 @@ export default function CostesPage() {
                              placeholder="Seleccionar..." 
                            />
                         </div>
-                      )}
-                   </div>
+                    </div>
 
-                   <div className="pt-4">
+                    <div className="p-6 bg-purple-50/50 rounded-2xl border border-purple-100/50 space-y-4">
+                       <div className="flex items-center justify-between">
+                          <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                             <Upload size={14} className="text-purple-500" /> Adjuntar Factura Original (PDF obligatorio)
+                          </label>
+                          {pdfUrl && (
+                             <a href={pdfUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] font-bold text-purple-600 hover:underline flex items-center gap-1">
+                                <FileText size={12} /> Ver PDF actual
+                             </a>
+                          )}
+                       </div>
+                       <div className="relative group">
+                          <input 
+                             type="file" 
+                             accept=".pdf" 
+                             onChange={(e) => setPdfFile(e.target.files?.[0] || null)}
+                             className="w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-6 file:rounded-xl file:border-0 file:text-xs file:font-black file:bg-purple-600 file:text-white hover:file:bg-purple-700 cursor-pointer p-4 bg-white rounded-xl border-2 border-dashed border-purple-200 group-hover:border-purple-300 transition-all"
+                          />
+                          {pdfFile && (
+                             <div className="mt-2 text-xs font-bold text-green-600 flex items-center gap-1 animate-in fade-in">
+                                ✓ Archivo seleccionado: {pdfFile.name}
+                             </div>
+                          )}
+                       </div>
+                    </div>
+
+                    <div className="pt-4">
                       <table className="w-full text-left">
                         <thead>
                           <tr className="border-b text-gray-400">
@@ -672,25 +751,26 @@ export default function CostesPage() {
 
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-[#fcfaf7] border-b text-[11px] font-bold text-gray-400 uppercase">
+              <tr className="bg-gray-50/50 border-b border-[var(--border)]">
                 <DataTableHeader label="Factura / Prov." field="proveedor" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.proveedor || ''} onFilter={handleFilter} />
                 <DataTableHeader label="Fecha" field="fecha" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.fecha || ''} onFilter={handleFilter} />
                 <DataTableHeader label="Gasto / Proyecto" field="proyecto" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.proyecto || ''} onFilter={handleFilter} />
                 <DataTableHeader label="Total" field="total" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.total || ''} onFilter={handleFilter} />
                 <DataTableHeader 
-                  label="Pagadas" 
+                  label="Estado Pago" 
                   field="estado_pago" 
                   sortConfig={sortConfig} 
                   onSort={handleSort} 
                   filterValue={columnFilters.estado_pago || ''} 
                   onFilter={handleFilter} 
                   filterOptions={[
+                    { label: 'Todos', value: '' },
                     { label: 'Pagado', value: 'Pagado' },
                     { label: 'Pendiente', value: 'Pendiente' },
                     { label: 'Pago Parcial', value: 'Pago Parcial' }
                   ]}
                 />
-                <th className="px-6 py-4 text-[11px] font-bold text-gray-400 uppercase text-right">Acciones</th>
+                <th className="px-6 py-4 text-[12px] font-black text-gray-500 uppercase tracking-wider text-right">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--border)]">
@@ -727,22 +807,32 @@ export default function CostesPage() {
 
                     {openMenuId === c.id && (
                       <div className="absolute right-6 top-12 w-48 bg-white rounded-xl shadow-xl border z-50 py-2 animate-in fade-in slide-in-from-top-2 duration-200 text-left">
+                        {c.pdf_url && (
+                          <a href={c.pdf_url} target="_blank" rel="noopener noreferrer" className="w-full flex items-center gap-3 px-4 py-2 text-sm text-purple-600 hover:bg-purple-50 transition-colors">
+                            <FileText size={16} className="text-purple-500" /> Ver Factura PDF
+                          </a>
+                        )}
+
+                        <div className="h-px bg-gray-100 my-1 mx-2"></div>
+
                         <button onClick={() => openEditModal(c)} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
                           <Receipt size={16} className="text-blue-500" /> Editar Factura
                         </button>
                         
-                        <button 
-                          onClick={() => { 
-                            setSelectedCoste(c); 
-                            const balance = Math.max(0, c.total - (c.totalPagado || 0));
-                            setPagoImporte(balance.toFixed(2));
-                            setIsPayModalOpen(true); 
-                            setOpenMenuId(null);
-                          }} 
-                          className="w-full flex items-center gap-3 px-4 py-2 text-sm text-green-600 hover:bg-green-50 transition-colors"
-                        >
-                          <HandCoins size={16} className="text-green-500" /> Registrar Pago
-                        </button>
+                        {c.estado_pago !== 'Pagado' && (
+                          <button 
+                            onClick={() => { 
+                              setSelectedCoste(c); 
+                              const balance = Math.max(0, c.total - (c.totalPagado || 0));
+                              setPagoImporte(balance.toFixed(2));
+                              setIsPayModalOpen(true); 
+                              setOpenMenuId(null);
+                            }} 
+                            className="w-full flex items-center gap-3 px-4 py-2 text-sm text-green-600 hover:bg-green-50 transition-colors"
+                          >
+                            <HandCoins size={16} className="text-green-500" /> Registrar Pago
+                          </button>
+                        )}
                         
                         <div className="h-px bg-gray-100 my-1 mx-2"></div>
                         
