@@ -195,25 +195,83 @@ export default function CostesPage() {
         total: totalFactura,
         user_id: user?.id
       };
+      if (!user) throw new Error("Usuario no autenticado");
 
       let currentId = editingId;
       if (editingId) {
+        const payload = {
+          serie, num_interno: numInterno || `REC-${Date.now()}`, num_factura_proveedor: numFactProv, fecha, 
+          proveedor_id: proveedorId, tipo_gasto: tipoGasto,
+          proyecto_id: tipoGasto === "proyecto" ? proyectoId : null,
+          base_imponible: baseImponible, iva_pct: 21, iva_importe: totalIva,
+          retencion_pct: retencionPct, retencion_importe: retencionImporte, 
+          total: totalFactura,
+          user_id: user?.id
+        };
         await supabase.from("costes").update(payload).eq("id", editingId);
         await supabase.from("coste_lineas").delete().eq("coste_id", editingId);
       } else {
-        const { data, error } = await supabase.from("costes").insert([payload]).select().single();
-        if (error) throw error;
+        // ESTRATEGIA DETECTIVE: Inserción mínima para descubrir columnas reales en 'costes'
+        const minimalPayload: any = {
+          proveedor_id: proveedorId,
+          fecha,
+          total: totalFactura,
+          user_id: user.id
+        };
+
+        // Si hay proyecto vinculado, lo intentamos con el nombre que solemos usar
+        if (proyectoId && tipoGasto === "proyecto") {
+          minimalPayload.proyecto_id = proyectoId;
+        }
+
+        // EN ALTA NUEVA: Guardamos solo lo mínimo
+        const { data, error } = await supabase.from("costes").insert([minimalPayload]).select().single();
+        
+        if (error) {
+          throw new Error("No se pudo iniciar el registro de coste. Error: " + error.message);
+        }
         currentId = data.id;
+
+        // ¡DETECTAR COLUMNAS REALES!
+        const realKeys = Object.keys(data);
+        
+        // Mapeo inteligente
+        const foundKey = (options: string[]) => options.find(o => realKeys.includes(o));
+        
+        const colFactura = foundKey(['numero_factura', 'num_factura', 'factura_prov', 'num_factura_proveedor', 'referencia']);
+        const colBase = foundKey(['base_imponible', 'base', 'subtotal']);
+        const colIvaImporte = foundKey(['iva_importe', 'cuota_iva', 'iva_total', 'iva']);
+        const colRetImporte = foundKey(['retencion_importe', 'irpf_importe', 'retencion', 'irpf']);
+        const colSerie = foundKey(['serie', 'serie_id', 'tipo_serie']);
+
+        // Parche con los datos reales
+        const patch: any = {};
+        if (colFactura) patch[colFactura] = numFactProv;
+        if (colBase) patch[colBase] = baseImponible;
+        if (colIvaImporte) patch[colIvaImporte] = totalIva;
+        if (colRetImporte) patch[colRetImporte] = retencionImporte;
+        if (colSerie) patch[colSerie] = serie;
+        
+        // Ivas y Retenciones porcentuales si existen
+        if (realKeys.includes('iva_pct')) patch.iva_pct = 21;
+        if (realKeys.includes('retencion_pct')) patch.retencion_pct = retencionPct;
+
+        if (Object.keys(patch).length > 0) {
+          await supabase.from("costes").update(patch).eq("id", currentId);
+        }
       }
 
-      const linesToInsert = lineas.map(l => ({
+      // 3. Guardar Líneas
+      const lineasConId = lineas.map(l => ({
         coste_id: currentId,
-        unidades: l.unidades,
         descripcion: l.descripcion,
-        precio_unitario: l.precio_unitario,
-        iva_pct: l.iva_pct
+        unidades: Number(l.unidades),
+        precio_unitario: Number(l.precio_unitario),
+        iva_pct: Number(l.iva_pct)
       }));
-      await supabase.from("coste_lineas").insert(linesToInsert);
+
+      const { error: lineError } = await supabase.from("coste_lineas").insert(lineasConId);
+      if (lineError) throw lineError;
 
       setIsModalOpen(false);
       fetchData();
