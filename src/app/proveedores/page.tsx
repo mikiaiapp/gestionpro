@@ -10,9 +10,11 @@ import {
   Trash2, 
   Save, 
   Loader2,
-  TrendingDown
+  TrendingDown,
+  MapPin
 } from 'lucide-react';
 import { Sidebar } from '@/components/Sidebar';
+import { getProvinciaPorCP } from '@/lib/geoData';
 
 export default function ProveedoresPage() {
   const [proveedores, setProveedores] = useState<any[]>([]);
@@ -35,6 +37,19 @@ export default function ProveedoresPage() {
   useEffect(() => {
     fetchProveedores();
   }, []);
+
+  // Lógica de Geolocalización
+  useEffect(() => {
+    if (cp.length === 5) {
+      const resp = getProvinciaPorCP(cp);
+      if (resp) {
+        setProvincia(resp.nombre);
+        if (resp.capital && !poblacion) {
+          setPoblacion(resp.capital);
+        }
+      }
+    }
+  }, [cp]);
 
   const fetchProveedores = async () => {
     setLoading(true);
@@ -121,7 +136,7 @@ export default function ProveedoresPage() {
           </div>
           <button 
             onClick={() => { clearForm(); setEditingId(null); setIsModalOpen(true); }}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--accent)] text-white font-bold hover:shadow-lg transition-all active:scale-[0.98]"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-orange-600 text-white font-bold hover:shadow-lg transition-all active:scale-[0.98]"
           >
             <Plus size={18} /> Nuevo Proveedor
           </button>
@@ -129,20 +144,52 @@ export default function ProveedoresPage() {
 
         {isModalOpen && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md animate-in fade-in zoom-in duration-200 border border-[var(--border)]">
+            <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md animate-in fade-in zoom-in duration-200 border border-[var(--border)] overflow-y-auto max-h-[90vh]">
               <h2 className="text-xl font-bold font-head mb-6 flex items-center gap-2">
                 <TrendingDown className="text-red-500" /> {editingId ? "Editar Proveedor" : "Añadir Proveedor"}
               </h2>
               <form onSubmit={handleSaveProveedor} className="space-y-4">
-                <input type="text" placeholder="Nombre / Empresa *" value={nombre} onChange={(e) => setNombre(e.target.value)} className="w-full p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] focus:outline-none" required />
-                <div className="grid grid-cols-2 gap-4">
-                  <input type="text" placeholder="NIF/CIF" value={nif} onChange={(e) => setNif(e.target.value)} className="p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] focus:outline-none" />
-                  <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="p-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] focus:outline-none" />
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Razón Social *</label>
+                  <input type="text" placeholder="Nombre / Empresa" value={nombre} onChange={(e) => setNombre(e.target.value)} className="w-full p-3 rounded-xl border bg-gray-50 focus:ring-2 focus:ring-orange-500/10 outline-none" required />
                 </div>
-                <div className="flex gap-4">
-                  <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-2.5 text-sm font-bold text-[var(--muted)] border rounded-xl">Cancelar</button>
-                  <button type="submit" disabled={saving} className="flex-1 py-2.5 text-sm font-bold bg-[var(--accent)] text-white rounded-xl shadow-md disabled:opacity-50">
-                    {saving ? "Guardando..." : "Guardar"}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">NIF/CIF</label>
+                    <input type="text" placeholder="A00000000" value={nif} onChange={(e) => setNif(e.target.value.toUpperCase())} className="w-full p-3 rounded-xl border bg-gray-50 outline-none" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Email</label>
+                    <input type="email" placeholder="email@ejemplo.com" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full p-3 rounded-xl border bg-gray-50 outline-none" />
+                  </div>
+                </div>
+
+                <div className="space-y-4 pt-4 border-t border-dashed">
+                  <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2"><MapPin size={12}/> Ubicación</h3>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Dirección Postal</label>
+                    <input type="text" placeholder="Calle, número, piso..." value={direccion} onChange={(e) => setDireccion(e.target.value)} className="w-full p-3 rounded-xl border bg-gray-50 outline-none" />
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">CP</label>
+                      <input type="text" placeholder="28001" value={cp} maxLength={5} onChange={(e) => setCp(e.target.value)} className="w-full p-3 rounded-xl border bg-gray-50 outline-none font-mono" />
+                    </div>
+                    <div className="col-span-2 space-y-1">
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Población</label>
+                      <input type="text" placeholder="Municipio" value={poblacion} onChange={(e) => setPoblacion(e.target.value)} className="w-full p-3 rounded-xl border bg-gray-50 outline-none" />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Provincia</label>
+                    <input type="text" placeholder="Provincia" value={provincia} onChange={(e) => setProvincia(e.target.value)} className="w-full p-3 rounded-xl border bg-gray-50 outline-none" />
+                  </div>
+                </div>
+
+                <div className="flex gap-4 pt-6">
+                  <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 text-sm font-bold text-gray-500 border rounded-xl hover:bg-gray-50 transition-all">Cancelar</button>
+                  <button type="submit" disabled={saving} className="flex-1 py-3 text-sm font-bold bg-orange-600 text-white rounded-xl shadow-lg hover:bg-orange-700 transition-all disabled:opacity-50">
+                    {saving ? "Guardando..." : "Guardar Proveedor"}
                   </button>
                 </div>
               </form>
@@ -150,56 +197,75 @@ export default function ProveedoresPage() {
           </div>
         )}
 
-        <div className="glass-card bg-white shadow-sm border-[var(--border)] overflow-hidden rounded-2xl">
-          <div className="p-4 border-b border-[var(--border)] bg-[#fafafa]">
-             <div className="relative w-72">
-               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]" size={16} />
-               <input type="text" placeholder="Buscar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 rounded-lg border border-[var(--border)] bg-white text-sm focus:outline-none" />
+        <div className="glass-card bg-white shadow-sm border-[var(--border)] overflow-hidden rounded-3xl">
+          <div className="p-6 border-b border-[var(--border)] bg-gray-50/50 flex justify-between items-center">
+             <div className="relative w-80">
+               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+               <input type="text" placeholder="Buscar por nombre o NIF..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-12 pr-4 py-3 rounded-2xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/10 transition-all" />
              </div>
+             <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{filteredProveedores.length} proveedores</div>
           </div>
-          <div className="overflow-x-auto min-h-[200px]">
+          <div className="overflow-x-auto min-h-[400px]">
             {loading ? (
               <div className="p-20 flex flex-col items-center justify-center gap-3">
-                <Loader2 className="animate-spin text-[var(--accent)]" size={32} />
+                <Loader2 className="animate-spin text-orange-600" size={40} />
+                <p className="text-gray-400 font-medium">Cargando proveedores...</p>
               </div>
             ) : (
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-[#fcfaf7] border-b">
-                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">Proveedor</th>
-                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">NIF</th>
-                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right pr-6">Acciones</th>
+                  <tr className="bg-gray-50/50 border-b">
+                    <th className="px-8 py-5 text-[11px] font-black text-gray-400 uppercase tracking-wider">Proveedor</th>
+                    <th className="px-8 py-5 text-[11px] font-black text-gray-400 uppercase tracking-wider">NIF</th>
+                    <th className="px-8 py-5 text-[11px] font-black text-gray-400 uppercase tracking-wider">Ubicación</th>
+                    <th className="px-8 py-5 text-[11px] font-black text-gray-400 uppercase tracking-wider text-right">Acciones</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[var(--border)]">
+                <tbody className="divide-y divide-gray-100">
                   {filteredProveedores.map((p) => (
-                    <tr key={p.id} className="hover:bg-[#fcfaf7] transition-colors group">
-                      <td className="px-6 py-4">
-                        <div className="font-bold text-[var(--foreground)]">{p.nombre}</div>
-                        <div className="text-[10px] text-[var(--muted)] uppercase tracking-wider">
-                          {p.poblacion} {p.provincia}
-                        </div>
+                    <tr key={p.id} className="hover:bg-orange-50/10 transition-colors group">
+                      <td className="px-8 py-5">
+                        <div className="font-bold text-gray-800">{p.nombre}</div>
+                        <div className="text-xs text-gray-400">{p.email || 'Sin email'}</div>
                       </td>
-                      <td className="px-6 py-4 text-sm text-[var(--muted)] font-mono">{p.nif || '—'}</td>
-                      <td className="px-6 py-4 pr-6 text-right relative">
+                      <td className="px-8 py-5 text-sm text-gray-500 font-mono">{p.nif || '—'}</td>
+                      <td className="px-8 py-5">
+                        {p.poblacion ? (
+                          <div className="text-xs font-medium text-gray-600 flex items-center gap-1.5">
+                            <MapPin size={10} className="text-orange-400"/>
+                            {p.poblacion}, {p.provincia}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-gray-300 italic">No definida</span>
+                        )}
+                      </td>
+                      <td className="px-8 py-5 text-right relative">
                         <div className="flex justify-end pr-0">
                           <button 
                             onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === p.id ? null : p.id); }}
-                            className="p-2 -mr-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-400 hover:text-gray-600"
+                            className="p-2.5 -mr-2 bg-gray-50 hover:bg-white border border-transparent hover:border-gray-200 rounded-xl transition-all text-gray-400 hover:text-orange-600 shadow-sm"
                           >
                             <MoreHorizontal size={20} />
                           </button>
                         </div>
                         {openMenuId === p.id && (
-                          <div className="absolute right-6 top-12 w-48 bg-white rounded-xl shadow-xl border z-50 py-2 animate-in fade-in slide-in-from-top-2 duration-200">
-                            <button onClick={() => openEditModal(p)} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors"><Save size={16} /> Editar</button>
-                            <div className="h-px bg-gray-100 my-1 mx-2"></div>
-                            <button onClick={() => handleDeleteProveedor(p.id, p.nombre)} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"><Trash2 size={16} /> Eliminar</button>
+                          <div className="absolute right-8 top-12 w-48 bg-white rounded-2xl shadow-2xl border z-50 py-2 animate-in fade-in slide-in-from-top-2 duration-200 ring-4 ring-black/5">
+                            <button onClick={() => openEditModal(p)} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-600 hover:bg-orange-50 transition-colors"><Save size={16} /> Editar</button>
+                            <div className="h-px bg-gray-50 my-1 mx-2"></div>
+                            <button onClick={() => handleDeleteProveedor(p.id, p.nombre)} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors"><Trash2 size={16} /> Eliminar</button>
                           </div>
                         )}
                       </td>
                     </tr>
                   ))}
+                  {filteredProveedores.length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="p-20 text-center">
+                        <Users className="mx-auto text-gray-200 mb-4" size={48} />
+                        <p className="text-gray-400 font-medium">No se han encontrado proveedores.</p>
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             )}

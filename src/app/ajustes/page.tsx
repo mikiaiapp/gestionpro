@@ -63,10 +63,16 @@ export default function AjustesPage() {
     fetchTipos();
   };
 
+  // Lógica de Geolocalización Inteligente
   useEffect(() => {
     if (cp.length === 5) {
-      const info = getProvinciaPorCP(cp);
-      if (info) setProvincia(info.nombre);
+      const resp = getProvinciaPorCP(cp);
+      if (resp) {
+        setProvincia(resp.nombre);
+        if (resp.capital && !poblacion) {
+          setPoblacion(resp.capital);
+        }
+      }
     }
   }, [cp]);
 
@@ -151,7 +157,7 @@ export default function AjustesPage() {
     setIsSaving(true);
     try {
       const { error: uploadError } = await supabase.storage
-        .from('logos') // Usamos un bucket llamado logos
+        .from('logos') 
         .upload(filePath, file);
 
       if (uploadError) {

@@ -19,7 +19,33 @@ export const PROVINCIAS_ESPANOLAS = [
   { id: "52", nombre: "Melilla" }
 ].sort((a, b) => a.nombre.localeCompare(b.nombre));
 
-export const getProvinciaPorCP = (cp: string): {id: string, nombre: string} | null => {
+export const getProvinciaPorCP = (cp: string): {id: string, nombre: string, capital?: string} | null => {
+  if (!cp || cp.length < 2) return null;
   const dosPrimeros = cp.substring(0, 2);
-  return PROVINCIAS_ESPANOLAS.find(p => p.id === dosPrimeros) || null;
+  const provincia = PROVINCIAS_ESPANOLAS.find(p => p.id === dosPrimeros);
+  
+  if (!provincia) return null;
+
+  const ultimosTres = cp.substring(2);
+  let capital = "";
+  
+  const capitalesMap: {[key: string]: string} = {
+    "01": "Vitoria-Gasteiz", "02": "Albacete", "03": "Alicante", "04": "Almería", "05": "Ávila",
+    "06": "Badajoz", "07": "Palma de Mallorca", "08": "Barcelona", "09": "Burgos", "10": "Cáceres",
+    "11": "Cádiz", "12": "Castellón de la Plana", "13": "Ciudad Real", "14": "Córdoba", "15": "A Coruña",
+    "16": "Cuenca", "17": "Girona", "18": "Granada", "19": "Guadalajara", "20": "Donostia-San Sebastián",
+    "21": "Huelva", "22": "Huesca", "23": "Jaén", "24": "León", "25": "Lleida", "26": "Logroño",
+    "27": "Lugo", "28": "Madrid", "29": "Málaga", "30": "Murcia", "31": "Pamplona", "32": "Ourense",
+    "33": "Oviedo", "34": "Palencia", "35": "Las Palmas de Gran Canaria", "36": "Pontevedra",
+    "37": "Salamanca", "38": "Santa Cruz de Tenerife", "39": "Santander", "40": "Segovia",
+    "41": "Sevilla", "42": "Soria", "43": "Tarragona", "44": "Teruel", "45": "Toledo",
+    "46": "Valencia", "47": "Valladolid", "48": "Bilbao", "49": "Zamora", "50": "Zaragoza",
+    "51": "Ceuta", "52": "Melilla"
+  };
+
+  if (parseInt(ultimosTres, 10) <= 8 || cp.endsWith("000") || cp === "07001" || cp === "07002") {
+    capital = capitalesMap[dosPrimeros] || "";
+  }
+
+  return { ...provincia, capital };
 };
