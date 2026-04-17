@@ -128,8 +128,14 @@ export default function ProyectosPage() {
     }
 
     setSaving(true);
+    setSaving(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: userData } = await supabase.auth.getUser();
+      const user = userData?.user;
+      
+      if (!user) {
+        throw new Error("No se ha encontrado una sesión de usuario activa. Por favor, vuelve a iniciar sesión.");
+      }
       
       // Autodetectar nombre de columna para el número/referencia
       const { data: sample } = await supabase.from('proyectos').select('*').limit(1);
@@ -150,7 +156,7 @@ export default function ProyectosPage() {
         retencion_pct: retencionPct,
         retencion_importe: retencionImporte,
         total: totalProyecto,
-        user_id: user?.id
+        user_id: user.id
       };
       
       // Asignar el número a la columna correcta detectada
