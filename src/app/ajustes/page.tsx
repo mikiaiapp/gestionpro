@@ -16,7 +16,8 @@ import {
   Wallet,
   ExternalLink,
   Upload,
-  Trash2
+  Trash2,
+  ShieldCheck
 } from 'lucide-react';
 import { Sidebar } from '@/components/Sidebar';
 import { getProvinciaPorCP } from '@/lib/geoData';
