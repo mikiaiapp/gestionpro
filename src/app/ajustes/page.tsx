@@ -123,9 +123,15 @@ export default function AjustesPage() {
     if (!user) return;
     setIsSaving(true);
     try {
-      // ESTRATEGIA DETECTIVE PARA GUARDAR SOLO LO QUE EXISTE
-      const { data: colsProbe } = await supabase.from('perfil_negocio').select('*').limit(1);
-      const realKeys = colsProbe && colsProbe.length > 0 ? Object.keys(colsProbe[0]) : [];
+      // ESTRATEGIA DETECTIVE AVANZADA
+      // Probamos qué columnas existen realmente para evitar errores de schema cache de Supabase
+      const checkKeys = ['condiciones_legales', 'lopd_text', 'forma_pago_default', 'irpf_default', 'tiene_retencion'];
+      const existingKeys: string[] = [];
+      
+      for (const key of checkKeys) {
+        const { error } = await supabase.from('perfil_negocio').select(key).limit(0);
+        if (!error) existingKeys.push(key);
+      }
       
       const payload: any = {
         user_id: user.id,
@@ -138,16 +144,14 @@ export default function AjustesPage() {
         provincia,
         email,
         gemini_key: geminiKey,
-        logo_url: logoUrl,
-        forma_pago_default: formaPago,
-        tiene_retencion: tieneRetencion,
-        irpf_default: irpfDefault,
-        condiciones_legales: condicionesLegales
+        logo_url: logoUrl
       };
 
-      if (realKeys.length === 0 || realKeys.includes('lopd_text')) {
-        payload.lopd_text = lopdText;
-      }
+      if (existingKeys.includes('forma_pago_default')) payload.forma_pago_default = formaPago;
+      if (existingKeys.includes('tiene_retencion')) payload.tiene_retencion = tieneRetencion;
+      if (existingKeys.includes('irpf_default')) payload.irpf_default = irpfDefault;
+      if (existingKeys.includes('condiciones_legales')) payload.condiciones_legales = condicionesLegales;
+      if (existingKeys.includes('lopd_text')) payload.lopd_text = lopdText;
 
       const { error } = await supabase.from('perfil_negocio').upsert(payload, { onConflict: 'user_id' });
 
