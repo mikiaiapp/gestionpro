@@ -31,8 +31,8 @@ interface PDFData {
     cp: string;
     provincia: string;
     cuenta_bancaria: string;
-    logo_url?: string;
     condiciones_legales?: string;
+    email?: string;
   };
   lineas: Array<{
     unidades: number;
@@ -50,9 +50,13 @@ interface PDFData {
 }
 
 const CONDICIONADO_GRAL = `CONDICIONES GENERALES:
-1. El presente presupuesto no contempla trabajos no descritos ni vicios ocultos de la estructura. 2. No están incluidos en el presupuesto las licencias o tasas municipales ni proyectos técnicos necesarios. 3. Validez del presupuesto: 35 días naturales. 4. Forma de pago: 50% como provisión de fondos 30 días antes del inicio y 50% a la finalización del trabajo. 5. Mora: El impago a su vencimiento devengará un interés del 1,5% mensual.
+1. El presente presupuesto no contempla trabajos no descritos ni vicios ocultos de la estructura. 
+2. No están incluidos en el presupuesto las licencias o tasas municipales ni proyectos técnicos necesarios. 
+3. Validez del presupuesto: 35 días naturales. 
+4. Forma de pago: 50% como provisión de fondos 30 días antes del inicio y 50% a la finalización del trabajo. 
+5. Mora: El impago a su vencimiento devengará un interés del 1,5% mensual.
 
-PROTECCIÓN DE DATOS: De conformidad con el RGPD y la LOPDGDD, CRISTINA MOYA MUÑOZ tratará sus datos para la gestión administrativa y facturación. Puede ejercer sus derechos de acceso, rectificación y otros en crismoyaespais@gmail.com o ante el DPD en dpd.cliente@conversia.es.`;
+PROTECCIÓN DE DATOS: De conformidad con el RGPD y la LOPDGDD, trataremos sus datos para la gestión administrativa y facturación. Puede ejercer sus derechos de acceso, rectificación y otros en el email facilitado en este documento.`;
 
 export const generatePDF = async (data: PDFData) => {
   const doc = new jsPDF();
@@ -78,6 +82,7 @@ export const generatePDF = async (data: PDFData) => {
   doc.setTextColor(80, 80, 80);
   const emisorLines = [
     `NIF: ${data.perfil.nif}`,
+    data.perfil.email,
     data.perfil.direccion,
     `${data.perfil.cp} ${data.perfil.poblacion} (${data.perfil.provincia})`
   ].filter(Boolean);
@@ -92,7 +97,7 @@ export const generatePDF = async (data: PDFData) => {
   // 2. Título y Detalles del Documento (Derecha)
   doc.setFontSize(22);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(245, 158, 11); // Naranja corporativo #f59e0b
+  doc.setTextColor(121, 85, 72); // Marrón corporativo #795548
   doc.text(data.tipo, PAGE_WIDTH - MARGIN, 20, { align: 'right' });
   
   doc.setFontSize(10);
@@ -158,7 +163,7 @@ export const generatePDF = async (data: PDFData) => {
   const grandTotalY = finalY + (data.totales.retencion_pct > 0 ? 25 : 18);
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(245, 158, 11);
+  doc.setTextColor(121, 85, 72);
   doc.text('TOTAL:', totalsX, grandTotalY);
   doc.text(new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(data.totales.total), PAGE_WIDTH - MARGIN, grandTotalY, { align: 'right' });
 

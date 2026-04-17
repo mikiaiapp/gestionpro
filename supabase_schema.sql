@@ -75,6 +75,7 @@ CREATE TABLE IF NOT EXISTS perfil_negocio (
     poblacion TEXT DEFAULT '',
     provincia TEXT DEFAULT '',
     gemini_key TEXT DEFAULT '',
+    email TEXT DEFAULT '',
     tiene_retencion BOOLEAN DEFAULT FALSE,
     irpf_default NUMERIC DEFAULT 0,
     user_id UUID DEFAULT auth.uid() UNIQUE,

@@ -268,7 +268,8 @@ function VentasContent() {
           provincia: perfil.provincia || '',
           cuenta_bancaria: perfil.cuenta_bancaria || '',
           logo_url: perfil.logo_url || '',
-          condiciones_legales: perfil.condiciones_legales || ''
+          condiciones_legales: perfil.condiciones_legales || '',
+          email: perfil.email || ''
         },
         lineas: (venta.venta_lineas || []).map((l: any) => ({
           unidades: l.unidades,

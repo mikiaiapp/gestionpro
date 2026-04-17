@@ -35,6 +35,7 @@ export default function AjustesPage() {
   const [cp, setCp] = useState('');
   const [poblacion, setPoblacion] = useState('');
   const [provincia, setProvincia] = useState('');
+  const [email, setEmail] = useState('');
   const [geminiKey, setGeminiKey] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
   const [formaPago, setFormaPago] = useState('Transferencia Bancaria');
@@ -94,6 +95,7 @@ export default function AjustesPage() {
         setCp(data.cp || '');
         setPoblacion(data.poblacion || '');
         setProvincia(data.provincia || '');
+        setEmail(data.email || '');
         setGeminiKey(data.gemini_key || '');
         setLogoUrl(data.logo_url || '');
         setFormaPago(data.forma_pago_default || 'Transferencia Bancaria');
@@ -128,6 +130,7 @@ export default function AjustesPage() {
         cp,
         poblacion,
         provincia,
+        email,
         gemini_key: geminiKey,
         logo_url: logoUrl,
         forma_pago_default: formaPago,
@@ -293,6 +296,11 @@ export default function AjustesPage() {
                 <div className="md:col-span-2 space-y-1">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Razón Social</label>
                   <input type="text" value={nombre} onChange={e => setNombre(e.target.value)} className="w-full px-5 py-4 rounded-2xl border bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500/10" />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Email de Empresa</label>
+                  <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full px-5 py-4 rounded-2xl border bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500/10" placeholder="empresa@ejemplo.com" />
                 </div>
 
                 <div className="space-y-1">
