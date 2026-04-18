@@ -454,19 +454,44 @@ function VentasContent() {
     }
 
     try {
-      const doc = generatePDF(venta, perfil);
+      // Mapear los datos de la factura al formato esperado por el generador
+      const pdfData: any = {
+        tipo: 'FACTURA',
+        numero: `${venta.serie}-${venta.num_factura}`,
+        fecha: venta.fecha,
+        cliente: {
+          nombre: venta.clientes?.nombre || 'Consumidor Final',
+          nif: venta.clientes?.nif || '',
+          direccion: venta.clientes?.direccion || '',
+          poblacion: venta.clientes?.poblacion || '',
+          cp: venta.clientes?.cp || '',
+          provincia: venta.clientes?.provincia || ''
+        },
+        perfil: perfil,
+        lineas: (venta.venta_lineas || []).map((l: any) => ({
+          unidades: l.unidades,
+          descripcion: l.descripcion,
+          precio_unitario: l.precio_unitario
+        })),
+        totales: {
+          base: venta.base_imponible,
+          iva_pct: venta.iva_pct || 21,
+          iva_importe: venta.iva_importe,
+          retencion_pct: venta.retencion_pct || 0,
+          retencion_importe: venta.retencion_importe || 0,
+          total: venta.total
+        }
+      };
+
+      const doc = await generatePDF(pdfData);
       const pdfBlob = doc.output('blob');
 
-      // 1. Guardar localmente
-      doc.save(`Factura_${venta.serie}-${venta.num_factura}.pdf`);
-
-      // 2. Subir a Storage si no tiene pdf_url o si queremos actualizarla
+      // Subir a Storage si no tiene pdf_url o si queremos actualizarla
       const publicUrl = await uploadInvoiceFile(pdfBlob, 'ventas', {
         number: `${venta.serie}-${venta.num_factura}`,
         entity: venta.clientes?.nombre || 'cliente'
       });
 
-      // 3. Actualizar registro en DB si es necesario
       if (publicUrl && !venta.pdf_url) {
         await supabase.from("ventas").update({ pdf_url: publicUrl }).eq("id", venta.id);
         await fetchData();
@@ -573,7 +598,6 @@ function VentasContent() {
                       <DataTableHeader label="Cliente" field="cliente" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.cliente || ''} onFilter={handleFilter} />
                       <DataTableHeader label="Total" field="total" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.total || ''} onFilter={handleFilter} />
                       <DataTableHeader label="Cobro" field="estadoPago" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.estadoPago || ''} onFilter={handleFilter} />
-                      <th className="px-6 py-4 text-[12px] font-black text-gray-500 uppercase tracking-wider text-center">VeriFactu</th>
                       <th className="px-6 py-4 text-[12px] font-black text-gray-500 uppercase tracking-wider text-right">Acciones</th>
                     </tr>
                   </thead>
@@ -592,23 +616,25 @@ function VentasContent() {
                             {v.estadoPago || 'Pendiente'}
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-center">
-                          {v.verifactu_status === 'enviado' ? (
-                            <div className="flex flex-col items-center gap-0.5 text-green-600">
-                              <ShieldCheck size={18} />
-                              <span className="text-[10px] font-black uppercase tracking-tighter">Verificado</span>
-                            </div>
-                          ) : (
-                            <div className="flex flex-col items-center gap-0.5 text-gray-300">
-                              <UploadCloud size={18} />
-                              <span className="text-[10px] font-black uppercase tracking-tighter">Pendiente</span>
-                            </div>
-                          )}
-                        </td>
                         <td className="px-6 py-4 text-right relative">
-                          <button onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === v.id ? null : v.id); }} className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-400 hover:text-gray-600">
-                            <MoreHorizontal size={20} />
-                          </button>
+                          <div className="flex flex-col items-end gap-1">
+                            {/* Status VeriFactu Integrado */}
+                            {v.verifactu_status === 'enviado' ? (
+                              <div className="flex items-center gap-1 text-green-600 mb-1" title="Factura enviada a AEAT">
+                                <ShieldCheck size={14} />
+                                <span className="text-[9px] font-black uppercase tracking-tighter">Enviado</span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1 text-gray-300 mb-1" title="Pendiente de enviar a AEAT">
+                                <UploadCloud size={14} />
+                                <span className="text-[9px] font-black uppercase tracking-tighter">Pendiente</span>
+                              </div>
+                            )}
+
+                            <button onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === v.id ? null : v.id); }} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors text-gray-400 hover:text-gray-600">
+                              <MoreHorizontal size={20} />
+                            </button>
+                          </div>
 
                           {openMenuId === v.id && (
                             <div className="absolute right-6 top-12 w-48 bg-white rounded-xl shadow-xl border border-[var(--border)] z-50 py-2 animate-in fade-in slide-in-from-top-2 duration-200 text-left">

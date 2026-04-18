@@ -257,4 +257,5 @@ export const generatePDF = async (data: PDFData) => {
 
   // Guardar archivo
   doc.save(`${data.tipo.toLowerCase()}_${data.numero}.pdf`);
+  return doc;
 };
