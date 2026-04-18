@@ -135,7 +135,8 @@ export default function ResumenPage() {
   const filtered = proyectos.filter(p => {
     const matchesSearch = p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          p.clientes?.nombre?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'todos' || p.estado === statusFilter;
+    const matchesStatus = statusFilter === 'todos' || 
+                         p.estado?.toLowerCase() === statusFilter.toLowerCase();
     return matchesSearch && matchesStatus;
   });
 
