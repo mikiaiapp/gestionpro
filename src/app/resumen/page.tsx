@@ -291,25 +291,25 @@ export default function ResumenPage() {
                         <div className="font-bold text-[var(--foreground)]">{p.nombre}</div>
                         <div className="text-[10px] text-[var(--muted)] uppercase">{p.clientes?.nombre || 'Particular'}</div>
                       </td>
-                      <td className="px-6 py-4 text-right font-mono text-sm leading-tight">
-                         <div className="text-gray-400 text-[10px]">{formatCurrency(p.previstoVenta)}</div>
-                         <div className="text-green-600 font-bold">{formatCurrency(p.totalVentas)}</div>
+                      <td className="px-6 py-4 text-right font-mono leading-tight">
+                         <div className="text-gray-400 text-[10px] mb-0.5">{formatCurrency(p.previstoVenta)}</div>
+                         <div className="text-green-600 font-bold text-[13px]">{formatCurrency(p.totalVentas)}</div>
                       </td>
-                      <td className="px-6 py-4 text-right font-mono text-sm leading-tight">
-                         <div className="text-gray-400 text-[10px]">{formatCurrency(p.previstoCoste)}</div>
-                         <div className="text-red-600 font-bold">{formatCurrency(p.totalCostes)}</div>
+                      <td className="px-6 py-4 text-right font-mono leading-tight">
+                         <div className="text-gray-400 text-[10px] mb-0.5">{formatCurrency(p.previstoCoste)}</div>
+                         <div className="text-red-600 font-bold text-[13px]">{formatCurrency(p.totalCostes)}</div>
                       </td>
-                      <td className={`px-6 py-4 text-right font-mono text-sm font-bold ${p.pendienteCobro > 0 ? 'text-orange-500' : 'text-gray-300'}`}>
+                      <td className={`px-6 py-4 text-right font-mono font-bold text-[13px] ${p.pendienteCobro > 0 ? 'text-orange-500' : 'text-gray-300'}`}>
                          {formatCurrency(p.pendienteCobro)}
                       </td>
-                      <td className={`px-6 py-4 text-right font-mono text-sm font-bold ${p.pendientePago > 0 ? 'text-red-500' : 'text-gray-300'}`}>
+                      <td className={`px-6 py-4 text-right font-mono font-bold text-[13px] ${p.pendientePago > 0 ? 'text-red-500' : 'text-gray-300'}`}>
                          {formatCurrency(p.pendientePago)}
                       </td>
-                      <td className={`px-6 py-4 text-right font-mono text-sm font-bold ${p.margen >= 0 ? 'text-[var(--accent)]' : 'text-red-700'}`}>
-                        {formatCurrency(p.margen)}
-                        <div className={`text-[9px] ${p.desviacionMargen >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                           {p.desviacionMargen >= 0 ? '+' : ''}{formatCurrency(p.desviacionMargen)} vs Plan
-                        </div>
+                      <td className={`px-6 py-4 text-right font-mono font-bold text-[13px] ${p.margen >= 0 ? 'text-[var(--accent)]' : 'text-red-700'}`}>
+                         <div>{formatCurrency(p.margen)}</div>
+                         <div className={`text-[10px] mt-0.5 ${p.desviacionMargen >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                            {p.desviacionMargen >= 0 ? '+' : ''}{formatCurrency(p.desviacionMargen)} vs Plan
+                         </div>
                       </td>
                       <td className="px-6 py-4 text-right"><span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${p.margenPct >= 15 ? 'bg-green-100 text-green-700' : p.margenPct > 0 ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>{p.margenPct.toFixed(1)}%</span></td>
                     </tr>
