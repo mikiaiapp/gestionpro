@@ -37,26 +37,29 @@ export const DataTableHeader: React.FC<DataTableHeaderProps> = ({
           {label}
         </span>
         
-        <div className={`flex items-center gap-1.5 ${isSorted || hasFilter ? 'opacity-100' : 'opacity-30 group-hover:opacity-100'} transition-opacity`}>
+        <div className={`flex items-center gap-2 ${isSorted || hasFilter ? 'opacity-100' : 'opacity-60 group-hover:opacity-100'} transition-all`}>
           {/* Sorting Control */}
-          <div className="flex flex-col -space-y-1.5 cursor-pointer" onClick={(e) => { e.stopPropagation(); onSort(field); }}>
+          <div 
+            className={`flex flex-col -space-y-1.5 cursor-pointer p-1 rounded-md transition-colors ${isSorted ? 'bg-orange-50' : 'hover:bg-gray-100'}`} 
+            onClick={(e) => { e.stopPropagation(); onSort(field); }}
+          >
             <ChevronUp 
-              size={13} 
-              className={`transition-colors ${direction === 'asc' ? 'text-orange-600 stroke-[3]' : 'text-gray-300'}`} 
+              size={14} 
+              className={`transition-colors ${direction === 'asc' ? 'text-orange-600 stroke-[3]' : 'text-gray-400'}`} 
             />
             <ChevronDown 
-              size={13} 
-              className={`transition-colors ${direction === 'desc' ? 'text-orange-600 stroke-[3]' : 'text-gray-300'}`} 
+              size={14} 
+              className={`transition-colors ${direction === 'desc' ? 'text-orange-600 stroke-[3]' : 'text-gray-400'}`} 
             />
           </div>
 
           {/* Search/Filter Trigger */}
           {showSearch && (
             <div 
-              className={`p-1 rounded-md transition-all cursor-pointer ${hasFilter || isSearchVisible ? 'bg-orange-100 text-orange-600' : 'hover:bg-gray-100 text-gray-400'}`}
+              className={`p-1.5 rounded-lg transition-all cursor-pointer shadow-sm ${hasFilter || isSearchVisible ? 'bg-orange-600 text-white shadow-orange-200' : 'bg-white border border-gray-100 hover:bg-orange-50 hover:border-orange-200 text-gray-500 hover:text-orange-600'}`}
               onClick={(e) => { e.stopPropagation(); setIsSearchVisible(!isSearchVisible); }}
             >
-              <Search size={13} />
+              <Search size={14} className={hasFilter || isSearchVisible ? 'stroke-[3]' : 'stroke-[2]'} />
             </div>
           )}
         </div>
