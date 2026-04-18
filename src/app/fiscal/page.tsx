@@ -28,8 +28,10 @@ export default function FiscalPage() {
   const [stats, setStats] = useState({
     ventasCount: 0,
     ventasTotal: 0,
+    ventasIva: 0,
     costesCount: 0,
     costesTotal: 0,
+    costesIva: 0,
     ventasConPDF: 0,
     costesConPDF: 0
   });
@@ -60,8 +62,10 @@ export default function FiscalPage() {
       setStats({
         ventasCount: vts.length,
         ventasTotal: vts.reduce((acc, v) => acc + (v.total || 0), 0),
+        ventasIva: vts.reduce((acc, v) => acc + (v.iva_importe || 0), 0),
         costesCount: csts.length,
         costesTotal: csts.reduce((acc, c) => acc + (c.total || 0), 0),
+        costesIva: csts.reduce((acc, c) => acc + (c.iva_importe || 0), 0),
         ventasConPDF: vts.filter(v => v.pdf_url).length,
         costesConPDF: csts.filter(c => c.pdf_url).length
       });
@@ -201,7 +205,10 @@ export default function FiscalPage() {
                 </div>
                 <div className="mb-4">
                   <div className="text-3xl font-black text-gray-800">{formatCurrency(stats.ventasTotal)}</div>
-                  <div className="text-sm text-[var(--muted)] font-medium">{stats.ventasCount} documentos registrados</div>
+                  <div className="flex justify-between items-center mt-1">
+                    <div className="text-sm text-[var(--muted)] font-medium">{stats.ventasCount} documentos registrados</div>
+                    <div className="text-sm font-bold text-green-600">IVA: {formatCurrency(stats.ventasIva)}</div>
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
@@ -229,7 +236,10 @@ export default function FiscalPage() {
                 </div>
                 <div className="mb-4">
                   <div className="text-3xl font-black text-gray-800">{formatCurrency(stats.costesTotal)}</div>
-                  <div className="text-sm text-[var(--muted)] font-medium">{stats.costesCount} gastos registrados</div>
+                  <div className="flex justify-between items-center mt-1">
+                    <div className="text-sm text-[var(--muted)] font-medium">{stats.costesCount} gastos registrados</div>
+                    <div className="text-sm font-bold text-red-600">IVA: {formatCurrency(stats.costesIva)}</div>
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
@@ -243,6 +253,37 @@ export default function FiscalPage() {
                   </span>
                 </div>
               </div>
+            </div>
+
+            {/* Card Resultado Liquidación */}
+            <div className="bg-[var(--foreground)] p-8 rounded-2xl shadow-xl relative overflow-hidden group border border-white/10">
+               <div className="absolute top-0 right-0 p-6 opacity-10">
+                  <TrendingUp size={120} className="text-white" />
+               </div>
+               <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                  <div>
+                    <h3 className="text-white/60 font-bold uppercase tracking-widest text-[10px] mb-2">Estimación Resultado Trimestral</h3>
+                    <div className="text-4xl font-black text-white flex items-baseline gap-2">
+                      {formatCurrency(stats.ventasIva - stats.costesIva)}
+                      <span className="text-sm font-bold text-white/40 uppercase">Resultado IVA</span>
+                    </div>
+                  </div>
+                  <div className="flex gap-4">
+                     <div className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-left">
+                        <div className="text-[10px] font-bold text-white/40 uppercase mb-1">IVA Repercutido</div>
+                        <div className="text-white font-bold">{formatCurrency(stats.ventasIva)}</div>
+                     </div>
+                     <div className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-left">
+                        <div className="text-[10px] font-bold text-white/40 uppercase mb-1">IVA Soportado</div>
+                        <div className="text-white font-bold">{formatCurrency(stats.costesIva)}</div>
+                     </div>
+                  </div>
+                  <div className={`px-4 py-2 rounded-xl font-black text-xs uppercase tracking-tighter ${
+                    (stats.ventasIva - stats.costesIva) > 0 ? 'bg-orange-500 text-white' : 'bg-green-500 text-white'
+                  }`}>
+                    {(stats.ventasIva - stats.costesIva) > 0 ? 'A Pagar (Mod. 303)' : 'A Compensar'}
+                  </div>
+               </div>
             </div>
 
             <div className="bg-white rounded-2xl border border-[var(--border)] shadow-sm overflow-hidden">
