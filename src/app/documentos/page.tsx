@@ -37,18 +37,28 @@ export default function DocumentosPage() {
 
   const fetchFiles = async () => {
     setLoading(true);
+    setFiles([]);
     try {
+      console.log("Fetching files for path:", currentPath);
       const { data, error } = await supabase.storage
         .from('facturas')
-        .list(currentPath, {
+        .list(currentPath || undefined, {
           limit: 100,
           offset: 0,
           sortBy: { column: 'name', order: 'asc' }
         });
 
-      if (error) throw error;
-      setFiles(data || []);
-    } catch (err) {
+      if (error) {
+        console.error("Storage Error:", error);
+        alert("Error al acceder al almacenamiento: " + error.message);
+        throw error;
+      }
+      
+      // Filtrar el marcador de posición de carpeta vacía de Supabase
+      const realFiles = (data || []).filter(f => f.name !== '.emptyFolderPlaceholder');
+      console.log("Found files:", realFiles.length);
+      setFiles(realFiles);
+    } catch (err: any) {
       console.error(err);
     } finally {
       setLoading(false);
