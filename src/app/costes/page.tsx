@@ -150,7 +150,7 @@ export default function CostesPage() {
   const openEditModal = (c: any) => {
     setEditingId(c.id);
     setSerie(c.serie || "A");
-    setNumInterno(c.num_interno || "");
+    setNumInterno(c.num_interno || c.registro_interno || c.numero || "");
     setNumFactProv(c.num_factura_proveedor || "");
     setFecha(c.fecha);
     setProveedorId(c.proveedor_id || "");
@@ -623,7 +623,16 @@ export default function CostesPage() {
                           <option value="B">Serie B (sin IVA)</option>
                         </select>
                       </div>
-                      <div><label className="block text-[10px] font-bold text-gray-400 uppercase mb-1 whitespace-nowrap">Nº Registro (Asiento)</label><input type="text" value={numInterno} readOnly className="w-full p-2.5 rounded-lg border border-gray-200 bg-gray-100 font-bold text-gray-500" /></div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1 whitespace-nowrap">Nº Registro (Asiento)</label>
+                        <input 
+                          type="text" 
+                          value={numInterno} 
+                          onChange={(e) => setNumInterno(e.target.value)}
+                          className="w-full p-2.5 rounded-lg border border-gray-100 bg-gray-50 font-bold text-gray-500 focus:outline-none focus:border-purple-200 transition-colors" 
+                          placeholder="Auto..."
+                        />
+                      </div>
                       <div><label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Factura Prov.</label><input type="text" value={numFactProv} onChange={(e) => setNumFactProv(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200 font-bold text-blue-600" /></div>
                       <div><label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Fecha</label><input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200" /></div>
                       <div className="md:col-span-2">
