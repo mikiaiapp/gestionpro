@@ -785,32 +785,43 @@ function VentasContent() {
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8 animate-in zoom-in-95 duration-200">
                <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-xl font-bold font-head">Nueva Factura</h3>
+                  <h3 className="text-xl font-bold font-head">{selectedProjId ? 'Facturar Grado de Avance' : 'Nueva Factura'}</h3>
                   <button onClick={() => setIsWizardOpen(false)} className="text-gray-400 hover:text-gray-600">✕</button>
                </div>
                
                <div className="grid gap-4">
-                  <button 
-                    onClick={() => { setEditingId(null); setClienteId(""); setProyectoId(""); setLineas([{ unidades: 1, descripcion: "", precio_unitario: 0 }]); setIsWizardOpen(false); setIsEditorOpen(true); }}
-                    className="flex items-center gap-4 p-4 rounded-xl border-2 border-dashed border-gray-200 hover:border-[var(--accent)] hover:bg-orange-50 transition-all text-left group"
-                  >
-                    <div className="p-3 rounded-lg bg-gray-100 group-hover:bg-orange-100 text-gray-500 group-hover:text-[var(--accent)]"><Plus size={24}/></div>
-                    <div>
-                      <div className="font-bold">Factura de Extras</div>
-                      <div className="text-xs text-gray-500">Crear una factura de servicios adicionales.</div>
-                    </div>
-                  </button>
+                  {!selectedProjId && (
+                    <>
+                      <button 
+                        onClick={() => { setEditingId(null); setClienteId(""); setProyectoId(""); setLineas([{ unidades: 1, descripcion: "", precio_unitario: 0 }]); setIsWizardOpen(false); setIsEditorOpen(true); }}
+                        className="flex items-center gap-4 p-4 rounded-xl border-2 border-dashed border-gray-200 hover:border-[var(--accent)] hover:bg-orange-50 transition-all text-left group"
+                      >
+                        <div className="p-3 rounded-lg bg-gray-100 group-hover:bg-orange-100 text-gray-500 group-hover:text-[var(--accent)]"><Plus size={24}/></div>
+                        <div>
+                          <div className="font-bold">Factura de Extras</div>
+                          <div className="text-xs text-gray-500">Crear una factura de servicios adicionales.</div>
+                        </div>
+                      </button>
 
-                  <div className="py-2 flex items-center gap-4"><div className="h-px bg-gray-200 flex-1"></div><span className="text-[10px] font-bold text-gray-400 uppercase">O facturar presupuesto</span><div className="h-px bg-gray-200 flex-1"></div></div>
+                      <div className="py-2 flex items-center gap-4"><div className="h-px bg-gray-200 flex-1"></div><span className="text-[10px] font-bold text-gray-400 uppercase">O facturar presupuesto</span><div className="h-px bg-gray-200 flex-1"></div></div>
+                    </>
+                  )}
 
-                  <div className="space-y-4">
-                    <SearchableSelect 
-                      label="Seleccionar Presupuesto para Facturar"
-                      options={proyectos}
-                      value={selectedProjId}
-                      onChange={(id) => setSelectedProjId(id)}
-                      placeholder="Buscar por nombre de cliente o proyecto..."
-                    />
+                   <div className="space-y-4">
+                     {!selectedProjId ? (
+                       <SearchableSelect 
+                         label="Seleccionar Presupuesto para Facturar"
+                         options={proyectos}
+                         value={selectedProjId}
+                         onChange={(id) => setSelectedProjId(id)}
+                         placeholder="Buscar por nombre de cliente o presupuesto..."
+                       />
+                     ) : (
+                       <div className="p-4 bg-gray-50 rounded-xl border border-gray-200 mb-2">
+                         <div className="text-[10px] font-bold text-gray-400 uppercase mb-1">Presupuesto Seleccionado</div>
+                         <div className="font-bold text-gray-700">{proyectos.find(p => p.id === selectedProjId)?.nombre || 'Cargando...'}</div>
+                       </div>
+                     )}
                     <div className="p-4 bg-orange-50 rounded-xl border border-orange-100 space-y-3">
                       <label className="block text-[10px] font-bold text-orange-600 uppercase tracking-widest ml-1">Grado de Avance de Facturación (%)</label>
                       <div className="flex items-center gap-4">
