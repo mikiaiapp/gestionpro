@@ -325,9 +325,9 @@ export default function AjustesPage() {
   );
 
   return (
-    <div className="flex bg-[var(--background)] min-h-screen">
+    <div className="flex bg-red-600 min-h-screen">
       <Sidebar />
-      <div className="flex-1 p-8 space-y-10 animate-in fade-in duration-500 overflow-y-auto text-left font-sans">
+      <div className="flex-1 p-8 space-y-10 animate-in fade-in duration-500 overflow-y-auto text-left font-sans bg-white">
         <header className="flex justify-between items-end">
           <div>
             <h1 className="text-4xl font-black font-head tracking-tighter text-[var(--foreground)]">Ajustes</h1>
