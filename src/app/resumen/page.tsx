@@ -36,8 +36,8 @@ export default function ResumenPage() {
         const margen = totalVentas - totalCostes;
         const margenPct = totalVentas > 0 ? (margen / totalVentas) * 100 : 0;
         
-        const previstoVenta = p.presupuesto_venta || 0;
-        const previstoCoste = p.presupuesto_coste || 0;
+        const previstoVenta = p.venta_prevista || p.base_imponible || 0;
+        const previstoCoste = p.coste_previsto || 0;
         const margenPrevisto = previstoVenta - previstoCoste;
         const desviacionMargen = margen - margenPrevisto;
 

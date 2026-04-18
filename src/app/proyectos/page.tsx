@@ -45,6 +45,7 @@ export default function ProyectosPage() {
   const [clienteId, setClienteId] = useState("");
   const [serie, setSerie] = useState("P");
   const [numReferencia, setNumReferencia] = useState("");
+  const [costePrevisto, setCostePrevisto] = useState(0);
   const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
   const [estado, setEstado] = useState("Abierto");
   const [retencionPct, setRetencionPct] = useState(0);
@@ -139,6 +140,7 @@ export default function ProyectosPage() {
     setNombre(p.nombre);
     setSerie(p.serie || "P");
     setNumReferencia(p[columnKey] || "");
+    setCostePrevisto(p.coste_previsto || 0);
     setFecha(p.fecha || new Date().toISOString().split('T')[0]);
     setClienteId(p.cliente_id || "");
     setEstado(p.estado || "Abierto");
@@ -183,7 +185,8 @@ export default function ProyectosPage() {
         serie: serie || 'P',
         fecha,
         cliente_id: clienteId,
-        num_proyecto: numReferencia, // Usamos el nombre estándar de nuestro esquema
+        num_proyecto: numReferencia, 
+        coste_previsto: costePrevisto,
         base_imponible: baseImponible,
         iva_pct: 21,
         iva_importe: cuotaIva,
@@ -515,6 +518,10 @@ export default function ProyectosPage() {
                   <div className="w-full md:w-64">
                     <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Retención (%)</label>
                     <input type="number" value={retencionPct} onChange={(e) => setRetencionPct(parseFloat(e.target.value) || 0)} className="w-full p-2 rounded-lg border border-gray-200 font-bold" />
+                  </div>
+                  <div className="w-full md:w-64">
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Coste Presupuestado (€)</label>
+                    <input type="number" value={costePrevisto} onChange={(e) => setCostePrevisto(parseFloat(e.target.value) || 0)} className="w-full p-2 rounded-lg border border-gray-200 font-bold text-red-600" />
                   </div>
                   <div className="w-full md:w-80 space-y-3">
                     <div className="flex justify-between text-sm"><span>Base Imponible:</span><span className="font-mono font-bold">{formatCurrency(baseImponible)}</span></div>
