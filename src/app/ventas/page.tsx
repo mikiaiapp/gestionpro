@@ -606,7 +606,10 @@ function VentasContent() {
                       <tr key={v.id} className="hover:bg-gray-50 group transition-colors">
                         <td className="px-6 py-4 text-sm font-bold">{v.serie}-{v.num_factura}</td>
                         <td className="px-6 py-4 text-sm text-[var(--muted)]">{new Date(v.fecha).toLocaleDateString()}</td>
-                        <td className="px-6 py-4 text-sm">{v.clientes?.nombre}</td>
+                        <td className="px-6 py-4 text-sm">{v.clientes?.nombre || 'Consumidor Final'}</td>
+                        <td className="px-6 py-4 text-sm font-mono font-bold text-right">
+                          {new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(v.total || 0)}
+                        </td>
                         <td className="px-6 py-4 text-center">
                           <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
                             v.estadoPago === 'Cobrado' ? 'bg-green-50 text-green-600' : 

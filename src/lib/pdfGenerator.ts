@@ -220,7 +220,7 @@ export const generatePDF = async (data: PDFData) => {
   if (data.tipo === 'FACTURA') {
     const qrSize = 25;
     const qrX = PAGE_WIDTH - MARGIN - qrSize;
-    const qrY = pageHeight - MARGIN - 25;
+    const qrY = pageHeight - MARGIN - 38; // Subido para no solapar con LOPD
     
     // Texto legal VeriFactu
     doc.setFontSize(6);
