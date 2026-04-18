@@ -105,8 +105,8 @@ export default function ProyectosPage() {
       const { data: clis } = await supabase.from("clientes").select("id, nombre").order("nombre");
       const { data: perf } = await supabase.from("perfil_negocio").select("*").maybeSingle();
 
-      // Escaneo Activo de Columnas
-      const possibleKeys = ['numero', 'num_proyecto', 'num_referencia', 'referencia'];
+      // Escaneo Activo de Columnas - Preferimos num_proyecto que es el estándar actual
+      const possibleKeys = ['num_proyecto', 'num_referencia', 'numero', 'referencia'];
       for (const key of possibleKeys) {
         const { error: probeError } = await supabase.from('proyectos').select(key).limit(0);
         if (!probeError) {
@@ -149,7 +149,9 @@ export default function ProyectosPage() {
     setEditingId(p.id);
     setNombre(p.nombre);
     setSerie(p.serie || "P");
-    setNumReferencia(p[columnKey] || "");
+    // Búsqueda robusta de la referencia
+    const ref = p.num_proyecto || p.numero || p.num_referencia || p.referencia || "";
+    setNumReferencia(ref);
     setCostePrevisto(p.coste_previsto || 0);
     setFecha(p.fecha || new Date().toISOString().split('T')[0]);
     setClienteId(p.cliente_id || "");
@@ -196,7 +198,7 @@ export default function ProyectosPage() {
         serie: serie || 'P',
         fecha,
         cliente_id: clienteId,
-        num_proyecto: numReferencia, 
+        [columnKey]: numReferencia, 
         coste_previsto: costePrevisto,
         base_imponible: baseImponible,
         iva_pct: 21,
@@ -270,9 +272,12 @@ export default function ProyectosPage() {
       const retencion_importe = p.retencion_importe || (base * (retencion_pct / 100));
       const total = p.total || (base + iva_importe - retencion_importe);
 
+      // Búsqueda robusta para el PDF
+      const refFinal = p.num_proyecto || p.numero || p.num_referencia || p.referencia || "S/N";
+      
       await generatePDF({
         tipo: 'PRESUPUESTO',
-        numero: `${p.serie || 'P'}-${p.num_proyecto || 'S/N'} - ${p.nombre}`,
+        numero: `${p.serie || 'P'}-${refFinal} - ${p.nombre}`,
         fecha: p.fecha,
         cliente: {
           nombre: p.clientes?.nombre || 'Cliente Final',
