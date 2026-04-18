@@ -103,14 +103,13 @@ export default function AjustesPage() {
     if (initialLoadDone.current && user) {
       const timer = setTimeout(() => {
         handleSaveAll();
-      }, 1000); 
+      }, 1500); // 1.5s debounce
       return () => clearTimeout(timer);
     }
   }, [
     nombre, nif, cuentaBancaria, direccion, cp, poblacion, provincia, 
     email, geminiKey, logoUrl, formaPago, tieneRetencion, irpfDefault, 
-    condicionesLegales, lopdText, verifactuCert, verifactuCertPassword, verifactuEnv,
-    twoFactorEnabled, totpSecret
+    condicionesLegales, lopdText, verifactuCert, verifactuCertPassword, verifactuEnv
   ]);
 
   const fetchAutoBackups = async (userId: string) => {
@@ -184,16 +183,13 @@ export default function AjustesPage() {
         verifactu_env: verifactuEnv
       };
 
-      await Promise.all([
-        supabase.from('perfil_negocio').upsert(payload, { onConflict: 'user_id' }),
-        supabase.from('perfiles').upsert({ id: user.id, two_factor_enabled: twoFactorEnabled, two_factor_secret: totpSecret })
-      ]);
+      await supabase.from('perfil_negocio').upsert(payload, { onConflict: 'user_id' });
       
       setAutoStatus('saved');
       setTimeout(() => setAutoStatus('idle'), 3000);
       window.dispatchEvent(new Event('perfil_updated'));
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      console.error("Save error:", e.message);
       setAutoStatus('idle');
     }
   };
@@ -206,12 +202,25 @@ export default function AjustesPage() {
     setIsSettingUp2FA(true);
   };
 
-  const confirm2FA = () => {
+  const confirm2FA = async () => {
     if (totp.check(verifyToken, totpSecret)) {
       setTwoFactorEnabled(true);
       setIsSettingUp2FA(false);
       setVerifyToken('');
-      alert("✅ 2FA Activado.");
+      
+      // Guardado explícito de 2FA
+      const { error } = await supabase.from('perfiles').upsert({ 
+        id: user.id, 
+        two_factor_enabled: true, 
+        two_factor_secret: totpSecret 
+      });
+
+      if (error) {
+        console.error("Error guardando 2FA:", error);
+        alert("⚠️ El código es correcto, pero hubo un error al guardar en la base de datos. Verifica el SQL de migración.");
+      } else {
+        alert("✅ 2FA Activado perfectamente.");
+      }
     } else {
       alert("❌ Código inválido.");
     }
