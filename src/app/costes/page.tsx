@@ -749,6 +749,7 @@ export default function CostesPage() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-gray-50/50 border-b border-[var(--border)]">
+                <DataTableHeader label="Asiento" field="num_interno" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.num_interno || ''} onFilter={handleFilter} />
                 <DataTableHeader label="Factura / Prov." field="proveedor" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.proveedor || ''} onFilter={handleFilter} />
                 <DataTableHeader label="Fecha" field="fecha" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.fecha || ''} onFilter={handleFilter} />
                 <DataTableHeader label="Gasto / Proyecto" field="proyecto" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.proyecto || ''} onFilter={handleFilter} />
@@ -774,7 +775,11 @@ export default function CostesPage() {
               {filteredCostes.map(c => (
                 <tr key={c.id} className="hover:bg-gray-50 transition-colors group">
                   <td className="px-6 py-4">
-                     <div className="text-[10px] font-bold text-blue-600 mb-0.5">{c.num_interno}</div>
+                     <div className="text-[11px] font-black text-blue-600 bg-blue-50/50 px-2 py-1 rounded inline-block">
+                        {c.num_interno || c.registro_interno || c.numero}
+                     </div>
+                  </td>
+                  <td className="px-6 py-4">
                      <div className="font-bold text-gray-800">{c.proveedores?.nombre}</div>
                      <div className="text-[10px] text-gray-400 font-mono uppercase">{c.num_factura_proveedor}</div>
                   </td>
