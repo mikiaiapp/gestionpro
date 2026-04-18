@@ -22,9 +22,7 @@ import {
   Database,
   DownloadCloud,
   RotateCcw,
-  Smartphone,
-  QrCode,
-  KeyRound
+  Smartphone
 } from 'lucide-react';
 import { Sidebar } from '@/components/Sidebar';
 import { getFullLocationByCP } from '@/lib/geoData';
@@ -32,11 +30,10 @@ import { validateNIF, validateIBAN, formatIBAN } from '@/lib/validations';
 import { encrypt } from '@/lib/encryption';
 import { authenticator } from 'otplib';
 
-// Cargamos el QR dinámicamente para evitar errores de hidratación en producción
+// Componente de 2FA cargado dinámicamente para seguridad total contra errores de hidratación
 import dynamic from 'next/dynamic';
-const QRCodeCanvas = dynamic(() => import('qrcode.react').then(m => m.QRCodeCanvas), { 
-  ssr: false,
-  loading: () => <div className="w-[200px] h-[200px] bg-gray-100 animate-pulse rounded-2xl flex items-center justify-center text-[10px] text-gray-400">Generando QR...</div>
+const TwoFactorSetup = dynamic(() => import('@/components/TwoFactorSetup'), { 
+  ssr: false 
 });
 
 export default function AjustesPage() {
@@ -71,7 +68,7 @@ export default function AjustesPage() {
   const [syncing, setSyncing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   
-  // Seguridad 2FA (Authenticator)
+  // Seguridad 2FA
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
   const [totpSecret, setTotpSecret] = useState('');
   const [isSettingUp2FA, setIsSettingUp2FA] = useState(false);
@@ -233,17 +230,16 @@ export default function AjustesPage() {
       setTwoFactorEnabled(true);
       setIsSettingUp2FA(false);
       setVerifyToken('');
-      alert("✅ 2FA Activado correctamente con Authenticator.");
+      alert("✅ 2FA Activado.");
     } else {
-      alert("❌ Código inválido. Vuelve a intentarlo.");
+      alert("❌ Código inválido.");
     }
   };
 
   const disable2FA = async () => {
-    if (confirm("¿Desactivar la seguridad de doble factor?")) {
+    if (confirm("¿Desactivar doble factor?")) {
       setTwoFactorEnabled(false);
       setTotpSecret('');
-      // Forzamos el guardado inmediato en este caso
       setTimeout(() => handleSaveAll(), 100);
     }
   };
@@ -251,12 +247,10 @@ export default function AjustesPage() {
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file || !user) return;
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${user.id}-${Math.random()}.${fileExt}`;
+    const fileName = `${user.id}-${Math.random()}.${file.name.split('.').pop()}`;
     setIsSaving(true);
     try {
-      const { error: uploadError } = await supabase.storage.from('logos').upload(fileName, file);
-      if (uploadError) throw uploadError;
+      await supabase.storage.from('logos').upload(fileName, file);
       const { data: { publicUrl } } = supabase.storage.from('logos').getPublicUrl(fileName);
       setLogoUrl(publicUrl);
     } catch (error: any) {
@@ -296,7 +290,7 @@ export default function AjustesPage() {
   };
 
   const handleExportBackup = async () => {
-    if (!confirm("Se generará un archivo descargable. ¿Continuar?")) return;
+    if (!confirm("Se generará un archivo. ¿Continuar?")) return;
     setIsBackupLoading(true);
     try {
       const tables = ['clientes', 'proveedores', 'proyectos', 'proyecto_lineas', 'ventas', 'venta_lineas', 'costes', 'coste_lineas', 'cobros', 'pagos', 'perfil_negocio', 'tipos_iva', 'tipos_irpf', 'perfiles', 'proyecto_documentos'];
@@ -316,7 +310,7 @@ export default function AjustesPage() {
 
   const handleImportBackup = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !confirm("¿Restaurar copia? Esto sobrescribirá datos.")) return;
+    if (!file || !confirm("¿Restaurar copia?")) return;
     setIsRestoreLoading(true);
     try {
       const text = await file.text();
@@ -334,13 +328,13 @@ export default function AjustesPage() {
     <div className="flex h-screen items-center justify-center bg-gray-100 p-4 font-sans">
       <div className="bg-white p-12 rounded-3xl shadow-2xl border max-w-sm w-full text-center space-y-6">
         <Lock className="text-blue-600 mx-auto" size={48} />
-        <h2 className="text-2xl font-black text-gray-800 tracking-tight">Acceso Privado</h2>
-        <a href="/login" className="block w-full py-4 bg-blue-600 text-white font-bold rounded-2xl shadow-lg transition-all">Iniciar Sesión</a>
+        <h2 className="text-2xl font-black text-gray-800 tracking-tight text-balance">Acceso Restringido</h2>
+        <a href="/login" className="block w-full py-4 bg-blue-600 text-white font-bold rounded-2xl shadow-lg transition-all">Identificarse</a>
       </div>
     </div>
   );
 
-  if (loading) return <div className="flex h-screen items-center justify-center font-sans text-gray-400 gap-2"><Loader2 className="animate-spin text-blue-500" size={32} /> Cargando configuración...</div>;
+  if (loading) return <div className="flex h-screen items-center justify-center font-sans text-gray-400 gap-2"><Loader2 className="animate-spin text-blue-500" size={32} /> Cargando...</div>;
 
   return (
     <div className="flex bg-[var(--background)] min-h-screen">
@@ -349,7 +343,7 @@ export default function AjustesPage() {
         <header className="flex justify-between items-end">
           <div>
             <h1 className="text-4xl font-black font-head tracking-tighter text-[var(--foreground)]">Ajustes</h1>
-            <p className="text-[var(--muted)] font-medium">Configuración avanzada y seguridad.</p>
+            <p className="text-[var(--muted)] font-medium">Control corporativo y seguridad avanzada.</p>
           </div>
           <div className={`px-5 py-2 rounded-full text-xs font-bold border flex items-center gap-2 transition-all duration-300 ${autoStatus === 'saving' ? 'bg-blue-50 text-blue-600 border-blue-100 scale-105' : autoStatus === 'saved' ? 'bg-green-50 text-green-700 border-green-100 scale-105' : 'bg-gray-50 text-gray-400 border-gray-100'}`}>
             {autoStatus === 'saving' ? <Loader2 className="animate-spin" size={14} /> : autoStatus === 'saved' ? <CloudCheck size={14} /> : <ShieldCheck size={14} />}
@@ -365,13 +359,13 @@ export default function AjustesPage() {
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="md:col-span-2 space-y-2">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Logo Corporativo</label>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1 font-sans">Logo Corporativo</label>
                   <div className="flex flex-col md:flex-row gap-4">
                     <div className="flex-1 relative">
                       <input type="text" value={logoUrl} onChange={e => setLogoUrl(e.target.value)} className="w-full pl-12 pr-4 py-4 rounded-2xl border bg-gray-50 outline-none" placeholder="https://..." />
                       <ImageIcon size={18} className="absolute left-4 top-4 text-gray-300" />
                     </div>
-                    <label className="flex items-center gap-2 px-6 py-4 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-2xl cursor-pointer transition-all active:scale-95">
+                    <label className="flex items-center gap-2 px-6 py-4 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-2xl cursor-pointer transition-all active:scale-95 font-sans">
                       <Upload size={18} /> {isSaving ? 'Subiendo...' : 'Subir'}
                       <input type="file" onChange={handleFileUpload} disabled={isSaving} className="hidden" accept="image/*" />
                     </label>
@@ -379,23 +373,23 @@ export default function AjustesPage() {
                 </div>
 
                 <div className="md:col-span-2 space-y-1">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Razón Social</label>
-                  <input type="text" value={nombre} onChange={e => setNombre(e.target.value)} className="w-full px-5 py-4 rounded-2xl border bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500/10" />
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1 font-sans">Razón Social</label>
+                  <input type="text" value={nombre} onChange={e => setNombre(e.target.value)} className="w-full px-5 py-4 rounded-2xl border bg-gray-50 outline-none" />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">NIF / CIF</label>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1 font-sans">NIF / CIF</label>
                   <input type="text" value={nif} onChange={e => setNif(e.target.value.toUpperCase())} className="w-full px-5 py-4 rounded-2xl border bg-gray-50 outline-none" />
                 </div>
                 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">IBAN de Cobro</label>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1 font-sans">IBAN Principal</label>
                   <input type="text" value={cuentaBancaria} onChange={e => setCuentaBancaria(formatIBAN(e.target.value))} className="w-full px-5 py-4 rounded-2xl border bg-gray-50 font-mono text-sm" />
                 </div>
 
                 <div className="grid grid-cols-3 gap-4 md:col-span-2">
                    <div className="md:col-span-3 space-y-1">
-                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Dirección</label>
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1 font-sans">Dirección Administrativa</label>
                       <input type="text" value={direccion} onChange={e => setDireccion(e.target.value)} className="w-full px-5 py-4 rounded-2xl border bg-gray-50" />
                    </div>
                    <input type="text" placeholder="C.P." value={cp} maxLength={5} onChange={e => setCp(e.target.value)} className="px-5 py-4 rounded-2xl border bg-gray-50 outline-none font-mono" />
@@ -405,13 +399,12 @@ export default function AjustesPage() {
               </div>
             </div>
 
-            {/* SEGURIDAD 2FA APP EXTERNA */}
             <div className="bg-white rounded-3xl border p-8 shadow-sm border-orange-100 overflow-hidden relative">
               <div className="absolute top-0 right-0 p-8 opacity-5 text-orange-600 rotate-12">
                  <Smartphone size={160} />
               </div>
               <h2 className="text-xl font-bold font-head mb-8 flex items-center gap-3 text-orange-600 relative z-10">
-                <ShieldCheck size={24} /> Seguridad de Doble Factor (App Externa)
+                <ShieldCheck size={24} /> Verificación de Doble Factor
               </h2>
               
               <div className="space-y-6 relative z-10">
@@ -420,71 +413,35 @@ export default function AjustesPage() {
                     <div className={`p-3 rounded-xl ${twoFactorEnabled ? 'bg-green-100 text-green-600' : 'bg-orange-100 text-orange-600'}`}>
                        <Smartphone size={24} />
                     </div>
-                    <div>
-                      <h3 className="text-sm font-bold text-gray-800">Authenticator App</h3>
-                      <p className="text-[10px] text-gray-500 font-medium font-sans">Google Authenticator, Authy o similares.</p>
+                    <div className="font-sans">
+                      <h3 className="text-sm font-bold text-gray-800">Capa de Seguridad Estándar</h3>
+                      <p className="text-[10px] text-gray-500 font-medium">Usa tu App de Authenticator favorita.</p>
                     </div>
                   </div>
                   <button 
                     onClick={() => twoFactorEnabled ? disable2FA() : setup2FA()}
-                    className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${twoFactorEnabled ? 'bg-red-50 text-red-600 border border-red-100 hover:bg-red-100' : 'bg-orange-600 text-white shadow-lg hover:bg-orange-700'}`}
+                    className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${twoFactorEnabled ? 'bg-red-50 text-red-600 border border-red-100 hover:bg-red-100' : 'bg-orange-600 text-white shadow-lg shadow-orange-100 hover:bg-orange-700 font-sans'}`}
                   >
                     {twoFactorEnabled ? 'DESACTIVAR' : 'CONFIGURAR'}
                   </button>
                 </div>
 
                 {isSettingUp2FA && isMounted && (
-                  <div className="p-8 bg-white border border-gray-100 rounded-[32px] shadow-xl animate-in zoom-in-95 duration-300 space-y-6 text-center">
-                    <div className="space-y-2">
-                       <h4 className="text-lg font-bold text-gray-800 flex items-center justify-center gap-2">
-                          <QrCode size={20} className="text-orange-500" /> Paso 1: Escanea el QR
-                       </h4>
-                       <p className="text-xs text-gray-400 font-sans">Abre tu app de verificación y escanea este código.</p>
-                    </div>
-
-                    <div className="flex justify-center p-4 bg-white rounded-3xl border shadow-inner">
-                       <QRCodeCanvas value={qrUrl} size={180} level="H" />
-                    </div>
-
-                    <div className="space-y-4">
-                       <div className="space-y-2">
-                          <h4 className="text-sm font-bold text-gray-700 flex items-center justify-center gap-2">
-                             <KeyRound size={18} className="text-orange-500" /> Paso 2: Introduce el código
-                          </h4>
-                          <p className="text-[10px] text-gray-400 font-sans">Escribe el código de 6 dígitos que ves en tu móvil.</p>
-                       </div>
-                       <input 
-                         type="text" 
-                         value={verifyToken}
-                         onChange={e => setVerifyToken(e.target.value.replace(/\D/g, ''))}
-                         className="w-full max-w-[200px] mx-auto block px-5 py-4 rounded-xl border bg-gray-50 text-center text-2xl font-mono tracking-[0.5em] focus:ring-2 focus:ring-orange-500/10 outline-none"
-                         placeholder="000000"
-                         maxLength={6}
-                       />
-                       <div className="flex gap-2">
-                          <button onClick={() => setIsSettingUp2FA(false)} className="flex-1 py-4 bg-gray-100 text-gray-500 font-bold rounded-2xl hover:bg-gray-200 transition-all font-sans">Cancelar</button>
-                          <button onClick={confirm2FA} className="flex-1 py-4 bg-orange-600 text-white font-bold rounded-2xl shadow-lg hover:bg-orange-700 transition-all font-sans">Verificar y Activar</button>
-                       </div>
-                    </div>
-                  </div>
+                  <TwoFactorSetup 
+                    qrUrl={qrUrl}
+                    verifyToken={verifyToken}
+                    setVerifyToken={setVerifyToken}
+                    onConfirm={confirm2FA}
+                    onCancel={() => setIsSettingUp2FA(false)}
+                  />
                 )}
 
                 {twoFactorEnabled && !isSettingUp2FA && (
-                  <div className="flex items-center gap-3 p-4 bg-green-50 rounded-2xl border border-green-100 text-green-700 animate-in fade-in duration-500">
+                  <div className="flex items-center gap-3 p-4 bg-green-50 rounded-2xl border border-green-100 text-green-700 animate-in fade-in duration-500 font-sans">
                      <CheckCircle2 size={20} />
-                     <span className="text-xs font-bold font-sans">Tu cuenta está protegida con verificación de doble factor externa.</span>
+                     <span className="text-xs font-bold">Seguridad activa mediante código dinámico externo.</span>
                   </div>
                 )}
-              </div>
-            </div>
-
-            <div className="bg-white rounded-3xl border p-8 shadow-sm border-blue-100">
-              <h2 className="text-xl font-bold font-head mb-8 flex items-center gap-3 text-blue-600"><ShieldCheck size={24} /> Factura Electrónica & Verifactu</h2>
-              <div className="space-y-4">
-                <div className="flex gap-2">
-                  <button onClick={() => setVerifactuEnv('pruebas')} className={`flex-1 py-2 rounded-xl text-[10px] font-black transition-all ${verifactuEnv === 'pruebas' ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-50 text-gray-400 border border-gray-100'}`}>PRUEBAS</button>
-                  <button onClick={() => setVerifactuEnv('produccion')} className={`flex-1 py-2 rounded-xl text-[10px] font-black transition-all ${verifactuEnv === 'produccion' ? 'bg-red-600 text-white shadow-md' : 'bg-gray-50 text-gray-400 border border-gray-100'}`}>PRODUCCIÓN</button>
-                </div>
               </div>
             </div>
           </div>
@@ -492,27 +449,27 @@ export default function AjustesPage() {
           <div className="space-y-8">
             <div className="bg-white rounded-3xl border p-8 shadow-sm">
               <div className="flex items-center justify-between mb-8 border-b pb-4">
-                <h2 className="text-lg font-bold font-head flex items-center gap-2 text-green-600"><Percent size={20} /> Impuestos</h2>
+                <h2 className="text-lg font-bold font-head flex items-center gap-2 text-green-600"><Percent size={20} /> Fiscalidad</h2>
                 <button onClick={handleSyncOfficial} disabled={syncing} className="p-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100"><RefreshCcw size={18} className={syncing ? 'animate-spin' : ''} /></button>
               </div>
               <div className="space-y-6">
-                 <div>
+                 <div className="font-sans text-xs">
                     <div className="flex justify-between items-center mb-3">
-                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Tipos de IVA</p>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Tabla de IVA</p>
                       <button onClick={() => handleAddTipo('tipos_iva')} className="text-[10px] font-bold text-blue-600">+ Añadir</button>
                     </div>
                     <div className="space-y-2">
                       {tiposIva.map(t => (
                         <div key={t.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-2xl border border-gray-100 group">
-                          <span className="text-xs font-bold text-gray-600">{t.nombre} ({t.valor}%)</span>
+                          <span className="font-bold text-gray-600">{t.nombre} ({t.valor}%)</span>
                           <button onClick={() => handleDeleteTipo('tipos_iva', t.id)} className="p-1 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={14} /></button>
                         </div>
                       ))}
                     </div>
                  </div>
 
-                 <div className="flex items-center justify-between bg-orange-50/20 p-4 rounded-2xl border border-orange-100 mt-4">
-                    <p className="text-xs font-bold text-orange-800">Facturar con IRPF</p>
+                 <div className="flex items-center justify-between bg-orange-50/20 p-4 rounded-2xl border border-orange-100 mt-4 font-sans">
+                    <p className="text-xs font-bold text-orange-800">Aplicar IRPF</p>
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input type="checkbox" checked={tieneRetencion} onChange={e => setTieneRetencion(e.target.checked)} className="sr-only peer" />
                       <div className="w-11 h-6 bg-gray-300 rounded-full peer peer-checked:bg-orange-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
@@ -521,22 +478,22 @@ export default function AjustesPage() {
               </div>
             </div>
             
-            <div className="bg-white rounded-3xl border p-8 shadow-sm border-blue-100">
-              <h2 className="text-lg font-bold font-head mb-6 flex items-center gap-2 text-blue-600"><Database size={20} /> Mantenimiento</h2>
-              <div className="space-y-4">
+            <div className="bg-white rounded-3xl border p-8 shadow-sm border-blue-100 font-sans">
+              <h2 className="text-lg font-bold font-head mb-6 flex items-center gap-2 text-blue-600"><Database size={20} /> Salvaguarda</h2>
+              <div className="space-y-4 text-xs">
                 <button onClick={handleExportBackup} disabled={isBackupLoading} className="w-full flex items-center justify-between p-4 bg-blue-50 hover:bg-blue-100 rounded-2xl border border-blue-100 transition-all group text-left">
                   <div>
-                    <p className="text-xs font-bold text-blue-800">Backup Manual</p>
-                    <p className="text-[10px] text-blue-600 italic font-sans">Descargar JSON completo.</p>
+                    <p className="font-bold text-blue-800">Snapshot Manual</p>
+                    <p className="text-[9px] text-blue-600 italic">Descargar volcado .json</p>
                   </div>
                   <DownloadCloud size={20} className="text-blue-400 group-hover:scale-110 transition-all" />
                 </button>
                 <div className="relative">
                   <input type="file" accept=".json" onChange={handleImportBackup} className="hidden" id="restore-up" />
                   <label htmlFor="restore-up" className="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 rounded-2xl border border-gray-100 cursor-pointer group">
-                    <div className="text-left font-sans">
-                      <p className="text-xs font-bold text-gray-700">Restaurar Copia</p>
-                      <p className="text-[10px] text-gray-400">Subir archivo .json</p>
+                    <div className="text-left">
+                      <p className="font-bold text-gray-700">Restaurar Snapshot</p>
+                      <p className="text-[9px] text-gray-400 italic">Importar desde archivo externo</p>
                     </div>
                     <RotateCcw size={20} className="text-gray-300 group-hover:rotate-180 transition-all duration-500" />
                   </label>
@@ -544,13 +501,13 @@ export default function AjustesPage() {
 
                 {autoBackups.length > 0 && (
                   <div className="pt-4 border-t border-dashed space-y-3">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Historial Automático</p>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Autoguardado Cloud</p>
                     <div className="space-y-2">
                        {autoBackups.map(b => (
-                         <div key={b.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100 text-xs">
+                         <div key={b.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100 text-[10px]">
                             <div className="flex flex-col">
                                <span className="font-bold text-gray-700">{b.nombre}</span>
-                               <span className="text-[9px] text-gray-400 italic">{(b.size / 1024 / 1024).toFixed(2)} MB • {new Date(b.created_at).toLocaleTimeString()}</span>
+                               <span className="text-[9px] text-gray-400 italic">{(b.size / 1024 / 1024).toFixed(2)} MB</span>
                             </div>
                             <div className="flex gap-1">
                                <a href={b.archivo_url} download className="p-1.5 hover:bg-white rounded-lg text-blue-600 transition-all"><DownloadCloud size={14} /></a>
@@ -568,7 +525,7 @@ export default function AjustesPage() {
                  <ShieldCheck size={120} />
                </div>
                <h3 className="text-lg font-black tracking-tight mb-2">Seguridad Bancaria</h3>
-               <p className="text-xs text-gray-400 leading-relaxed font-sans">Tus claves están protegidas por cifrado de grado militar.</p>
+               <p className="text-xs text-gray-400 leading-relaxed font-sans">Encriptación total AES-256 para tus llaves maestras y backups.</p>
             </div>
           </div>
         </div>
