@@ -18,6 +18,7 @@ import { supabase } from "@/lib/supabase";
 
 export default function DocumentosPage() {
   const [currentPath, setCurrentPath] = useState<string>("");
+  const [files, setFiles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
 
