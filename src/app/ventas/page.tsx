@@ -796,16 +796,16 @@ function VentasContent() {
                   >
                     <div className="p-3 rounded-lg bg-gray-100 group-hover:bg-orange-100 text-gray-500 group-hover:text-[var(--accent)]"><Plus size={24}/></div>
                     <div>
-                      <div className="font-bold">Factura Manual</div>
-                      <div className="text-xs text-gray-500">Crear una factura desde cero.</div>
+                      <div className="font-bold">Factura de Extras</div>
+                      <div className="text-xs text-gray-500">Crear una factura de servicios adicionales.</div>
                     </div>
                   </button>
 
-                  <div className="py-2 flex items-center gap-4"><div className="h-px bg-gray-200 flex-1"></div><span className="text-[10px] font-bold text-gray-400 uppercase">Ó facturar proyecto</span><div className="h-px bg-gray-200 flex-1"></div></div>
+                  <div className="py-2 flex items-center gap-4"><div className="h-px bg-gray-200 flex-1"></div><span className="text-[10px] font-bold text-gray-400 uppercase">O facturar presupuesto</span><div className="h-px bg-gray-200 flex-1"></div></div>
 
                   <div className="space-y-4">
                     <SearchableSelect 
-                      label="Seleccionar Proyecto para Facturar"
+                      label="Seleccionar Presupuesto para Facturar"
                       options={proyectos}
                       value={selectedProjId}
                       onChange={(id) => setSelectedProjId(id)}
@@ -833,7 +833,7 @@ function VentasContent() {
                           />
                         </div>
                       </div>
-                      <p className="text-[10px] text-orange-500 font-medium italic">Se facturará un {pct}% del presupuesto total del proyecto.</p>
+                      <p className="text-[10px] text-orange-500 font-medium italic">Se facturará un {pct}% del presupuesto total.</p>
                     </div>
 
                     <button 
@@ -841,7 +841,7 @@ function VentasContent() {
                       onClick={() => handleProjectToInvoice(selectedProjId, parseFloat(pct))}
                       className="w-full py-4 bg-[var(--accent)] text-white rounded-xl font-bold disabled:opacity-50 transition-all flex items-center justify-center gap-2 shadow-lg shadow-orange-200 hover:shadow-orange-300 active:scale-[0.98]"
                     >
-                      <Receipt size={18} /> Facturar {pct}% del Proyecto
+                      <Receipt size={18} /> Facturar {pct}% del Presupuesto
                     </button>
                   </div>
                </div>
