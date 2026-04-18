@@ -77,14 +77,10 @@ const menuStructure: MenuSection[] = [
   }
 ];
 
-export function Sidebar() {
-  const pathname = usePathname();
-  const router = useRouter();
-  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
     fetchLogo();
-    // Escuchar el evento de actualización del perfil
     window.addEventListener('perfil_updated', fetchLogo);
     return () => window.removeEventListener('perfil_updated', fetchLogo);
   }, []);
@@ -100,72 +96,88 @@ export function Sidebar() {
 
   const handleLogout = async () => {
     try {
-      console.log("Intentando cerrar sesión...");
       const { error } = await supabase.auth.signOut();
-      if (error) console.error("Error al salir:", error.message);
-      
-      // Limpiamos todo y redirigimos de forma absoluta
       localStorage.clear();
       window.location.href = "/login";
     } catch (e) {
-      console.error("Fallo crítico en logout:", e);
       window.location.href = "/login";
     }
   };
 
   return (
-    <aside className="w-64 bg-[var(--sidebar-bg)] border-r border-[var(--border)] h-screen sticky top-0 flex flex-col p-4 shadow-sm">
-      <div className="flex flex-col gap-1 mb-8 px-2 py-4 border-b border-[var(--border)]">
-        <span className="text-xl font-bold font-head tracking-tight text-[var(--foreground)]">GestiónPro</span>
-        <span className="text-[10px] font-bold text-[var(--muted)] tracking-wider uppercase">Control de Proyectos</span>
-      </div>
-      
-      <nav className="flex-1 space-y-6 overflow-y-auto">
-        {menuStructure.map((section) => (
-          <div key={section.label}>
-            <p className="text-[10px] font-extrabold text-[var(--muted)] px-3 mb-2 tracking-widest">{section.label}</p>
-            <div className="space-y-1">
-              {section.items.map((item) => {
-                const isActive = pathname === item.href;
-                return (
-                  <Link
-                    key={item.label}
-                    href={item.href}
-                    className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-150 ${
-                      isActive 
-                        ? "bg-[var(--accent)] text-white shadow-md font-semibold" 
-                        : "text-[var(--muted)] hover:bg-[var(--border)] hover:text-[var(--foreground)]"
-                    }`}
-                  >
-                    <item.icon size={18} />
-                    <span className="text-[13px] font-medium">{item.label}</span>
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-      </nav>
+    <>
+      <button 
+        onClick={() => setIsOpen(!isOpen)}
+        className="lg:hidden fixed bottom-6 right-6 z-[60] w-14 h-14 bg-[var(--accent)] text-white rounded-full shadow-2xl flex items-center justify-center active:scale-90 transition-transform"
+      >
+        <LayoutDashboard size={24} />
+      </button>
 
-      <div className="mt-auto border-t border-[var(--border)] pt-4 flex flex-col items-center">
-        {logoUrl && (
-          <div className="mb-6 px-4 w-full flex justify-center">
-            <div className="p-2 bg-white rounded-xl shadow-sm border border-[var(--border)] w-full flex justify-center overflow-hidden">
-               <img src={logoUrl} alt="Logo" className="max-h-12 w-auto object-contain" />
-            </div>
-          </div>
-        )}
-        <button 
-          onClick={handleLogout}
-          className="w-full flex items-center justify-center gap-3 px-3 py-3 text-[var(--muted)] hover:text-red-600 hover:bg-red-50 rounded-xl transition-all text-[13px] font-bold mb-4 mx-2"
-        >
-          <LogOut size={18} />
-          <span>Cerrar Sesión</span>
-        </button>
-        <div className="text-[9px] text-center text-gray-400 font-bold uppercase tracking-widest pb-4">
-          GestiónPro v2.3.4 - Build OK
+      {isOpen && (
+        <div 
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[50] lg:hidden"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
+
+      <aside className={`
+        fixed inset-y-0 left-0 z-[55] w-64 bg-[var(--sidebar-bg)] border-r border-[var(--border)] 
+        transition-transform duration-300 lg:static lg:translate-x-0 h-screen flex flex-col p-4 shadow-sm
+        ${isOpen ? "translate-x-0" : "-translate-x-full"}
+      `}>
+        <div className="flex flex-col gap-1 mb-8 px-2 py-4 border-b border-[var(--border)]">
+          <span className="text-xl font-bold font-head tracking-tight text-[var(--foreground)]">GestiónPro</span>
+          <span className="text-[10px] font-bold text-[var(--muted)] tracking-wider uppercase">Control de Proyectos</span>
         </div>
-      </div>
-    </aside>
+        
+        <nav className="flex-1 space-y-6 overflow-y-auto custom-scrollbar">
+          {menuStructure.map((section) => (
+            <div key={section.label}>
+              <p className="text-[10px] font-extrabold text-[var(--muted)] px-3 mb-2 tracking-widest">{section.label}</p>
+              <div className="space-y-1">
+                {section.items.map((item) => {
+                  const isActive = pathname === item.href;
+                  return (
+                    <Link
+                      key={item.label}
+                      href={item.href}
+                      onClick={() => setIsOpen(false)}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-150 ${
+                        isActive 
+                          ? "bg-[var(--accent)] text-white shadow-md font-semibold" 
+                          : "text-[var(--muted)] hover:bg-[var(--border)] hover:text-[var(--foreground)]"
+                      }`}
+                    >
+                      <item.icon size={18} />
+                      <span className="text-[13px] font-medium">{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </nav>
+
+        <div className="mt-auto border-t border-[var(--border)] pt-4 flex flex-col items-center">
+          {logoUrl && (
+            <div className="mb-6 px-4 w-full flex justify-center">
+              <div className="p-2 bg-white rounded-xl shadow-sm border border-[var(--border)] w-full flex justify-center overflow-hidden">
+                 <img src={logoUrl} alt="Logo" className="max-h-12 w-auto object-contain" />
+              </div>
+            </div>
+          )}
+          <button 
+            onClick={handleLogout}
+            className="w-full flex items-center justify-center gap-3 px-3 py-3 text-[var(--muted)] hover:text-red-600 hover:bg-red-50 rounded-xl transition-all text-[13px] font-bold mb-4"
+          >
+            <LogOut size={18} />
+            <span>Cerrar Sesión</span>
+          </button>
+          <div className="text-[9px] text-center text-gray-400 font-bold uppercase tracking-widest pb-4">
+            GestiónPro v2.3.4
+          </div>
+        </div>
+      </aside>
+    </>
   );
 }
