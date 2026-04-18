@@ -31,7 +31,10 @@ import { getFullLocationByCP } from '@/lib/geoData';
 import { validateNIF, validateIBAN, formatIBAN } from '@/lib/validations';
 import { encrypt } from '@/lib/encryption';
 import { authenticator } from 'otplib';
-import { QRCodeCanvas } from 'qrcode.react';
+
+// Reemplazamos qrcode.react por una versión dinámica para evitar errores de hidratación
+import dynamic from 'next/dynamic';
+const QRCodeCanvas = dynamic(() => import('qrcode.react').then(m => m.QRCodeCanvas), { ssr: false });
 
 export default function AjustesPage() {
   const [loading, setLoading] = useState(true);

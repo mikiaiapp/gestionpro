@@ -83,5 +83,18 @@ CREATE POLICY "RLS_Backups" ON public.backups FOR ALL USING (auth.uid() = user_i
 
 -- Asegurar Cascada en eliminaciones de lineas
 -- (Si falla es que ya existe la FK)
+
+-- 9.8 Políticas de Storage (Backups)
+-- Asegúrate de que el bucket 'facturas' existe en Supabase Storage
+INSERT INTO storage.buckets (id, name, public) VALUES ('facturas', 'facturas', false) ON CONFLICT (id) DO NOTHING;
+
+DROP POLICY IF EXISTS "Backups personal upload" ON storage.objects;
+CREATE POLICY "Backups personal upload" ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id = 'facturas' AND (storage.foldername(name))[1] = 'backups');
+
+DROP POLICY IF EXISTS "Backups personal view" ON storage.objects;
+CREATE POLICY "Backups personal view" ON storage.objects FOR SELECT TO authenticated USING (bucket_id = 'facturas' AND (storage.foldername(name))[1] = 'backups');
+
+DROP POLICY IF EXISTS "Backups personal delete" ON storage.objects;
+CREATE POLICY "Backups personal delete" ON storage.objects FOR DELETE TO authenticated USING (bucket_id = 'facturas' AND (storage.foldername(name))[1] = 'backups');
 -- ALTER TABLE public.proyecto_lineas DROP CONSTRAINT IF EXISTS proyecto_lineas_proyecto_id_fkey;
 -- ALTER TABLE public.proyecto_lineas ADD CONSTRAINT proyecto_lineas_proyecto_id_fkey FOREIGN KEY (proyecto_id) REFERENCES public.proyectos(id) ON DELETE CASCADE;
