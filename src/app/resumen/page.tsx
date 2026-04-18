@@ -6,6 +6,7 @@ import { Activity, Search, Loader2, TrendingUp, TrendingDown, Target, Building2,
 import { supabase } from "@/lib/supabase";
 import { generatePDF } from "@/lib/pdfGenerator";
 import { formatCurrency } from "@/lib/format";
+import { exportProjectSummaryPDF } from "@/lib/reportingService";
 
 export default function ResumenPage() {
   const [proyectos, setProyectos] = useState<any[]>([]);
@@ -308,7 +309,10 @@ export default function ResumenPage() {
                       <p className="text-gray-400 font-bold">{selectedProject.clientes?.nombre || 'Consumidor Final'}</p>
                    </div>
                    <div className="flex gap-4">
-                      <button className="flex items-center gap-2 px-5 py-3 rounded-xl bg-[var(--foreground)] text-white font-bold text-sm shadow-xl hover:-translate-y-0.5 transition-all">
+                      <button 
+                        onClick={() => exportProjectSummaryPDF(selectedProject, perfil)}
+                        className="flex items-center gap-2 px-5 py-3 rounded-xl bg-[var(--foreground)] text-white font-bold text-sm shadow-xl hover:-translate-y-0.5 transition-all"
+                      >
                         <FileText size={18} /> Ficha Resumen (PDF)
                       </button>
                       <button onClick={() => setSelectedProject(null)} className="p-2 hover:bg-gray-100 rounded-lg text-gray-300 transition-colors">
@@ -414,6 +418,7 @@ export default function ResumenPage() {
                            <table className="w-full text-left text-xs">
                               <thead className="bg-[#fcfaf7]">
                                  <tr>
+                                    <th className="px-4 py-3 font-bold text-gray-400 uppercase w-16">Reg.</th>
                                     <th className="px-4 py-3 font-bold text-gray-400 uppercase">Prov / Doc / PDF</th>
                                     <th className="px-4 py-3 font-bold text-gray-400 uppercase">Importe</th>
                                     <th className="px-4 py-3 font-bold text-gray-400 uppercase">Pago Asociado</th>
@@ -424,6 +429,7 @@ export default function ResumenPage() {
                                    const pagado = details.pagos.filter(p => p.coste_id === c.id).reduce((acc, p) => acc + p.importe, 0);
                                    return (
                                      <tr key={c.id}>
+                                       <td className="px-4 py-3 font-bold text-blue-600">{c.num_interno || c.registro_interno || c.numero}</td>
                                        <td className="px-4 py-3">
                                           <div className="font-bold">{c.proveedores?.nombre || 'Gasto'}</div>
                                           <div className="text-[9px] text-gray-400 flex items-center gap-1 uppercase tracking-tighter">

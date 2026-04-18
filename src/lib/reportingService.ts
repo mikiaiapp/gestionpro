@@ -23,14 +23,22 @@ export const getVATBookPDF = (type: 'ventas' | 'costes', data: any[], perfil: an
   const title = type === 'ventas' ? 'LIBRO REGISTRO DE FACTURAS EXPEDIDAS (IVA REPERCUTIDO)' : 'LIBRO REGISTRO DE FACTURAS RECIBIDAS (IVA SOPORTADO)';
   
   // Cabecera del informe
+  if (perfil?.logo_url) {
+    try {
+      doc.addImage(perfil.logo_url, 'PNG', 14, 10, 30, 0);
+    } catch (e) {
+      console.error("Error adding logo:", e);
+    }
+  }
+
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
-  doc.text(title, 14, 15);
+  doc.text(title, perfil?.logo_url ? 50 : 14, 15);
   
   doc.setFontSize(10);
-  doc.text(`Empresa: ${perfil?.nombre || ''}`, 14, 22);
-  doc.text(`NIF: ${perfil?.nif || ''}`, 14, 27);
-  doc.text(`Fecha Generación: ${new Date().toLocaleDateString()}`, 250, 22, { align: 'right' });
+  doc.text(`Empresa: ${perfil?.nombre || ''}`, perfil?.logo_url ? 50 : 14, 22);
+  doc.text(`NIF: ${perfil?.nif || ''}`, perfil?.logo_url ? 50 : 14, 27);
+  doc.text(`Fecha Generación: ${new Date().toLocaleDateString()}`, 280, 22, { align: 'right' });
 
   const tableData = data.map((v, idx) => [
     type === 'costes' ? v.num_interno : (idx + 1),
@@ -176,4 +184,82 @@ export const generateFiscalPack = async (
   link.download = `${folderName}.zip`;
   link.click();
   window.URL.revokeObjectURL(url);
+};
+
+export const getProjectSummaryPDF = (project: any, perfil: any): jsPDF => {
+  const doc = new jsPDF('p', 'mm', 'a4');
+  const MARGIN = 14;
+
+  if (perfil?.logo_url) {
+    try {
+      doc.addImage(perfil.logo_url, 'PNG', MARGIN, 10, 30, 0);
+    } catch (e) {
+      console.error("Error adding logo:", e);
+    }
+  }
+
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text('RESUMEN DE PROYECTO', perfil?.logo_url ? 50 : MARGIN, 20);
+  
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Empresa: ${perfil?.nombre || ''}`, perfil?.logo_url ? 50 : MARGIN, 27);
+  doc.text(`NIF: ${perfil?.nif || ''}`, perfil?.logo_url ? 50 : MARGIN, 32);
+
+  // Datos Proyecto
+  doc.setDrawColor(200);
+  doc.line(MARGIN, 40, 210 - MARGIN, 40);
+
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`PROYECTO: ${project.nombre}`, MARGIN, 50);
+  
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`CLIENTE: ${project.clientes?.nombre || 'Particular'}`, MARGIN, 57);
+  doc.text(`ESTADO: ${project.estado?.toUpperCase()}`, MARGIN, 62);
+
+  // Tabla Económica
+  const econData = [
+    ['VENTA (Facturación)', formatCurrency(project.previstoVenta), formatCurrency(project.totalVentas), formatCurrency(project.totalVentas - project.previstoVenta)],
+    ['COSTE (Gastos)', formatCurrency(project.previstoCoste), formatCurrency(project.totalCostes), formatCurrency(project.totalCostes - project.previstoCoste)],
+    ['MARGEN BRUTO', formatCurrency(project.margenPrevisto), formatCurrency(project.margen), formatCurrency(project.desviacionMargen)]
+  ];
+
+  (doc as any).autoTable({
+    startY: 70,
+    head: [['Concepto', 'Presupuesto', 'Real (Actual)', 'Desviación']],
+    body: econData,
+    theme: 'grid',
+    headStyles: { fillStyle: 'bold', fillColor: [60, 60, 60], textColor: 255 },
+    columnStyles: {
+      1: { halign: 'right' },
+      2: { halign: 'right' },
+      3: { halign: 'right' }
+    }
+  });
+
+  // Resumen Final
+  const lastTable = (doc as any).lastAutoTable;
+  const finalY = (lastTable ? lastTable.finalY : 100) + 20;
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Conclusión Económica:', MARGIN, finalY);
+  
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  const conclusion = project.desviacionMargen >= 0 
+    ? `El proyecto ha superado las expectativas de beneficio en ${formatCurrency(project.desviacionMargen)}.`
+    : `El proyecto presenta una desviación negativa de ${formatCurrency(Math.abs(project.desviacionMargen))} respecto al plan inicial.`;
+  
+  doc.text(conclusion, MARGIN, finalY + 7);
+  doc.text(`Rentabilidad Final: ${project.margenPct.toFixed(2)}%`, MARGIN, finalY + 14);
+
+  return doc;
+};
+
+export const exportProjectSummaryPDF = (project: any, perfil: any) => {
+  const doc = getProjectSummaryPDF(project, perfil);
+  doc.save(`Resumen_Proyecto_${project.nombre.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
 };

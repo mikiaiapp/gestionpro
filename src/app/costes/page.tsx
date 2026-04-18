@@ -624,7 +624,7 @@ export default function CostesPage() {
                         </select>
                       </div>
                       <div>
-                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1 whitespace-nowrap">Nº Registro (Asiento)</label>
+                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1 whitespace-nowrap">Nº Registro</label>
                         <input 
                           type="text" 
                           value={numInterno} 
@@ -749,7 +749,7 @@ export default function CostesPage() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-gray-50/50 border-b border-[var(--border)]">
-                <DataTableHeader label="Asiento" field="num_interno" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.num_interno || ''} onFilter={handleFilter} />
+                <DataTableHeader label="Registro" field="num_interno" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.num_interno || ''} onFilter={handleFilter} />
                 <DataTableHeader label="Factura / Prov." field="proveedor" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.proveedor || ''} onFilter={handleFilter} />
                 <DataTableHeader label="Fecha" field="fecha" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.fecha || ''} onFilter={handleFilter} />
                 <DataTableHeader label="Gasto / Proyecto" field="proyecto" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.proyecto || ''} onFilter={handleFilter} />
