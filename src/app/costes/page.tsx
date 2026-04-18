@@ -278,6 +278,8 @@ export default function CostesPage() {
 
           setIsAiModalOpen(false);
           setIsModalOpen(true);
+          // IMPORTANTE: Guardar el archivo para que se suba al confirmar
+          setPdfFile(file);
         } catch (innerErr: any) {
           alert("Error al procesar el contenido del PDF: " + innerErr.message);
         } finally {
