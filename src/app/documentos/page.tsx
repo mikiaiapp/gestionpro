@@ -20,7 +20,9 @@ import {
   Image as ImageIcon,
   Trash2,
   Eye,
-  Plus
+  Plus,
+  X,
+  CheckCircle2
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { SearchableSelect } from "@/components/SearchableSelect";
@@ -42,6 +44,10 @@ export default function DocumentosPage() {
     otros: any[]
   }>({ emitidas: [], recibidas: [], otros: [] });
 
+  // Modal Subida Otros
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [newDocTitle, setNewDocTitle] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
@@ -88,14 +94,9 @@ export default function DocumentosPage() {
     if (!selectedProjectId) return;
     setLoading(true);
     try {
-      // 1. Facturas Emitidas
       const { data: vts } = await supabase.from('ventas').select('*').eq('proyecto_id', selectedProjectId).not('archivo_url', 'is', null);
-      
-      // 2. Facturas Recibidas (Costes)
       const { data: csts } = await supabase.from('costes').select('*, proveedores(nombre)').eq('proyecto_id', selectedProjectId).not('archivo_url', 'is', null);
-      
-      // 3. Otros Archivos (Documentación Adicional)
-      const { data: otros } = await supabase.from('proyecto_documentos').select('*').eq('proyecto_id', selectedProjectId);
+      const { data: otros } = await supabase.from('proyecto_documentos').select('*').eq('proyecto_id', selectedProjectId).order('created_at', { ascending: false });
 
       setProjectDocs({
         emitidas: vts || [],
@@ -109,19 +110,20 @@ export default function DocumentosPage() {
     }
   };
 
-  const handleUploadOther = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !selectedProjectId) return;
+  const handleUploadOther = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedFile || !selectedProjectId) return;
 
     setIsUploading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      const fileName = `${selectedProjectId}_${Date.now()}_${file.name.replace(/\s/g, '_')}`;
+      const fileExt = selectedFile.name.split('.').pop();
+      const fileName = `${selectedProjectId}_${Date.now()}.${fileExt}`;
       const path = `otros/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('facturas')
-        .upload(path, file);
+        .upload(path, selectedFile);
 
       if (uploadError) throw uploadError;
 
@@ -129,16 +131,18 @@ export default function DocumentosPage() {
 
       const { error: dbError } = await supabase.from('proyecto_documentos').insert([{
         proyecto_id: selectedProjectId,
-        nombre: file.name,
+        nombre: newDocTitle || selectedFile.name,
         archivo_url: publicUrl,
-        size: file.size,
+        size: selectedFile.size,
         user_id: user?.id,
-        tipo: file.type.includes('image') ? 'foto' : file.type.includes('pdf') ? 'pdf' : 'otros'
+        tipo: selectedFile.type.includes('image') ? 'foto' : selectedFile.type.includes('pdf') ? 'pdf' : 'otros'
       }]);
 
       if (dbError) throw dbError;
       
-      alert("✅ Archivo subido y asociado correctamente.");
+      setIsUploadModalOpen(false);
+      setNewDocTitle("");
+      setSelectedFile(null);
       fetchProjectDocs();
     } catch (err: any) {
       alert("Error al subir archivo: " + err.message);
@@ -296,16 +300,16 @@ export default function DocumentosPage() {
                      <h3 className="flex items-center gap-2 text-xs font-black text-blue-600 uppercase tracking-widest pl-2">
                         <Receipt size={16} /> Facturas Emitidas
                      </h3>
-                     <div className="bg-white rounded-3xl border shadow-sm divide-y">
+                     <div className="bg-white rounded-3xl border shadow-sm divide-y h-fit">
                         {projectDocs.emitidas.length === 0 ? (
                           <p className="p-8 text-center text-xs text-gray-400 font-bold">No hay facturas emitidas asociadas.</p>
                         ) : projectDocs.emitidas.map(v => (
                           <div key={v.id} className="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
-                             <div>
-                                <div className="text-xs font-bold text-gray-700">Factura {v.serie}-{v.num_factura}</div>
+                             <div className="flex-1 pr-2 truncate">
+                                <div className="text-xs font-bold text-gray-700 truncate">Factura {v.serie}-{v.num_factura}</div>
                                 <div className="text-[10px] text-gray-400">{new Date(v.fecha).toLocaleDateString()}</div>
                              </div>
-                             <div className="flex gap-2">
+                             <div className="flex gap-1">
                                 <a href={v.archivo_url} target="_blank" className="p-2 hover:bg-blue-100 rounded-lg text-blue-600 transition-all"><Eye size={16} /></a>
                                 <a href={v.archivo_url} download className="p-2 hover:bg-green-100 rounded-lg text-green-600 transition-all"><Download size={16} /></a>
                              </div>
@@ -319,16 +323,16 @@ export default function DocumentosPage() {
                      <h3 className="flex items-center gap-2 text-xs font-black text-purple-600 uppercase tracking-widest pl-2">
                         <Download size={16} /> Facturas Recibidas / Gastos
                      </h3>
-                     <div className="bg-white rounded-3xl border shadow-sm divide-y">
+                     <div className="bg-white rounded-3xl border shadow-sm divide-y h-fit">
                         {projectDocs.recibidas.length === 0 ? (
                           <p className="p-8 text-center text-xs text-gray-400 font-bold">No hay gastos asociados registrados.</p>
                         ) : projectDocs.recibidas.map(c => (
                           <div key={c.id} className="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
-                             <div className="flex-1 pr-4">
+                             <div className="flex-1 pr-2 overflow-hidden">
                                 <div className="text-xs font-bold text-gray-700 truncate">{c.proveedores?.nombre}</div>
-                                <div className="text-[10px] text-gray-400">Fact. {c.num_factura_proveedor}</div>
+                                <div className="text-[10px] text-gray-400 truncate">Fact. {c.num_factura_proveedor}</div>
                              </div>
-                             <div className="flex gap-2">
+                             <div className="flex gap-1">
                                 <a href={c.archivo_url} target="_blank" className="p-2 hover:bg-purple-100 rounded-lg text-purple-600 transition-all"><Eye size={16} /></a>
                                 <a href={c.archivo_url} download className="p-2 hover:bg-green-100 rounded-lg text-green-600 transition-all"><Download size={16} /></a>
                              </div>
@@ -343,21 +347,23 @@ export default function DocumentosPage() {
                         <h3 className="flex items-center gap-2 text-xs font-black text-orange-600 uppercase tracking-widest leading-none">
                            <ImageIcon size={16} /> Otros Documentos
                         </h3>
-                        <label className="flex items-center gap-1 text-[10px] font-black text-orange-600 bg-orange-50 px-3 py-1.5 rounded-full cursor-pointer hover:bg-orange-100 transition-all">
-                           <Upload size={12} /> {isUploading ? 'SUBIENDO...' : 'IMPORTAR'}
-                           <input type="file" onChange={handleUploadOther} disabled={isUploading} className="hidden" />
-                        </label>
+                        <button 
+                          onClick={() => setIsUploadModalOpen(true)}
+                          className="flex items-center gap-1 text-[10px] font-black text-orange-600 bg-orange-50 px-3 py-1.5 rounded-full hover:bg-orange-100 transition-all"
+                        >
+                           <Plus size={12} /> AÑADIR
+                        </button>
                      </div>
-                     <div className="bg-white rounded-3xl border shadow-sm divide-y border-orange-100">
+                     <div className="bg-white rounded-3xl border shadow-sm divide-y border-orange-100 h-fit">
                         {projectDocs.otros.length === 0 ? (
                           <div className="p-8 text-center space-y-2">
                              <Files size={32} className="mx-auto text-orange-100" />
-                             <p className="text-xs text-gray-400 font-bold">Planos, fotos, reportajes...</p>
+                             <p className="text-xs text-gray-400 font-bold text-balance">Planos, fotos iniciales, reportajes finales...</p>
                           </div>
                         ) : projectDocs.otros.map(doc => (
                           <div key={doc.id} className="p-4 flex items-center justify-between hover:bg-orange-50/30 transition-colors">
-                             <div className="flex-1 pr-4 overflow-hidden">
-                                <div className="text-xs font-bold text-gray-700 truncate">{doc.nombre}</div>
+                             <div className="flex-1 pr-2 overflow-hidden">
+                                <div className="text-xs font-bold text-gray-700 truncate" title={doc.nombre}>{doc.nombre}</div>
                                 <div className="text-[9px] text-gray-400 uppercase font-black">{doc.tipo} • {(doc.size / 1024 / 1024).toFixed(2)} MB</div>
                              </div>
                              <div className="flex gap-1">
@@ -375,14 +381,88 @@ export default function DocumentosPage() {
                     <FolderKanban size={40} />
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold text-gray-700">Expediente Digital del Presupuesto</h2>
-                    <p className="text-sm text-gray-400 max-w-sm mx-auto">Selecciona un presupuesto para ver unificado todo su rastro: contrato, facturas enviadas, gastos y materiales asociados.</p>
+                    <h2 className="text-xl font-bold text-gray-700">Explorador de Proyectos</h2>
+                    <p className="text-sm text-gray-400 max-w-sm mx-auto text-balance">Busca un presupuesto para acceder a toda su documentación fiscal y técnica de forma centralizada.</p>
                   </div>
                </div>
              )}
           </div>
         )}
+
+        {/* Modal para Subir Documento con Título */}
+        {isUploadModalOpen && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8 animate-in zoom-in-95 duration-200">
+               <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-xl font-bold font-head">Importar Documentación</h3>
+                  <button onClick={() => setIsUploadModalOpen(false)} className="text-gray-400 hover:text-gray-600"><X size={20}/></button>
+               </div>
+
+               <form onSubmit={handleUploadOther} className="space-y-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Título del Documento</label>
+                    <input 
+                      type="text" 
+                      required
+                      placeholder="Ej: Planos Planta 1, Fotos Estado Inicial..."
+                      value={newDocTitle}
+                      onChange={e => setNewDocTitle(e.target.value)}
+                      className="w-full px-5 py-4 rounded-2xl border bg-gray-50 outline-none focus:ring-2 focus:ring-orange-500/10 font-bold text-sm"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Seleccionar Archivo</label>
+                    <div className="relative">
+                      <input 
+                        type="file" 
+                        required
+                        onChange={e => setSelectedFile(e.target.files?.[0] || null)}
+                        className="hidden" 
+                        id="doc-upload" 
+                      />
+                      <label 
+                        htmlFor="doc-upload"
+                        className={`w-full flex items-center justify-center gap-3 px-5 py-8 rounded-2xl border-2 border-dashed transition-all cursor-pointer ${selectedFile ? 'border-green-200 bg-green-50/30' : 'border-gray-200 bg-gray-50 hover:border-orange-300 hover:bg-orange-50/30'}`}
+                      >
+                        {selectedFile ? (
+                          <div className="text-center">
+                            <CheckCircle2 className="text-green-500 mx-auto mb-2" size={32} />
+                            <span className="text-xs font-bold text-green-700 block truncate max-w-[200px]">{selectedFile.name}</span>
+                          </div>
+                        ) : (
+                          <div className="text-center">
+                            <Upload className="text-gray-400 mx-auto mb-2" size={32} />
+                            <span className="text-xs font-bold text-gray-500">Haz clic para buscar el archivo</span>
+                          </div>
+                        )}
+                      </label>
+                    </div>
+                  </div>
+
+                  <button 
+                    type="submit"
+                    disabled={isUploading || !selectedFile}
+                    className="w-full py-4 bg-orange-600 text-white rounded-2xl font-bold disabled:opacity-50 transition-all flex items-center justify-center gap-2 shadow-lg shadow-orange-100"
+                  >
+                    {isUploading ? <Loader2 className="animate-spin" size={20} /> : <CloudUpload size={20} />}
+                    {isUploading ? 'Subiendo Documento...' : 'Completar Importación'}
+                  </button>
+               </form>
+            </div>
+          </div>
+        )}
       </div>
     </div>
+  );
+}
+
+function CloudUpload({ size }: { size: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242" />
+      <path d="M12 12v9" />
+      <path d="m16 16-4-4-4 4" />
+    </svg>
   );
 }
