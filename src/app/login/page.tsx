@@ -2,7 +2,8 @@
 
 import React, { useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Mail, Lock, LogIn, Loader2, LayoutDashboard } from 'lucide-react';
+import { Mail, Lock, LogIn, Loader2, LayoutDashboard, Smartphone } from 'lucide-react';
+import { authenticator } from 'otplib';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -11,7 +12,7 @@ export default function LoginPage() {
   const [message, setMessage] = useState('');
 
   const [show2FA, setShow2FA] = useState(false);
-  const [pin, setPin] = useState('');
+  const [token, setToken] = useState('');
   const [tempUser, setTempUser] = useState<any>(null);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -29,10 +30,10 @@ export default function LoginPage() {
       setLoading(false);
     } else if (data.user) {
       // Verificar si tiene 2FA activado
-      const { data: profile } = await supabase.from('perfiles').select('two_factor_enabled, two_factor_pin').eq('id', data.user.id).single();
+      const { data: profile } = await supabase.from('perfiles').select('two_factor_enabled, two_factor_secret').eq('id', data.user.id).single();
       
-      if (profile?.two_factor_enabled) {
-        setTempUser({ id: data.user.id, pin: profile.two_factor_pin });
+      if (profile?.two_factor_enabled && profile?.two_factor_secret) {
+        setTempUser({ id: data.user.id, secret: profile.two_factor_secret });
         setShow2FA(true);
         setLoading(false);
       } else {
@@ -43,53 +44,59 @@ export default function LoginPage() {
 
   const handleVerify2FA = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (pin === tempUser.pin) {
-      window.location.href = '/resumen';
-    } else {
-      setMessage("❌ PIN de seguridad incorrecto.");
+    try {
+      const isValid = authenticator.check(token, tempUser.secret);
+      if (isValid) {
+        window.location.href = '/resumen';
+      } else {
+        setMessage("❌ Código de verificación incorrecto o expirado.");
+      }
+    } catch (err) {
+      setMessage("❌ Error al verificar el código.");
     }
   };
 
   if (show2FA) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 p-6 font-sans">
-        <div className="w-full max-w-md space-y-8 bg-white p-10 rounded-3xl shadow-2xl border text-center">
-          <div className="bg-orange-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Lock className="text-orange-600" size={36} />
+        <div className="w-full max-w-md space-y-8 bg-white p-10 rounded-[40px] shadow-2xl border text-center">
+          <div className="bg-orange-50 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 relative overflow-hidden">
+             <div className="absolute inset-0 bg-orange-100 opacity-20 animate-pulse"></div>
+            <Smartphone className="text-orange-600 relative z-10" size={48} />
           </div>
-          <h2 className="text-3xl font-black text-gray-800 tracking-tight">Verificación 2FA</h2>
-          <p className="text-gray-500 mt-2">Introduce tu código de seguridad de 6 dígitos.</p>
+          <h2 className="text-3xl font-black text-gray-800 tracking-tight">Verificación en dos pasos</h2>
+          <p className="text-gray-500 mt-2 text-balance leading-relaxed">Abre tu app de Authenticator e introduce el código de 6 dígitos.</p>
           
           <form onSubmit={handleVerify2FA} className="space-y-6 mt-8">
             <input 
               type="text" 
               maxLength={6}
               required 
-              value={pin} 
-              onChange={e => setPin(e.target.value)}
-              className="w-full text-center text-4xl tracking-[1em] py-4 rounded-2xl border bg-gray-50 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all font-mono"
-              placeholder="000000"
+              value={token} 
+              onChange={e => setToken(e.target.value.replace(/\D/g, ''))}
+              className="w-full text-center text-4xl tracking-[0.5em] py-5 rounded-3xl border bg-gray-50 focus:ring-4 focus:ring-orange-500/10 outline-none transition-all font-mono font-black"
+              placeholder="000 000"
               autoFocus
             />
             
             <button 
               type="submit" 
-              className="w-full py-4 bg-orange-600 text-white font-bold rounded-2xl shadow-lg hover:bg-orange-700 transition-all flex items-center justify-center gap-2"
+              className="w-full py-5 bg-orange-600 text-white font-black rounded-3xl shadow-xl shadow-orange-200 hover:bg-orange-700 transition-all flex items-center justify-center gap-2 transform active:scale-95"
             >
-              Verificar y Entrar
+              Comprobar y Acceder
             </button>
             
             <button 
               type="button"
               onClick={() => { setShow2FA(false); supabase.auth.signOut(); }}
-              className="text-sm text-gray-400 font-bold hover:text-gray-600"
+              className="text-xs text-gray-400 font-bold hover:text-gray-600 transition-colors"
             >
-              Cancelar Acceso
+              ← Volver al Login
             </button>
           </form>
 
           {message && (
-            <div className="mt-6 p-4 bg-red-50 text-red-700 rounded-2xl text-sm font-medium">
+            <div className="mt-6 p-4 bg-red-50 text-red-700 rounded-2xl text-xs font-bold leading-relaxed">
               {message}
             </div>
           )}
@@ -99,42 +106,45 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 p-6 font-sans">
-      <div className="w-full max-w-md space-y-8 bg-white p-10 rounded-3xl shadow-2xl border">
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 p-6 font-sans relative overflow-hidden">
+      <div className="absolute -top-20 -left-20 w-80 h-80 bg-blue-100 rounded-full blur-[120px] opacity-40"></div>
+      <div className="absolute -bottom-20 -right-20 w-80 h-80 bg-purple-100 rounded-full blur-[120px] opacity-40"></div>
+
+      <div className="w-full max-w-md space-y-8 bg-white p-12 rounded-[48px] shadow-2xl border relative z-10">
         <div className="text-center">
-          <div className="bg-blue-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
-            <LayoutDashboard className="text-blue-600" size={36} />
+          <div className="bg-blue-50 w-24 h-24 rounded-[32px] flex items-center justify-center mx-auto mb-6 transform rotate-6 hover:rotate-0 transition-transform duration-500">
+            <LayoutDashboard className="text-blue-600" size={40} />
           </div>
-          <h2 className="text-3xl font-black text-gray-800 tracking-tight">Bienvenido</h2>
-          <p className="text-gray-500 mt-2">Accede a tu panel de GestiónPro.</p>
+          <h2 className="text-4xl font-black text-gray-800 tracking-tighter">GestionPro</h2>
+          <p className="text-gray-400 mt-2 font-medium">Panel de Control Inteligente</p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-6">
           <div className="space-y-2">
-            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Email</label>
-            <div className="relative">
-              <Mail className="absolute left-4 top-4 text-gray-400" size={18} />
+            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-2">Email Corporativo</label>
+            <div className="relative group">
+              <Mail className="absolute left-5 top-5 text-gray-300 group-focus-within:text-blue-500 transition-colors" size={18} />
               <input 
                 type="email" 
                 required 
                 value={email} 
                 onChange={e => setEmail(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 rounded-2xl border bg-gray-50 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
-                placeholder="tu@email.com"
+                className="w-full pl-14 pr-4 py-5 rounded-3xl border bg-gray-50 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all font-medium"
+                placeholder="ejemplo@empresa.com"
               />
             </div>
           </div>
 
           <div className="space-y-2">
-            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Contraseña</label>
-            <div className="relative">
-              <Lock className="absolute left-4 top-4 text-gray-400" size={18} />
+            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-2">Clave de Seguridad</label>
+            <div className="relative group">
+              <Lock className="absolute left-5 top-5 text-gray-300 group-focus-within:text-blue-500 transition-colors" size={18} />
               <input 
                 type="password" 
                 required 
                 value={password} 
                 onChange={e => setPassword(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 rounded-2xl border bg-gray-50 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                className="w-full pl-14 pr-4 py-5 rounded-3xl border bg-gray-50 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all font-medium"
                 placeholder="••••••••"
               />
             </div>
@@ -143,22 +153,24 @@ export default function LoginPage() {
           <button 
             type="submit" 
             disabled={loading}
-            className="w-full py-4 bg-blue-600 text-white font-bold rounded-2xl shadow-lg hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
+            className="w-full py-5 bg-gray-900 text-white font-black rounded-3xl shadow-2xl hover:bg-black transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-50"
           >
             {loading ? <Loader2 className="animate-spin" /> : <LogIn size={20} />}
-            Entrar
+            Entrar al Sistema
           </button>
         </form>
 
         {message && (
-          <div className="p-4 bg-red-50 text-red-700 rounded-2xl text-sm font-medium">
+          <div className="p-4 bg-red-50 text-red-700 rounded-3xl text-xs font-bold text-center leading-relaxed">
             {message}
           </div>
         )}
 
-        <p className="text-center text-sm text-gray-500">
-          ¿No tienes cuenta? <a href="/signup" className="font-bold text-blue-600 hover:underline">Regístrate ahora</a>
-        </p>
+        <div className="pt-6 text-center border-t border-dashed">
+           <p className="text-xs text-gray-400">
+             ¿Necesitas ayuda? <a href="#" className="font-bold text-blue-600 hover:underline">Soporte Técnico</a>
+           </p>
+        </div>
       </div>
     </div>
   );

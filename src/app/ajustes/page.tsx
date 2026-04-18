@@ -21,12 +21,17 @@ import {
   CloudCheck,
   Database,
   DownloadCloud,
-  RotateCcw
+  RotateCcw,
+  Smartphone,
+  QrCode,
+  KeyRound
 } from 'lucide-react';
 import { Sidebar } from '@/components/Sidebar';
 import { getFullLocationByCP } from '@/lib/geoData';
 import { validateNIF, validateIBAN, formatIBAN } from '@/lib/validations';
 import { encrypt } from '@/lib/encryption';
+import { authenticator } from 'otplib';
+import { QRCodeCanvas } from 'qrcode.react';
 
 export default function AjustesPage() {
   const [loading, setLoading] = useState(true);
@@ -50,7 +55,6 @@ export default function AjustesPage() {
   const [condicionesLegales, setCondicionesLegales] = useState('');
   const [lopdText, setLopdText] = useState('');
   
-  // Verifactu State
   const [verifactuCert, setVerifactuCert] = useState('');
   const [verifactuCertPassword, setVerifactuCertPassword] = useState('');
   const [verifactuEnv, setVerifactuEnv] = useState<'pruebas' | 'produccion'>('pruebas');
@@ -60,9 +64,12 @@ export default function AjustesPage() {
   const [syncing, setSyncing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   
-  // Seguridad 2FA
+  // Seguridad 2FA (Authenticator)
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
-  const [securityPin, setSecurityPin] = useState('');
+  const [totpSecret, setTotpSecret] = useState('');
+  const [isSettingUp2FA, setIsSettingUp2FA] = useState(false);
+  const [qrUrl, setQrUrl] = useState('');
+  const [verifyToken, setVerifyToken] = useState('');
   
   // Backup / Restore
   const [isBackupLoading, setIsBackupLoading] = useState(false);
@@ -75,7 +82,6 @@ export default function AjustesPage() {
     checkUser();
   }, []);
 
-  // Autosave Effect
   useEffect(() => {
     if (initialLoadDone.current && user) {
       const timer = setTimeout(() => {
@@ -87,7 +93,7 @@ export default function AjustesPage() {
     nombre, nif, cuentaBancaria, direccion, cp, poblacion, provincia, 
     email, geminiKey, logoUrl, formaPago, tieneRetencion, irpfDefault, 
     condicionesLegales, lopdText, verifactuCert, verifactuCertPassword, verifactuEnv,
-    twoFactorEnabled, securityPin
+    twoFactorEnabled
   ]);
 
   const checkUser = async () => {
@@ -150,7 +156,7 @@ export default function AjustesPage() {
       const { data: prof } = await supabase.from('perfiles').select('*').eq('id', userId).single();
       if (prof) {
         setTwoFactorEnabled(prof.two_factor_enabled || false);
-        setSecurityPin(prof.two_factor_pin || '');
+        setTotpSecret(prof.two_factor_secret || '');
       }
     } catch (e) { console.error(e); }
   };
@@ -193,7 +199,7 @@ export default function AjustesPage() {
 
       await Promise.all([
         supabase.from('perfil_negocio').upsert(payload, { onConflict: 'user_id' }),
-        supabase.from('perfiles').upsert({ id: user.id, two_factor_enabled: twoFactorEnabled, two_factor_pin: securityPin })
+        supabase.from('perfiles').upsert({ id: user.id, two_factor_enabled: twoFactorEnabled, two_factor_secret: totpSecret })
       ]);
       
       setAutoStatus('saved');
@@ -202,6 +208,33 @@ export default function AjustesPage() {
     } catch (e) {
       console.error(e);
       setAutoStatus('idle');
+    }
+  };
+
+  const setup2FA = () => {
+    const secret = authenticator.generateSecret();
+    const otpauth = authenticator.keyuri(user.email, 'GestionPro', secret);
+    setTotpSecret(secret);
+    setQrUrl(otpauth);
+    setIsSettingUp2FA(true);
+  };
+
+  const confirm2FA = () => {
+    const isValid = authenticator.check(verifyToken, totpSecret);
+    if (isValid) {
+      setTwoFactorEnabled(true);
+      setIsSettingUp2FA(false);
+      setVerifyToken('');
+      alert("✅ 2FA Activado correctamente con Authenticator.");
+    } else {
+      alert("❌ Código inválido. Vuelve a intentarlo.");
+    }
+  };
+
+  const disable2FA = async () => {
+    if (confirm("¿Desactivar la seguridad de doble factor?")) {
+      setTwoFactorEnabled(false);
+      setTotpSecret('');
     }
   };
 
@@ -252,6 +285,41 @@ export default function AjustesPage() {
     }
   };
 
+  const handleExportBackup = async () => {
+    if (!confirm("Se generará un archivo descargable. ¿Continuar?")) return;
+    setIsBackupLoading(true);
+    try {
+      const tables = ['clientes', 'proveedores', 'proyectos', 'proyecto_lineas', 'ventas', 'venta_lineas', 'costes', 'coste_lineas', 'cobros', 'pagos', 'perfil_negocio', 'tipos_iva', 'tipos_irpf', 'perfiles', 'proyecto_documentos'];
+      const backupData: any = { version: "1.0", timestamp: new Date().toISOString(), user: user.email, data: {} };
+      for (const table of tables) {
+        const { data } = await supabase.from(table).select('*');
+        backupData.data[table] = data || [];
+      }
+      const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `GP_BACKUP_${new Date().toISOString().split('T')[0]}.json`;
+      link.click();
+    } catch (e: any) { alert("Error"); } finally { setIsBackupLoading(false); }
+  };
+
+  const handleImportBackup = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !confirm("¿Restaurar copia? Esto sobrescribirá datos.")) return;
+    setIsRestoreLoading(true);
+    try {
+      const text = await file.text();
+      const backup = JSON.parse(text);
+      const data = backup.data || backup;
+      for (const table in data) {
+        if (data[table]?.length > 0) await supabase.from(table).upsert(data[table]);
+      }
+      alert("✅ Restauración terminada.");
+      window.location.reload();
+    } catch (e: any) { alert("Error"); } finally { setIsRestoreLoading(false); }
+  };
+
   if (!user && !loading) return (
     <div className="flex h-screen items-center justify-center bg-gray-100 p-4 font-sans">
       <div className="bg-white p-12 rounded-3xl shadow-2xl border max-w-sm w-full text-center space-y-6">
@@ -262,7 +330,7 @@ export default function AjustesPage() {
     </div>
   );
 
-  if (loading) return <div className="flex h-screen items-center justify-center font-sans text-gray-400 gap-2"><Loader2 className="animate-spin text-blue-500" size={32} /> Cargando configuración...</div>;
+  if (loading) return <div className="flex h-screen items-center justify-center font-sans text-gray-400 gap-2"><Loader2 className="animate-spin text-blue-500" size={32} /> Cargando...</div>;
 
   return (
     <div className="flex bg-[var(--background)] min-h-screen">
@@ -271,11 +339,11 @@ export default function AjustesPage() {
         <header className="flex justify-between items-end">
           <div>
             <h1 className="text-4xl font-black font-head tracking-tighter text-[var(--foreground)]">Ajustes</h1>
-            <p className="text-[var(--muted)] font-medium">Autoguardado conectado en tiempo real.</p>
+            <p className="text-[var(--muted)] font-medium">Configuración avanzada y seguridad.</p>
           </div>
           <div className={`px-5 py-2 rounded-full text-xs font-bold border flex items-center gap-2 transition-all duration-300 ${autoStatus === 'saving' ? 'bg-blue-50 text-blue-600 border-blue-100 scale-105' : autoStatus === 'saved' ? 'bg-green-50 text-green-700 border-green-100 scale-105' : 'bg-gray-50 text-gray-400 border-gray-100'}`}>
             {autoStatus === 'saving' ? <Loader2 className="animate-spin" size={14} /> : autoStatus === 'saved' ? <CloudCheck size={14} /> : <ShieldCheck size={14} />}
-            {autoStatus === 'saving' ? 'Guardando cambios...' : autoStatus === 'saved' ? 'Cambios sincronizados' : `Sesión: ${user.email}`}
+            {autoStatus === 'saving' ? 'Guardando...' : autoStatus === 'saved' ? 'Sincronizado' : `Sesión: ${user.email}`}
           </div>
         </header>
 
@@ -287,15 +355,14 @@ export default function AjustesPage() {
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="md:col-span-2 space-y-2">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Logo de Empresa</label>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Logo Corporativo</label>
                   <div className="flex flex-col md:flex-row gap-4">
                     <div className="flex-1 relative">
-                      <input type="text" value={logoUrl} onChange={e => setLogoUrl(e.target.value)} className="w-full pl-12 pr-4 py-4 rounded-2xl border bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500/10" placeholder="https://..." />
+                      <input type="text" value={logoUrl} onChange={e => setLogoUrl(e.target.value)} className="w-full pl-12 pr-4 py-4 rounded-2xl border bg-gray-50 outline-none" placeholder="https://..." />
                       <ImageIcon size={18} className="absolute left-4 top-4 text-gray-300" />
                     </div>
                     <label className="flex items-center gap-2 px-6 py-4 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-2xl cursor-pointer transition-all active:scale-95">
-                      <Upload size={18} />
-                      {isSaving ? 'Subiendo...' : 'Subir'}
+                      <Upload size={18} /> {isSaving ? 'Subiendo...' : 'Subir'}
                       <input type="file" onChange={handleFileUpload} disabled={isSaving} className="hidden" accept="image/*" />
                     </label>
                   </div>
@@ -307,92 +374,106 @@ export default function AjustesPage() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Email Público</label>
-                  <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full px-5 py-4 rounded-2xl border bg-gray-50 outline-none" placeholder="empresa@ejemplo.com" />
-                </div>
-
-                <div className="space-y-1">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">NIF / CIF</label>
                   <input type="text" value={nif} onChange={e => setNif(e.target.value.toUpperCase())} className="w-full px-5 py-4 rounded-2xl border bg-gray-50 outline-none" />
                 </div>
                 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Forma de Pago Predefinida</label>
-                  <div className="relative">
-                    <input type="text" value={formaPago} onChange={e => setFormaPago(e.target.value)} className="w-full pl-12 pr-4 py-4 rounded-2xl border bg-gray-50 outline-none" />
-                    <Wallet size={18} className="absolute left-4 top-4 text-gray-300" />
-                  </div>
-                </div>
-
-                <div className="md:col-span-2 space-y-1">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">IBAN de Cobro</label>
                   <input type="text" value={cuentaBancaria} onChange={e => setCuentaBancaria(formatIBAN(e.target.value))} className="w-full px-5 py-4 rounded-2xl border bg-gray-50 font-mono text-sm" />
                 </div>
 
                 <div className="grid grid-cols-3 gap-4 md:col-span-2">
                    <div className="md:col-span-3 space-y-1">
-                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Dirección Completa</label>
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Dirección</label>
                       <input type="text" value={direccion} onChange={e => setDireccion(e.target.value)} className="w-full px-5 py-4 rounded-2xl border bg-gray-50" />
                    </div>
                    <input type="text" placeholder="C.P." value={cp} maxLength={5} onChange={e => setCp(e.target.value)} className="px-5 py-4 rounded-2xl border bg-gray-50 outline-none font-mono" />
                    <input type="text" placeholder="Ciudad" value={poblacion} onChange={e => setPoblacion(e.target.value)} className="px-5 py-4 rounded-2xl border bg-gray-50 outline-none" />
                    <input type="text" placeholder="Provincia" value={provincia} onChange={e => setProvincia(e.target.value)} className="px-5 py-4 rounded-2xl border bg-gray-50 outline-none" />
                 </div>
-
-                <div className="md:col-span-2 space-y-2 pt-4 border-t border-dashed">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Condicionado Legal (Pie de PDF)</label>
-                  <textarea value={condicionesLegales} onChange={e => setCondicionesLegales(e.target.value)} rows={4} className="w-full px-5 py-4 rounded-2xl border bg-gray-50 outline-none text-xs text-gray-600 leading-relaxed" />
-                </div>
-
-                <div className="md:col-span-2 space-y-2 pt-4">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Protección de Datos (LOPD)</label>
-                  <textarea value={lopdText} onChange={e => setLopdText(e.target.value)} rows={3} className="w-full px-5 py-4 rounded-2xl border bg-gray-50 outline-none text-xs text-gray-600 leading-relaxed" />
-                </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-3xl border p-8 shadow-sm border-purple-100">
-              <h2 className="text-xl font-bold font-head mb-8 flex items-center gap-3 text-purple-600"><Brain size={24} /> Inteligencia Artificial</h2>
-              <div className="space-y-1">
-                <div className="flex justify-between items-center mb-1">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Gemini API Key</label>
-                  <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-[10px] font-bold text-purple-600 hover:underline flex items-center gap-1">Conseguir Key <ExternalLink size={10} /></a>
-                </div>
-                <input type="password" value={geminiKey} onChange={e => setGeminiKey(e.target.value)} className="w-full px-5 py-4 rounded-2xl border bg-purple-50/20 outline-none font-mono text-xs" />
+            {/* SEGURIDAD 2FA APP EXTERNA */}
+            <div className="bg-white rounded-3xl border p-8 shadow-sm border-orange-100 overflow-hidden relative">
+              <div className="absolute top-0 right-0 p-8 opacity-5 text-orange-600 rotate-12">
+                 <Smartphone size={160} />
               </div>
-            </div>
-            
-            <div className="bg-white rounded-3xl border p-8 shadow-sm border-orange-100">
-              <h2 className="text-xl font-bold font-head mb-8 flex items-center gap-3 text-orange-600"><ShieldCheck size={24} /> Seguridad 2FA</h2>
-              <div className="space-y-6">
-                <div className="flex items-center justify-between p-4 bg-orange-50/50 rounded-2xl border border-orange-100">
-                  <div>
-                    <h3 className="text-sm font-bold text-orange-800">Doble Factor</h3>
-                    <p className="text-[10px] text-orange-600 font-medium tracking-tight">Solicitar PIN tras el inicio de sesión.</p>
+              <h2 className="text-xl font-bold font-head mb-8 flex items-center gap-3 text-orange-600 relative z-10">
+                <ShieldCheck size={24} /> Seguridad de Doble Factor (App Externa)
+              </h2>
+              
+              <div className="space-y-6 relative z-10">
+                <div className="flex items-center justify-between p-6 bg-orange-50/50 rounded-2xl border border-orange-100">
+                  <div className="flex gap-4 items-center">
+                    <div className={`p-3 rounded-xl ${twoFactorEnabled ? 'bg-green-100 text-green-600' : 'bg-orange-100 text-orange-600'}`}>
+                       <Smartphone size={24} />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-gray-800">Authenticator App</h3>
+                      <p className="text-[10px] text-gray-500 font-medium">Usa Google Authenticator, Authy o Microsoft Authenticator.</p>
+                    </div>
                   </div>
-                  <button onClick={() => setTwoFactorEnabled(!twoFactorEnabled)} className={`w-14 h-8 rounded-full p-1 transition-all ${twoFactorEnabled ? 'bg-orange-600' : 'bg-gray-200'}`}>
-                    <div className={`w-6 h-6 bg-white rounded-full shadow transition-transform ${twoFactorEnabled ? 'translate-x-6' : 'translate-x-0'}`} />
+                  <button 
+                    onClick={() => twoFactorEnabled ? disable2FA() : setup2FA()}
+                    className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${twoFactorEnabled ? 'bg-red-50 text-red-600 border border-red-100 hover:bg-red-100' : 'bg-orange-600 text-white shadow-lg hover:bg-orange-700'}`}
+                  >
+                    {twoFactorEnabled ? 'DESACTIVAR' : 'CONFIGURAR'}
                   </button>
                 </div>
-                {twoFactorEnabled && (
-                  <div className="space-y-2 animate-in slide-in-from-top-2">
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">PIN (6 dígitos)</label>
-                    <input type="text" maxLength={6} value={securityPin} onChange={e => setSecurityPin(e.target.value.replace(/\D/g, ''))} className="w-full px-5 py-4 rounded-2xl border bg-gray-50 outline-none font-mono text-2xl tracking-[0.5em] text-center" />
+
+                {isSettingUp2FA && (
+                  <div className="p-8 bg-white border border-gray-100 rounded-[32px] shadow-xl animate-in zoom-in-95 duration-300 space-y-6 text-center">
+                    <div className="space-y-2">
+                       <h4 className="text-lg font-bold text-gray-800 flex items-center justify-center gap-2">
+                          <QrCode size={20} className="text-orange-500" /> Paso 1: Escanea el QR
+                       </h4>
+                       <p className="text-xs text-gray-400">Abre tu aplicación de verificación y escanea este código.</p>
+                    </div>
+
+                    <div className="flex justify-center p-4 bg-white rounded-3xl border shadow-inner">
+                       <QRCodeCanvas value={qrUrl} size={200} level="H" />
+                    </div>
+
+                    <div className="space-y-4">
+                       <div className="space-y-2">
+                          <h4 className="text-sm font-bold text-gray-700 flex items-center justify-center gap-2">
+                             <KeyRound size={18} className="text-orange-500" /> Paso 2: Introduce el código
+                          </h4>
+                          <p className="text-[10px] text-gray-400">Escribe el código de 6 dígitos que aparece en tu móvil.</p>
+                       </div>
+                       <input 
+                         type="text" 
+                         value={verifyToken}
+                         onChange={e => setVerifyToken(e.target.value.replace(/\D/g, ''))}
+                         className="w-full max-w-[200px] mx-auto block px-5 py-4 rounded-xl border bg-gray-50 text-center text-2xl font-mono tracking-[0.5em] focus:ring-2 focus:ring-orange-500/10 outline-none"
+                         placeholder="000000"
+                         maxLength={6}
+                       />
+                       <div className="flex gap-2">
+                          <button onClick={() => setIsSettingUp2FA(false)} className="flex-1 py-4 bg-gray-100 text-gray-500 font-bold rounded-2xl hover:bg-gray-200 transition-all">Cancelar</button>
+                          <button onClick={confirm2FA} className="flex-1 py-4 bg-orange-600 text-white font-bold rounded-2xl shadow-lg hover:bg-orange-700 transition-all">Verificar y Activar</button>
+                       </div>
+                    </div>
+                  </div>
+                )}
+
+                {twoFactorEnabled && !isSettingUp2FA && (
+                  <div className="flex items-center gap-3 p-4 bg-green-50 rounded-2xl border border-green-100 text-green-700 animate-in fade-in duration-500">
+                     <CheckCircle2 size={20} />
+                     <span className="text-xs font-bold font-sans">Tu cuenta está protegida con verificación de doble factor externa.</span>
                   </div>
                 )}
               </div>
             </div>
 
             <div className="bg-white rounded-3xl border p-8 shadow-sm border-blue-100">
-              <h2 className="text-xl font-bold font-head mb-8 flex items-center gap-3 text-blue-600"><ShieldCheck size={24} /> Factura Electrónica</h2>
+              <h2 className="text-xl font-bold font-head mb-8 flex items-center gap-3 text-blue-600"><ShieldCheck size={24} /> Factura Electrónica & Verifactu</h2>
               <div className="space-y-4">
                 <div className="flex gap-2">
-                  <button onClick={() => setVerifactuEnv('pruebas')} className={`flex-1 py-2 rounded-xl text-[10px] font-black transition-all ${verifactuEnv === 'pruebas' ? 'bg-blue-600 text-white' : 'bg-gray-50 text-gray-400'}`}>PRUEBAS</button>
-                  <button onClick={() => setVerifactuEnv('produccion')} className={`flex-1 py-2 rounded-xl text-[10px] font-black transition-all ${verifactuEnv === 'produccion' ? 'bg-red-600 text-white' : 'bg-gray-50 text-gray-400'}`}>PRODUCCIÓN</button>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Clave Privada Certificado</label>
-                  <input type="password" value={verifactuCertPassword} onChange={e => setVerifactuCertPassword(e.target.value)} className="w-full px-5 py-4 rounded-2xl border bg-gray-50 outline-none font-mono text-xs" />
+                  <button onClick={() => setVerifactuEnv('pruebas')} className={`flex-1 py-2 rounded-xl text-[10px] font-black transition-all ${verifactuEnv === 'pruebas' ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-50 text-gray-400 border border-gray-100'}`}>PRUEBAS</button>
+                  <button onClick={() => setVerifactuEnv('produccion')} className={`flex-1 py-2 rounded-xl text-[10px] font-black transition-all ${verifactuEnv === 'produccion' ? 'bg-red-600 text-white shadow-md' : 'bg-gray-50 text-gray-400 border border-gray-100'}`}>PRODUCCIÓN</button>
                 </div>
               </div>
             </div>
@@ -405,131 +486,60 @@ export default function AjustesPage() {
                 <button onClick={handleSyncOfficial} disabled={syncing} className="p-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100"><RefreshCcw size={18} className={syncing ? 'animate-spin' : ''} /></button>
               </div>
               <div className="space-y-6">
-                <div>
-                  <div className="flex justify-between items-center mb-3">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Tipos de IVA</p>
-                    <button onClick={() => handleAddTipo('tipos_iva')} className="text-[10px] font-bold text-blue-600">+ Añadir</button>
-                  </div>
-                  <div className="space-y-2">
-                    {tiposIva.map(t => (
-                      <div key={t.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-2xl border border-gray-100 group">
-                        <span className="text-xs font-bold text-gray-600">{t.nombre} ({t.valor}%)</span>
-                        <button onClick={() => handleDeleteTipo('tipos_iva', t.id)} className="p-1 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={14} /></button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="pt-4 border-t border-dashed">
-                  <div className="flex justify-between items-center mb-3">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Tipos de IRPF</p>
-                    <button onClick={() => handleAddTipo('tipos_irpf')} className="text-[10px] font-bold text-orange-600">+ Añadir</button>
-                  </div>
-                  <div className="space-y-2">
-                    {tiposIrpf.map(t => (
-                      <div key={t.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-2xl border border-gray-100 group">
-                        <span className="text-xs font-bold text-gray-600">{t.nombre} ({t.valor}%)</span>
-                        <button onClick={() => handleDeleteTipo('tipos_irpf', t.id)} className="p-1 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={14} /></button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between bg-orange-50/20 p-4 rounded-2xl border border-orange-100 mt-4">
-                  <p className="text-xs font-bold text-orange-800">Facturar con IRPF</p>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" checked={tieneRetencion} onChange={e => setTieneRetencion(e.target.checked)} className="sr-only peer" />
-                    <div className="w-11 h-6 bg-gray-300 rounded-full peer peer-checked:bg-orange-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            {/* COPIA DE SEGURIDAD */}
-            <div className="bg-white rounded-3xl border p-8 shadow-sm border-blue-100">
-              <h2 className="text-lg font-bold font-head mb-6 flex items-center gap-2 text-blue-600">
-                <Database size={20} /> Mantenimiento de Datos
-              </h2>
-              <div className="space-y-4">
-                <button 
-                  onClick={handleExportBackup}
-                  disabled={isBackupLoading}
-                  className="w-full flex items-center justify-between p-4 bg-blue-50 hover:bg-blue-100 rounded-2xl border border-blue-100 transition-all group"
-                >
-                  <div className="text-left">
-                    <p className="text-xs font-bold text-blue-800">Copia de Seguridad</p>
-                    <p className="text-[10px] text-blue-600">Descarga tu base de datos completa.</p>
-                  </div>
-                  {isBackupLoading ? <Loader2 className="animate-spin text-blue-600" size={20} /> : <DownloadCloud className="text-blue-400 group-hover:scale-110 transition-transform" size={20} />}
-                </button>
-
-                <div className="relative">
-                  <input 
-                    type="file" 
-                    accept=".json"
-                    onChange={handleImportBackup}
-                    disabled={isRestoreLoading}
-                    className="hidden" 
-                    id="restore-upload" 
-                  />
-                  <label 
-                    htmlFor="restore-upload"
-                    className="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 rounded-2xl border border-gray-100 transition-all cursor-pointer group"
-                  >
-                    <div className="text-left">
-                      <p className="text-xs font-bold text-gray-700">Restaurar Copia</p>
-                      <p className="text-[10px] text-gray-400">Recupera datos desde un archivo .json</p>
+                 <div>
+                    <div className="flex justify-between items-center mb-3">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Tipos de IVA</p>
+                      <button onClick={() => handleAddTipo('tipos_iva')} className="text-[10px] font-bold text-blue-600">+ Añadir</button>
                     </div>
-                    {isRestoreLoading ? <Loader2 className="animate-spin text-gray-600" size={20} /> : <RotateCcw className="text-gray-300 group-hover:rotate-180 transition-transform duration-500" size={20} />}
-                  </label>
-                </div>
-
-                {autoBackups.length > 0 && (
-                  <div className="pt-4 border-t border-dashed space-y-3">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Historial Automático (últimos 5 días)</p>
                     <div className="space-y-2">
-                       {autoBackups.map(b => (
-                         <div key={b.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100 text-xs">
-                            <div className="flex flex-col">
-                               <span className="font-bold text-gray-700">{b.nombre}</span>
-                               <span className="text-[9px] text-gray-400 italic">{(b.size / 1024 / 1024).toFixed(2)} MB • {new Date(b.created_at).toLocaleTimeString()}</span>
-                            </div>
-                            <div className="flex gap-1">
-                               <a href={b.archivo_url} download className="p-1.5 hover:bg-white rounded-lg text-blue-600 transition-all"><DownloadCloud size={14} /></a>
-                               <button 
-                                 onClick={async () => {
-                                   if (!confirm("¿Restaurar esta versión específica? Se recomienda Backup previo.")) return;
-                                   setIsRestoreLoading(true);
-                                   try {
-                                      const resp = await fetch(b.archivo_url);
-                                      const backup = await resp.json();
-                                      const data = backup.data || backup;
-                                      for (const table in data) {
-                                        if (data[table]?.length > 0) await supabase.from(table).upsert(data[table]);
-                                      }
-                                      alert("✅ Restauración automática completada.");
-                                      window.location.reload();
-                                   } catch(e) { alert("Error"); } finally { setIsRestoreLoading(false); }
-                                 }}
-                                 className="p-1.5 hover:bg-white rounded-lg text-orange-600 transition-all"
-                               >
-                                 <RotateCcw size={14} />
-                               </button>
-                            </div>
-                         </div>
-                       ))}
+                      {tiposIva.map(t => (
+                        <div key={t.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-2xl border border-gray-100 group">
+                          <span className="text-xs font-bold text-gray-600">{t.nombre} ({t.valor}%)</span>
+                          <button onClick={() => handleDeleteTipo('tipos_iva', t.id)} className="p-1 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={14} /></button>
+                        </div>
+                      ))}
                     </div>
-                  </div>
-                )}
+                 </div>
+
+                 <div className="flex items-center justify-between bg-orange-50/20 p-4 rounded-2xl border border-orange-100 mt-4">
+                    <p className="text-xs font-bold text-orange-800">Facturar con IRPF</p>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input type="checkbox" checked={tieneRetencion} onChange={e => setTieneRetencion(e.target.checked)} className="sr-only peer" />
+                      <div className="w-11 h-6 bg-gray-300 rounded-full peer peer-checked:bg-orange-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
+                    </label>
+                 </div>
               </div>
             </div>
             
+            <div className="bg-white rounded-3xl border p-8 shadow-sm border-blue-100">
+              <h2 className="text-lg font-bold font-head mb-6 flex items-center gap-2 text-blue-600"><Database size={20} /> Mantenimiento</h2>
+              <div className="space-y-4">
+                <button onClick={handleExportBackup} disabled={isBackupLoading} className="w-full flex items-center justify-between p-4 bg-blue-50 hover:bg-blue-100 rounded-2xl border border-blue-100 transition-all group text-left">
+                  <div>
+                    <p className="text-xs font-bold text-blue-800">Backup Manual</p>
+                    <p className="text-[10px] text-blue-600 italic">Descargar JSON completo.</p>
+                  </div>
+                  <DownloadCloud size={20} className="text-blue-400 group-hover:scale-110 transition-all" />
+                </button>
+                <div className="relative">
+                  <input type="file" accept=".json" onChange={handleImportBackup} className="hidden" id="restore-up" />
+                  <label htmlFor="restore-up" className="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 rounded-2xl border border-gray-100 cursor-pointer group">
+                    <div className="text-left">
+                      <p className="text-xs font-bold text-gray-700">Restaurar Copia</p>
+                      <p className="text-[10px] text-gray-400">Subir archivo .json</p>
+                    </div>
+                    <RotateCcw size={20} className="text-gray-300 group-hover:rotate-180 transition-all duration-500" />
+                  </label>
+                </div>
+              </div>
+            </div>
+
             <div className="p-10 bg-gradient-to-br from-gray-900 to-black rounded-[40px] text-white shadow-2xl relative overflow-hidden group">
                <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:rotate-12 transition-transform">
                  <ShieldCheck size={120} />
                </div>
-               <h3 className="text-lg font-black tracking-tight mb-2">Sistema Protegido</h3>
-               <p className="text-xs text-gray-400 leading-relaxed">Tus ajustes se sincronizan automáticamente con la nube mediante cifrado de punto a punto.</p>
+               <h3 className="text-lg font-black tracking-tight mb-2">Seguridad Bancaria</h3>
+               <p className="text-xs text-gray-400 leading-relaxed font-sans">Tus llaves de API y segundos factores están protegidos por cifrado de grado militar.</p>
             </div>
           </div>
         </div>

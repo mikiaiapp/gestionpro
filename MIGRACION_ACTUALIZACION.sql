@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS public.perfiles (
     rol text DEFAULT 'Usuario',
     two_factor_enabled boolean DEFAULT false,
     two_factor_pin text,
+    two_factor_secret text,
     created_at timestamptz DEFAULT now()
 );
 
