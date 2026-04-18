@@ -229,6 +229,10 @@ ALTER TABLE public.proyectos ADD COLUMN IF NOT EXISTS condiciones_particulares t
 -- Columna para Coste Unitario por Partida
 ALTER TABLE public.proyecto_lineas ADD COLUMN IF NOT EXISTS coste_unitario numeric DEFAULT 0;
 
+-- Soporte documental para Facturas y Gastos
+ALTER TABLE public.costes ADD COLUMN IF NOT EXISTS archivo_url text;
+ALTER TABLE public.ventas ADD COLUMN IF NOT EXISTS archivo_url text;
+
 -- Asegurar Cascada en eliminaciones de lineas
 -- (Si falla es que ya existe la FK)
 -- ALTER TABLE public.proyecto_lineas DROP CONSTRAINT IF EXISTS proyecto_lineas_proyecto_id_fkey;

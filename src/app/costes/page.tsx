@@ -381,7 +381,16 @@ export default function CostesPage() {
          setSaving(false);
          return;
       }
-      payload.pdf_url = finalPdfUrl;
+      setIfFound(['pdf_url', 'archivo_url', 'url_archivo'], finalPdfUrl);
+
+      // Si no tenemos columnas detectadas (primer registro), forzamos mapeo estándar
+      if (availableCols.length === 0) {
+        payload.registro_interno = numInterno;
+        payload.num_factura_proveedor = numFactProv;
+        payload.base_imponible = baseImponible;
+        payload.iva_importe = totalIva;
+        payload.archivo_url = finalPdfUrl;
+      }
 
       let currentId = editingId;
       if (editingId) {
@@ -811,8 +820,8 @@ export default function CostesPage() {
 
                     {openMenuId === c.id && (
                       <div className="absolute right-6 top-12 w-48 bg-white rounded-xl shadow-xl border z-50 py-2 animate-in fade-in slide-in-from-top-2 duration-200 text-left">
-                        {c.pdf_url && (
-                          <a href={c.pdf_url} target="_blank" rel="noopener noreferrer" className="w-full flex items-center gap-3 px-4 py-2 text-sm text-purple-600 hover:bg-purple-50 transition-colors">
+                        {(c.pdf_url || c.archivo_url) && (
+                          <a href={c.pdf_url || c.archivo_url} target="_blank" rel="noopener noreferrer" className="w-full flex items-center gap-3 px-4 py-2 text-sm text-purple-600 hover:bg-purple-50 transition-colors">
                             <FileText size={16} className="text-purple-500" /> Ver Factura PDF
                           </a>
                         )}
