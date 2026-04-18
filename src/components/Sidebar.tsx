@@ -77,6 +77,10 @@ const menuStructure: MenuSection[] = [
   }
 ];
 
+export function Sidebar() {
+  const pathname = usePathname();
+  const router = useRouter();
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
