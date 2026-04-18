@@ -11,7 +11,7 @@ import { generatePDF } from "@/lib/pdfGenerator";
 import { formatCurrency } from "@/lib/format";
 import { sendInvoiceToAeat } from "@/lib/aeatService";
 import { encrypt } from "@/lib/encryption";
-import { CloudUpload, ShieldCheck, OctagonAlert } from "lucide-react";
+import { UploadCloud, ShieldCheck, OctagonAlert } from "lucide-react";
 import { exportVATBookPDF, exportVATBookExcel } from "@/lib/reportingService";
 import { uploadInvoiceFile } from "@/lib/storageService";
 
@@ -600,7 +600,7 @@ function VentasContent() {
                             </div>
                           ) : (
                             <div className="flex flex-col items-center gap-0.5 text-gray-300">
-                              <CloudUpload size={18} />
+                              <UploadCloud size={18} />
                               <span className="text-[10px] font-black uppercase tracking-tighter">Pendiente</span>
                             </div>
                           )}
@@ -624,7 +624,7 @@ function VentasContent() {
 
                               {v.verifactu_status !== 'enviado' && (
                                 <button onClick={() => handleVerifactuSubmit(v)} disabled={saving} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-blue-600 hover:bg-blue-50 transition-colors">
-                                  <CloudUpload size={16}/> Transmitir AEAT
+                                  <UploadCloud size={16}/> Transmitir AEAT
                                 </button>
                               )}
                                {v.estadoPago !== 'Cobrado' && (
