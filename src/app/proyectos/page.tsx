@@ -25,7 +25,8 @@ export default function ProyectosPage() {
   const [perfil, setPerfil] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [columnKey, setColumnKey] = useState("num_proyecto"); // Se detectará en fetchData
+  const [columnKey, setColumnKey] = useState("num_proyecto"); 
+  const [validRefKeys, setValidRefKeys] = useState<string[]>([]);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -105,15 +106,15 @@ export default function ProyectosPage() {
       const { data: clis } = await supabase.from("clientes").select("id, nombre").order("nombre");
       const { data: perf } = await supabase.from("perfil_negocio").select("*").maybeSingle();
 
-      // Escaneo Activo de Columnas - Preferimos num_proyecto que es el estándar actual
+      // Escaneo Activo de Columnas - Detectamos TODAS las columnas válidas para sincronizar
       const possibleKeys = ['num_proyecto', 'num_referencia', 'numero', 'referencia'];
+      const foundKeys: string[] = [];
       for (const key of possibleKeys) {
         const { error: probeError } = await supabase.from('proyectos').select(key).limit(0);
-        if (!probeError) {
-          setColumnKey(key);
-          break;
-        }
+        if (!probeError) foundKeys.push(key);
       }
+      setValidRefKeys(foundKeys);
+      if (foundKeys.length > 0) setColumnKey(foundKeys[0]);
 
       setProyectos(projs || []);
       setClientes(clis || []);
@@ -209,6 +210,11 @@ export default function ProyectosPage() {
         estado: estado,
         condiciones_particulares: condiciones
       };
+
+      // Sincronización multi-columna (Soberanía de Datos)
+      validRefKeys.forEach(key => {
+        payload[key] = numReferencia;
+      });
 
       let currentId = editingId;
       if (editingId) {
