@@ -18,7 +18,10 @@ import {
   Upload,
   Trash2,
   ShieldCheck,
-  CloudCheck
+  CloudCheck,
+  Database,
+  DownloadCloud,
+  RotateCcw
 } from 'lucide-react';
 import { Sidebar } from '@/components/Sidebar';
 import { getFullLocationByCP } from '@/lib/geoData';
@@ -60,6 +63,10 @@ export default function AjustesPage() {
   // Seguridad 2FA
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
   const [securityPin, setSecurityPin] = useState('');
+  
+  // Backup / Restore
+  const [isBackupLoading, setIsBackupLoading] = useState(false);
+  const [isRestoreLoading, setIsRestoreLoading] = useState(false);
 
   const initialLoadDone = useRef(false);
 
@@ -426,6 +433,47 @@ export default function AjustesPage() {
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input type="checkbox" checked={tieneRetencion} onChange={e => setTieneRetencion(e.target.checked)} className="sr-only peer" />
                     <div className="w-11 h-6 bg-gray-300 rounded-full peer peer-checked:bg-orange-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            {/* COPIA DE SEGURIDAD */}
+            <div className="bg-white rounded-3xl border p-8 shadow-sm border-blue-100">
+              <h2 className="text-lg font-bold font-head mb-6 flex items-center gap-2 text-blue-600">
+                <Database size={20} /> Mantenimiento de Datos
+              </h2>
+              <div className="space-y-4">
+                <button 
+                  onClick={handleExportBackup}
+                  disabled={isBackupLoading}
+                  className="w-full flex items-center justify-between p-4 bg-blue-50 hover:bg-blue-100 rounded-2xl border border-blue-100 transition-all group"
+                >
+                  <div className="text-left">
+                    <p className="text-xs font-bold text-blue-800">Copia de Seguridad</p>
+                    <p className="text-[10px] text-blue-600">Descarga tu base de datos completa.</p>
+                  </div>
+                  {isBackupLoading ? <Loader2 className="animate-spin text-blue-600" size={20} /> : <DownloadCloud className="text-blue-400 group-hover:scale-110 transition-transform" size={20} />}
+                </button>
+
+                <div className="relative">
+                  <input 
+                    type="file" 
+                    accept=".json"
+                    onChange={handleImportBackup}
+                    disabled={isRestoreLoading}
+                    className="hidden" 
+                    id="restore-upload" 
+                  />
+                  <label 
+                    htmlFor="restore-upload"
+                    className="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 rounded-2xl border border-gray-100 transition-all cursor-pointer group"
+                  >
+                    <div className="text-left">
+                      <p className="text-xs font-bold text-gray-700">Restaurar Copia</p>
+                      <p className="text-[10px] text-gray-400">Recupera datos desde un archivo .json</p>
+                    </div>
+                    {isRestoreLoading ? <Loader2 className="animate-spin text-gray-600" size={20} /> : <RotateCcw className="text-gray-300 group-hover:rotate-180 transition-transform duration-500" size={20} />}
                   </label>
                 </div>
               </div>
