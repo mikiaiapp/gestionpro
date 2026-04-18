@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Sidebar } from "@/components/Sidebar";
 import { Activity, Search, Loader2, TrendingUp, TrendingDown, Target, Building2, FileText, X, Receipt } from "lucide-react";
 import { supabase } from "@/lib/supabase";
@@ -391,20 +391,37 @@ export default function ResumenPage() {
                               </thead>
                               <tbody className="divide-y">
                                  {details.ventas.map(v => {
-                                   const cobrado = details.cobros.filter(c => c.venta_id === v.id).reduce((acc, c) => acc + c.importe, 0);
+                                   const relevantCobros = details.cobros.filter(c => c.venta_id === v.id);
+                                   const cobrado = relevantCobros.reduce((acc, c) => acc + c.importe, 0);
                                    return (
-                                     <tr key={v.id}>
-                                       <td className="px-4 py-3 font-bold flex items-center gap-2">
-                                          {v.serie}-{v.num_factura}
-                                          {v.pdf_url && <a href={v.pdf_url} target="_blank" className="p-1 text-red-500 hover:bg-red-50 rounded transition-all"><FileText size={14} /></a>}
-                                       </td>
-                                       <td className="px-4 py-3 font-mono font-bold text-blue-600">{formatCurrency(v.total)}</td>
-                                       <td className="px-4 py-3">
-                                          <div className={`px-2 py-0.5 rounded-full inline-block text-[9px] font-black uppercase ${cobrado >= v.total ? 'bg-green-100 text-green-600' : 'bg-orange-100 text-orange-600'}`}>
-                                             {cobrado >= v.total ? 'Cobrado Total' : `Pend: ${formatCurrency(v.total - cobrado)}`}
-                                          </div>
-                                       </td>
-                                     </tr>
+                                     <React.Fragment key={v.id}>
+                                       <tr className="bg-white">
+                                         <td className="px-4 py-3 font-bold flex items-center gap-2">
+                                            {v.serie}-{v.num_factura}
+                                            {v.pdf_url && <a href={v.pdf_url} target="_blank" className="p-1 text-red-500 hover:bg-red-50 rounded transition-all"><FileText size={14} /></a>}
+                                         </td>
+                                         <td className="px-4 py-3 font-mono font-bold text-blue-600">{formatCurrency(v.total)}</td>
+                                         <td className="px-4 py-3">
+                                            <div className={`px-2 py-0.5 rounded-full inline-block text-[9px] font-black uppercase ${cobrado >= v.total ? 'bg-green-100 text-green-600' : 'bg-orange-100 text-orange-600'}`}>
+                                               {cobrado >= v.total ? 'Cobrado Total' : `Pend: ${formatCurrency(v.total - cobrado)}`}
+                                            </div>
+                                         </td>
+                                       </tr>
+                                       {relevantCobros.length > 0 && (
+                                         <tr className="bg-gray-50/30">
+                                            <td colSpan={3} className="px-10 py-2 border-l-2 border-blue-200">
+                                               <div className="space-y-1">
+                                                  {relevantCobros.map((cb, idx) => (
+                                                     <div key={cb.id} className="flex justify-between items-center text-[10px] text-gray-500">
+                                                        <span>{idx + 1}. Cobro el {new Date(cb.fecha).toLocaleDateString()} via {cb.forma_pago}</span>
+                                                        <span className="font-bold text-gray-700">{formatCurrency(cb.importe)}</span>
+                                                     </div>
+                                                  ))}
+                                               </div>
+                                            </td>
+                                         </tr>
+                                       )}
+                                     </React.Fragment>
                                    );
                                  })}
                               </tbody>
@@ -427,24 +444,41 @@ export default function ResumenPage() {
                               </thead>
                               <tbody className="divide-y">
                                  {details.costes.map(c => {
-                                   const pagado = details.pagos.filter(p => p.coste_id === c.id).reduce((acc, p) => acc + p.importe, 0);
+                                   const relevantPagos = details.pagos.filter(p => p.coste_id === c.id);
+                                   const pagado = relevantPagos.reduce((acc, p) => acc + p.importe, 0);
                                    return (
-                                     <tr key={c.id}>
-                                       <td className="px-4 py-3 font-bold text-blue-600">{c.num_interno || c.registro_interno || c.numero}</td>
-                                       <td className="px-4 py-3">
-                                          <div className="font-bold">{c.proveedores?.nombre || 'Gasto'}</div>
-                                          <div className="text-[9px] text-gray-400 flex items-center gap-1 uppercase tracking-tighter">
-                                             {c.num_factura_proveedor} 
-                                             {c.pdf_url && <a href={c.pdf_url} target="_blank" className="text-red-500"><FileText size={10} /></a>}
-                                          </div>
-                                       </td>
-                                       <td className="px-4 py-3 font-mono font-bold text-red-600">{formatCurrency(c.total)}</td>
-                                       <td className="px-4 py-3">
-                                          <div className={`px-2 py-0.5 rounded-full inline-block text-[9px] font-black uppercase ${pagado >= c.total ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
-                                             {pagado >= c.total ? 'Liquidado' : `Pend: ${formatCurrency(c.total - pagado)}`}
-                                          </div>
-                                       </td>
-                                     </tr>
+                                     <React.Fragment key={c.id}>
+                                       <tr className="bg-white">
+                                         <td className="px-4 py-3 font-bold text-blue-600">{c.num_interno || c.registro_interno || c.numero}</td>
+                                         <td className="px-4 py-3">
+                                            <div className="font-bold">{c.proveedores?.nombre || 'Gasto'}</div>
+                                            <div className="text-[9px] text-gray-400 flex items-center gap-1 uppercase tracking-tighter">
+                                               {c.num_factura_proveedor} 
+                                               {c.pdf_url && <a href={c.pdf_url} target="_blank" className="text-red-500"><FileText size={10} /></a>}
+                                            </div>
+                                         </td>
+                                         <td className="px-4 py-3 font-mono font-bold text-red-600">{formatCurrency(c.total)}</td>
+                                         <td className="px-4 py-3">
+                                            <div className={`px-2 py-0.5 rounded-full inline-block text-[9px] font-black uppercase ${pagado >= c.total ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                                               {pagado >= c.total ? 'Liquidado' : `Pend: ${formatCurrency(c.total - pagado)}`}
+                                            </div>
+                                         </td>
+                                       </tr>
+                                       {relevantPagos.length > 0 && (
+                                         <tr className="bg-gray-50/30">
+                                            <td colSpan={4} className="px-10 py-2 border-l-2 border-red-200">
+                                               <div className="space-y-1">
+                                                  {relevantPagos.map((pg, idx) => (
+                                                     <div key={pg.id} className="flex justify-between items-center text-[10px] text-gray-500">
+                                                        <span>{idx + 1}. Pago el {new Date(pg.fecha).toLocaleDateString()} via {pg.forma_pago || 'Transferencia'}</span>
+                                                        <span className="font-bold text-gray-700">{formatCurrency(pg.importe)}</span>
+                                                     </div>
+                                                  ))}
+                                               </div>
+                                            </td>
+                                         </tr>
+                                       )}
+                                     </React.Fragment>
                                    );
                                  })}
                               </tbody>
