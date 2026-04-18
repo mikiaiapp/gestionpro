@@ -29,6 +29,11 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       router.push("/resumen");
     } else {
       setAuthorized(true);
+      // Ejecutar Backup Automático de fondo si está logueado
+      if (session) {
+        const { runAutoBackup } = await import("@/lib/backup");
+        runAutoBackup();
+      }
     }
     setLoading(false);
   }

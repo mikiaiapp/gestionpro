@@ -67,6 +67,7 @@ export default function AjustesPage() {
   // Backup / Restore
   const [isBackupLoading, setIsBackupLoading] = useState(false);
   const [isRestoreLoading, setIsRestoreLoading] = useState(false);
+  const [autoBackups, setAutoBackups] = useState<any[]>([]);
 
   const initialLoadDone = useRef(false);
 
@@ -99,10 +100,16 @@ export default function AjustesPage() {
     setUser(user);
     await Promise.all([
       fetchPerfil(user.id),
-      fetchTipos()
+      fetchTipos(),
+      fetchAutoBackups(user.id)
     ]);
     initialLoadDone.current = true;
     setLoading(false);
+  };
+
+  const fetchAutoBackups = async (userId: string) => {
+    const { data } = await supabase.from('backups').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(5);
+    setAutoBackups(data || []);
   };
 
   useEffect(() => {
@@ -476,6 +483,44 @@ export default function AjustesPage() {
                     {isRestoreLoading ? <Loader2 className="animate-spin text-gray-600" size={20} /> : <RotateCcw className="text-gray-300 group-hover:rotate-180 transition-transform duration-500" size={20} />}
                   </label>
                 </div>
+
+                {autoBackups.length > 0 && (
+                  <div className="pt-4 border-t border-dashed space-y-3">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Historial Automático (últimos 5 días)</p>
+                    <div className="space-y-2">
+                       {autoBackups.map(b => (
+                         <div key={b.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100 text-xs">
+                            <div className="flex flex-col">
+                               <span className="font-bold text-gray-700">{b.nombre}</span>
+                               <span className="text-[9px] text-gray-400 italic">{(b.size / 1024 / 1024).toFixed(2)} MB • {new Date(b.created_at).toLocaleTimeString()}</span>
+                            </div>
+                            <div className="flex gap-1">
+                               <a href={b.archivo_url} download className="p-1.5 hover:bg-white rounded-lg text-blue-600 transition-all"><DownloadCloud size={14} /></a>
+                               <button 
+                                 onClick={async () => {
+                                   if (!confirm("¿Restaurar esta versión específica? Se recomienda Backup previo.")) return;
+                                   setIsRestoreLoading(true);
+                                   try {
+                                      const resp = await fetch(b.archivo_url);
+                                      const backup = await resp.json();
+                                      const data = backup.data || backup;
+                                      for (const table in data) {
+                                        if (data[table]?.length > 0) await supabase.from(table).upsert(data[table]);
+                                      }
+                                      alert("✅ Restauración automática completada.");
+                                      window.location.reload();
+                                   } catch(e) { alert("Error"); } finally { setIsRestoreLoading(false); }
+                                 }}
+                                 className="p-1.5 hover:bg-white rounded-lg text-orange-600 transition-all"
+                               >
+                                 <RotateCcw size={14} />
+                               </button>
+                            </div>
+                         </div>
+                       ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
             

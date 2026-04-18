@@ -184,6 +184,19 @@ CREATE TABLE IF NOT EXISTS public.proyecto_documentos (
     user_id uuid REFERENCES auth.users(id)
 );
 
+-- 9.7 Sistema de Backups Automáticos
+CREATE TABLE IF NOT EXISTS public.backups (
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    created_at timestamptz DEFAULT now(),
+    nombre text,
+    archivo_url text,
+    size numeric,
+    user_id uuid REFERENCES auth.users(id)
+);
+
+ALTER TABLE public.backups ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "RLS_Backups" ON public.backups FOR ALL USING (auth.uid() = user_id);
+
 -- 9.5 Perfiles de Usuario y Seguridad 2FA
 CREATE TABLE IF NOT EXISTS public.perfiles (
     id uuid REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
