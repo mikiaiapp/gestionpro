@@ -16,6 +16,8 @@ export const metadata: Metadata = {
   description: "Sistema avanzado de gestión de proyectos y facturación",
 };
 
+import { AuthGuard } from "@/components/AuthGuard";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -24,9 +26,11 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body className={`${dmSans.variable} ${syne.variable} font-sans antialiased text-[var(--foreground)] bg-[var(--background)]`}>
-        <main className="min-h-screen container-fluid pl-0">
-          {children}
-        </main>
+        <AuthGuard>
+          <main className="min-h-screen container-fluid pl-0">
+            {children}
+          </main>
+        </AuthGuard>
       </body>
     </html>
   );

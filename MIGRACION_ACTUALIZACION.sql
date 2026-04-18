@@ -16,6 +16,43 @@ ALTER TABLE public.proyecto_lineas ADD COLUMN IF NOT EXISTS coste_unitario numer
 ALTER TABLE public.costes ADD COLUMN IF NOT EXISTS archivo_url text;
 ALTER TABLE public.ventas ADD COLUMN IF NOT EXISTS archivo_url text;
 
+-- Perfiles y 2FA
+CREATE TABLE IF NOT EXISTS public.perfiles (
+    id uuid REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
+    nombre text,
+    email text,
+    rol text DEFAULT 'Usuario',
+    two_factor_enabled boolean DEFAULT false,
+    two_factor_pin text,
+    created_at timestamptz DEFAULT now()
+);
+
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger AS $$
+BEGIN
+  INSERT INTO public.perfiles (id, email, nombre)
+  VALUES (new.id, new.email, split_part(new.email, '@', 1))
+  ON CONFLICT (id) DO NOTHING;
+  RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+
+-- Forzar creación de perfiles para usuarios existentes
+INSERT INTO public.perfiles (id, email, nombre)
+SELECT id, email, split_part(email, '@', 1) FROM auth.users
+ON CONFLICT (id) DO NOTHING;
+
+ALTER TABLE public.perfiles ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "RLS_Perfiles_Self" ON public.perfiles;
+CREATE POLICY "RLS_Perfiles_Self" ON public.perfiles FOR ALL USING (auth.uid() = id);
+DROP POLICY IF EXISTS "RLS_Perfiles_View_All" ON public.perfiles;
+CREATE POLICY "RLS_Perfiles_View_All" ON public.perfiles FOR SELECT USING (true);
+
 -- Asegurar Cascada en eliminaciones de lineas
 -- (Si falla es que ya existe la FK)
 -- ALTER TABLE public.proyecto_lineas DROP CONSTRAINT IF EXISTS proyecto_lineas_proyecto_id_fkey;

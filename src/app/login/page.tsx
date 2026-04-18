@@ -10,23 +10,93 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
+  const [show2FA, setShow2FA] = useState(false);
+  const [pin, setPin] = useState('');
+  const [tempUser, setTempUser] = useState<any>(null);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setMessage('');
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password
     });
 
     if (error) {
       setMessage("❌ Error: " + error.message);
-    } else {
-      window.location.href = '/ajustes';
+      setLoading(false);
+    } else if (data.user) {
+      // Verificar si tiene 2FA activado
+      const { data: profile } = await supabase.from('perfiles').select('two_factor_enabled, two_factor_pin').eq('id', data.user.id).single();
+      
+      if (profile?.two_factor_enabled) {
+        setTempUser({ id: data.user.id, pin: profile.two_factor_pin });
+        setShow2FA(true);
+        setLoading(false);
+      } else {
+        window.location.href = '/resumen';
+      }
     }
-    setLoading(false);
   };
+
+  const handleVerify2FA = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (pin === tempUser.pin) {
+      window.location.href = '/resumen';
+    } else {
+      setMessage("❌ PIN de seguridad incorrecto.");
+    }
+  };
+
+  if (show2FA) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 p-6 font-sans">
+        <div className="w-full max-w-md space-y-8 bg-white p-10 rounded-3xl shadow-2xl border text-center">
+          <div className="bg-orange-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Lock className="text-orange-600" size={36} />
+          </div>
+          <h2 className="text-3xl font-black text-gray-800 tracking-tight">Verificación 2FA</h2>
+          <p className="text-gray-500 mt-2">Introduce tu código de seguridad de 6 dígitos.</p>
+          
+          <form onSubmit={handleVerify2FA} className="space-y-6 mt-8">
+            <input 
+              type="text" 
+              maxLength={6}
+              required 
+              value={pin} 
+              onChange={e => setPin(e.target.value)}
+              className="w-full text-center text-4xl tracking-[1em] py-4 rounded-2xl border bg-gray-50 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all font-mono"
+              placeholder="000000"
+              autoFocus
+            />
+            
+            <button 
+              type="submit" 
+              className="w-full py-4 bg-orange-600 text-white font-bold rounded-2xl shadow-lg hover:bg-orange-700 transition-all flex items-center justify-center gap-2"
+            >
+              Verificar y Entrar
+            </button>
+            
+            <button 
+              type="button"
+              onClick={() => { setShow2FA(false); supabase.auth.signOut(); }}
+              className="text-sm text-gray-400 font-bold hover:text-gray-600"
+            >
+              Cancelar Acceso
+            </button>
+          </form>
+
+          {message && (
+            <div className="mt-6 p-4 bg-red-50 text-red-700 rounded-2xl text-sm font-medium">
+              {message}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 p-6 font-sans">

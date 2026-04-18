@@ -172,6 +172,33 @@ CREATE TABLE IF NOT EXISTS public.tipos_irpf (
     user_id uuid REFERENCES auth.users(id)
 );
 
+-- 9.5 Perfiles de Usuario y Seguridad 2FA
+CREATE TABLE IF NOT EXISTS public.perfiles (
+    id uuid REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
+    nombre text,
+    email text,
+    rol text DEFAULT 'Usuario',
+    two_factor_enabled boolean DEFAULT false,
+    two_factor_pin text, -- Guardaremos el PIN (idealmente hasheado, pero por ahora texto para el MVP)
+    created_at timestamptz DEFAULT now()
+);
+
+-- Trigger para crear perfil automáticamente al registrarse en Auth
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger AS $$
+BEGIN
+  INSERT INTO public.perfiles (id, email, nombre)
+  VALUES (new.id, new.email, split_part(new.email, '@', 1));
+  RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Borrar trigger si existe y crearlo
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+
 -- 10. Seguridad RLS (Row Level Security)
 ALTER TABLE public.clientes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.proyectos ENABLE ROW LEVEL SECURITY;
@@ -197,6 +224,9 @@ CREATE POLICY "RLS_Pagos" ON public.pagos FOR ALL USING (auth.uid() = user_id);
 CREATE POLICY "RLS_Perfil" ON public.perfil_negocio FOR ALL USING (auth.uid() = user_id);
 CREATE POLICY "RLS_IVA" ON public.tipos_iva FOR ALL USING (auth.uid() = user_id);
 CREATE POLICY "RLS_IRPF" ON public.tipos_irpf FOR ALL USING (auth.uid() = user_id);
+ALTER TABLE public.perfiles ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "RLS_Perfiles_Self" ON public.perfiles FOR ALL USING (auth.uid() = id);
+CREATE POLICY "RLS_Perfiles_View_All" ON public.perfiles FOR SELECT USING (true);
 
 -- Políticas para tablas hijas (acceso basado en el padre)
 CREATE POLICY "RLS_Proyecto_Lineas" ON public.proyecto_lineas FOR ALL USING (

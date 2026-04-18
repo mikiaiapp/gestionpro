@@ -54,6 +54,11 @@ export default function AjustesPage() {
   const [tiposIva, setTiposIva] = useState<any[]>([]);
   const [tiposIrpf, setTiposIrpf] = useState<any[]>([]);
   const [syncing, setSyncing] = useState(false);
+  
+  // Seguridad 2FA
+  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
+  const [securityPin, setSecurityPin] = useState('');
+  const [isSavingSecurity, setIsSavingSecurity] = useState(false);
 
   useEffect(() => {
     checkUser();
@@ -119,6 +124,15 @@ export default function AjustesPage() {
     } finally {
       setLoading(false);
     }
+
+    // Fetch Seguridad (Perfil de Usuario)
+    try {
+      const { data: prof } = await supabase.from('perfiles').select('*').eq('id', userId).single();
+      if (prof) {
+        setTwoFactorEnabled(prof.two_factor_enabled || false);
+        setSecurityPin(prof.two_factor_pin || '');
+      }
+    } catch (e) { console.warn("No profile found for 2FA"); }
   };
 
   const fetchTipos = async () => {
@@ -193,6 +207,28 @@ export default function AjustesPage() {
       alert("❌ Error: " + e.message);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleSaveSecurity = async () => {
+    if (!user) return;
+    if (twoFactorEnabled && securityPin.length < 4) {
+      alert("⚠️ Si activas 2FA, el PIN debe tener al menos 4 dígitos.");
+      return;
+    }
+    setIsSavingSecurity(true);
+    try {
+      const { error } = await supabase.from('perfiles').upsert({
+        id: user.id,
+        two_factor_enabled: twoFactorEnabled,
+        two_factor_pin: securityPin
+      });
+      if (error) throw error;
+      alert("✅ Preferencias de seguridad actualizadas.");
+    } catch (e: any) {
+      alert("❌ Error: " + e.message);
+    } finally {
+      setIsSavingSecurity(false);
     }
   };
 
@@ -429,6 +465,53 @@ export default function AjustesPage() {
                   className="w-full px-5 py-4 rounded-2xl border bg-purple-50/20 outline-none font-mono text-xs focus:ring-2 focus:ring-purple-500/10" 
                   placeholder="Introduce tu API Key..."
                 />
+              </div>
+            </div>
+            
+            {/* SEGURIDAD Y 2FA */}
+            <div className="bg-white rounded-3xl border p-8 shadow-sm border-orange-100">
+              <h2 className="text-xl font-bold font-head mb-8 flex items-center gap-3 text-orange-600">
+                <ShieldCheck size={24} /> Seguridad de Acceso
+              </h2>
+              <div className="space-y-6">
+                <div className="flex items-center justify-between p-4 bg-orange-50/50 rounded-2xl border border-orange-100">
+                  <div>
+                    <h3 className="text-sm font-bold text-orange-800">Doble Factor (2FA)</h3>
+                    <p className="text-[10px] text-orange-600 font-medium">Requiere un PIN de seguridad tras el login.</p>
+                  </div>
+                  <button 
+                    onClick={() => setTwoFactorEnabled(!twoFactorEnabled)}
+                    className={`w-14 h-8 rounded-full p-1 transition-all duration-300 ${twoFactorEnabled ? 'bg-orange-600 shadow-inner' : 'bg-gray-200'}`}
+                  >
+                    <div className={`w-6 h-6 bg-white rounded-full shadow-md transform transition-transform duration-300 ${twoFactorEnabled ? 'translate-x-6' : 'translate-x-0'}`} />
+                  </button>
+                </div>
+
+                {twoFactorEnabled && (
+                  <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">PIN de Seguridad (6 dígitos)</label>
+                    <div className="relative">
+                      <input 
+                        type="text" 
+                        maxLength={6}
+                        value={securityPin} 
+                        onChange={e => setSecurityPin(e.target.value.replace(/\D/g, ''))} 
+                        className="w-full px-5 py-4 rounded-2xl border bg-gray-50 outline-none font-mono text-2xl tracking-[0.5em] text-center focus:ring-2 focus:ring-orange-500/10" 
+                        placeholder="000000"
+                      />
+                      <Lock className="absolute right-5 top-5 text-gray-300" size={20} />
+                    </div>
+                  </div>
+                )}
+
+                <button 
+                   onClick={handleSaveSecurity}
+                   disabled={isSavingSecurity}
+                   className="w-full py-4 bg-orange-600 text-white font-bold rounded-2xl shadow-lg hover:bg-orange-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {isSavingSecurity ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
+                  Guardar Preferencias de Seguridad
+                </button>
               </div>
             </div>
 
