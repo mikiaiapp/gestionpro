@@ -14,7 +14,8 @@ import {
   Settings, 
   LogOut,
   LayoutDashboard,
-  FileArchive
+  FileArchive,
+  Files
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
@@ -64,6 +65,7 @@ const menuStructure: MenuSection[] = [
     label: "FISCALIDAD",
     items: [
       { icon: FileArchive, label: "Pack Fiscal (ZIP)", href: "/fiscal" },
+      { icon: Files, label: "Gestión Documental", href: "/documentos" },
     ]
   },
   {
