@@ -251,13 +251,20 @@ export default function CostesPage() {
           if (provExistente) {
             setProveedorId(provExistente.id);
           } else {
+            const cpDetected = result.proveedor_cp || "";
+            let geoData = { poblacion: "", provincia: "" };
+            if (cpDetected.length === 5) {
+              const geo = await getFullLocationByCP(cpDetected);
+              if (geo) geoData = { poblacion: geo.poblacion, provincia: geo.provincia };
+            }
+
             setDetectedProvider({ 
               nombre: result.proveedor_nombre, 
               nif: cleanedNIF,
               direccion: result.proveedor_direccion || "",
-              cp: result.proveedor_cp || "",
-              poblacion: "",
-              provincia: ""
+              cp: cpDetected,
+              poblacion: geoData.poblacion,
+              provincia: geoData.provincia
             });
             setIsProviderReviewModalOpen(true);
           }
