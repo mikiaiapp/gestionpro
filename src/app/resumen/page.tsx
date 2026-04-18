@@ -26,13 +26,28 @@ export default function ResumenPage() {
     setLoading(true);
     try {
       const { data: projs } = await supabase.from("proyectos").select("*, clientes(nombre)");
-      const { data: vts } = await supabase.from("ventas").select("proyecto_id, total");
-      const { data: csts } = await supabase.from("costes").select("proyecto_id, total");
+      const { data: vts } = await supabase.from("ventas").select("id, proyecto_id, total");
+      const { data: csts } = await supabase.from("costes").select("id, proyecto_id, total");
+      const { data: cbrs } = await supabase.from("cobros").select("venta_id, importe");
+      const { data: pgs } = await supabase.from("pagos").select("coste_id, importe");
       const { data: perf } = await supabase.from("perfil_negocio").select("*").maybeSingle();
 
       const consolidated = (projs || []).map(p => {
-        const totalVentas = (vts || []).filter(v => v.proyecto_id === p.id).reduce((acc, curr) => acc + (curr.total || 0), 0);
-        const totalCostes = (csts || []).filter(c => c.proyecto_id === p.id).reduce((acc, curr) => acc + (curr.total || 0), 0);
+        const misVentas = (vts || []).filter(v => v.proyecto_id === p.id);
+        const misCostes = (csts || []).filter(c => c.proyecto_id === p.id);
+        
+        const totalVentas = misVentas.reduce((acc, curr) => acc + (curr.total || 0), 0);
+        const totalCostes = misCostes.reduce((acc, curr) => acc + (curr.total || 0), 0);
+        
+        const vtsIds = misVentas.map(v => v.id);
+        const cstsIds = misCostes.map(c => c.id);
+
+        const totalCobrado = (cbrs || []).filter(c => vtsIds.includes(c.venta_id)).reduce((acc, curr) => acc + (curr.importe || 0), 0);
+        const totalPagado = (pgs || []).filter(p => cstsIds.includes(p.coste_id)).reduce((acc, curr) => acc + (curr.importe || 0), 0);
+
+        const pendienteCobro = totalVentas - totalCobrado;
+        const pendientePago = totalCostes - totalPagado;
+
         const margen = totalVentas - totalCostes;
         const margenPct = totalVentas > 0 ? (margen / totalVentas) * 100 : 0;
         
@@ -50,7 +65,9 @@ export default function ResumenPage() {
           previstoVenta,
           previstoCoste,
           margenPrevisto,
-          desviacionMargen
+          desviacionMargen,
+          pendienteCobro,
+          pendientePago
         };
       });
 
@@ -261,7 +278,9 @@ export default function ResumenPage() {
                     <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">Proyecto</th>
                     <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Venta (Prev x Real)</th>
                     <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Coste (Prev x Real)</th>
-                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Margen Bruto</th>
+                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Pendiente de Cobro</th>
+                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Pendiente de Pago</th>
+                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right text-[var(--accent)]">Margen Bruto</th>
                     <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Margen %</th>
                   </tr>
                 </thead>
@@ -279,6 +298,12 @@ export default function ResumenPage() {
                       <td className="px-6 py-4 text-right font-mono text-sm leading-tight">
                          <div className="text-gray-400 text-[10px]">{formatCurrency(p.previstoCoste)}</div>
                          <div className="text-red-600 font-bold">{formatCurrency(p.totalCostes)}</div>
+                      </td>
+                      <td className={`px-6 py-4 text-right font-mono text-sm font-bold ${p.pendienteCobro > 0 ? 'text-orange-500' : 'text-gray-300'}`}>
+                         {formatCurrency(p.pendienteCobro)}
+                      </td>
+                      <td className={`px-6 py-4 text-right font-mono text-sm font-bold ${p.pendientePago > 0 ? 'text-red-500' : 'text-gray-300'}`}>
+                         {formatCurrency(p.pendientePago)}
                       </td>
                       <td className={`px-6 py-4 text-right font-mono text-sm font-bold ${p.margen >= 0 ? 'text-[var(--accent)]' : 'text-red-700'}`}>
                         {formatCurrency(p.margen)}

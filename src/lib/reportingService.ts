@@ -260,7 +260,7 @@ export const getProjectSummaryPDF = (project: any, perfil: any): jsPDF => {
   if (project.ventas && project.ventas.length > 0) {
     (doc as any).autoTable({
       startY: finalY + 25,
-      head: [['Factura', 'Fecha', 'Base Imponible', 'Total', 'Cobrado']],
+      head: [['Factura', 'Fecha', 'Base Imponible', 'Total', 'Cobrado', 'Pendiente']],
       body: project.ventas.map((vAny: any) => {
         const v = vAny as any;
         const totalCobrado = (project.cobros || []).filter((c: any) => c.venta_id === v.id).reduce((acc: number, c: any) => acc + c.importe, 0);
@@ -269,11 +269,12 @@ export const getProjectSummaryPDF = (project: any, perfil: any): jsPDF => {
           new Date(v.fecha).toLocaleDateString(),
           formatCurrency(v.base_imponible),
           formatCurrency(v.total),
-          formatCurrency(totalCobrado)
+          formatCurrency(totalCobrado),
+          formatCurrency(v.total - totalCobrado)
         ];
       }),
       headStyles: { fillColor: [41, 128, 185], textColor: 255 },
-      columnStyles: { 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' } },
+      columnStyles: { 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right' } },
       didDrawPage: (data: any) => {
         doc.setFontSize(10);
         doc.setFont('helvetica', 'bold');
@@ -289,7 +290,7 @@ export const getProjectSummaryPDF = (project: any, perfil: any): jsPDF => {
   if (project.costes && project.costes.length > 0) {
     (doc as any).autoTable({
       startY: costesStartY,
-      head: [['Reg.', 'Proveedor', 'Factura Prov.', 'Fecha', 'Total', 'Pagado']],
+      head: [['Reg.', 'Proveedor', 'Factura Prov.', 'Fecha', 'Total', 'Pagado', 'Pendiente']],
       body: project.costes.map((cAny: any) => {
         const c = cAny as any;
         const totalPagado = (project.pagos || []).filter((p: any) => p.coste_id === c.id).reduce((acc: number, p: any) => acc + p.importe, 0);
@@ -299,11 +300,12 @@ export const getProjectSummaryPDF = (project: any, perfil: any): jsPDF => {
           c.num_factura_proveedor || '-',
           new Date(c.fecha).toLocaleDateString(),
           formatCurrency(c.total),
-          formatCurrency(totalPagado)
+          formatCurrency(totalPagado),
+          formatCurrency(c.total - totalPagado)
         ];
       }),
       headStyles: { fillColor: [192, 57, 43], textColor: 255 },
-      columnStyles: { 4: { halign: 'right' }, 5: { halign: 'right' } },
+      columnStyles: { 4: { halign: 'right' }, 5: { halign: 'right' }, 6: { halign: 'right' } },
       didDrawPage: (data: any) => {
         doc.setFontSize(10);
         doc.setFont('helvetica', 'bold');
