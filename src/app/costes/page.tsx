@@ -82,8 +82,8 @@ export default function CostesPage() {
   useEffect(() => {
     if (!editingId && isModalOpen && costes.length >= 0) {
        const maxNum = costes.reduce((acc, c) => {
-         const n = parseInt(c.num_interno);
-         return isNaN(n) ? acc : Math.max(acc, n);
+        const n = parseInt(c.num_interno || c.registro_interno || c.numero || "0");
+        return isNaN(n) ? acc : Math.max(acc, n);
        }, 0);
        setNumInterno((maxNum + 1).toString());
     }
@@ -353,7 +353,7 @@ export default function CostesPage() {
         if (key) payload[key] = value;
       };
 
-      setIfFound(['num_interno', 'registro_interno'], numInterno);
+      setIfFound(['num_interno', 'registro_interno', 'numero'], numInterno);
       setIfFound(['num_factura_proveedor', 'numero_factura', 'num_factura', 'factura_prov', 'referencia'], numFactProv);
       setIfFound(['base_imponible', 'base', 'subtotal'], baseImponible);
       setIfFound(['iva_importe', 'cuota_iva', 'iva_total', 'iva'], totalIva);

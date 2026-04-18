@@ -41,7 +41,7 @@ export const getVATBookPDF = (type: 'ventas' | 'costes', data: any[], perfil: an
   doc.text(`Fecha Generación: ${new Date().toLocaleDateString()}`, 280, 22, { align: 'right' });
 
   const tableData = data.map((v, idx) => [
-    type === 'costes' ? v.num_interno : (idx + 1),
+    type === 'costes' ? (v.num_interno || v.registro_interno || v.numero || '-') : (idx + 1),
     new Date(v.fecha).toLocaleDateString(),
     type === 'ventas' ? `${v.serie}-${v.num_factura}` : v.num_factura_proveedor,
     type === 'ventas' ? v.clientes?.nif : v.proveedores?.nif,
@@ -93,7 +93,7 @@ export const exportVATBookPDF = (type: 'ventas' | 'costes', data: any[], perfil:
 
 export const exportVATBookExcel = (type: 'ventas' | 'costes', data: any[]) => {
   const preparedData = data.map((v, idx) => ({
-    'Registro/Nº': type === 'costes' ? v.num_interno : (idx + 1),
+    'Registro/Nº': type === 'costes' ? (v.num_interno || v.registro_interno || v.numero || '-') : (idx + 1),
     'Fecha': new Date(v.fecha).toLocaleDateString(),
     'Número Factura': type === 'ventas' ? `${v.serie}-${v.num_factura}` : v.num_factura_proveedor,
     'NIF': type === 'ventas' ? v.clientes?.nif : v.proveedores?.nif,
