@@ -12,5 +12,8 @@ Ve a [Vercel.com](https://vercel.com) y regístrate con tu cuenta de GitHub. Haz
 Vercel te dará una dirección de internet (ejemplo: `mi-gestionpro.vercel.app`). 
 - **¡Ya está!** Abre esa dirección en tu móvil y añádela a "Pantalla de inicio" para usarla como una App real.
 
+> [!IMPORTANT]
+> Recuerda que para que la App funcione, debes haber configurado tu base de datos en Supabase como se explica en el **Paso 1** del archivo **README.md**. Es el único paso "de ordenador" necesario.
+
 ---
 **¿Tienes dudas?** El archivo `install.bat` en tu ordenador siempre será tu mejor amigo para trabajar sin internet.

@@ -15,6 +15,7 @@ interface LineaProyecto {
   unidades: number;
   descripcion: string;
   precio_unitario: number;
+  coste_unitario?: number;
 }
 
 export default function ProyectosPage() {
@@ -49,7 +50,7 @@ export default function ProyectosPage() {
   const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
   const [estado, setEstado] = useState("Abierto");
   const [retencionPct, setRetencionPct] = useState(0);
-  const [lineas, setLineas] = useState<LineaProyecto[]>([{ unidades: 1, descripcion: "", precio_unitario: 0 }]);
+  const [lineas, setLineas] = useState<LineaProyecto[]>([{ unidades: 1, descripcion: "", precio_unitario: 0, coste_unitario: 0 }]);
   const [condiciones, setCondiciones] = useState("");
   const [lopd, setLopd] = useState("");
 
@@ -122,12 +123,21 @@ export default function ProyectosPage() {
     }
   };
 
-  const addLinea = () => setLineas([...lineas, { unidades: 1, descripcion: "", precio_unitario: 0 }]);
-  const removeLinea = (index: number) => setLineas(lineas.filter((_, i) => i !== index));
+  const addLinea = () => setLineas([...lineas, { unidades: 1, descripcion: "", precio_unitario: 0, coste_unitario: 0 }]);
+  const removeLinea = (index: number) => {
+    const newLineas = lineas.filter((_, i) => i !== index);
+    setLineas(newLineas);
+    const totalCoste = newLineas.reduce((acc, l) => acc + (l.unidades * (l.coste_unitario || 0)), 0);
+    setCostePrevisto(totalCoste);
+  };
   const updateLinea = (index: number, field: keyof LineaProyecto, value: any) => {
     const newLineas = [...lineas];
     newLineas[index] = { ...newLineas[index], [field]: value };
     setLineas(newLineas);
+
+    // Auto-calculamos el coste previsto total
+    const totalCoste = newLineas.reduce((acc, l) => acc + (l.unidades * (l.coste_unitario || 0)), 0);
+    setCostePrevisto(totalCoste);
   };
 
   const baseImponible = lineas.reduce((acc, l) => acc + (l.unidades * l.precio_unitario), 0);
@@ -155,10 +165,11 @@ export default function ProyectosPage() {
       setLineas(lineasData.map((l: any) => ({
         unidades: l.unidades,
         descripcion: l.descripcion,
-        precio_unitario: l.precio_unitario
+        precio_unitario: l.precio_unitario,
+        coste_unitario: l.coste_unitario || 0
       })));
     } else {
-      setLineas([{ unidades: 1, descripcion: "", precio_unitario: 0 }]);
+      setLineas([{ unidades: 1, descripcion: "", precio_unitario: 0, coste_unitario: 0 }]);
     }
     setIsEditorOpen(true);
   };
@@ -194,8 +205,7 @@ export default function ProyectosPage() {
         retencion_importe: retencionImporte,
         total: totalProyecto,
         estado: estado,
-        condiciones_particulares: condiciones,
-        lopd_text: lopd
+        condiciones_particulares: condiciones
       };
 
       let currentId = editingId;
@@ -209,12 +219,19 @@ export default function ProyectosPage() {
         currentId = projData.id;
       }
 
-      const lineasToInsert = lineas.map(l => ({
-        proyecto_id: currentId,
-        unidades: l.unidades,
-        descripcion: l.descripcion,
-        precio_unitario: l.precio_unitario
-      }));
+      const lineasToInsert = lineas.map(l => {
+        const item: any = {
+          proyecto_id: currentId,
+          unidades: l.unidades,
+          descripcion: l.descripcion,
+          precio_unitario: l.precio_unitario
+        };
+        // Solo enviamos coste_unitario si existe la columna en DB (intentamos enviarlo)
+        if (l.coste_unitario !== undefined) {
+          item.coste_unitario = l.coste_unitario;
+        }
+        return item;
+      });
 
       await supabase.from("proyecto_lineas").insert(lineasToInsert);
 
@@ -360,14 +377,14 @@ export default function ProyectosPage() {
           <>
             <header className="flex justify-between items-center mb-10">
               <div>
-                <h1 className="text-3xl font-bold font-head tracking-tight mb-1 text-[var(--foreground)]">Proyectos</h1>
-                <p className="text-[var(--muted)] font-medium">Planificación y gestión de presupuestos.</p>
+                <h1 className="text-3xl font-bold font-head tracking-tight mb-1 text-[var(--foreground)]">Presupuestos</h1>
+                <p className="text-[var(--muted)] font-medium">Planificación y gestión de presupuestos financieros.</p>
               </div>
               <button 
-                onClick={() => { setEditingId(null); setNombre(""); setClienteId(""); setNumReferencia(""); setLineas([{ unidades: 1, descripcion: "", precio_unitario: 0 }]); setIsEditorOpen(true); }}
+                onClick={() => { setEditingId(null); setNombre(""); setClienteId(""); setNumReferencia(""); setLineas([{ unidades: 1, descripcion: "", precio_unitario: 0, coste_unitario: 0 }]); setIsEditorOpen(true); }}
                 className="flex items-center gap-2 px-6 py-3 rounded-xl bg-[var(--accent)] text-white font-bold hover:shadow-lg transition-all active:scale-[0.98]"
               >
-                <Plus size={18} /> Nuevo Proyecto
+                <Plus size={18} /> Nuevo Presupuesto
               </button>
             </header>
 
@@ -419,7 +436,7 @@ export default function ProyectosPage() {
                           {openMenuId === p.id && (
                             <div className="absolute right-6 top-12 w-48 bg-white rounded-xl shadow-xl border border-[var(--border)] z-50 py-2 animate-in fade-in slide-in-from-top-2 duration-200 text-left">
                               <button onClick={() => downloadBudget(p)} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-700 transition-colors"><Printer size={16}/> Imprimir PDF</button>
-                              <button onClick={() => openEditProyecto(p)} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-700 transition-colors"><Save size={16}/> Editar Proyecto</button>
+                              <button onClick={() => openEditProyecto(p)} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-700 transition-colors"><Save size={16}/> Editar Presupuesto</button>
                               <button 
                                  onClick={() => router.push(`/ventas?proyectoId=${p.id}&mode=avance`)} 
                                  className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-600 hover:bg-orange-50 hover:text-orange-700 transition-colors"
@@ -429,7 +446,7 @@ export default function ProyectosPage() {
                                <div className="h-px bg-gray-100 my-1 mx-2"></div>
                               <button 
                                 onClick={() => {
-                                  if (confirm("¿Eliminar proyecto?")) supabase.from("proyectos").delete().eq("id", p.id).then(() => fetchData());
+                                  if (confirm("¿Eliminar presupuesto?")) supabase.from("proyectos").delete().eq("id", p.id).then(() => fetchData());
                                 }} 
                                 className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
                               >
@@ -448,7 +465,7 @@ export default function ProyectosPage() {
           <div className="max-w-5xl mx-auto pb-20 animate-in slide-in-from-bottom-4 duration-300 text-left">
             <div className="flex items-center justify-between mb-8">
               <h2 className="text-2xl font-bold font-head flex items-center gap-2">
-                <FolderKanban className="text-[var(--accent)]" /> Editor de Proyecto
+                <FolderKanban className="text-[var(--accent)]" /> Editor de Presupuesto
               </h2>
               <div className="flex gap-3">
                 <button onClick={() => setIsEditorOpen(false)} className="px-5 py-2.5 text-sm font-bold text-gray-500 hover:bg-gray-100 rounded-xl">Cancelar</button>
@@ -458,7 +475,7 @@ export default function ProyectosPage() {
                   className="flex items-center gap-2 px-6 py-2.5 bg-[var(--accent)] text-white rounded-xl font-bold shadow-md hover:shadow-lg disabled:opacity-50"
                 >
                   {saving ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
-                  Guardar Proyecto
+                  Guardar Presupuesto
                 </button>
               </div>
             </div>
@@ -466,8 +483,8 @@ export default function ProyectosPage() {
             <div className="bg-white rounded-2xl shadow-xl border border-[var(--border)] p-8">
                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 pb-8 border-b border-dashed border-gray-200">
                  <div className="md:col-span-2">
-                   <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Nombre del Proyecto</label>
-                   <input type="text" value={nombre} onChange={(e) => setNombre(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200 bg-gray-50 focus:bg-white font-bold" placeholder="Ej: Reforma Local Centro" />
+                   <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Nombre del Presupuesto</label>
+                   <input type="text" value={nombre} onChange={(e) => setNombre(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200 bg-gray-50 focus:bg-white font-bold" placeholder="Ej: Obra Reforma Local Centro" />
                  </div>
                  <div>
                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Nº Referencia</label>
@@ -494,8 +511,9 @@ export default function ProyectosPage() {
                     <tr>
                       <th className="w-20 pb-3 text-[10px] font-bold text-gray-400 uppercase">Ud.</th>
                       <th className="pb-3 text-[10px] font-bold text-gray-400 uppercase">Descripción / Partida</th>
-                      <th className="w-32 pb-3 text-[10px] font-bold text-gray-400 uppercase text-right">Precio Ud.</th>
-                      <th className="w-32 pb-3 text-[10px] font-bold text-gray-400 uppercase text-right">Total</th>
+                      <th className="w-32 pb-3 text-[10px] font-bold text-gray-400 uppercase text-right">Coste Ud.</th>
+                      <th className="w-32 pb-3 text-[10px] font-bold text-gray-400 uppercase text-right">Venta Ud.</th>
+                      <th className="w-32 pb-3 text-[10px] font-bold text-gray-400 uppercase text-right">Total Venta</th>
                       <th className="w-10"></th>
                     </tr>
                   </thead>
@@ -504,7 +522,8 @@ export default function ProyectosPage() {
                       <tr key={idx}>
                         <td className="py-2 pr-4"><input type="number" value={linea.unidades} onChange={(e) => updateLinea(idx, "unidades", parseFloat(e.target.value))} className="w-full p-2 rounded-lg border border-gray-100 font-bold text-center" /></td>
                         <td className="py-2 pr-4"><textarea rows={1} value={linea.descripcion} onChange={(e) => updateLinea(idx, "descripcion", e.target.value)} className="w-full p-2 rounded-lg border border-gray-100 text-sm" /></td>
-                        <td className="py-2 pr-4"><input type="number" value={linea.precio_unitario} onChange={(e) => updateLinea(idx, "precio_unitario", parseFloat(e.target.value))} className="w-full p-2 rounded-lg border border-gray-100 text-right font-mono" /></td>
+                        <td className="py-2 pr-4"><input type="number" value={linea.coste_unitario} onChange={(e) => updateLinea(idx, "coste_unitario", parseFloat(e.target.value))} className="w-full p-2 rounded-lg border border-gray-100 text-right font-mono text-red-600" /></td>
+                        <td className="py-2 pr-4"><input type="number" value={linea.precio_unitario} onChange={(e) => updateLinea(idx, "precio_unitario", parseFloat(e.target.value))} className="w-full p-2 rounded-lg border border-gray-100 text-right font-mono text-green-600" /></td>
                         <td className="py-2 text-right font-bold text-gray-700 font-mono">{formatCurrency(linea.unidades * linea.precio_unitario)}</td>
                         <td className="py-2 text-center">{lineas.length > 1 && <button onClick={() => removeLinea(idx)} className="text-red-300 hover:text-red-500"><Trash2 size={16}/></button>}</td>
                       </tr>
@@ -520,8 +539,8 @@ export default function ProyectosPage() {
                     <input type="number" value={retencionPct} onChange={(e) => setRetencionPct(parseFloat(e.target.value) || 0)} className="w-full p-2 rounded-lg border border-gray-200 font-bold" />
                   </div>
                   <div className="w-full md:w-64">
-                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Coste Presupuestado (€)</label>
-                    <input type="number" value={costePrevisto} onChange={(e) => setCostePrevisto(parseFloat(e.target.value) || 0)} className="w-full p-2 rounded-lg border border-gray-200 font-bold text-red-600" />
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Total Coste Previsto (€)</label>
+                    <input type="number" value={costePrevisto} readOnly className="w-full p-2 rounded-lg border border-gray-100 bg-gray-50 font-bold text-red-600 cursor-not-allowed" />
                   </div>
                   <div className="w-full md:w-80 space-y-3">
                     <div className="flex justify-between text-sm"><span>Base Imponible:</span><span className="font-mono font-bold">{formatCurrency(baseImponible)}</span></div>
@@ -531,14 +550,10 @@ export default function ProyectosPage() {
                   </div>
                </div>
 
-               <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6 pt-8 border-t border-dashed border-gray-200">
-                  <div className="space-y-2">
+               <div className="mt-8 pt-8 border-t border-dashed border-gray-200">
+                  <div className="space-y-2 max-w-2xl">
                     <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Condiciones Particulares</label>
-                    <textarea value={condiciones} onChange={e => setCondiciones(e.target.value)} rows={3} className="w-full p-4 rounded-xl border bg-gray-50 text-xs focus:bg-white transition-all outline-none" placeholder="Condiciones específicas..." />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Protección de Datos (LOPD)</label>
-                    <textarea value={lopd} onChange={e => setLopd(e.target.value)} rows={3} className="w-full p-4 rounded-xl border bg-gray-50 text-xs focus:bg-white transition-all outline-none" placeholder="Clausula de privacidad..." />
+                    <textarea value={condiciones} onChange={e => setCondiciones(e.target.value)} rows={3} className="w-full p-4 rounded-xl border bg-gray-50 text-xs focus:bg-white transition-all outline-none" placeholder="Condiciones específicas para este presupuesto..." />
                   </div>
                </div>
             </div>

@@ -173,7 +173,7 @@ export default function ResumenPage() {
       <div className="flex-1 p-8 overflow-y-auto">
         <header className="flex justify-between items-center mb-10">
           <div>
-            <h1 className="text-3xl font-bold font-head tracking-tight mb-1 text-[var(--foreground)]">Resumen de Proyectos</h1>
+            <h1 className="text-3xl font-bold font-head tracking-tight mb-1 text-[var(--foreground)]">Resumen de Presupuestos</h1>
             <p className="text-[var(--muted)] font-medium">Análisis de rentabilidad y márgenes de beneficio por obra.</p>
           </div>
           <div className="flex items-center gap-4">
@@ -275,7 +275,7 @@ export default function ResumenPage() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-[#fcfaf7] border-b border-[var(--border)]">
-                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider">Proyecto</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-left">Presupuesto</th>
                     <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Venta (Prev x Real)</th>
                     <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Coste (Prev x Real)</th>
                     <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Pendiente de Cobro</th>

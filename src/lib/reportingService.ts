@@ -200,7 +200,7 @@ export const getProjectSummaryPDF = (project: any, perfil: any): jsPDF => {
 
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
-  doc.text('RESUMEN DE PROYECTO', perfil?.logo_url ? 50 : MARGIN, 20);
+  doc.text('RESUMEN DE PRESUPUESTO', perfil?.logo_url ? 50 : MARGIN, 20);
   
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
@@ -213,7 +213,7 @@ export const getProjectSummaryPDF = (project: any, perfil: any): jsPDF => {
 
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
-  doc.text(`PROYECTO: ${project.nombre}`, MARGIN, 50);
+  doc.text(`PRESUPUESTO: ${project.nombre}`, MARGIN, 50);
   
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
@@ -250,8 +250,8 @@ export const getProjectSummaryPDF = (project: any, perfil: any): jsPDF => {
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
   const conclusion = project.desviacionMargen >= 0 
-    ? `El proyecto ha superado las expectativas de beneficio en ${formatCurrency(project.desviacionMargen)}.`
-    : `El proyecto presenta una desviación negativa de ${formatCurrency(Math.abs(project.desviacionMargen))} respecto al plan inicial.`;
+    ? `El presupuesto ha superado las expectativas de beneficio en ${formatCurrency(project.desviacionMargen)}.`
+    : `El presupuesto presenta una desviación negativa de ${formatCurrency(Math.abs(project.desviacionMargen))} respecto al plan inicial.`;
   
   doc.text(conclusion, MARGIN, finalY + 7);
   doc.text(`Rentabilidad Final: ${project.margenPct.toFixed(2)}%`, MARGIN, finalY + 14);

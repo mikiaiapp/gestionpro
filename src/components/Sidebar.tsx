@@ -36,7 +36,7 @@ const menuStructure: MenuSection[] = [
   {
     label: "ANÁLISIS",
     items: [
-      { icon: BarChart3, label: "Resumen Proyectos", href: "/resumen" },
+      { icon: BarChart3, label: "Resumen Presupuestos", href: "/resumen" },
     ]
   },
   {
@@ -49,7 +49,7 @@ const menuStructure: MenuSection[] = [
   {
     label: "GENERAL",
     items: [
-      { icon: FolderKanban, label: "Proyectos", href: "/proyectos" },
+      { icon: FolderKanban, label: "Presupuestos", href: "/proyectos" },
       { icon: Receipt, label: "Facturas Emitidas", href: "/ventas" },
       { icon: Download, label: "Facturas Recibidas", href: "/costes" },
     ]

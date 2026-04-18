@@ -33,10 +33,8 @@ interface PDFData {
     cuenta_bancaria: string;
     condiciones_legales?: string;
     email?: string;
-    lopd_text?: string;
   };
   condiciones_particulares?: string;
-  lopd_text?: string;
   lineas: Array<{
     unidades: number;
     descripcion: string;
@@ -179,16 +177,11 @@ export const generatePDF = async (data: PDFData) => {
   const mainFooter = data.perfil.condiciones_legales;
   // Solo mostramos condicionado general si no es una FACTURA (ej. en presupuestos)
   if (data.tipo !== 'FACTURA' && mainFooter && mainFooter.trim()) {
-    legalBlocks.push("CONDICIONADO GENERAL:\n" + injectEmail(mainFooter));
+    legalBlocks.push("CONDICIONES GENERALES:\n" + injectEmail(mainFooter));
   }
 
   if (data.condiciones_particulares && data.condiciones_particulares.trim()) {
     legalBlocks.push("CONDICIONES PARTICULARES:\n" + injectEmail(data.condiciones_particulares));
-  }
-
-  const lopd = data.lopd_text || data.perfil.lopd_text;
-  if (lopd && lopd.trim()) {
-    legalBlocks.push("PROTECCIÓN DE DATOS (LOPD):\n" + injectEmail(lopd));
   }
 
   const fullFooterText = legalBlocks.join("\n\n");
