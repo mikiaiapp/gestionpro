@@ -53,6 +53,22 @@ CREATE POLICY "RLS_Perfiles_Self" ON public.perfiles FOR ALL USING (auth.uid() =
 DROP POLICY IF EXISTS "RLS_Perfiles_View_All" ON public.perfiles;
 CREATE POLICY "RLS_Perfiles_View_All" ON public.perfiles FOR SELECT USING (true);
 
+-- Gestión Documental Adicional
+CREATE TABLE IF NOT EXISTS public.proyecto_documentos (
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    created_at timestamptz DEFAULT now(),
+    proyecto_id uuid REFERENCES public.proyectos(id) ON DELETE CASCADE,
+    nombre text NOT NULL,
+    archivo_url text NOT NULL,
+    tipo text,
+    size numeric,
+    user_id uuid REFERENCES auth.users(id)
+);
+
+ALTER TABLE public.proyecto_documentos ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "RLS_Proj_Docs" ON public.proyecto_documentos;
+CREATE POLICY "RLS_Proj_Docs" ON public.proyecto_documentos FOR ALL USING (auth.uid() = user_id);
+
 -- Asegurar Cascada en eliminaciones de lineas
 -- (Si falla es que ya existe la FK)
 -- ALTER TABLE public.proyecto_lineas DROP CONSTRAINT IF EXISTS proyecto_lineas_proyecto_id_fkey;

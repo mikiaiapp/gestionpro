@@ -172,6 +172,18 @@ CREATE TABLE IF NOT EXISTS public.tipos_irpf (
     user_id uuid REFERENCES auth.users(id)
 );
 
+-- 9.6 Documentación Adicional de Proyectos
+CREATE TABLE IF NOT EXISTS public.proyecto_documentos (
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    created_at timestamptz DEFAULT now(),
+    proyecto_id uuid REFERENCES public.proyectos(id) ON DELETE CASCADE,
+    nombre text NOT NULL,
+    archivo_url text NOT NULL,
+    tipo text, -- 'foto', 'plano', 'otros'
+    size numeric,
+    user_id uuid REFERENCES auth.users(id)
+);
+
 -- 9.5 Perfiles de Usuario y Seguridad 2FA
 CREATE TABLE IF NOT EXISTS public.perfiles (
     id uuid REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
