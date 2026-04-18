@@ -256,6 +256,62 @@ export const getProjectSummaryPDF = (project: any, perfil: any): jsPDF => {
   doc.text(conclusion, MARGIN, finalY + 7);
   doc.text(`Rentabilidad Final: ${project.margenPct.toFixed(2)}%`, MARGIN, finalY + 14);
 
+  // DETALLE DE FACTURACIÓN
+  if (project.ventas && project.ventas.length > 0) {
+    (doc as any).autoTable({
+      startY: finalY + 25,
+      head: [['Factura', 'Fecha', 'Base Imponible', 'Total', 'Cobrado']],
+      body: project.ventas.map((vAny: any) => {
+        const v = vAny as any;
+        const totalCobrado = (project.cobros || []).filter((c: any) => c.venta_id === v.id).reduce((acc: number, c: any) => acc + c.importe, 0);
+        return [
+          `${v.serie}-${v.num_factura}`,
+          new Date(v.fecha).toLocaleDateString(),
+          formatCurrency(v.base_imponible),
+          formatCurrency(v.total),
+          formatCurrency(totalCobrado)
+        ];
+      }),
+      headStyles: { fillColor: [41, 128, 185], textColor: 255 },
+      columnStyles: { 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' } },
+      didDrawPage: (data: any) => {
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.text('DETALLE DE FACTURACIÓN Y COBROS', MARGIN, data.settings.startY - 5);
+      }
+    });
+  }
+
+  // DETALLE DE COSTES
+  const lastVentasTable = (doc as any).lastAutoTable;
+  const costesStartY = (lastVentasTable ? lastVentasTable.finalY : finalY + 30) + 15;
+
+  if (project.costes && project.costes.length > 0) {
+    (doc as any).autoTable({
+      startY: costesStartY,
+      head: [['Reg.', 'Proveedor', 'Factura Prov.', 'Fecha', 'Total', 'Pagado']],
+      body: project.costes.map((cAny: any) => {
+        const c = cAny as any;
+        const totalPagado = (project.pagos || []).filter((p: any) => p.coste_id === c.id).reduce((acc: number, p: any) => acc + p.importe, 0);
+        return [
+          c.num_interno || c.registro_interno || c.numero || '-',
+          c.proveedores?.nombre || 'Gasto',
+          c.num_factura_proveedor || '-',
+          new Date(c.fecha).toLocaleDateString(),
+          formatCurrency(c.total),
+          formatCurrency(totalPagado)
+        ];
+      }),
+      headStyles: { fillColor: [192, 57, 43], textColor: 255 },
+      columnStyles: { 4: { halign: 'right' }, 5: { halign: 'right' } },
+      didDrawPage: (data: any) => {
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.text('DETALLE DE GASTOS Y PAGOS REALES', MARGIN, data.settings.startY - 5);
+      }
+    });
+  }
+
   return doc;
 };
 

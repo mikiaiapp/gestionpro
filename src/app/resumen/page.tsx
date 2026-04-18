@@ -311,7 +311,7 @@ export default function ResumenPage() {
                    </div>
                    <div className="flex gap-4">
                       <button 
-                        onClick={() => exportProjectSummaryPDF(selectedProject, perfil)}
+                        onClick={() => exportProjectSummaryPDF({ ...selectedProject, ...details }, perfil)}
                         className="flex items-center gap-2 px-5 py-3 rounded-xl bg-[var(--foreground)] text-white font-bold text-sm shadow-xl hover:-translate-y-0.5 transition-all"
                       >
                         <FileText size={18} /> Ficha Resumen (PDF)
