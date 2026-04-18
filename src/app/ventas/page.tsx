@@ -610,7 +610,7 @@ function VentasContent() {
                         <td className="px-6 py-4 text-center">
                           <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
                             v.estadoPago === 'Cobrado' ? 'bg-green-50 text-green-600' : 
-                            v.estadoPago === 'Parcial' ? 'bg-orange-50 text-orange-600' : 
+                            (v.estadoPago === 'Cobro Parcial' || v.estadoPago === 'Parcial') ? 'bg-orange-50 text-orange-600' : 
                             'bg-gray-50 text-gray-500'
                           }`}>
                             {v.estadoPago || 'Pendiente'}

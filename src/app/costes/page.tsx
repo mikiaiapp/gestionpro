@@ -474,20 +474,6 @@ export default function CostesPage() {
             <p className="text-[var(--muted)] font-medium">Gestión de facturas recibidas y multi-IVA.</p>
           </div>
           <div className="flex items-center gap-3">
-              <button onClick={() => {
-                setEditingId(null);
-                setNumFactProv("");
-                setProveedorId("");
-                setTipoGasto("general");
-                setProyectoId("");
-                setRetencionPct(0);
-                setLineas([{ unidades: 1, descripcion: "", precio_unitario: 0, iva_pct: 21 }]);
-                setPdfFile(null);
-                setPdfUrl("");
-                setIsModalOpen(true);
-              }} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gray-800 text-white font-bold hover:bg-black transition-all active:scale-95 shadow-lg">
-                <Plus size={18} /> Nuevo Registro Manual
-              </button>
               <button 
                 onClick={() => exportVATBookPDF('costes', filteredCostes, perfil)} 
                 className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white text-gray-700 border border-gray-200 font-bold hover:bg-gray-50 transition-all active:scale-95 shadow-sm"
@@ -790,15 +776,15 @@ export default function CostesPage() {
                      </span>
                   </td>
                   <td className="px-6 py-4 text-right font-mono font-bold text-red-600">{formatCurrency(c.total)}</td>
-                  <td className="px-6 py-4">
-                     <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                       c.estado_pago === 'Pagado' ? 'bg-green-50 text-green-600' : 
-                       c.estado_pago === 'Pago Parcial' ? 'bg-orange-50 text-orange-600' : 
-                       'bg-gray-50 text-gray-500'
-                     }`}>
-                        {c.estado_pago || 'Pendiente'}
-                     </span>
-                  </td>
+                    <td className="px-6 py-4">
+                       <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                         c.estadoPago === 'Pagado' ? 'bg-green-50 text-green-600' : 
+                         c.estadoPago === 'Pago Parcial' ? 'bg-orange-50 text-orange-600' : 
+                         'bg-gray-50 text-gray-500'
+                       }`}>
+                          {c.estadoPago || 'Pendiente'}
+                       </span>
+                    </td>
                    <td className="px-6 py-4 text-right relative">
                     <button 
                       onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === c.id ? null : c.id); }}
