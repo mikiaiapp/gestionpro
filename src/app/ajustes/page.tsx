@@ -32,14 +32,18 @@ import { validateNIF, validateIBAN, formatIBAN } from '@/lib/validations';
 import { encrypt } from '@/lib/encryption';
 import { authenticator } from 'otplib';
 
-// Reemplazamos qrcode.react por una versión dinámica para evitar errores de hidratación
+// Cargamos el QR dinámicamente para evitar errores de hidratación en producción
 import dynamic from 'next/dynamic';
-const QRCodeCanvas = dynamic(() => import('qrcode.react').then(m => m.QRCodeCanvas), { ssr: false });
+const QRCodeCanvas = dynamic(() => import('qrcode.react').then(m => m.QRCodeCanvas), { 
+  ssr: false,
+  loading: () => <div className="w-[200px] h-[200px] bg-gray-100 animate-pulse rounded-2xl flex items-center justify-center text-[10px] text-gray-400">Generando QR...</div>
+});
 
 export default function AjustesPage() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [autoStatus, setAutoStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [isMounted, setIsMounted] = useState(false);
   
   // Perfil State
   const [nombre, setNombre] = useState('Mi Empresa');
@@ -82,6 +86,7 @@ export default function AjustesPage() {
   const initialLoadDone = useRef(false);
 
   useEffect(() => {
+    setIsMounted(true);
     checkUser();
   }, []);
 
@@ -96,7 +101,7 @@ export default function AjustesPage() {
     nombre, nif, cuentaBancaria, direccion, cp, poblacion, provincia, 
     email, geminiKey, logoUrl, formaPago, tieneRetencion, irpfDefault, 
     condicionesLegales, lopdText, verifactuCert, verifactuCertPassword, verifactuEnv,
-    twoFactorEnabled
+    twoFactorEnabled, totpSecret
   ]);
 
   const checkUser = async () => {
@@ -238,6 +243,8 @@ export default function AjustesPage() {
     if (confirm("¿Desactivar la seguridad de doble factor?")) {
       setTwoFactorEnabled(false);
       setTotpSecret('');
+      // Forzamos el guardado inmediato en este caso
+      setTimeout(() => handleSaveAll(), 100);
     }
   };
 
@@ -333,7 +340,7 @@ export default function AjustesPage() {
     </div>
   );
 
-  if (loading) return <div className="flex h-screen items-center justify-center font-sans text-gray-400 gap-2"><Loader2 className="animate-spin text-blue-500" size={32} /> Cargando...</div>;
+  if (loading) return <div className="flex h-screen items-center justify-center font-sans text-gray-400 gap-2"><Loader2 className="animate-spin text-blue-500" size={32} /> Cargando configuración...</div>;
 
   return (
     <div className="flex bg-[var(--background)] min-h-screen">
@@ -415,7 +422,7 @@ export default function AjustesPage() {
                     </div>
                     <div>
                       <h3 className="text-sm font-bold text-gray-800">Authenticator App</h3>
-                      <p className="text-[10px] text-gray-500 font-medium">Usa Google Authenticator, Authy o Microsoft Authenticator.</p>
+                      <p className="text-[10px] text-gray-500 font-medium font-sans">Google Authenticator, Authy o similares.</p>
                     </div>
                   </div>
                   <button 
@@ -426,17 +433,17 @@ export default function AjustesPage() {
                   </button>
                 </div>
 
-                {isSettingUp2FA && (
+                {isSettingUp2FA && isMounted && (
                   <div className="p-8 bg-white border border-gray-100 rounded-[32px] shadow-xl animate-in zoom-in-95 duration-300 space-y-6 text-center">
                     <div className="space-y-2">
                        <h4 className="text-lg font-bold text-gray-800 flex items-center justify-center gap-2">
                           <QrCode size={20} className="text-orange-500" /> Paso 1: Escanea el QR
                        </h4>
-                       <p className="text-xs text-gray-400">Abre tu aplicación de verificación y escanea este código.</p>
+                       <p className="text-xs text-gray-400 font-sans">Abre tu app de verificación y escanea este código.</p>
                     </div>
 
                     <div className="flex justify-center p-4 bg-white rounded-3xl border shadow-inner">
-                       <QRCodeCanvas value={qrUrl} size={200} level="H" />
+                       <QRCodeCanvas value={qrUrl} size={180} level="H" />
                     </div>
 
                     <div className="space-y-4">
@@ -444,7 +451,7 @@ export default function AjustesPage() {
                           <h4 className="text-sm font-bold text-gray-700 flex items-center justify-center gap-2">
                              <KeyRound size={18} className="text-orange-500" /> Paso 2: Introduce el código
                           </h4>
-                          <p className="text-[10px] text-gray-400">Escribe el código de 6 dígitos que aparece en tu móvil.</p>
+                          <p className="text-[10px] text-gray-400 font-sans">Escribe el código de 6 dígitos que ves en tu móvil.</p>
                        </div>
                        <input 
                          type="text" 
@@ -455,8 +462,8 @@ export default function AjustesPage() {
                          maxLength={6}
                        />
                        <div className="flex gap-2">
-                          <button onClick={() => setIsSettingUp2FA(false)} className="flex-1 py-4 bg-gray-100 text-gray-500 font-bold rounded-2xl hover:bg-gray-200 transition-all">Cancelar</button>
-                          <button onClick={confirm2FA} className="flex-1 py-4 bg-orange-600 text-white font-bold rounded-2xl shadow-lg hover:bg-orange-700 transition-all">Verificar y Activar</button>
+                          <button onClick={() => setIsSettingUp2FA(false)} className="flex-1 py-4 bg-gray-100 text-gray-500 font-bold rounded-2xl hover:bg-gray-200 transition-all font-sans">Cancelar</button>
+                          <button onClick={confirm2FA} className="flex-1 py-4 bg-orange-600 text-white font-bold rounded-2xl shadow-lg hover:bg-orange-700 transition-all font-sans">Verificar y Activar</button>
                        </div>
                     </div>
                   </div>
@@ -520,20 +527,39 @@ export default function AjustesPage() {
                 <button onClick={handleExportBackup} disabled={isBackupLoading} className="w-full flex items-center justify-between p-4 bg-blue-50 hover:bg-blue-100 rounded-2xl border border-blue-100 transition-all group text-left">
                   <div>
                     <p className="text-xs font-bold text-blue-800">Backup Manual</p>
-                    <p className="text-[10px] text-blue-600 italic">Descargar JSON completo.</p>
+                    <p className="text-[10px] text-blue-600 italic font-sans">Descargar JSON completo.</p>
                   </div>
                   <DownloadCloud size={20} className="text-blue-400 group-hover:scale-110 transition-all" />
                 </button>
                 <div className="relative">
                   <input type="file" accept=".json" onChange={handleImportBackup} className="hidden" id="restore-up" />
                   <label htmlFor="restore-up" className="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 rounded-2xl border border-gray-100 cursor-pointer group">
-                    <div className="text-left">
+                    <div className="text-left font-sans">
                       <p className="text-xs font-bold text-gray-700">Restaurar Copia</p>
                       <p className="text-[10px] text-gray-400">Subir archivo .json</p>
                     </div>
                     <RotateCcw size={20} className="text-gray-300 group-hover:rotate-180 transition-all duration-500" />
                   </label>
                 </div>
+
+                {autoBackups.length > 0 && (
+                  <div className="pt-4 border-t border-dashed space-y-3">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Historial Automático</p>
+                    <div className="space-y-2">
+                       {autoBackups.map(b => (
+                         <div key={b.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100 text-xs">
+                            <div className="flex flex-col">
+                               <span className="font-bold text-gray-700">{b.nombre}</span>
+                               <span className="text-[9px] text-gray-400 italic">{(b.size / 1024 / 1024).toFixed(2)} MB • {new Date(b.created_at).toLocaleTimeString()}</span>
+                            </div>
+                            <div className="flex gap-1">
+                               <a href={b.archivo_url} download className="p-1.5 hover:bg-white rounded-lg text-blue-600 transition-all"><DownloadCloud size={14} /></a>
+                            </div>
+                         </div>
+                       ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -542,7 +568,7 @@ export default function AjustesPage() {
                  <ShieldCheck size={120} />
                </div>
                <h3 className="text-lg font-black tracking-tight mb-2">Seguridad Bancaria</h3>
-               <p className="text-xs text-gray-400 leading-relaxed font-sans">Tus llaves de API y segundos factores están protegidos por cifrado de grado militar.</p>
+               <p className="text-xs text-gray-400 leading-relaxed font-sans">Tus claves están protegidas por cifrado de grado militar.</p>
             </div>
           </div>
         </div>
