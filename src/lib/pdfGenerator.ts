@@ -222,12 +222,12 @@ export const generatePDF = async (data: PDFData) => {
   }
 
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(14);
+  doc.setFontSize(10);
   doc.setTextColor(121, 85, 72);
   doc.text("ANEXO LEGAL Y ACEPTACIÓN", MARGIN, footerY_P2);
   
-  let currentY = footerY_P2 + 10;
-  doc.setFontSize(8);
+  let currentY = footerY_P2 + 8;
+  doc.setFontSize(7);
   doc.setTextColor(60);
 
   const userEmail = data.perfil.email || "";
@@ -243,11 +243,11 @@ export const generatePDF = async (data: PDFData) => {
     if (sec.content && sec.content.trim()) {
       doc.setFont('helvetica', 'bold');
       doc.text(sec.title + ":", MARGIN, currentY);
-      currentY += 5;
+      currentY += 4;
       doc.setFont('helvetica', 'normal');
       const lines = doc.splitTextToSize(processText(sec.content), PAGE_WIDTH - (MARGIN * 2));
       doc.text(lines, MARGIN, currentY);
-      currentY += (lines.length * 4) + 8;
+      currentY += (lines.length * 3.2) + 5;
     }
   });
 
@@ -258,24 +258,24 @@ export const generatePDF = async (data: PDFData) => {
     currentY = 20;
   }
 
-  currentY += 10;
+  currentY += 6;
   doc.setDrawColor(121, 85, 72);
   doc.setLineWidth(0.5);
   doc.line(MARGIN, currentY, PAGE_WIDTH - MARGIN, currentY);
   
-  currentY += 10;
+  currentY += 8;
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10);
+  doc.setFontSize(9);
   doc.text("ACEPTACIÓN DEL CLIENTE:", MARGIN, currentY);
   
-  currentY += 8;
+  currentY += 6;
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
+  doc.setFontSize(7.5);
   const aceptacionText = data.perfil.texto_aceptacion || "Acepto el presente documento y todas las condiciones descritas.";
   const aceptacionLines = doc.splitTextToSize(processText(aceptacionText), PAGE_WIDTH - (MARGIN * 2));
   doc.text(aceptacionLines, MARGIN, currentY);
 
-  currentY += (aceptacionLines.length * 5) + 20;
+  currentY += (aceptacionLines.length * 4) + 15;
   
   // Líneas de firma
   doc.line(MARGIN + 10, currentY, MARGIN + 80, currentY);
