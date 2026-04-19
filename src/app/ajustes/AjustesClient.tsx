@@ -462,15 +462,15 @@ export default function AjustesClient() {
           </button>
         ))}
 
-        <div className="mt-20 p-6 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-3xl text-white shadow-xl relative overflow-hidden group">
+        <div className="mt-20 p-6 bg-[var(--accent)] rounded-3xl text-white shadow-xl relative overflow-hidden group">
           <ShieldCheck size={80} className="absolute -bottom-4 -right-4 opacity-10 group-hover:rotate-12 transition-transform" />
-          <p className="text-[10px] font-black uppercase tracking-widest text-blue-100/60 mb-2">Estado Sistema</p>
+          <p className="text-[10px] font-black uppercase tracking-widest text-white/50 mb-2">Estado Sistema</p>
           <div className="flex items-center gap-2 mb-3">
-            <div className="h-2 w-2 rounded-full bg-green-400 animate-pulse" />
+            <div className="h-2 w-2 rounded-full bg-green-300 animate-pulse" />
             <span className="text-xs font-bold">Sistema Protegido</span>
           </div>
           <div className="pt-3 border-t border-white/10">
-            <p className="text-[10px] font-bold text-blue-100/50 uppercase tracking-wider">Última Copia</p>
+            <p className="text-[10px] font-bold text-white/40 uppercase tracking-wider">Última Copia</p>
             <p className="text-[11px] font-mono text-white/90">{lastBackupStr}</p>
           </div>
         </div>
