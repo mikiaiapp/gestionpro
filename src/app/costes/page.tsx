@@ -441,7 +441,8 @@ export default function CostesPage() {
         descripcion: l.descripcion,
         unidades: Number(l.unidades),
         precio_unitario: Number(l.precio_unitario),
-        iva_pct: Number(l.iva_pct)
+        iva_pct: Number(l.iva_pct),
+        user_id: user.id
       }));
 
       await supabase.from("coste_lineas").insert(lineasConId);
