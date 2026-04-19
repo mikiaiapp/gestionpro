@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { Plus, MoreHorizontal, Loader2, Receipt, Upload, Save, Trash2, X, Sparkles, AlertCircle, UserPlus, ChevronUp, ChevronDown, Filter, Search, HandCoins, Download } from "lucide-react";
+import { Plus, MoreHorizontal, Loader2, Receipt, Upload, Save, Trash2, X, Sparkles, AlertCircle, UserPlus, ChevronUp, ChevronDown, Filter, Search, HandCoins, Download, FileText, Paperclip } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Sidebar } from "@/components/Sidebar";
 import { DataTableHeader } from "@/components/DataTableHeader";
@@ -863,7 +863,21 @@ export default function CostesPage() {
                      </div>
                   </td>
                   <td className="px-6 py-4">
-                     <div className="font-bold text-gray-800">{c.proveedores?.nombre}</div>
+                     <div className="flex items-center gap-2">
+                        <div className="font-bold text-gray-800">{c.proveedores?.nombre}</div>
+                        {(c.pdf_url || c.archivo_url) && (
+                           <a 
+                             href={c.pdf_url || c.archivo_url} 
+                             target="_blank" 
+                             rel="noopener noreferrer"
+                             className="p-1 hover:bg-purple-50 rounded-md transition-colors text-purple-400 hover:text-purple-600"
+                             title="Previsualizar Factura"
+                             onClick={(e) => e.stopPropagation()}
+                           >
+                             <Paperclip size={14} />
+                           </a>
+                        )}
+                     </div>
                      <div className="text-[10px] text-gray-400 font-mono uppercase">{c.num_factura_proveedor}</div>
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-500 font-medium">{new Date(c.fecha).toLocaleDateString()}</td>
