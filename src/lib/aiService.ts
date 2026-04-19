@@ -1,8 +1,9 @@
-// Lista de modelos por orden de velocidad/eficiencia para extracción
+// Lista de modelos optimizada por compatibilidad y velocidad
 const FAST_MODELS = [
-  "gemini-1.5-flash-8b",   // El más rápido para estas tareas
-  "gemini-1.5-flash", 
-  "gemini-2.0-flash-exp"
+  "gemini-1.5-flash",        // Alta disponibilidad y velocidad
+  "gemini-1.5-flash-latest", // Alias común
+  "gemini-1.5-flash-8b",     // Modelo ultra-rápido (si está disponible)
+  "gemini-2.0-flash-exp"     // Experimental de alta velocidad
 ];
 
 export async function extractDataFromInvoice(base64File: string, apiKey: string) {
