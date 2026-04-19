@@ -53,6 +53,7 @@ export default function AjustesClient() {
   const [formaPago, setFormaPago] = useState('Transferencia Bancaria');
   const [tieneRetencion, setTieneRetencion] = useState(false);
   const [irpfDefault, setIrpfDefault] = useState(15);
+  const [condicionesLegales, setCondicionesLegales] = useState('');
   const [lopdText, setLopdText] = useState('');
   const [telefono, setTelefono] = useState('');
   const [saveError, setSaveError] = useState<string | null>(null);
