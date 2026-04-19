@@ -182,19 +182,22 @@ export default function AjustesClient() {
         cuenta_bancaria: cuentaBancaria.replace(/\s/g, ''),
         email, gemini_key: geminiKey, logo_url: logoUrl,
         forma_pago_default: formaPago, tiene_retencion: tieneRetencion, irpf_default: irpfDefault,
-        condiciones_legales: condicionesLegales, lopd_text: lopdText,
         verifactu_certificado: verifactuCert,
         verifactu_pass: verifactuCertPassword,
         verifactu_env: verifactuEnv
       };
 
       const payloadString = JSON.stringify(payload);
-      if (payloadString === lastSavedPayload.current) return;
+      if (payloadString === lastSavedPayload.current) {
+        setAutoStatus('idle');
+        return;
+      }
       lastSavedPayload.current = payloadString;
 
       await supabase.from('perfil_negocio').upsert(payload, { onConflict: 'user_id' });
       setAutoStatus('saved');
-      // window.dispatchEvent(new Event('perfil_updated')); // Diagnostic: disable event
+      window.dispatchEvent(new Event('perfil_updated'));
+      setTimeout(() => setAutoStatus('idle'), 2000);
     } catch (e: any) {
       console.error("Save error:", e.message);
       setAutoStatus('idle');
@@ -365,8 +368,9 @@ export default function AjustesClient() {
             <h1 className="text-4xl font-black font-head tracking-tighter text-[var(--foreground)]">Ajustes</h1>
             <p className="text-[var(--muted)] font-medium font-sans">Control corporativo y seguridad avanzada.</p>
           </div>
-          <div className="px-5 py-2 rounded-full text-xs font-bold border flex items-center gap-2 bg-gray-50 text-gray-400 border-gray-100 font-sans">
-            Sesión: {user.email}
+          <div className={`px-5 py-2 rounded-full text-xs font-bold border flex items-center gap-2 transition-all duration-300 font-sans ${autoStatus === 'saving' ? 'bg-blue-50 text-blue-600 border-blue-100' : autoStatus === 'saved' ? 'bg-green-50 text-green-700 border-green-100' : 'bg-gray-50 text-gray-400 border-gray-100'}`}>
+            {autoStatus === 'saving' ? <Loader2 className="animate-spin" size={14} /> : autoStatus === 'saved' ? <CheckCircle2 size={14} /> : <ShieldCheck size={14} />}
+            {autoStatus === 'saving' ? 'Guardando...' : autoStatus === 'saved' ? 'Sincronizado' : `Sesión: ${user.email}`}
           </div>
         </header>
 
