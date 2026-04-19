@@ -446,13 +446,30 @@ export default function CostesPage() {
 
       let currentId = editingId;
       if (editingId) {
+        console.log("📝 Actualizando factura existente ID:", editingId);
         const { error: uErr } = await supabase.from("costes").update(payload).eq("id", editingId);
-        if (uErr) throw uErr;
+        if (uErr) {
+           console.error("❌ Error en UPDATE costes:", uErr);
+           throw uErr;
+        }
         await supabase.from("coste_lineas").delete().eq("coste_id", editingId);
       } else {
-        const { data: newCoste, error: iErr } = await supabase.from("costes").insert([payload]).select().single();
-        if (iErr) throw iErr;
-        currentId = newCoste.id;
+        console.log("🆕 Insertando nueva factura...");
+        // Intentamos un insert puro sin .single() que a veces da problemas con RLS
+        const { data: newCosteRows, error: iErr } = await supabase.from("costes").insert([payload]).select('id');
+        
+        if (iErr) {
+          console.error("❌ Error en INSERT costes:", iErr);
+          if (iErr.code === '42501') throw new Error("Acceso denegado por políticas de seguridad (RLS). Favor ejecutar script SQL de apertura.");
+          throw iErr;
+        }
+        
+        if (!newCosteRows || newCosteRows.length === 0) {
+           throw new Error("La inserción se completó pero no se pudo recuperar el ID generado.");
+        }
+        
+        currentId = newCosteRows[0].id;
+        console.log("✅ Factura creada con ID:", currentId);
       }
 
       const lineasConId = lineas.map(l => ({
@@ -461,10 +478,15 @@ export default function CostesPage() {
         unidades: Number(l.unidades),
         precio_unitario: Number(l.precio_unitario),
         iva_pct: Number(l.iva_pct),
-        user_id: user.id
+        user_id: user.id // Refuerzo de propiedad en cada línea
       }));
 
-      await supabase.from("coste_lineas").insert(lineasConId);
+      console.log("📦 Insertando líneas de detalle...", lineasConId.length);
+      const { error: lErr } = await supabase.from("coste_lineas").insert(lineasConId);
+      if (lErr) {
+        console.error("❌ Error en INSERT coste_lineas:", lErr);
+        throw lErr;
+      }
       setIsModalOpen(false);
       fetchData();
       alert("✅ Gasto registrado correctamente.");
