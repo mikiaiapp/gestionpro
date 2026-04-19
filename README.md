@@ -1,54 +1,52 @@
-# 📁 GestiónPro v1.5 (Build OK)
+# 🚀 GestiónPro v1.5 - Producción (Build Final)
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fmikiaiapp%2Fgestionpro2)
 
-GestiónPro es una plataforma SaaS de gestión empresarial moderna y profesional, diseñada para cumplir con los estándares de facturación más exigentes.
+GestiónPro es una plataforma SaaS de gestión empresarial moderna y profesional, diseñada para cumplir con los estándares de facturación más exigentes. El sistema ahora incluye **Inteligencia Artificial Adaptativa** y un sistema de **Portabilidad Universal**.
 
-## ✨ Características Principales
-- 📑 **Invoicing & Budgets**: Gestión de facturas y presupuestos profesionales con exportación a PDF.
-- 🏗️ **Project Advance Invoicing**: Sistema de facturación por hitos/porcentaje con cálculo automático sobre el presupuesto.
-- 🤖 **AI-Powered Expenses**: Registro de facturas recibidas (gastos) de forma manual o mediante **importación automática de PDF** analizados con **Google Gemini AI**.
-- 📈 **Rentabilidad por Proyecto**: Panel de análisis dinámico que cruza ventas vs costes reales para obtener el margen neto de cada obra o servicio.
-- 📗 **Libros de IVA**: Generación automática de libros de IVA **Soportado** (Costes) e IVA **Repercutido** (Ventas) listos para la liquidación de impuestos.
-- ⚖️ **Compliance Legal**: Preparada para la **Ley Crea y Crece** y normativa **Veri*factu**, con trazabilidad digital y códigos QR.
-- 🔒 **Integridad de Datos**: Bloqueos inteligentes para mantener correlatividad numérica y evitar borrados accidentales de datos con dependencias.
-- 📍 **Geo-Intelligence**: Autocompletado de municipios y provincias por Código Postal.
+## ✨ Características de Última Generación
+- 🤖 **IA Auto-Suficiente**: Extracción de facturas recibidas (gastos) mediante Google Gemini. El sistema se auto-adapta a nuevos modelos de Google y funciona tras un **Proxy de Servidor** para evitar bloqueos del navegador.
+- 📦 **Portabilidad ZIP**: Sistema de backups que genera un archivo comprimido con todos tus datos (JSON) y tus facturas originales (PDFs), permitiendo migrar de una cuenta de Supabase a otra en segundos.
+- 📑 **Invoicing & Compliance**: Facturas y presupuestos profesionales con exportación a PDF, códigos QR y cumplimiento de normativa fiscal.
+- 📗 **Libros de IVA**: Generación de listados oficiales de IVA Soportado y Repercutido en PDF/Excel.
 
-## 🚀 Guía Detallada de Instalación
+## 🚀 Guía de Despliegue Rápido (5 Minutos)
 
-Sigue estos pasos para tener tu propia instancia privada de GestiónPro totalmente operativa.
+Sigue estos pasos exactos para una instalación impecable:
 
-### 1. Preparar la Base de Datos (Supabase)
-GestiónPro utiliza **Supabase** como motor de base de datos, sistema de autenticación y almacenamiento.
-1.  **Crea un proyecto**: Ve a [Supabase](https://supabase.com) y crea un nuevo proyecto gratuito.
-2.  **Ejecuta el Esquema**: 
-    *   En el menú lateral, entra en el **SQL Editor**.
-    *   Haz clic en **"New Query"**.
-    *   Copia y pega íntegramente el contenido del archivo [`supabase_schema.sql`](./supabase_schema.sql) de este repositorio.
-    *   Pulsa **Run**. Esto creará todas las tablas, relaciones y las reglas de seguridad (RLS) que garantizan que tus datos sean privados.
-3.  **Configura la Autenticación**:
-    *   Ve a **Authentication > Providers**.
-    *   Asegúrate de que el proveedor **Email** está activado (es el que viene por defecto).
-    *   *Recomendación*: Puedes desactivar "Confirm Email" en los ajustes de Auth para empezar a probar inmediatamente sin esperar correos de verificación.
+### 1. Configurar Supabase (Base de Datos)
+1.  **Proyecto Nuevo**: Crea un proyecto en [Supabase](https://supabase.com).
+2.  **Esquema SQL**: Entra en `SQL Editor` > `New Query`, pega el contenido de [`supabase_schema.sql`](./supabase_schema.sql) y pulsa **Run**.
+3.  **Storage (Crítico)**:
+    *   Ve a `Storage` > `New Bucket`.
+    *   Nómbralo exactamente: **`facturas-recibidas`**.
+    *   ⚠️ **Importante**: Márcalo como **Public** para que las facturas sean accesibles.
+4.  **Autenticación**: En `Auth` > `Providers`, activa el registro por Email (puedes desactivar "Confirm Email" para pruebas).
 
 ### 2. Despliegue en Vercel
-1.  Haz clic en el botón **"Deploy with Vercel"** ubicado al principio de este README.
-2.  **Configura las Variables de Entorno**: Vercel te pedirá dos valores críticos. Para encontrarlos en Supabase, ve a **Project Settings > API**:
-    *   `NEXT_PUBLIC_SUPABASE_URL`: Es la URL de tu proyecto (ej: `https://xyz.supabase.co`).
-    *   `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Es la clave pública (identificada como `anon` `public`).
-3.  Pulsa **Deploy**. Una vez termine el proceso (aprox. 3 minutos), tendrás tu URL pública lista.
+1.  Pulsa el botón **Deploy with Vercel** de arriba.
+2.  Configura las variables de entorno (`Project Settings` > `API` en Supabase):
+    *   `NEXT_PUBLIC_SUPABASE_URL`: Tu URL del proyecto.
+    *   `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Tu clave pública `anon`.
+3.  **¡Listo!** Una vez termine, entra en tu URL y crea tu cuenta.
 
-### 3. Primer Acceso
-*   Entra en tu nueva URL y ve a la página de **Registro**.
-*   Crea tu cuenta de administrador.
-*   ¡Listo! Recomendamos configurar tus datos de empresa en **Ajustes** para que tus facturas y presupuestos salgan con tu identidad corporativa.
-
----
-
-## 🛠️ Tecnologías
-- **Frontend**: Next.js 14, Tailwind CSS, Lucide Icons.
-- **Backend**: Supabase (Auth, DB, RLS).
-- **IA**: Google Gemini Cloud Service.
+### 3. Activar la IA de Extracción
+1.  Consigue una clave API gratuita en [Google AI Studio](https://aistudio.google.com/).
+2.  Dentro de GestiónPro, ve a **Ajustes** > **Perfil de Negocio**.
+3.  Pega tu clave en el campo **Gemini API Key** y guarda.
+4.  Ya puedes ir a **Costes** e importar facturas directamente desde archivos PDF.
 
 ---
-*GestiónPro: Control total, estés donde estés.*
+
+## 🛠️ Stack Tecnológico
+- **Core**: Next.js 14, TypeScript, Tailwind CSS.
+- **Backend**: Supabase (Auth, DB con RLS fuerte, Storage).
+- **IA**: Google Gemini Cloud (Motor autónomo con Proxy de Servidor).
+- **Backups**: JSZip (Compresión de datos y archivos binarios).
+
+## 🔒 Seguridad y Privacidad
+- **RLS (Row Level Security)**: Los datos de cada usuario están aislados a nivel de base de datos.
+- **AI Proxy**: Las peticiones de IA se procesan en el servidor (`/api/ai/extract`), protegiendo tu clave API y evitando AdBlockers.
+
+---
+*GestiónPro: Control total, portabilidad absoluta. Producido por mikiaiapp.*
