@@ -194,6 +194,22 @@ export default function AjustesClient() {
     }
   };
 
+  const handleSaveLegales = async () => {
+    if (!user) return;
+    setAutoStatus('saving');
+    try {
+      await supabase.from('perfil_negocio').update({
+        condiciones_legales: condicionesLegales,
+        lopd_text: lopdText
+      }).eq('user_id', user.id);
+      setAutoStatus('saved');
+      setTimeout(() => setAutoStatus('idle'), 2000);
+    } catch (e: any) {
+      console.error(e);
+      setAutoStatus('idle');
+    }
+  };
+
   const setup2FA = () => {
     const secret = totp.generateSecret();
     const otpauth = totp.generateUri(user.email, secret);
@@ -430,7 +446,7 @@ export default function AjustesClient() {
 
                 <div className="pt-4 border-t border-dashed flex justify-end">
                   <button 
-                    onClick={handleSaveAll}
+                    onClick={handleSaveLegales}
                     className="flex items-center gap-2 px-6 py-3 bg-gray-900 text-white font-bold rounded-2xl hover:bg-gray-800 transition-all active:scale-95 disabled:opacity-50 disabled:active:scale-100 font-sans shadow-lg text-sm"
                   >
                     {autoStatus === 'saving' ? <Loader2 className="animate-spin" size={16} /> : <CheckCircle2 size={16} />}
