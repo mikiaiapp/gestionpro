@@ -186,10 +186,8 @@ export default function AjustesClient() {
       };
 
       await supabase.from('perfil_negocio').upsert(payload, { onConflict: 'user_id' });
-      
       setAutoStatus('saved');
-      setTimeout(() => setAutoStatus('idle'), 3000);
-      window.dispatchEvent(new Event('perfil_updated'));
+      // window.dispatchEvent(new Event('perfil_updated')); // Diagnostic: disable event
     } catch (e: any) {
       console.error("Save error:", e.message);
       setAutoStatus('idle');
