@@ -363,6 +363,46 @@ function VentasContent() {
       }));
 
       await supabase.from("venta_lineas").insert(lineasToInsert);
+
+      // --- AUTO ARCHIVADO PDF ---
+      try {
+        const { data: vFull } = await supabase.from('ventas').select('*, clientes(*)').eq('id', currentVentaId).single();
+        const pdfDoc = await generatePDF({
+          tipo: 'FACTURA',
+          numero: `${vFull.serie}-${vFull.num_factura}`,
+          fecha: vFull.fecha,
+          cliente: {
+            nombre: vFull.clientes?.nombre || 'Particular',
+            nif: vFull.clientes?.nif || '',
+            direccion: vFull.clientes?.direccion || '',
+            poblacion: vFull.clientes?.poblacion || '',
+            cp: vFull.clientes?.cp || '',
+            provincia: vFull.clientes?.provincia || '',
+          },
+          perfil: perfil,
+          lineas: lineas,
+          totales: {
+            base: baseImponible,
+            iva_pct: serie === "A" ? 21 : 0,
+            iva_importe: cuotaIva,
+            retencion_pct: retencionPct,
+            retencion_importe: retencionImporte,
+            total: totalFactura
+          }
+        });
+
+        const blob = pdfDoc.output('blob');
+        const publicUrl = await uploadInvoiceFile(blob, 'ventas', { 
+          number: `${vFull.serie}-${vFull.num_factura}`, 
+          entity: vFull.clientes?.nombre || 'Cliente' 
+        });
+
+        await supabase.from('ventas').update({ archivo_url: publicUrl } as any).eq('id', currentVentaId);
+      } catch (pdfErr) {
+        console.error("Error auto-archivando PDF:", pdfErr);
+      }
+      // --------------------------
+
       setIsEditorOpen(false);
       setEditingId(null);
       fetchData();

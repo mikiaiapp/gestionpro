@@ -8,6 +8,7 @@
 ALTER TABLE public.proyectos ADD COLUMN IF NOT EXISTS serie text DEFAULT 'P';
 ALTER TABLE public.proyectos ADD COLUMN IF NOT EXISTS numero text;
 ALTER TABLE public.proyectos ADD COLUMN IF NOT EXISTS condiciones_particulares text;
+ALTER TABLE public.proyectos ADD COLUMN IF NOT EXISTS archivo_url text;
 
 -- Columna para Coste Unitario por Partida
 ALTER TABLE public.proyecto_lineas ADD COLUMN IF NOT EXISTS coste_unitario numeric DEFAULT 0;

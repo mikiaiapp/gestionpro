@@ -3,15 +3,16 @@ import { supabase } from './supabase';
 
 export const uploadInvoiceFile = async (
   file: File | Blob, 
-  type: 'ventas' | 'costes', 
+  type: 'ventas' | 'costes' | 'presupuestos', 
   metadata: { number: string; entity: string }
 ): Promise<string> => {
   // Limpiar nombre de entidad para evitar caracteres raros en el nombre de archivo
   const cleanEntity = metadata.entity.replace(/[^a-z0-9]/gi, '_').toLowerCase().substring(0, 20);
-  const prefix = type === 'ventas' ? 'EMI' : 'REC';
-  const fileName = `${prefix}_${metadata.number}_${cleanEntity}.pdf`;
-  const folder = type === 'ventas' ? 'emitidas' : 'recibidas';
-  const path = `${folder}/${fileName}`;
+  const prefixes = { ventas: 'EMI', costes: 'REC', presupuestos: 'PRE' };
+  const folders = { ventas: 'emitidas', costes: 'recibidas', presupuestos: 'presupuestos' };
+  
+  const fileName = `${prefixes[type]}_${metadata.number}_${cleanEntity}.pdf`;
+  const path = `${folders[type]}/${fileName}`;
 
   const { data, error } = await supabase.storage
     .from('facturas')

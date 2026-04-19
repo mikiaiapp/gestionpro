@@ -75,7 +75,8 @@ export default function DocumentosPage() {
     setLoading(true);
     setFiles([]);
     try {
-      const { data, error } = await supabase.storage
+      // 1. Storage Files (Standard Explorer)
+      const { data: storageData, error } = await supabase.storage
         .from('facturas')
         .list(currentPath || undefined, {
           limit: 100,
@@ -84,9 +85,53 @@ export default function DocumentosPage() {
         });
 
       if (error) throw error;
-      
-      const realFiles = (data || []).filter(f => f.name !== '.emptyFolderPlaceholder');
-      setFiles(realFiles);
+      const stFiles = (storageData || [])
+          .filter(f => f.name !== '.emptyFolderPlaceholder')
+          .map(f => ({ ...f, origin: 'Explorador' }));
+
+      // 2. Database Documents (Unified Explorer)
+      if (!currentPath) { // Solo en la raíz del explorador mezclamos todo para el "Vista por Todos"
+         const { data: dProjs } = await supabase.from('proyectos').select('id, nombre, archivo_url').not('archivo_url', 'is', null);
+         const { data: dVents } = await supabase.from('ventas').select('id, serie, num_factura, archivo_url, clientes(nombre)').not('archivo_url', 'is', null);
+         const { data: dCosts } = await supabase.from('costes').select('id, num_factura_proveedor, archivo_url, proveedores(nombre)').not('archivo_url', 'is', null);
+         const { data: dOtros } = await supabase.from('proyecto_documentos').select('id, nombre, archivo_url, proyecto_id, proyectos(nombre)').not('archivo_url', 'is', null);
+
+         const dbDocs = [
+            ...(dProjs || []).map(p => ({ 
+              id: p.id, 
+              name: `PRE - ${p.nombre}.pdf`, 
+              url: p.archivo_url, 
+              type: 'Presupuesto',
+              context: p.nombre 
+            })),
+            ...(dVents || []).map(v => ({ 
+              id: v.id, 
+              name: `EMI - ${v.serie}-${v.num_factura} - ${(v as any).clientes?.nombre}.pdf`, 
+              url: v.archivo_url, 
+              type: 'Factura Emitida',
+              context: (v as any).clientes?.nombre 
+            })),
+            ...(dCosts || []).map(c => ({ 
+              id: c.id, 
+              name: `REC - ${c.num_factura_proveedor} - ${(c as any).proveedores?.nombre}.pdf`, 
+              url: c.archivo_url, 
+              type: 'Factura Recibida',
+              context: (c as any).proveedores?.nombre 
+            })),
+            ...(dOtros || []).map(o => ({ 
+              id: o.id, 
+              name: o.nombre, 
+              url: o.archivo_url, 
+              type: 'Adjunto Proyecto',
+              context: (o as any).proyectos?.nombre 
+            }))
+         ];
+         
+         // Mezclamos
+         setFiles([...stFiles, ...dbDocs]);
+      } else {
+         setFiles(stFiles);
+      }
     } catch (err: any) {
       console.error(err);
     } finally {
@@ -294,39 +339,55 @@ export default function DocumentosPage() {
                    </div>
                 ) : (
                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                      {files.filter(f => f.name.toLowerCase().includes(searchTerm.toLowerCase())).map(file => {
-                         const isFolder = !file.id;
-                         return (
-                            <div 
-                              key={file.name} 
-                              onClick={() => isFolder && setCurrentPath(currentPath ? `${currentPath}/${file.name}` : file.name)}
-                              className={`p-4 rounded-2xl border transition-all group flex flex-col justify-between min-h-[140px] relative overflow-hidden bg-white ${isFolder ? 'cursor-pointer border-blue-100 hover:border-blue-400 hover:bg-blue-50/50' : 'hover:border-purple-200 hover:bg-purple-50/20'}`}
-                            >
-                               <div className="absolute -right-4 -top-4 opacity-[0.03] group-hover:opacity-[0.1] transition-opacity">
-                                  {isFolder ? <FolderOpen size={100} /> : <FileText size={100} />}
-                               </div>
-                               <div>
-                                  <div className={`mb-2 ${isFolder ? 'text-blue-500' : 'text-purple-400'}`}>
-                                     {isFolder ? <FolderOpen size={24} /> : <FileText size={24} />}
-                                  </div>
-                                  <div className="font-bold text-[13px] text-gray-700 break-words leading-tight">
-                                     {file.name}
-                                  </div>
-                               </div>
-                               <div className="flex justify-between items-end mt-4 relative z-10">
-                                  <span className="text-[9px] font-black text-gray-300 uppercase">
-                                     {isFolder ? 'Carpeta' : `${(file.metadata?.size / 1024 / 1024).toFixed(2)} MB`}
-                                  </span>
-                                  {!isFolder && (
-                                    <div className="flex gap-2">
-                                       <a href={getPublicUrl(file.name)} target="_blank" className="p-2 bg-white rounded-lg border hover:shadow-md transition-all text-purple-500"><ExternalLink size={14} /></a>
-                                       <a href={getPublicUrl(file.name)} download={file.name} className="p-2 bg-white rounded-lg border hover:shadow-md transition-all text-green-500"><Download size={14} /></a>
-                                    </div>
-                                  )}
-                               </div>
-                            </div>
-                         );
-                      })}
+                      {files.filter((f: any) => f.name.toLowerCase().includes(searchTerm.toLowerCase())).map((file: any, index: number) => {
+                          const isFolder = !file.url && !file.archivo_url && !file.pdf_url;
+                          return (
+                             <div 
+                               key={file.id || file.name || index} 
+                               onClick={() => {
+                                 if (isFolder) {
+                                   setCurrentPath(currentPath ? `${currentPath}/${file.name}` : file.name);
+                                 } else {
+                                   window.open(file.url || file.archivo_url || file.pdf_url, '_blank');
+                                 }
+                               }}
+                               className={`p-4 rounded-3xl border transition-all group flex flex-col justify-between min-h-[160px] relative overflow-hidden bg-white ${isFolder ? 'cursor-pointer border-blue-100 hover:border-blue-400 hover:bg-blue-50/50' : 'cursor-pointer border-gray-100 hover:border-purple-300 hover:bg-purple-50/20'}`}
+                             >
+                                <div className="absolute -right-4 -top-4 opacity-[0.03] group-hover:opacity-[0.1] transition-opacity">
+                                   {isFolder ? <FolderOpen size={100} /> : <FileText size={100} />}
+                                </div>
+                                <div className="relative z-10">
+                                   {file.type && (
+                                     <div className="inline-block px-2 py-0.5 rounded-full bg-orange-100 text-orange-600 text-[8px] font-black uppercase tracking-widest mb-2">
+                                        {file.type}
+                                     </div>
+                                   )}
+                                   <div className={`mb-2 ${isFolder ? 'text-blue-500' : 'text-purple-400'}`}>
+                                      {isFolder ? <FolderOpen size={24} /> : <FileText size={24} />}
+                                   </div>
+                                   <div className="font-bold text-[13px] text-gray-700 break-words leading-tight min-h-[2.5em] line-clamp-2">
+                                      {file.name}
+                                   </div>
+                                   {file.context && (
+                                     <div className="text-[9px] text-gray-400 font-bold mt-1 uppercase tracking-tight truncate">
+                                        {file.context}
+                                     </div>
+                                   )}
+                                </div>
+                                <div className="flex justify-between items-end mt-4 relative z-10">
+                                   <span className="text-[9px] font-black text-gray-300 uppercase">
+                                      {isFolder ? 'Carpeta' : (file.metadata?.size ? `${(file.metadata.size / 1024 / 1024).toFixed(2)} MB` : 'PDF')}
+                                   </span>
+                                   {!isFolder && (
+                                     <div className="flex gap-2">
+                                        <a href={file.url || file.archivo_url} target="_blank" className="p-2 bg-white rounded-lg border hover:shadow-md transition-all text-purple-500"><ExternalLink size={14} /></a>
+                                        <a href={file.url || file.archivo_url} download={file.name} className="p-2 bg-white rounded-lg border hover:shadow-md transition-all text-green-500"><Download size={14} /></a>
+                                     </div>
+                                   )}
+                                </div>
+                             </div>
+                          );
+                       })}
                    </div>
                 )}
              </div>
@@ -387,18 +448,18 @@ export default function DocumentosPage() {
                      </h3>
                      <div className="bg-white rounded-3xl border shadow-sm divide-y h-fit">
                         {projectDocs.emitidas.length === 0 ? (
-                          <p className="p-8 text-center text-xs text-gray-400 font-bold">No hay facturas emitidas asociadas.</p>
+                           <p className="p-8 text-center text-xs text-gray-400 font-bold">No hay facturas emitidas asociadas.</p>
                         ) : projectDocs.emitidas.map(v => (
-                          <div key={v.id} className="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
-                             <div className="flex-1 pr-2 truncate">
-                                <div className="text-xs font-bold text-gray-700 truncate">Factura {v.serie}-{v.num_factura}</div>
-                                <div className="text-[10px] text-gray-400">{new Date(v.fecha).toLocaleDateString()}</div>
-                             </div>
-                             <div className="flex gap-1">
-                                <a href={v.archivo_url} target="_blank" className="p-2 hover:bg-blue-100 rounded-lg text-blue-600 transition-all"><Eye size={16} /></a>
-                                <a href={v.archivo_url} download className="p-2 hover:bg-green-100 rounded-lg text-green-600 transition-all"><Download size={16} /></a>
-                             </div>
-                          </div>
+                           <div key={v.id} className="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
+                              <div className="flex-1 pr-2 truncate">
+                                 <div className="text-xs font-bold text-gray-700 truncate">Factura {v.serie}-{v.num_factura}</div>
+                                 <div className="text-[10px] text-gray-400">{new Date(v.fecha).toLocaleDateString()}</div>
+                              </div>
+                              <div className="flex gap-1">
+                                 <a href={v.archivo_url} target="_blank" className="p-2 hover:bg-blue-100 rounded-lg text-blue-600 transition-all"><Eye size={16} /></a>
+                                 <a href={v.archivo_url} download className="p-2 hover:bg-green-100 rounded-lg text-green-600 transition-all"><Download size={16} /></a>
+                              </div>
+                           </div>
                         ))}
                      </div>
                   </div>
@@ -410,18 +471,18 @@ export default function DocumentosPage() {
                      </h3>
                      <div className="bg-white rounded-3xl border shadow-sm divide-y h-fit">
                         {projectDocs.recibidas.length === 0 ? (
-                          <p className="p-8 text-center text-xs text-gray-400 font-bold">No hay gastos asociados registrados.</p>
+                           <p className="p-8 text-center text-xs text-gray-400 font-bold">No hay gastos asociados registrados.</p>
                         ) : projectDocs.recibidas.map(c => (
-                          <div key={c.id} className="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
-                             <div className="flex-1 pr-2 overflow-hidden">
-                                <div className="text-xs font-bold text-gray-700 truncate">{c.proveedores?.nombre}</div>
-                                <div className="text-[10px] text-gray-400 truncate">Fact. {c.num_factura_proveedor}</div>
-                             </div>
-                             <div className="flex gap-1">
-                                <a href={c.archivo_url} target="_blank" className="p-2 hover:bg-purple-100 rounded-lg text-purple-600 transition-all"><Eye size={16} /></a>
-                                <a href={c.archivo_url} download className="p-2 hover:bg-green-100 rounded-lg text-green-600 transition-all"><Download size={16} /></a>
-                             </div>
-                          </div>
+                           <div key={c.id} className="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
+                              <div className="flex-1 pr-2 overflow-hidden">
+                                 <div className="text-xs font-bold text-gray-700 truncate">{c.proveedores?.nombre}</div>
+                                 <div className="text-[10px] text-gray-400 truncate">Fact. {c.num_factura_proveedor}</div>
+                              </div>
+                              <div className="flex gap-1">
+                                 <a href={c.archivo_url} target="_blank" className="p-2 hover:bg-purple-100 rounded-lg text-purple-600 transition-all"><Eye size={16} /></a>
+                                 <a href={c.archivo_url} download className="p-2 hover:bg-green-100 rounded-lg text-green-600 transition-all"><Download size={16} /></a>
+                              </div>
+                           </div>
                         ))}
                      </div>
                   </div>
@@ -433,29 +494,29 @@ export default function DocumentosPage() {
                            <ImageIcon size={16} /> Otros Documentos
                         </h3>
                         <button 
-                          onClick={() => setIsUploadModalOpen(true)}
-                          className="flex items-center gap-1 text-[10px] font-black text-orange-600 bg-orange-50 px-3 py-1.5 rounded-full hover:bg-orange-100 transition-all"
+                           onClick={() => setIsUploadModalOpen(true)}
+                           className="flex items-center gap-1 text-[10px] font-black text-orange-600 bg-orange-50 px-3 py-1.5 rounded-full hover:bg-orange-100 transition-all"
                         >
                            <Plus size={12} /> AÑADIR
                         </button>
                      </div>
                      <div className="bg-white rounded-3xl border shadow-sm divide-y border-orange-100 h-fit">
                         {projectDocs.otros.length === 0 ? (
-                          <div className="p-8 text-center space-y-2">
-                             <Files size={32} className="mx-auto text-orange-100" />
-                             <p className="text-xs text-gray-400 font-bold text-balance">Planos, fotos iniciales, reportajes finales...</p>
-                          </div>
+                           <div className="p-8 text-center space-y-2">
+                              <Files size={32} className="mx-auto text-orange-100" />
+                              <p className="text-xs text-gray-400 font-bold text-balance">Planos, fotos iniciales, reportajes finales...</p>
+                           </div>
                         ) : projectDocs.otros.map(doc => (
-                          <div key={doc.id} className="p-4 flex items-center justify-between hover:bg-orange-50/30 transition-colors">
-                             <div className="flex-1 pr-2 overflow-hidden">
-                                <div className="text-xs font-bold text-gray-700 truncate" title={doc.nombre}>{doc.nombre}</div>
-                                <div className="text-[9px] text-gray-400 uppercase font-black">{doc.tipo} • {(doc.size / 1024 / 1024).toFixed(2)} MB</div>
-                             </div>
-                             <div className="flex gap-1">
-                                <a href={doc.archivo_url} target="_blank" className="p-2 hover:bg-white rounded-lg text-orange-600 transition-all"><ExternalLink size={16} /></a>
-                                <button onClick={() => deleteOtherDoc(doc)} className="p-2 hover:bg-white rounded-lg text-red-400 hover:text-red-600 transition-all"><Trash2 size={16} /></button>
-                             </div>
-                          </div>
+                           <div key={doc.id} className="p-4 flex items-center justify-between hover:bg-orange-50/30 transition-colors">
+                              <div className="flex-1 pr-2 overflow-hidden">
+                                 <div className="text-xs font-bold text-gray-700 truncate" title={doc.nombre}>{doc.nombre}</div>
+                                 <div className="text-[9px] text-gray-400 uppercase font-black">{doc.tipo} • {(doc.size / 1024 / 1024).toFixed(2)} MB</div>
+                              </div>
+                              <div className="flex gap-1">
+                                 <a href={doc.archivo_url} target="_blank" className="p-2 hover:bg-white rounded-lg text-orange-600 transition-all"><ExternalLink size={16} /></a>
+                                 <button onClick={() => deleteOtherDoc(doc)} className="p-2 hover:bg-white rounded-lg text-red-400 hover:text-red-600 transition-all"><Trash2 size={16} /></button>
+                              </div>
+                           </div>
                         ))}
                      </div>
                   </div>

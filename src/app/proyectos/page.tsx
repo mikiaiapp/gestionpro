@@ -10,6 +10,7 @@ import { DataTableHeader } from "@/components/DataTableHeader";
 import { generatePDF } from "@/lib/pdfGenerator";
 import { formatCurrency } from "@/lib/format";
 import { SearchableSelect } from "@/components/SearchableSelect";
+import { uploadInvoiceFile } from "@/lib/storageService";
 
 interface LineaProyecto {
   unidades: number;
@@ -256,6 +257,49 @@ export default function ProyectosPage() {
       });
 
       await supabase.from("proyecto_lineas").insert(lineasToInsert);
+
+      // --- AUTO ARCHIVADO PDF ---
+      try {
+        const { data: pFull } = await supabase.from('proyectos').select('*, clientes(*)').eq('id', currentId).single();
+        const refFinal = pFull.num_proyecto || pFull.numero || pFull.num_referencia || pFull.referencia || "S/N";
+        
+        const pdfDoc = await generatePDF({
+          tipo: 'PRESUPUESTO',
+          numero: `${pFull.serie || 'P'}-${refFinal}`,
+          fecha: pFull.fecha,
+          cliente: {
+            nombre: pFull.clientes?.nombre || 'Particular',
+            nif: pFull.clientes?.nif || '',
+            direccion: pFull.clientes?.direccion || '',
+            poblacion: pFull.clientes?.poblacion || '',
+            cp: pFull.clientes?.codigo_postal || '',
+            provincia: pFull.clientes?.provincia || '',
+          },
+          perfil: perfil,
+          condiciones_particulares: pFull.condiciones_particulares || '',
+          lineas: lineas,
+          totales: {
+            base: baseImponible,
+            iva_pct: 21,
+            iva_importe: cuotaIva,
+            retencion_pct: retencionPct,
+            retencion_importe: retencionImporte,
+            total: totalProyecto
+          }
+        });
+
+        const blob = pdfDoc.output('blob');
+        const publicUrl = await uploadInvoiceFile(blob, 'presupuestos', { 
+          number: `${pFull.serie}-${refFinal}`, 
+          entity: pFull.clientes?.nombre || 'Cliente' 
+        });
+
+        // Intentamos guardar en archivo_url del proyecto
+        await supabase.from('proyectos').update({ archivo_url: publicUrl } as any).eq('id', currentId);
+      } catch (pdfErr) {
+        console.error("Error auto-archivando presupuesto:", pdfErr);
+      }
+      // ---------------------------
 
       setIsEditorOpen(false);
       setEditingId(null);
