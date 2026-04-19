@@ -33,7 +33,7 @@ const TwoFactorSetup = dynamic(() => import('@/components/TwoFactorSetup'), {
   ssr: false 
 });
 
-export default function AjustesPage() {
+export default function AjustesClient() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [autoStatus, setAutoStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
@@ -123,8 +123,8 @@ export default function AjustesPage() {
     if (cp.length === 5) {
       getFullLocationByCP(cp).then(resp => {
         if (resp) {
-          setProvincia(resp.provincia);
-          if (resp.poblacion) setPoblacion(resp.poblacion);
+          if (resp.provincia && resp.provincia !== provincia) setProvincia(resp.provincia);
+          if (resp.poblacion && resp.poblacion !== poblacion) setPoblacion(resp.poblacion);
         }
       });
     }
