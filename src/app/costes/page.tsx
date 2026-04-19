@@ -380,8 +380,7 @@ export default function CostesPage() {
         retencion_pct: retencionPct,
         retencion_importe: retencionImporte,
         iva_importe: totalIva,
-        tipo_gasto: tipoGasto,
-        pagado: false
+        tipo_gasto: tipoGasto
       };
 
       const setIfFound = (options: string[], value: any) => {
