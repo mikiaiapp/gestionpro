@@ -111,7 +111,7 @@ export default function AjustesClient() {
   }, [
     nombre, nif, cuentaBancaria, direccion, cp, poblacion, provincia, 
     email, geminiKey, logoUrl, formaPago, tieneRetencion, irpfDefault, 
-    condicionesLegales, lopdText, verifactuCert, verifactuCertPassword, verifactuEnv
+    verifactuCert, verifactuCertPassword, verifactuEnv
   ]);
 
   const fetchAutoBackups = async (userId: string) => {
@@ -428,6 +428,16 @@ export default function AjustesClient() {
                     className="w-full px-5 py-4 rounded-2xl border bg-gray-50 outline-none font-sans text-sm resize-none focus:bg-white transition-colors"
                     placeholder="Texto legal obligatorio para la protección de datos..."
                   />
+                </div>
+
+                <div className="pt-4 border-t border-dashed flex justify-end">
+                  <button 
+                    onClick={handleSaveAll}
+                    className="flex items-center gap-2 px-6 py-3 bg-gray-900 text-white font-bold rounded-2xl hover:bg-gray-800 transition-all active:scale-95 disabled:opacity-50 disabled:active:scale-100 font-sans shadow-lg text-sm"
+                  >
+                    {autoStatus === 'saving' ? <Loader2 className="animate-spin" size={16} /> : <CheckCircle2 size={16} />}
+                    {autoStatus === 'saving' ? 'Guardando...' : 'Guardar Cláusulas'}
+                  </button>
                 </div>
               </div>
             </div>
