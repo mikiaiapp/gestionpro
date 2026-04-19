@@ -56,6 +56,8 @@ export default function AjustesClient() {
   const [condicionesLegales, setCondicionesLegales] = useState('');
   const [lopdText, setLopdText] = useState('');
   const [telefono, setTelefono] = useState('');
+  const [imagenCorporativaUrl, setImagenCorporativaUrl] = useState('');
+  const [textoAceptacion, setTextoAceptacion] = useState('');
   const [saveError, setSaveError] = useState<string | null>(null);
   
   const [verifactuCert, setVerifactuCert] = useState('');
@@ -114,8 +116,8 @@ export default function AjustesClient() {
     }
   }, [
     nombre, nif, cuentaBancaria, direccion, cp, poblacion, provincia, 
-    email, geminiKey, logoUrl, formaPago, tieneRetencion, irpfDefault,
-    condicionesLegales, lopdText, telefono,
+    email, geminiKey, logoUrl, imagenCorporativaUrl, formaPago, tieneRetencion, irpfDefault,
+    condicionesLegales, lopdText, telefono, textoAceptacion,
     verifactuCert, verifactuCertPassword, verifactuEnv
   ]);
 
@@ -158,6 +160,8 @@ export default function AjustesClient() {
         setVerifactuCertPassword(data.verifactu_pass || '');
         setVerifactuEnv(data.verifactu_env || 'pruebas');
         setTelefono(data.telefono || '');
+        setImagenCorporativaUrl(data.imagen_corporativa_url || '');
+        setTextoAceptacion(data.texto_aceptacion || '');
       }
       
       const { data: prof } = await supabase.from('perfiles').select('two_factor_enabled, two_factor_secret').eq('id', userId).single();
@@ -183,9 +187,13 @@ export default function AjustesClient() {
         user_id: user.id,
         nombre, nif, direccion, cp, poblacion, provincia,
         cuenta_bancaria: cuentaBancaria.replace(/\s/g, ''),
-        email, gemini_key: geminiKey, logo_url: logoUrl,
+        email, gemini_key: geminiKey, logo_url: logoUrl, 
+        imagen_corporativa_url: imagenCorporativaUrl,
         forma_pago_default: formaPago, tiene_retencion: tieneRetencion, irpf_default: irpfDefault,
         telefono,
+        condiciones_legales: condicionesLegales,
+        lopd_text: lopdText,
+        texto_aceptacion: textoAceptacion,
         verifactu_certificado: verifactuCert,
         verifactu_pass: verifactuCertPassword,
         verifactu_env: verifactuEnv
@@ -232,6 +240,42 @@ export default function AjustesClient() {
       console.error(e);
       setAutoStatus('idle');
     }
+  };
+
+  const triggerUpload = (target: 'logo' | 'corp') => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+
+      setAutoStatus('saving');
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random()}.${fileExt}`;
+      const filePath = `logos/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('logos')
+        .upload(filePath, file);
+
+      if (uploadError) {
+        alert("Error al subir imagen");
+        setAutoStatus('idle');
+        return;
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('logos')
+        .getPublicUrl(filePath);
+
+      if (target === 'logo') setLogoUrl(publicUrl);
+      else setImagenCorporativaUrl(publicUrl);
+      
+      setAutoStatus('saved');
+      setTimeout(() => setAutoStatus('idle'), 2000);
+    };
+    input.click();
   };
 
   const setup2FA = () => {
@@ -395,17 +439,29 @@ export default function AjustesClient() {
                 <Building2 className="text-blue-600" /> Identidad de Empresa
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="md:col-span-2 space-y-2">
+                <div className="space-y-1">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1 font-sans">Logo Corporativo</label>
-                  <div className="flex flex-col md:flex-row gap-4">
-                    <div className="flex-1 relative">
-                      <input type="text" value={logoUrl} onChange={e => setLogoUrl(e.target.value)} className="w-full pl-12 pr-4 py-4 rounded-2xl border bg-gray-50 outline-none font-sans" placeholder="https://..." />
-                      <ImageIcon size={18} className="absolute left-4 top-4 text-gray-300" />
+                  <div className="flex gap-3">
+                    <div className="relative flex-1">
+                       <input type="text" value={logoUrl} onChange={e => setLogoUrl(e.target.value)} className="w-full pl-12 pr-5 py-4 rounded-2xl border bg-gray-50 outline-none font-sans text-xs text-gray-400 truncate" placeholder="https://..." />
+                       <ImageIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" size={18} />
                     </div>
-                    <label className="flex items-center gap-2 px-6 py-4 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-2xl cursor-pointer transition-all active:scale-95 font-sans">
-                      <Upload size={18} /> {isSaving ? 'Subiendo...' : 'Subir'}
-                      <input type="file" onChange={handleFileUpload} disabled={isSaving} className="hidden" accept="image/*" />
-                    </label>
+                    <button onClick={() => triggerUpload('logo')} className="px-6 py-4 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-2xl transition-all flex items-center gap-2 font-bold text-sm">
+                      <Upload size={18} /> Subir
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1 font-sans">Imagen Corporativa (PDF)</label>
+                  <div className="flex gap-3">
+                    <div className="relative flex-1">
+                       <input type="text" value={imagenCorporativaUrl} onChange={e => setImagenCorporativaUrl(e.target.value)} className="w-full pl-12 pr-5 py-4 rounded-2xl border bg-gray-50 outline-none font-sans text-xs text-gray-400 truncate" placeholder="https://..." />
+                       <ImageIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" size={18} />
+                    </div>
+                    <button onClick={() => triggerUpload('corp')} className="px-6 py-4 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-2xl transition-all flex items-center gap-2 font-bold text-sm">
+                      <Upload size={18} /> Subir
+                    </button>
                   </div>
                 </div>
 
@@ -476,6 +532,19 @@ export default function AjustesClient() {
                     rows={4}
                     className="w-full px-5 py-4 rounded-2xl border bg-gray-50 outline-none font-sans text-sm resize-none focus:bg-white transition-colors"
                     placeholder="Texto legal obligatorio para la protección de datos..."
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1 font-sans flex items-center gap-2">
+                    <CheckCircle2 size={14} /> Texto de Aceptación (Espacio para Firma)
+                  </label>
+                  <textarea 
+                    value={textoAceptacion} 
+                    onChange={e => setTextoAceptacion(e.target.value)} 
+                    rows={3}
+                    className="w-full px-5 py-4 rounded-2xl border bg-gray-50 outline-none font-sans text-sm resize-none focus:bg-white transition-colors"
+                    placeholder="Ej: Acepto el presente presupuesto y las condiciones generales descritas..."
                   />
                 </div>
 

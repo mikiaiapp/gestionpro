@@ -307,19 +307,7 @@ export default function ProyectosPage() {
           cp: p.clientes?.codigo_postal || '', // Fixed mapping
           provincia: p.clientes?.provincia || '',
         },
-        perfil: {
-          nombre: perfil.nombre || '',
-          nif: perfil.nif || '',
-          direccion: perfil.direccion || '',
-          poblacion: perfil.poblacion || '',
-          cp: perfil.cp || '',
-          provincia: perfil.provincia || '',
-          cuenta_bancaria: perfil.cuenta_bancaria || '',
-          logo_url: perfil.logo_url || '',
-          condiciones_legales: perfil.condiciones_legales || '',
-          email: perfil.email || '',
-          lopd_text: perfil.lopd_text || ''
-        },
+        perfil: perfil,
         condiciones_particulares: p.condiciones_particulares || p.condiciones || '',
         lopd_text: p.lopd_text || p.lopd || '',
         lineas: (lineasData || []).map((l: any) => ({
