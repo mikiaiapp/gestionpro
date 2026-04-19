@@ -73,15 +73,22 @@ export default function ProveedoresPage() {
         return;
       }
 
-      try {
-        const { data, error } = await supabase
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data: list, error } = await supabase
           .from('proveedores')
           .select('id, nombre')
           .eq('nif', cleanedNif)
-          .maybeSingle();
+          .eq('user_id', user.id);
 
-        if (data && data.id !== editingId) {
-          setNifError(`Ya existe un proveedor con este NIF: ${data.nombre}`);
+        if (list && list.length > 0) {
+          const duplicate = list.find(p => p.id !== editingId);
+          if (duplicate) {
+            setNifError(`Ya existe un proveedor con este NIF: ${duplicate.nombre}`);
+          } else {
+            setNifError(null);
+          }
         } else {
           setNifError(null);
         }

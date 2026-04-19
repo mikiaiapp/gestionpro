@@ -71,15 +71,18 @@ export default function ClientesPage() {
         return;
       }
 
-      try {
-        const { data, error } = await supabase
+        const { data: list, error } = await supabase
           .from('clientes')
           .select('id, nombre')
-          .eq('nif', cleanedNif)
-          .maybeSingle();
+          .eq('nif', cleanedNif);
 
-        if (data && data.id !== editingId) {
-          setNifError(`Ya existe un cliente con este NIF: ${data.nombre}`);
+        if (list && list.length > 0) {
+          const duplicate = list.find(c => c.id !== editingId);
+          if (duplicate) {
+            setNifError(`Ya existe un cliente con este NIF: ${duplicate.nombre}`);
+          } else {
+            setNifError(null);
+          }
         } else {
           setNifError(null);
         }
