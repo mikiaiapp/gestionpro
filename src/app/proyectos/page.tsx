@@ -116,7 +116,21 @@ export default function ProyectosPage() {
       setValidRefKeys(foundKeys);
       if (foundKeys.length > 0) setColumnKey(foundKeys[0]);
 
-      setProyectos(projs || []);
+      const { data: vts } = await supabase.from("ventas").select("proyecto_id, total, id");
+      const { data: cbrs } = await supabase.from("cobros").select("venta_id, importe");
+
+      // Procesamiento de datos financieros por proyecto
+      const mappedProjs = (projs || []).map(p => {
+        const misVentas = (vts || []).filter(v => v.proyecto_id === p.id);
+        const facturado = misVentas.reduce((acc, v) => acc + (v.total || 0), 0);
+        
+        const misCobros = (cbrs || []).filter(c => misVentas.some(v => v.id === c.venta_id));
+        const cobrado = misCobros.reduce((acc, c) => acc + (c.importe || 0), 0);
+
+        return { ...p, facturado, cobrado };
+      });
+
+      setProyectos(mappedProjs);
       setClientes(clis || []);
       setPerfil(perf);
     } finally {
@@ -352,6 +366,7 @@ export default function ProyectosPage() {
       let val = '';
       if (key === 'cliente') val = p.clientes?.nombre || '';
       else if (key === 'ref') val = `${p.serie}-${p[columnKey]}` || '';
+      else if (key === 'total' || key === 'facturado' || key === 'cobrado') val = (p[key] || 0).toString();
       else val = p[key] || '';
       return val.toString().toLowerCase().includes(columnFilters[key].toLowerCase());
     });
@@ -367,6 +382,9 @@ export default function ProyectosPage() {
     } else if (sortConfig.key === 'ref') {
       aVal = `${a.serie}-${a[columnKey]}` || '';
       bVal = `${b.serie}-${b[columnKey]}` || '';
+    } else if (sortConfig.key === 'total' || sortConfig.key === 'facturado' || sortConfig.key === 'cobrado') {
+      aVal = Number(a[sortConfig.key] || 0);
+      bVal = Number(b[sortConfig.key] || 0);
     } else if (sortConfig.key === 'estado') {
       aVal = a.estado || 'Abierto';
       bVal = b.estado || 'Abierto';
@@ -408,6 +426,8 @@ export default function ProyectosPage() {
                      <DataTableHeader label="Ref / Nombre" field="nombre" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.nombre || ''} onFilter={handleFilter} />
                      <DataTableHeader label="Cliente" field="cliente" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.cliente || ''} onFilter={handleFilter} />
                      <DataTableHeader label="Total" field="total" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.total || ''} onFilter={handleFilter} />
+                     <DataTableHeader label="Facturado" field="facturado" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.facturado || ''} onFilter={handleFilter} />
+                     <DataTableHeader label="Cobrado" field="cobrado" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.cobrado || ''} onFilter={handleFilter} />
                       <DataTableHeader 
                         label="Estado" 
                         field="estado" 
@@ -432,6 +452,8 @@ export default function ProyectosPage() {
                        </td>
                        <td className="px-6 py-4 text-sm font-medium text-gray-600">{p.clientes?.nombre}</td>
                        <td className="px-6 py-4 text-right font-mono font-bold text-gray-700">{formatCurrency(p.total || 0)}</td>
+                       <td className="px-6 py-4 text-right font-mono font-bold text-blue-600">{formatCurrency(p.facturado || 0)}</td>
+                       <td className="px-6 py-4 text-right font-mono font-bold text-green-600">{formatCurrency(p.cobrado || 0)}</td>
                         <td className="px-6 py-4">
                            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${p.estado === 'Cerrado' ? 'bg-gray-100 text-gray-400' : 'bg-green-100 text-green-600'}`}>
                              {p.estado || 'Abierto'}
