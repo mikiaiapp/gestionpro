@@ -371,30 +371,34 @@ export default function AjustesClient() {
   };
 
   const handleExportBackup = async () => {
-    if (!confirm("Se generará un archivo. ¿Continuar?")) return;
+    if (!confirm("Se generará un archivo ZIP integral (Datos + PDFs). ¿Continuar?")) return;
     setIsBackupLoading(true);
     try {
-      const tables = ['clientes', 'proveedores', 'proyectos', 'proyecto_lineas', 'ventas', 'venta_lineas', 'costes', 'coste_lineas', 'cobros', 'pagos', 'perfil_negocio', 'tipos_iva', 'tipos_irpf', 'perfiles', 'proyecto_documentos'];
-      const backupData: any = { version: "1.0", timestamp: new Date().toISOString(), user: user.email, data: {} };
-      for (const table of tables) {
-        const { data } = await supabase.from(table).select('*');
-        backupData.data[table] = data || [];
-      }
-      const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+      const { createFullBackupZIP } = await import('@/lib/backup');
+      const blob = await createFullBackupZIP(user);
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `GP_BACKUP_${new Date().toISOString().split('T')[0]}.json`;
+      link.download = `GP_FULL_BACKUP_${new Date().toISOString().split('T')[0]}.zip`;
       link.click();
-    } catch (e: any) { alert("Error"); } finally { setIsBackupLoading(false); }
+    } catch (e: any) { alert("Error al generar backup: " + e.message); } finally { setIsBackupLoading(false); }
   };
 
   const handleImportBackup = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !confirm("¿Restaurar copia?")) return;
+    if (!file || !confirm("¿Restaurar copia integral (ZIP o JSON)?")) return;
     setIsRestoreLoading(true);
     try {
-      const text = await file.text();
+      let text = "";
+      if (file.name.endsWith('.zip')) {
+        const JSZip = (await import('jszip')).default;
+        const zip = await JSZip.loadAsync(file);
+        const dataFile = zip.file("data.json");
+        if (!dataFile) throw new Error("No se encontró data.json dentro del ZIP");
+        text = await dataFile.async("string");
+      } else {
+        text = await file.text();
+      }
       const backup = JSON.parse(text);
       const data = backup.data || backup;
       for (const table in data) {
@@ -767,17 +771,17 @@ export default function AjustesClient() {
                      <div className="p-5 bg-white rounded-2xl shadow-sm text-indigo-600 group-hover:scale-110 transition-transform"><DownloadCloud size={32} /></div>
                      <div className="space-y-2">
                         <p className="font-black text-indigo-900 text-lg">Exportar Sistema</p>
-                        <p className="text-xs text-indigo-600/70 font-sans">Genera un volcado completo de toda tu base de datos en formato JSON.</p>
+                        <p className="text-xs text-indigo-600/70 font-sans">Genera un volcado completo de toda tu base de datos y PDFs en formato ZIP.</p>
                      </div>
                   </button>
 
                   <div className="relative group">
-                    <input type="file" accept=".json" onChange={handleImportBackup} className="hidden" id="restore-up-v2" />
+                    <input type="file" accept=".json,.zip" onChange={handleImportBackup} className="hidden" id="restore-up-v2" />
                     <label htmlFor="restore-up-v2" className="flex flex-col items-center gap-6 p-10 bg-gray-50 rounded-[2rem] border border-gray-100 hover:bg-gray-100 transition-all text-center cursor-pointer h-full">
                        <div className="p-5 bg-white rounded-2xl shadow-sm text-gray-400 group-hover:rotate-180 transition-all duration-700"><RotateCcw size={32} /></div>
                        <div className="space-y-2">
                           <p className="font-black text-gray-800 text-lg">Restaurar Copia</p>
-                          <p className="text-xs text-gray-400 font-sans">Carga un punto de restauración previo para recuperar tu información.</p>
+                          <p className="text-xs text-gray-400 font-sans">Carga un punto de restauración previo (ZIP o JSON) para recuperar tu información.</p>
                        </div>
                     </label>
                   </div>
