@@ -328,6 +328,8 @@ export default function ProyectosPage() {
       console.error("Error al generar PDF:", err);
       alert("Error al generar el presupuesto: " + err.message);
     }
+  };
+
   const handleDeleteProyecto = async (p: any) => {
     try {
       // 1. Comprobar si tiene ventas
