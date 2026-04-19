@@ -53,8 +53,9 @@ export default function AjustesClient() {
   const [formaPago, setFormaPago] = useState('Transferencia Bancaria');
   const [tieneRetencion, setTieneRetencion] = useState(false);
   const [irpfDefault, setIrpfDefault] = useState(15);
-  const [condicionesLegales, setCondicionesLegales] = useState('');
   const [lopdText, setLopdText] = useState('');
+  const [telefono, setTelefono] = useState('');
+  const [saveError, setSaveError] = useState<string | null>(null);
   
   const [verifactuCert, setVerifactuCert] = useState('');
   const [verifactuCertPassword, setVerifactuCertPassword] = useState('');
@@ -107,13 +108,13 @@ export default function AjustesClient() {
     if (initialLoadDone.current && user) {
       const timer = setTimeout(() => {
         handleSaveAll();
-      }, 3000); // 3s debounce
+      }, 1500); // 1.5s debounce
       return () => clearTimeout(timer);
     }
   }, [
     nombre, nif, cuentaBancaria, direccion, cp, poblacion, provincia, 
     email, geminiKey, logoUrl, formaPago, tieneRetencion, irpfDefault,
-    condicionesLegales, lopdText,
+    condicionesLegales, lopdText, telefono,
     verifactuCert, verifactuCertPassword, verifactuEnv
   ]);
 
@@ -155,6 +156,7 @@ export default function AjustesClient() {
         setVerifactuCert(data.verifactu_certificado || '');
         setVerifactuCertPassword(data.verifactu_pass || '');
         setVerifactuEnv(data.verifactu_env || 'pruebas');
+        setTelefono(data.telefono || '');
       }
       
       const { data: prof } = await supabase.from('perfiles').select('two_factor_enabled, two_factor_secret').eq('id', userId).single();
@@ -182,6 +184,7 @@ export default function AjustesClient() {
         cuenta_bancaria: cuentaBancaria.replace(/\s/g, ''),
         email, gemini_key: geminiKey, logo_url: logoUrl,
         forma_pago_default: formaPago, tiene_retencion: tieneRetencion, irpf_default: irpfDefault,
+        telefono,
         verifactu_certificado: verifactuCert,
         verifactu_pass: verifactuCertPassword,
         verifactu_env: verifactuEnv
@@ -192,14 +195,24 @@ export default function AjustesClient() {
         setAutoStatus('idle');
         return;
       }
-      lastSavedPayload.current = payloadString;
 
-      await supabase.from('perfil_negocio').upsert(payload, { onConflict: 'user_id' });
+      setSaveError(null);
+      const { error } = await supabase.from('perfil_negocio').upsert(payload, { onConflict: 'user_id' });
+      
+      if (error) {
+        console.error("Save error:", error.message);
+        setSaveError(error.message);
+        setAutoStatus('idle');
+        return;
+      }
+
+      lastSavedPayload.current = payloadString;
       setAutoStatus('saved');
       window.dispatchEvent(new Event('perfil_updated'));
       setTimeout(() => setAutoStatus('idle'), 2000);
     } catch (e: any) {
-      console.error("Save error:", e.message);
+      console.error("Critical Save error:", e.message);
+      setSaveError(e.message);
       setAutoStatus('idle');
     }
   };
@@ -410,6 +423,11 @@ export default function AjustesClient() {
                   <input type="text" value={cuentaBancaria} onChange={e => setCuentaBancaria(formatIBAN(e.target.value))} className="w-full px-5 py-4 rounded-2xl border bg-gray-50 font-mono text-sm" />
                 </div>
 
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1 font-sans">Teléfono de Contacto</label>
+                  <input type="text" value={telefono} onChange={e => setTelefono(e.target.value)} className="w-full px-5 py-4 rounded-2xl border bg-gray-50 outline-none font-sans" placeholder="+34 ..." />
+                </div>
+
                 <div className="grid grid-cols-3 gap-4 md:col-span-2">
                    <div className="md:col-span-3 space-y-1">
                       <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1 font-sans">Dirección Administrativa</label>
@@ -419,6 +437,22 @@ export default function AjustesClient() {
                    <input type="text" placeholder="Ciudad" value={poblacion} onChange={e => setPoblacion(e.target.value)} className="px-5 py-4 rounded-2xl border bg-gray-50 outline-none font-sans" />
                    <input type="text" placeholder="Provincia" value={provincia} onChange={e => setProvincia(e.target.value)} className="px-5 py-4 rounded-2xl border bg-gray-50 outline-none font-sans" />
                 </div>
+              </div>
+
+              {saveError && (
+                <div className="mt-6 p-4 bg-red-50 border border-red-100 rounded-2xl text-red-600 text-xs font-bold font-sans animate-in slide-in-from-top-2">
+                  ⚠️ Error al guardar: {saveError}. Verifica si la columna 'telefono' existe en la tabla 'perfil_negocio'.
+                </div>
+              )}
+
+              <div className="mt-8 pt-6 border-t border-dashed flex justify-between items-center">
+                <p className="text-[10px] text-gray-400 italic">Los cambios se guardan automáticamente, pero puedes forzar el guardado aquí.</p>
+                <button 
+                  onClick={handleSaveAll}
+                  className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-2xl shadow-lg shadow-blue-100 transition-all active:scale-95 font-sans"
+                >
+                  Guardar Identidad
+                </button>
               </div>
             </div>
 
@@ -518,7 +552,7 @@ export default function AjustesClient() {
                 <h2 className="text-lg font-bold font-head flex items-center gap-2 text-green-600"><Percent size={20} /> Fiscalidad</h2>
                 <button onClick={handleSyncOfficial} disabled={syncing} className="p-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100"><RefreshCcw size={18} className={syncing ? 'animate-spin' : ''} /></button>
               </div>
-              <div className="space-y-6">
+              <div className="space-y-6 text-left">
                  <div className="font-sans text-xs">
                     <div className="flex justify-between items-center mb-3">
                       <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Tabla de IVA</p>
@@ -534,8 +568,26 @@ export default function AjustesClient() {
                     </div>
                  </div>
 
+                 <div className="space-y-4 pt-4 border-t border-dashed font-sans">
+                    <div className="flex justify-between items-center mb-3">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Tabla de IRPF (General)</p>
+                      <button onClick={() => handleAddTipo('tipos_irpf')} className="text-[10px] font-bold text-orange-600">+ Añadir</button>
+                    </div>
+                    <div className="space-y-2">
+                        {tiposIrpf.map(t => (
+                          <div key={t.id} className="flex justify-between items-center p-3 bg-orange-50/30 rounded-2xl border border-orange-100 group">
+                            <span className="font-bold text-gray-600">{t.nombre} ({t.valor}%)</span>
+                            <button onClick={() => handleDeleteTipo('tipos_irpf', t.id)} className="p-1 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all font-sans"><Trash2 size={14} /></button>
+                          </div>
+                        ))}
+                    </div>
+                 </div>
+
                  <div className="flex items-center justify-between bg-orange-50/20 p-4 rounded-2xl border border-orange-100 mt-4 font-sans">
-                    <p className="text-xs font-bold text-orange-800">Aplicar IRPF</p>
+                    <div className="font-sans">
+                      <p className="text-[10px] font-bold text-orange-800 uppercase tracking-widest mb-1">Retención Activa</p>
+                      <p className="text-[9px] text-orange-600 leading-tight">Activar IRPF por defecto en Facturas Emitidas (Ventas).</p>
+                    </div>
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input type="checkbox" checked={tieneRetencion} onChange={e => setTieneRetencion(e.target.checked)} className="sr-only peer" />
                       <div className="w-11 h-6 bg-gray-300 rounded-full peer peer-checked:bg-orange-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
