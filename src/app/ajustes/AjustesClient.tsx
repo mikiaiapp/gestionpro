@@ -386,27 +386,67 @@ export default function AjustesClient() {
 
   const handleImportBackup = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !confirm("¿Restaurar copia integral (ZIP o JSON)?")) return;
+    if (!file || !confirm("¿Restaurar copia integral (ZIP o JSON)? Esto reemplazará o añadirá datos a tu cuenta actual.")) return;
     setIsRestoreLoading(true);
     try {
       let text = "";
+      let zip: any = null;
       if (file.name.endsWith('.zip')) {
         const JSZip = (await import('jszip')).default;
-        const zip = await JSZip.loadAsync(file);
+        zip = await JSZip.loadAsync(file);
         const dataFile = zip.file("data.json");
         if (!dataFile) throw new Error("No se encontró data.json dentro del ZIP");
         text = await dataFile.async("string");
       } else {
         text = await file.text();
       }
+
       const backup = JSON.parse(text);
       const data = backup.data || backup;
+      const urlFields = ['pdf_url', 'archivo_url', 'url_archivo', 'logo_url', 'imagen_corporativa_url'];
+
       for (const table in data) {
-        if (data[table]?.length > 0) await supabase.from(table).upsert(data[table]);
+        if (!Array.isArray(data[table])) continue;
+        
+        console.log(`♻️ Restaurando tabla: ${table}...`);
+        for (const row of data[table]) {
+          // 1. Asegurar pertenencia al usuario actual
+          if ('user_id' in row) row.user_id = user.id;
+
+          // 2. Re-siembra de archivos si es un ZIP
+          if (zip) {
+            for (const field of urlFields) {
+              if (row[field] && typeof row[field] === 'string' && row[field].includes('supabase')) {
+                const parts = row[field].split('/');
+                const originalFilename = parts[parts.length - 1]?.split('?')[0];
+                const zipFile = zip.file(`documentos/${originalFilename}`);
+                
+                if (zipFile) {
+                  const blob = await zipFile.async("blob");
+                  const cleanFilename = `${Date.now()}_${originalFilename}`;
+                  const storagePath = `restored/${cleanFilename}`;
+                  
+                  const { error: upErr } = await supabase.storage.from('facturas').upload(storagePath, blob);
+                  if (!upErr) {
+                    const { data: { publicUrl } } = supabase.storage.from('facturas').getPublicUrl(storagePath);
+                    row[field] = publicUrl;
+                  }
+                }
+              }
+            }
+          }
+
+          // 3. Inserción
+          await supabase.from(table).upsert(row);
+        }
       }
-      alert("✅ Restauración terminada.");
+      alert("✅ Restauración completada con éxito. Todos los documentos han sido re-sincronizados.");
       window.location.reload();
-    } catch (e: any) { alert("Error"); } finally { setIsRestoreLoading(false); }
+    } catch (e: any) { 
+      alert("Error en restauración: " + e.message); 
+    } finally { 
+      setIsRestoreLoading(false); 
+    }
   };
 
   const [activeTab, setActiveTab] = useState<'perfil' | 'ai' | 'legales' | 'seguridad' | 'fiscalidad' | 'backup'>('perfil');
