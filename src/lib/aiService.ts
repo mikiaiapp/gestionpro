@@ -1,7 +1,7 @@
-// Motor de IA Auto-Adaptativo (Resistente a errores de Google)
+// Motor de IA Estabilizado (v1 Estable + Cascada)
 export async function extractDataFromInvoice(base64File: string, apiKey: string) {
   const PROMPT = `
-    Analiza esta factura y extrae:
+    Analiza esta factura y responde SOLO con un JSON:
     {
       "proveedor_nombre": "Nombre",
       "proveedor_nif": "NIF",
@@ -18,21 +18,21 @@ export async function extractDataFromInvoice(base64File: string, apiKey: string)
 
   const cleanApiKey = apiKey.trim();
   
-  // Lista de modelos a probar en cascada
-  const MODELS_TO_TRY = [
-    "gemini-1.5-flash-latest",
-    "gemini-1.5-flash",
-    "gemini-1.5-flash-002",
-    "gemini-1.5-pro-latest"
+  // Lista de modelos en orden de prioridad (v1 es preferible)
+  const STRATEGIES = [
+    { version: "v1", model: "gemini-1.5-flash" },
+    { version: "v1beta", model: "gemini-1.5-flash-latest" },
+    { version: "v1beta", model: "gemini-1.5-flash" },
+    { version: "v1beta", model: "gemini-1.5-pro-latest" }
   ];
 
-  let lastError = null;
+  let lastErrorMessage = "";
 
-  for (const modelId of MODELS_TO_TRY) {
+  for (const strategy of STRATEGIES) {
     try {
-      console.log(`🔍 Intentando con modelo: ${modelId}...`);
+      console.log(`⚡ Intentando ${strategy.version} con ${strategy.model}...`);
       
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${cleanApiKey}`, {
+      const response = await fetch(`https://generativelanguage.googleapis.com/${strategy.version}/models/${strategy.model}:generateContent?key=${cleanApiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -49,20 +49,11 @@ export async function extractDataFromInvoice(base64File: string, apiKey: string)
       const data = await response.json();
       
       if (data.error) {
-        // Si el modelo no se encuentra o no es soportado, saltamos al siguiente sin mostrar error al usuario
-        if (data.error.code === 404 || data.error.message.includes("not found") || data.error.message.includes("not supported")) {
-          console.warn(`⚠️ Modelo ${modelId} no disponible en esta cuenta. Probando siguiente...`);
-          continue; 
-        }
-        
-        // Si es error de cuota (429), esperamos un poco pero seguimos intentando otros
-        if (data.error.code === 429) {
-          console.warn(`⏳ Límite de cuota en ${modelId}.`);
-          lastError = new Error("Límite de cuota excedido en Google Gemini. Por favor, espera 60 segundos.");
-          continue;
-        }
-
-        throw new Error(data.error.message);
+        lastErrorMessage = data.error.message;
+        // Si no está el modelo, probamos la siguiente estrategia
+        if (data.error.code === 404 || lastErrorMessage.includes("not found")) continue;
+        // Si hay error de cuota o similar, lo lanzamos para que el usuario espere
+        throw new Error(lastErrorMessage);
       }
 
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -72,10 +63,10 @@ export async function extractDataFromInvoice(base64File: string, apiKey: string)
       return JSON.parse(cleanJson);
 
     } catch (error: any) {
-      console.error(`Fallo con ${modelId}:`, error);
-      lastError = error;
+      console.warn(`Fallo estrategia ${strategy.model}:`, error.message);
+      lastErrorMessage = error.message;
     }
   }
 
-  throw lastError || new Error("No se ha encontrado ningún modelo de IA compatible con tu cuenta de Google.");
+  throw new Error(`Error de IA Definitivo: ${lastErrorMessage}. (Sugerencia: Crea una nueva API Key en Google AI Studio)`);
 }
