@@ -569,7 +569,7 @@ export default function AjustesClient() {
                     </div>
                  </div>
 
-                 <div className="space-y-4 pt-4 border-t border-dashed font-sans">
+                 <div className="space-y-4 pt-4 border-t border-dashed font-sans text-xs">
                     <div className="flex justify-between items-center mb-3">
                       <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Tabla de IRPF (General)</p>
                       <button onClick={() => handleAddTipo('tipos_irpf')} className="text-[10px] font-bold text-orange-600">+ Añadir</button>
