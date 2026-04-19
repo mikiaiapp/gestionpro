@@ -358,9 +358,8 @@ export default function AjustesClient() {
             <h1 className="text-4xl font-black font-head tracking-tighter text-[var(--foreground)]">Ajustes</h1>
             <p className="text-[var(--muted)] font-medium font-sans">Control corporativo y seguridad avanzada.</p>
           </div>
-          <div className={`px-5 py-2 rounded-full text-xs font-bold border flex items-center gap-2 transition-all duration-300 font-sans ${autoStatus === 'saving' ? 'bg-blue-50 text-blue-600 border-blue-100 scale-105' : autoStatus === 'saved' ? 'bg-green-50 text-green-700 border-green-100 scale-105' : 'bg-gray-50 text-gray-400 border-gray-100'}`}>
-            {autoStatus === 'saving' ? <Loader2 className="animate-spin" size={14} /> : autoStatus === 'saved' ? <CloudCheck size={14} /> : <ShieldCheck size={14} />}
-            {autoStatus === 'saving' ? 'Guardando...' : autoStatus === 'saved' ? 'Sincronizado' : `Sesión: ${user.email}`}
+          <div className="px-5 py-2 rounded-full text-xs font-bold border flex items-center gap-2 bg-gray-50 text-gray-400 border-gray-100 font-sans">
+            Sesión: {user.email}
           </div>
         </header>
 
@@ -447,10 +446,9 @@ export default function AjustesClient() {
                 <div className="pt-4 border-t border-dashed flex justify-end">
                   <button 
                     onClick={handleSaveLegales}
-                    className="flex items-center gap-2 px-6 py-3 bg-gray-900 text-white font-bold rounded-2xl hover:bg-gray-800 transition-all active:scale-95 disabled:opacity-50 disabled:active:scale-100 font-sans shadow-lg text-sm"
+                    className="px-6 py-3 bg-gray-900 text-white font-bold rounded-2xl shadow-lg text-sm"
                   >
-                    {autoStatus === 'saving' ? <Loader2 className="animate-spin" size={16} /> : <CheckCircle2 size={16} />}
-                    {autoStatus === 'saving' ? 'Guardando...' : 'Guardar Cláusulas'}
+                    Guardar Cláusulas
                   </button>
                 </div>
               </div>
