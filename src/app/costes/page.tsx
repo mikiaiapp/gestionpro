@@ -255,11 +255,13 @@ export default function CostesPage() {
           setIsAiModalOpen(false);
           
           if (provExistente && cleanedNIF !== "") {
+            console.log("Proveedor existente encontrado:", provExistente.nombre);
             setProveedorId(provExistente.id);
             setDetectedProvider(null);
             setIsModalOpen(true);
+            setIsProviderReviewModalOpen(false);
           } else {
-            console.log("Proveedor no detectado o NIF vacío. Proponiendo alta...");
+            console.log("Proveedor no detectado o NIF nuevo. Abriendo validador...");
             const cpDetected = result.proveedor_cp || "";
             let geoData = { poblacion: "", provincia: "" };
             if (cpDetected.length === 5) {
@@ -268,16 +270,16 @@ export default function CostesPage() {
             }
 
             setDetectedProvider({ 
-              nombre: result.proveedor_nombre, 
-              nif: cleanedNIF,
+              nombre: result.proveedor_nombre || "Nuevo Proveedor", 
+              nif: cleanedNIF || "S/N",
               direccion: result.proveedor_direccion || "",
               cp: cpDetected,
               poblacion: geoData.poblacion,
               provincia: geoData.provincia
             });
-            // Si es un proveedor nuevo, abrimos el modal de validación primero
+            
+            setIsModalOpen(false); // Asegurar que el principal está cerrado
             setIsProviderReviewModalOpen(true);
-            // La factura se cargará después de validar el proveedor
           }
 
           // Rellenar formulario (se mostrará tras validar proveedor)
@@ -318,6 +320,11 @@ export default function CostesPage() {
   const handleCreateDetectedProvider = async () => {
     if (!detectedProvider) return;
     try {
+      setSaving(true);
+      const { data: userData } = await supabase.auth.getUser();
+      const user = userData?.user;
+      if (!user) throw new Error("No hay sesión activa");
+
       const { data, error } = await supabase.from('proveedores')
         .insert([{ 
           nombre: detectedProvider.nombre, 
@@ -326,7 +333,7 @@ export default function CostesPage() {
           codigo_postal: detectedProvider.cp,
           poblacion: detectedProvider.poblacion,
           provincia: detectedProvider.provincia,
-          user_id: (await supabase.auth.getUser()).data.user?.id
+          user_id: user.id
         }])
         .select().single();
       
