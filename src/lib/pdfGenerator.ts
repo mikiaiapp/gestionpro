@@ -174,14 +174,14 @@ export const generatePDF = async (data: PDFData) => {
   // Construir bloques legales
   let legalBlocks: string[] = [];
 
+  if (data.condiciones_particulares && data.condiciones_particulares.trim()) {
+    legalBlocks.push("CONDICIONES PARTICULARES:\n" + injectEmail(data.condiciones_particulares));
+  }
+
   const mainFooter = data.perfil.condiciones_legales;
   // Solo mostramos condicionado general si no es una FACTURA (ej. en presupuestos)
   if (data.tipo !== 'FACTURA' && mainFooter && mainFooter.trim()) {
     legalBlocks.push("CONDICIONES GENERALES:\n" + injectEmail(mainFooter));
-  }
-
-  if (data.condiciones_particulares && data.condiciones_particulares.trim()) {
-    legalBlocks.push("CONDICIONES PARTICULARES:\n" + injectEmail(data.condiciones_particulares));
   }
 
   const fullFooterText = legalBlocks.join("\n\n");

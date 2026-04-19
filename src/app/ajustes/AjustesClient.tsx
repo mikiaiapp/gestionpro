@@ -17,7 +17,9 @@ import {
   Database,
   DownloadCloud,
   RotateCcw,
-  Smartphone
+  Smartphone,
+  Scale,
+  FileText
 } from 'lucide-react';
 import { Sidebar } from '@/components/Sidebar';
 import { getFullLocationByCP } from '@/lib/geoData';
@@ -392,6 +394,40 @@ export default function AjustesPage() {
                    <input type="text" placeholder="C.P." value={cp} maxLength={5} onChange={e => setCp(e.target.value)} className="px-5 py-4 rounded-2xl border bg-gray-50 outline-none font-mono" />
                    <input type="text" placeholder="Ciudad" value={poblacion} onChange={e => setPoblacion(e.target.value)} className="px-5 py-4 rounded-2xl border bg-gray-50 outline-none font-sans" />
                    <input type="text" placeholder="Provincia" value={provincia} onChange={e => setProvincia(e.target.value)} className="px-5 py-4 rounded-2xl border bg-gray-50 outline-none font-sans" />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-3xl border p-8 shadow-sm">
+              <h2 className="text-xl font-bold font-head mb-8 flex items-center gap-3 text-gray-800 border-b pb-4">
+                <Scale className="text-orange-600" size={24} /> Cláusulas Legales
+              </h2>
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1 font-sans flex items-center gap-2">
+                    <FileText size={14} /> Condiciones Generales (Pie de Presupuestos)
+                  </label>
+                  <textarea 
+                    value={condicionesLegales} 
+                    onChange={e => setCondicionesLegales(e.target.value)} 
+                    rows={4}
+                    className="w-full px-5 py-4 rounded-2xl border bg-gray-50 outline-none font-sans text-sm resize-none focus:bg-white transition-colors"
+                    placeholder="Escribe aquí las condiciones generales que aparecerán en tus presupuestos..."
+                  />
+                  <p className="text-[9px] text-gray-400 italic pl-1">💡 Consejo: Puedes usar EMAIL_PLACEHOLDER que se sustituirá por tu email corporativo automáticamente.</p>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1 font-sans flex items-center gap-2">
+                    <ShieldCheck size={14} /> Texto LOPD (Protección de Datos)
+                  </label>
+                  <textarea 
+                    value={lopdText} 
+                    onChange={e => setLopdText(e.target.value)} 
+                    rows={4}
+                    className="w-full px-5 py-4 rounded-2xl border bg-gray-50 outline-none font-sans text-sm resize-none focus:bg-white transition-colors"
+                    placeholder="Texto legal obligatorio para la protección de datos..."
+                  />
                 </div>
               </div>
             </div>
