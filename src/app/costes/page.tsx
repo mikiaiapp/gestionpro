@@ -370,6 +370,25 @@ export default function CostesPage() {
       const availableCols = (colProbe && colProbe.length > 0) ? Object.keys(colProbe[0]) : [];
       const foundKey = (options: string[]) => options.find(o => availableCols.includes(o));
 
+      // CONTROL DE DUPLICADOS (Solo en creación)
+      if (!editingId && numFactProv && proveedorId) {
+        const colNum = foundKey(['num_factura_proveedor', 'numero_factura', 'num_factura', 'factura_prov', 'referencia']) || 'num_factura_proveedor';
+        const { data: dupe } = await supabase
+          .from('costes')
+          .select('id, fecha')
+          .eq('proveedor_id', proveedorId)
+          .eq(colNum, numFactProv)
+          .maybeSingle();
+
+        if (dupe) {
+          const confirmDupe = confirm(`⚠️ POSIBLE DUPLICADO: Ya existe una factura de este proveedor con el número "${numFactProv}" (registrada el ${new Date(dupe.fecha).toLocaleDateString()}).\n\n¿Deseas registrarla de nuevo como una entrada diferente?`);
+          if (!confirmDupe) {
+            setSaving(false);
+            return;
+          }
+        }
+      }
+
       const payload: any = {
         fecha,
         total: totalFactura,
