@@ -1,16 +1,13 @@
-// Versión Estabilizada de IA - Sin rotaciones experimentales
+// Versión de Máxima Compatibilidad (v1beta + 1.5-flash)
 export async function extractDataFromInvoice(base64File: string, apiKey: string) {
   const PROMPT = `
-    Analiza esta factura de gastos y extrae la información necesaria. 
-    Es CRÍTICO que detectes si hay varios tipos de IVA o retención IRPF.
-    
-    Devuelve estrictamente un objeto JSON con este formato (sin etiquetas markdown):
+    Analiza esta factura y extrae la información en este formato JSON (sin markdown):
     {
-      "proveedor_nombre": "Nombre Fiscal",
-      "proveedor_nif": "NIF/CIF",
-      "proveedor_direccion": "Calle",
-      "proveedor_cp": "Código Postal",
-      "num_factura": "Número factura",
+      "proveedor_nombre": "Nombre",
+      "proveedor_nif": "NIF",
+      "proveedor_direccion": "Dirección",
+      "proveedor_cp": "CP",
+      "num_factura": "Número",
       "fecha": "YYYY-MM-DD",
       "lineas": [
         { "descripcion": "Concepto", "unidades": 1, "precio_unitario": 0, "iva_pct": 21 }
@@ -20,10 +17,10 @@ export async function extractDataFromInvoice(base64File: string, apiKey: string)
   `;
 
   const cleanApiKey = apiKey.trim();
-  const modelName = "gemini-1.5-flash"; // El modelo más estable de Google
+  const modelName = "gemini-1.5-flash"; 
 
   try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/${modelName}:generateContent?key=${cleanApiKey}`, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${cleanApiKey}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -46,14 +43,13 @@ export async function extractDataFromInvoice(base64File: string, apiKey: string)
     }
 
     let text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!text) throw new Error("No se ha podido leer el contenido de la factura.");
+    if (!text) throw new Error("No se ha podido leer la factura.");
 
-    // Limpiamos la respuesta por si la IA añade bloques de código markdown
+    // Limpieza manual de JSON
     text = text.replace(/```json/g, "").replace(/```/g, "").trim();
-
     return JSON.parse(text);
   } catch (error: any) {
-    console.error("Error en extracción IA:", error);
-    throw new Error(`Error de IA: ${error.message}. Por favor, espera un minuto e intenta de nuevo.`);
+    console.error("Error en IA:", error);
+    throw new Error(`Error de IA: ${error.message}. Por favor, si el error persiste, espera 60 segundos.`);
   }
 }
