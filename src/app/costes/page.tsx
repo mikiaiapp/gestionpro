@@ -349,6 +349,8 @@ export default function CostesPage() {
       setIsModalOpen(true);
     } catch (err: any) {
       alert("Error al crear proveedor: " + err.message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -359,6 +361,7 @@ export default function CostesPage() {
       return;
     }
     try {
+      setSaving(true);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuario no autenticado");
 
