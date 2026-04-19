@@ -1,9 +1,9 @@
 // Caché en memoria para el modelo preferido
 let cachedModel: string | null = null;
+const blacklistedModels = new Set<string>();
 
-async function getBestModel(apiKey: string, excluded: Set<string> = new Set()): Promise<string> {
-  // Si tenemos un modelo en caché y no está excluido, lo usamos
-  if (cachedModel && !excluded.has(cachedModel)) return cachedModel;
+async function getBestModel(apiKey: string): Promise<string> {
+  if (cachedModel && !blacklistedModels.has(cachedModel)) return cachedModel;
 
   try {
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
@@ -11,27 +11,18 @@ async function getBestModel(apiKey: string, excluded: Set<string> = new Set()): 
     if (data.error) throw new Error(data.error.message);
     
     const models = data.models || [];
-    const priorities = [
-      "gemini-1.5-flash",
-      "gemini-1.5-flash-latest", 
-      "gemini-1.5-flash-8b",
-      "gemini-2.0-flash",
-      "gemini-1.5-pro"
-    ];
+    const priorities = ["gemini-1.5-flash", "gemini-1.5-flash-latest", "gemini-1.5-flash-8b", "gemini-2.0-flash"];
 
     for (const modelId of priorities) {
       const found = models.find((m: any) => 
-        m.name.includes(modelId) && 
-        m.supportedGenerationMethods.includes("generateContent") &&
-        !excluded.has(m.name)
+        m.name.includes(modelId) && m.supportedGenerationMethods.includes("generateContent") && !blacklistedModels.has(m.name)
       );
       if (found) {
         cachedModel = found.name;
         return found.name;
       }
     }
-
-    const fallback = models.find((m: any) => m.supportedGenerationMethods.includes("generateContent") && !excluded.has(m.name));
+    const fallback = models.find((m: any) => m.supportedGenerationMethods.includes("generateContent") && !blacklistedModels.has(m.name));
     return fallback?.name || "models/gemini-1.5-flash";
   } catch (error) {
     return "models/gemini-1.5-flash";
@@ -39,19 +30,35 @@ async function getBestModel(apiKey: string, excluded: Set<string> = new Set()): 
 }
 
 export async function extractDataFromInvoice(base64File: string, apiKey: string) {
-  const PROMPT = `Extract invoice data: {proveedor_nombre, proveedor_nif, proveedor_direccion, proveedor_cp, num_factura, fecha, lineas: [{descripcion, unidades, precio_unitario, iva_pct}], retencion_pct}. output JSON only.`;
+  const PROMPT = `
+    Analiza esta factura de gastos y extrae la información necesaria. 
+    Es CRÍTICO que detectes si hay varios tipos de IVA o retención IRPF.
+    
+    Devuelve estrictamente un objeto JSON con este formato (sin etiquetas markdown, solo el JSON):
+    {
+      "proveedor_nombre": "Nombre Fiscal",
+      "proveedor_nif": "NIF/CIF",
+      "proveedor_direccion": "Calle, número...",
+      "proveedor_cp": "Código Postal",
+      "num_factura": "Número de factura",
+      "fecha": "YYYY-MM-DD",
+      "lineas": [
+        { "descripcion": "Concepto", "unidades": 1, "precio_unitario": 100.00, "iva_pct": 21 }
+      ],
+      "retencion_pct": 0
+    }
+  `;
 
   let lastErrorMsg = "Error desconocido";
-  const excludedThisSession = new Set<string>();
-  const MAX_RETRIES = 5; // Suficientes intentos para rotar por todos los modelos
+  const MAX_RETRIES = 4;
 
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     let currentModel = "";
     try {
       const cleanApiKey = apiKey.trim();
-      currentModel = await getBestModel(cleanApiKey, excludedThisSession);
+      currentModel = await getBestModel(cleanApiKey);
       
-      console.log(`⚡ [Intento ${attempt + 1}/${MAX_RETRIES}] Probando con ${currentModel}`);
+      console.log(`[${attempt + 1}/${MAX_RETRIES}] IA intentando con ${currentModel}...`);
 
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/${currentModel}:generateContent?key=${cleanApiKey}`, {
         method: 'POST',
@@ -71,24 +78,21 @@ export async function extractDataFromInvoice(base64File: string, apiKey: string)
       
       if (data.error) {
         lastErrorMsg = data.error.message;
-        const code = data.error.code;
-
-        // Si es error de cuota o saturación, marcamos este modelo como "lleno" para este proceso y reintentamos con otro
-        if (code === 429 || code === 503 || lastErrorMsg.toLowerCase().includes("quota") || lastErrorMsg.toLowerCase().includes("limit")) {
-          console.warn(`⏳ Modelo ${currentModel} agotado. Rotando...`);
-          excludedThisSession.add(currentModel);
-          if (cachedModel === currentModel) cachedModel = null;
-          await new Promise(r => setTimeout(r, 1000));
+        const lowerMsg = lastErrorMsg.toLowerCase();
+        
+        if (data.error.code === 429 || lowerMsg.includes("quota") || lowerMsg.includes("limit")) {
+          console.warn("⏳ Cuota agotada. Pausando 4.5 segundos antes de probar otro modelo...");
+          blacklistedModels.add(currentModel);
+          cachedModel = null;
+          await new Promise(r => setTimeout(r, 4500)); // PAUSA REAL
           continue; 
         }
         
-        // Si el modelo no existe o no es compatible, lo descartamos
-        if (code === 404 || code === 400) {
-          excludedThisSession.add(currentModel);
-          if (cachedModel === currentModel) cachedModel = null;
+        if (data.error.code === 404) {
+          blacklistedModels.add(currentModel);
+          cachedModel = null;
           continue;
         }
-
         throw new Error(lastErrorMsg);
       }
 
@@ -98,14 +102,14 @@ export async function extractDataFromInvoice(base64File: string, apiKey: string)
       return JSON.parse(text.trim());
 
     } catch (error: any) {
-      console.error(`❌ Error en ${currentModel}:`, error);
+      console.error(`Error en intento ${attempt + 1}:`, error);
       lastErrorMsg = error.message;
-      excludedThisSession.add(currentModel);
-      if (cachedModel === currentModel) cachedModel = null;
+      if (currentModel) blacklistedModels.add(currentModel);
+      cachedModel = null;
       if (attempt === MAX_RETRIES - 1) break;
-      await new Promise(r => setTimeout(r, 500));
+      await new Promise(r => setTimeout(r, 1000));
     }
   }
 
-  throw new Error(`Fallo en IA tras agotar rotación de modelos. Último error: ${lastErrorMsg}`);
+  throw new Error(`IA Saturada. Por favor, espera 60 segundos y reintenta. Detalle: ${lastErrorMsg}`);
 }
