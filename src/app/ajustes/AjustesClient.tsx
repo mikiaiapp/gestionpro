@@ -425,8 +425,13 @@ export default function AjustesClient() {
     { id: 'legales', label: 'Legal & LOPD', icon: Scale, color: 'text-orange-600' },
     { id: 'seguridad', label: 'Seguridad', icon: ShieldCheck, color: 'text-green-600' },
     { id: 'fiscalidad', label: 'Fiscalidad', icon: Percent, color: 'text-emerald-600' },
-    { id: 'backup', label: 'Salvaguarda', icon: Database, color: 'text-indigo-600' },
+    { id: 'backup', label: 'Backup', icon: Database, color: 'text-indigo-600' },
   ];
+
+  const lastBackup = autoBackups[0];
+  const lastBackupStr = lastBackup 
+    ? new Date(lastBackup.created_at).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    : 'No disponible';
 
   return (
     <div className="flex bg-[var(--background)] min-h-screen">
@@ -457,12 +462,16 @@ export default function AjustesClient() {
           </button>
         ))}
 
-        <div className="mt-20 p-6 bg-gradient-to-br from-gray-900 to-black rounded-3xl text-white shadow-xl relative overflow-hidden group">
+        <div className="mt-20 p-6 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-3xl text-white shadow-xl relative overflow-hidden group">
           <ShieldCheck size={80} className="absolute -bottom-4 -right-4 opacity-10 group-hover:rotate-12 transition-transform" />
-          <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2">Estado Sistema</p>
-          <div className="flex items-center gap-2">
-            <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-            <span className="text-xs font-bold">Protegido</span>
+          <p className="text-[10px] font-black uppercase tracking-widest text-blue-100/60 mb-2">Estado Sistema</p>
+          <div className="flex items-center gap-2 mb-3">
+            <div className="h-2 w-2 rounded-full bg-green-400 animate-pulse" />
+            <span className="text-xs font-bold">Sistema Protegido</span>
+          </div>
+          <div className="pt-3 border-t border-white/10">
+            <p className="text-[10px] font-bold text-blue-100/50 uppercase tracking-wider">Última Copia</p>
+            <p className="text-[11px] font-mono text-white/90">{lastBackupStr}</p>
           </div>
         </div>
       </nav>
@@ -729,14 +738,14 @@ export default function AjustesClient() {
                     </div>
                   </div>
 
-                  <div className="md:col-span-2 p-8 bg-black rounded-[2rem] text-white flex items-center justify-between">
+                  <div className="md:col-span-2 p-8 bg-gray-50 rounded-[2rem] border border-gray-100 flex items-center justify-between">
                     <div className="space-y-1">
-                      <p className="font-black tracking-tight text-lg">Retención por Defecto</p>
+                      <p className="font-black tracking-tight text-lg text-gray-900">Retención por Defecto</p>
                       <p className="text-xs text-gray-400 font-sans">Aplica el IRPF seleccionado automáticamente en todas las ventas.</p>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input type="checkbox" checked={tieneRetencion} onChange={e => setTieneRetencion(e.target.checked)} className="sr-only peer" />
-                      <div className="w-14 h-8 bg-gray-700 rounded-full peer peer-checked:bg-emerald-500 after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:after:translate-x-full"></div>
+                      <div className="w-14 h-8 bg-gray-200 rounded-full peer peer-checked:bg-emerald-500 after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:after:translate-x-full"></div>
                     </label>
                   </div>
                </div>
@@ -747,7 +756,7 @@ export default function AjustesClient() {
             <div className="bg-white rounded-[2rem] border p-10 shadow-sm space-y-10 animate-in slide-in-from-bottom-4 duration-500 border-indigo-50">
                <div className="flex items-start justify-between border-b pb-8">
                   <div className="space-y-1">
-                    <h2 className="text-2xl font-black font-head text-indigo-900">Seguridad de Datos</h2>
+                    <h2 className="text-2xl font-black font-head text-indigo-900">Seguridad de Datos (Backup)</h2>
                     <p className="text-sm text-gray-400 font-sans">Copia de seguridad y restauración del sistema.</p>
                   </div>
                   <Database className="text-indigo-100" size={48} />
@@ -781,10 +790,10 @@ export default function AjustesClient() {
                       {autoBackups.map(b => (
                         <div key={b.id} className="flex items-center justify-between p-6 bg-gray-50 rounded-2xl border border-gray-100">
                            <div className="flex gap-4 items-center">
-                              <CloudCheck className="text-blue-500" size={24} />
+                              <Database className="text-blue-500" size={24} />
                               <div className="flex flex-col">
                                 <span className="font-black text-gray-800 text-sm truncate max-w-[150px]">{b.nombre}</span>
-                                <span className="text-[10px] text-gray-400 font-mono">{(b.size / 1024 / 1024).toFixed(2)} MB</span>
+                                <span className="text-[10px] text-gray-400 font-mono">{(b.size / 1024 / 1024).toFixed(2)} MB • {new Date(b.created_at).toLocaleDateString()}</span>
                               </div>
                            </div>
                            <a href={b.archivo_url} download className="p-3 bg-white hover:bg-blue-50 rounded-xl text-blue-600 shadow-sm transition-all"><DownloadCloud size={18} /></a>
