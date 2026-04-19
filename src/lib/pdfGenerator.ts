@@ -202,14 +202,31 @@ export const generatePDF = async (data: PDFData) => {
   // --- PÁGINA 2: ANEXO LEGAL Y FIRMA ---
   doc.addPage();
   drawPageBackground();
-  await drawPageBranding();
+  
+  // Imagen Corporativa Grande (20% de la página ~60mm)
+  let footerY_P2 = 10;
+  if (data.perfil.imagen_corporativa_url) {
+    const b64corp = await getBase64FromUrl(data.perfil.imagen_corporativa_url);
+    if (b64corp) {
+        // Calculamos ancho para que mantenga proporción con alto de 55mm
+        doc.addImage(b64corp, 'PNG', MARGIN, footerY_P2, PAGE_WIDTH - (MARGIN * 2), 55, undefined, 'FAST');
+        footerY_P2 += 65;
+    }
+  } else {
+    // Si no hay imagen corporativa, usamos el logo normal pero algo más grande
+    if (data.perfil.logo_url) {
+      const b64 = await getBase64FromUrl(data.perfil.logo_url);
+      if (b64) doc.addImage(b64, 'PNG', MARGIN, footerY_P2, 50, 0);
+      footerY_P2 += 35;
+    }
+  }
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(14);
   doc.setTextColor(121, 85, 72);
-  doc.text("ANEXO LEGAL Y ACEPTACIÓN", MARGIN, 80);
+  doc.text("ANEXO LEGAL Y ACEPTACIÓN", MARGIN, footerY_P2);
   
-  let currentY = 90;
+  let currentY = footerY_P2 + 10;
   doc.setFontSize(8);
   doc.setTextColor(60);
 
