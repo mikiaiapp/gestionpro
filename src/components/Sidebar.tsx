@@ -129,9 +129,15 @@ export function Sidebar() {
         transition-transform duration-300 lg:static lg:translate-x-0 h-screen flex flex-col p-4 shadow-sm
         ${isOpen ? "translate-x-0" : "-translate-x-full"}
       `}>
-        <div className="flex flex-col gap-1 mb-8 px-2 py-4 border-b border-[var(--border)]">
-          <span className="text-xl font-bold font-head tracking-tight text-[var(--foreground)]">GestiónPro</span>
-          <span className="text-[10px] font-bold text-[var(--muted)] tracking-wider uppercase">Control de Proyectos</span>
+        <div className="flex flex-col items-center gap-4 mb-10 px-2 py-6 border-b border-[var(--border)]">
+          {logoUrl ? (
+            <img src={logoUrl} alt="Logo" className="max-h-24 w-auto object-contain transition-all duration-300 hover:scale-105" />
+          ) : (
+            <div className="flex flex-col items-start w-full">
+              <span className="text-xl font-black font-head tracking-tighter text-[var(--foreground)]">GestiónPro</span>
+              <span className="text-[10px] font-extrabold text-[var(--muted)] tracking-[0.2em] uppercase">Control Maestro</span>
+            </div>
+          )}
         </div>
         
         <nav className="flex-1 space-y-6 overflow-y-auto custom-scrollbar">
@@ -162,12 +168,7 @@ export function Sidebar() {
           ))}
         </nav>
 
-        <div className="mt-auto border-t border-[var(--border)] pt-4 flex flex-col items-center">
-          {logoUrl && (
-            <div className="mb-6 px-4 w-full flex justify-center">
-               <img src={logoUrl} alt="Logo" className="max-h-24 w-auto object-contain" />
-            </div>
-          )}
+        <div className="mt-auto pt-4 flex flex-col items-center">
           <button 
             onClick={handleLogout}
             className="w-full flex items-center justify-center gap-3 px-3 py-3 text-[var(--muted)] hover:text-red-600 hover:bg-red-50 rounded-xl transition-all text-[13px] font-bold mb-4"
@@ -176,7 +177,7 @@ export function Sidebar() {
             <span>Cerrar Sesión</span>
           </button>
           <div className="text-[9px] text-center text-gray-400 font-bold uppercase tracking-widest pb-4">
-            GestiónPro v2.3.4
+            GestiónPro v2.4.0
           </div>
         </div>
       </aside>

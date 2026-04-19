@@ -405,7 +405,9 @@ export default function AjustesClient() {
     } catch (e: any) { alert("Error"); } finally { setIsRestoreLoading(false); }
   };
 
-  if (loading) return null; // El shell se encarga del loading inicial
+  const [activeTab, setActiveTab] = useState<'perfil' | 'ai' | 'legales' | 'seguridad' | 'fiscalidad' | 'backup'>('perfil');
+
+  if (loading) return null;
 
   if (!user) return (
     <div className="flex h-screen items-center justify-center bg-gray-100 p-4 font-sans">
@@ -417,14 +419,63 @@ export default function AjustesClient() {
     </div>
   );
 
+  const navItems = [
+    { id: 'perfil', label: 'Identidad', icon: Building2, color: 'text-blue-600' },
+    { id: 'ai', label: 'IA & Bot', icon: RefreshCcw, color: 'text-purple-600' },
+    { id: 'legales', label: 'Legal & LOPD', icon: Scale, color: 'text-orange-600' },
+    { id: 'seguridad', label: 'Seguridad', icon: ShieldCheck, color: 'text-green-600' },
+    { id: 'fiscalidad', label: 'Fiscalidad', icon: Percent, color: 'text-emerald-600' },
+    { id: 'backup', label: 'Salvaguarda', icon: Database, color: 'text-indigo-600' },
+  ];
+
   return (
     <div className="flex bg-[var(--background)] min-h-screen">
       <Sidebar />
+      
+      {/* Selector de Apartados (Nueva Columna) */}
+      <nav className="w-72 bg-white/50 backdrop-blur-xl border-r border-[var(--border)] p-6 space-y-2 hidden md:block">
+        <div className="mb-10 pl-2">
+          <h2 className="text-xs font-black text-gray-400 uppercase tracking-[0.2em]">Configuración</h2>
+        </div>
+        {navItems.map((item) => (
+          <button
+            key={item.id}
+            onClick={() => setActiveTab(item.id as any)}
+            className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all duration-300 font-sans group ${
+              activeTab === item.id 
+                ? 'bg-white shadow-sm border border-gray-100 translate-x-1' 
+                : 'hover:bg-gray-100/50 text-gray-500'
+            }`}
+          >
+            <item.icon 
+              size={20} 
+              className={`${activeTab === item.id ? item.color : 'text-gray-300 group-hover:text-gray-400'} transition-colors`} 
+            />
+            <span className={`text-sm font-bold ${activeTab === item.id ? 'text-gray-900' : 'text-gray-500'}`}>
+              {item.label}
+            </span>
+          </button>
+        ))}
+
+        <div className="mt-20 p-6 bg-gradient-to-br from-gray-900 to-black rounded-3xl text-white shadow-xl relative overflow-hidden group">
+          <ShieldCheck size={80} className="absolute -bottom-4 -right-4 opacity-10 group-hover:rotate-12 transition-transform" />
+          <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2">Estado Sistema</p>
+          <div className="flex items-center gap-2">
+            <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+            <span className="text-xs font-bold">Protegido</span>
+          </div>
+        </div>
+      </nav>
+
       <div className="flex-1 p-8 space-y-10 animate-in fade-in duration-500 overflow-y-auto text-left font-sans">
         <header className="flex justify-between items-end">
           <div>
-            <h1 className="text-4xl font-black font-head tracking-tighter text-[var(--foreground)]">Ajustes</h1>
-            <p className="text-[var(--muted)] font-medium font-sans">Control corporativo y seguridad avanzada.</p>
+            <h1 className="text-4xl font-black font-head tracking-tighter text-[var(--foreground)]">
+              {navItems.find(n => n.id === activeTab)?.label}
+            </h1>
+            <p className="text-[var(--muted)] font-medium font-sans">
+              Personaliza tu entorno de trabajo y seguridad.
+            </p>
           </div>
           <div className={`px-5 py-2 rounded-full text-xs font-bold border flex items-center gap-2 transition-all duration-300 font-sans ${autoStatus === 'saving' ? 'bg-blue-50 text-blue-600 border-blue-100' : autoStatus === 'saved' ? 'bg-green-50 text-green-700 border-green-100' : 'bg-gray-50 text-gray-400 border-gray-100'}`}>
             {autoStatus === 'saving' ? <Loader2 className="animate-spin" size={14} /> : autoStatus === 'saved' ? <CheckCircle2 size={14} /> : <ShieldCheck size={14} />}
@@ -432,306 +483,319 @@ export default function AjustesClient() {
           </div>
         </header>
 
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 pb-32">
-          <div className="xl:col-span-2 space-y-8">
-            <div className="bg-white rounded-3xl border p-8 shadow-sm">
-              <h2 className="text-xl font-bold font-head mb-8 flex items-center gap-3 text-gray-800 border-b pb-4">
-                <Building2 className="text-blue-600" /> Identidad de Empresa
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1 font-sans">Logo Corporativo</label>
-                  <div className="flex gap-3">
-                    <div className="relative flex-1">
-                       <input type="text" value={logoUrl} onChange={e => setLogoUrl(e.target.value)} className="w-full pl-12 pr-5 py-4 rounded-2xl border bg-gray-50 outline-none font-sans text-xs text-gray-400 truncate" placeholder="https://..." />
-                       <ImageIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" size={18} />
-                    </div>
-                    <button onClick={() => triggerUpload('logo')} className="px-6 py-4 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-2xl transition-all flex items-center gap-2 font-bold text-sm">
-                      <Upload size={18} /> Subir
-                    </button>
+        <main className="max-w-4xl pb-32">
+          {activeTab === 'perfil' && (
+            <div className="bg-white rounded-[2rem] border p-10 shadow-sm space-y-10 animate-in slide-in-from-bottom-4 duration-500">
+               <div className="flex items-start justify-between border-b pb-8">
+                  <div className="space-y-1">
+                    <h2 className="text-2xl font-black font-head text-gray-900">Perfil de Empresa</h2>
+                    <p className="text-sm text-gray-400 font-sans">Estos datos aparecerán en todas tus facturas y presupuestos.</p>
+                  </div>
+                  <Building2 className="text-blue-100" size={48} />
+               </div>
+
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1 font-sans">Logo Corporativo</label>
+                  <div className="group relative h-40 w-full overflow-hidden rounded-3xl border-2 border-dashed border-gray-100 bg-gray-50/50 transition-all hover:border-blue-200">
+                    {logoUrl ? (
+                      <div className="relative h-full w-full p-4 flex items-center justify-center">
+                        <img src={logoUrl} alt="Logo" className="max-h-full max-w-full object-contain" />
+                        <button onClick={() => setLogoUrl('')} className="absolute top-4 right-4 p-2 bg-white/80 backdrop-blur shadow-sm rounded-xl text-red-500 hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100"><Trash2 size={16} /></button>
+                      </div>
+                    ) : (
+                      <button onClick={() => triggerUpload('logo')} className="flex h-full w-full flex-col items-center justify-center gap-3">
+                        <div className="p-4 bg-white rounded-2xl shadow-sm text-blue-500"><Upload size={24} /></div>
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Subir Logo</p>
+                      </button>
+                    )}
                   </div>
                 </div>
 
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1 font-sans">Imagen Corporativa (PDF)</label>
-                  <div className="flex gap-3">
-                    <div className="relative flex-1">
-                       <input type="text" value={imagenCorporativaUrl} onChange={e => setImagenCorporativaUrl(e.target.value)} className="w-full pl-12 pr-5 py-4 rounded-2xl border bg-gray-50 outline-none font-sans text-xs text-gray-400 truncate" placeholder="https://..." />
-                       <ImageIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" size={18} />
-                    </div>
-                    <button onClick={() => triggerUpload('corp')} className="px-6 py-4 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-2xl transition-all flex items-center gap-2 font-bold text-sm">
-                      <Upload size={18} /> Subir
-                    </button>
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1 font-sans">Imagen para PDF (Anexo)</label>
+                  <div className="group relative h-40 w-full overflow-hidden rounded-3xl border-2 border-dashed border-gray-100 bg-gray-50/50 transition-all hover:border-orange-200">
+                    {imagenCorporativaUrl ? (
+                      <div className="relative h-full w-full p-4 flex items-center justify-center">
+                        <img src={imagenCorporativaUrl} alt="Corp" className="max-h-full max-w-full object-contain" />
+                        <button onClick={() => setImagenCorporativaUrl('')} className="absolute top-4 right-4 p-2 bg-white/80 backdrop-blur shadow-sm rounded-xl text-red-500 hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100"><Trash2 size={16} /></button>
+                      </div>
+                    ) : (
+                      <button onClick={() => triggerUpload('corp')} className="flex h-full w-full flex-col items-center justify-center gap-3">
+                        <div className="p-4 bg-white rounded-2xl shadow-sm text-orange-500"><Upload size={24} /></div>
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Subir Imagen</p>
+                      </button>
+                    )}
                   </div>
                 </div>
 
                 <div className="md:col-span-2 space-y-1">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1 font-sans">Razón Social</label>
-                  <input type="text" value={nombre} onChange={e => setNombre(e.target.value)} className="w-full px-5 py-4 rounded-2xl border bg-gray-50 outline-none font-sans" />
+                  <input type="text" value={nombre} onChange={e => setNombre(e.target.value)} className="w-full px-6 py-5 rounded-[1.5rem] border bg-gray-50 outline-none font-sans text-lg font-bold focus:bg-white focus:ring-4 focus:ring-blue-500/5 transition-all" />
                 </div>
 
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1 font-sans">NIF / CIF</label>
-                  <input type="text" value={nif} onChange={e => setNif(e.target.value.toUpperCase())} className="w-full px-5 py-4 rounded-2xl border bg-gray-50 outline-none font-sans" />
+                  <input type="text" value={nif} onChange={e => setNif(e.target.value.toUpperCase())} className="w-full px-6 py-5 rounded-[1.5rem] border bg-gray-50 outline-none font-sans focus:bg-white transition-all capitalize" />
                 </div>
-                
+
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1 font-sans">IBAN Principal</label>
-                  <input type="text" value={cuentaBancaria} onChange={e => setCuentaBancaria(formatIBAN(e.target.value))} className="w-full px-5 py-4 rounded-2xl border bg-gray-50 font-mono text-sm" />
+                  <input type="text" value={cuentaBancaria} onChange={e => setCuentaBancaria(formatIBAN(e.target.value))} className="w-full px-6 py-5 rounded-[1.5rem] border bg-gray-50 font-mono text-sm focus:bg-white transition-all" />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1 font-sans">Teléfono de Contacto</label>
-                  <input type="text" value={telefono} onChange={e => setTelefono(e.target.value)} className="w-full px-5 py-4 rounded-2xl border bg-gray-50 outline-none font-sans" placeholder="+34 ..." />
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1 font-sans">Teléfono</label>
+                  <input type="text" value={telefono} onChange={e => setTelefono(e.target.value)} className="w-full px-6 py-5 rounded-[1.5rem] border bg-gray-50 outline-none font-sans focus:bg-white transition-all" />
                 </div>
 
-                <div className="grid grid-cols-3 gap-4 md:col-span-2">
-                   <div className="md:col-span-3 space-y-1">
-                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1 font-sans">Dirección Administrativa</label>
-                      <input type="text" value={direccion} onChange={e => setDireccion(e.target.value)} className="w-full px-5 py-4 rounded-2xl border bg-gray-50 font-sans" />
-                   </div>
-                   <input type="text" placeholder="C.P." value={cp} maxLength={5} onChange={e => setCp(e.target.value)} className="px-5 py-4 rounded-2xl border bg-gray-50 outline-none font-mono" />
-                   <input type="text" placeholder="Ciudad" value={poblacion} onChange={e => setPoblacion(e.target.value)} className="px-5 py-4 rounded-2xl border bg-gray-50 outline-none font-sans" />
-                   <input type="text" placeholder="Provincia" value={provincia} onChange={e => setProvincia(e.target.value)} className="px-5 py-4 rounded-2xl border bg-gray-50 outline-none font-sans" />
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1 font-sans">Email Corporativo</label>
+                  <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full px-6 py-5 rounded-[1.5rem] border bg-gray-50 outline-none font-sans focus:bg-white transition-all" />
                 </div>
-              </div>
 
-              {saveError && (
-                <div className="mt-6 p-4 bg-red-50 border border-red-100 rounded-2xl text-red-600 text-xs font-bold font-sans animate-in slide-in-from-top-2">
-                  ⚠️ Error al guardar: {saveError}.
+                <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t border-dashed">
+                  <div className="md:col-span-3 space-y-1">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1 font-sans">Dirección</label>
+                    <input type="text" value={direccion} onChange={e => setDireccion(e.target.value)} className="w-full px-6 py-5 rounded-[1.5rem] border bg-gray-50 font-sans focus:bg-white transition-all" />
+                  </div>
+                  <input type="text" placeholder="C.P." value={cp} maxLength={5} onChange={e => setCp(e.target.value)} className="px-6 py-5 rounded-[1.5rem] border bg-gray-50 outline-none font-mono focus:bg-white transition-all" />
+                  <input type="text" placeholder="Ciudad" value={poblacion} onChange={e => setPoblacion(e.target.value)} className="px-6 py-5 rounded-[1.5rem] border bg-gray-50 outline-none font-sans focus:bg-white transition-all" />
+                  <input type="text" placeholder="Provincia" value={provincia} onChange={e => setProvincia(e.target.value)} className="px-6 py-5 rounded-[1.5rem] border bg-gray-50 outline-none font-sans focus:bg-white transition-all" />
                 </div>
-              )}
+               </div>
+
+               {saveError && (
+                <div className="p-5 bg-red-50 border border-red-100 rounded-[1.5rem] text-red-600 text-xs font-bold font-sans flex items-center gap-3">
+                  <Trash2 size={18} /> Error al sincronizar: {saveError}.
+                </div>
+               )}
             </div>
+          )}
 
-            <div className="bg-white rounded-3xl border p-8 shadow-sm border-purple-50">
-              <h2 className="text-xl font-bold font-head mb-8 flex items-center gap-3 text-purple-600 border-b pb-4">
-                <RefreshCcw size={24} /> Inteligencia Artificial
-              </h2>
-              <div className="space-y-4">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1 font-sans">Gemini API Key (Google Cloud)</label>
-                  <div className="relative">
-                    <input 
-                      type="password" 
-                      value={geminiKey} 
-                      onChange={e => setGeminiKey(e.target.value)} 
-                      className="w-full pl-12 pr-12 py-4 rounded-2xl border bg-gray-50 outline-none font-mono text-sm focus:ring-4 focus:ring-purple-500/5 focus:bg-white transition-all transition-all" 
-                      placeholder="Introduce tu clave AIzaSy..." 
+          {activeTab === 'ai' && (
+            <div className="bg-white rounded-[2rem] border p-10 shadow-sm space-y-10 animate-in slide-in-from-bottom-4 duration-500 border-purple-100">
+               <div className="flex items-start justify-between border-b pb-8">
+                  <div className="space-y-1">
+                    <h2 className="text-2xl font-black font-head text-purple-900">Inteligencia Artificial</h2>
+                    <p className="text-sm text-gray-400 font-sans">Configura los motores de IA para automatizar tu gestión.</p>
+                  </div>
+                  <RefreshCcw className="text-purple-100" size={48} />
+               </div>
+
+               <div className="space-y-8">
+                  <div className="p-8 bg-purple-50/50 rounded-[2rem] border border-purple-100 space-y-6">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-purple-400 uppercase tracking-widest pl-1">Gemini API Key (Google Cloud)</label>
+                      <div className="relative">
+                        <input 
+                          type="password" 
+                          value={geminiKey} 
+                          onChange={e => setGeminiKey(e.target.value)} 
+                          className="w-full pl-14 pr-6 py-5 rounded-[1.5rem] border bg-white outline-none font-mono text-sm focus:ring-4 focus:ring-purple-500/10 transition-all" 
+                          placeholder="AIzaSy..." 
+                        />
+                        <Lock className="absolute left-6 top-1/2 -translate-y-1/2 text-purple-300" size={20} />
+                      </div>
+                      <p className="text-[10px] text-purple-700/60 mt-4 pl-1 leading-relaxed font-sans italic">
+                        Esta llave se utiliza para la extracción automática de datos desde facturas en PDF. La información se procesa localmente en tu sesión y no se utiliza para entrenar modelos.
+                      </p>
+                    </div>
+
+                    <div className="pt-4 flex justify-end">
+                       <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="px-6 py-3 bg-purple-600 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-purple-200 hover:bg-purple-700 transition-all">Obtener Clave Gratis</a>
+                    </div>
+                  </div>
+               </div>
+            </div>
+          )}
+
+          {activeTab === 'legales' && (
+            <div className="bg-white rounded-[2rem] border p-10 shadow-sm space-y-10 animate-in slide-in-from-bottom-4 duration-500">
+               <div className="flex items-start justify-between border-b pb-8">
+                  <div className="space-y-1">
+                    <h2 className="text-2xl font-black font-head text-gray-900">Textos Legales</h2>
+                    <p className="text-sm text-gray-400 font-sans">Condiciones, LOPD y cláusulas de aceptación.</p>
+                  </div>
+                  <Scale className="text-orange-100" size={48} />
+               </div>
+
+               <div className="space-y-8">
+                 <div className="space-y-3">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1 font-sans flex items-center gap-2"><FileText size={16} /> Condiciones Generales</label>
+                    <textarea 
+                      value={condicionesLegales} onChange={e => setCondicionesLegales(e.target.value)} rows={6}
+                      className="w-full px-6 py-5 rounded-[1.5rem] border bg-gray-50 outline-none font-sans text-sm resize-none focus:bg-white transition-all ring-0"
+                      placeholder="Estas condiciones aparecerán en el pie de los presupuestos..."
                     />
-                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" size={18} />
+                 </div>
+
+                 <div className="space-y-3">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1 font-sans flex items-center gap-2"><ShieldCheck size={16} /> Cláusula LOPD</label>
+                    <textarea 
+                      value={lopdText} onChange={e => setLopdText(e.target.value)} rows={4}
+                      className="w-full px-6 py-5 rounded-[1.5rem] border bg-gray-50 outline-none font-sans text-sm resize-none focus:bg-white transition-all ring-0"
+                      placeholder="Texto legal para dar cumplimiento a la normativa de protección de datos..."
+                    />
+                 </div>
+
+                 <button onClick={handleSaveLegales} className="w-full py-5 bg-gray-900 text-white rounded-[1.5rem] font-black uppercase tracking-[0.2em] shadow-xl hover:bg-black transition-all">Guardar Cláusulas</button>
+               </div>
+            </div>
+          )}
+
+          {activeTab === 'seguridad' && (
+            <div className="bg-white rounded-[2rem] border p-10 shadow-sm space-y-10 animate-in slide-in-from-bottom-4 duration-500 border-green-50">
+               <div className="flex items-start justify-between border-b pb-8">
+                  <div className="space-y-1">
+                    <h2 className="text-2xl font-black font-head text-green-900">Seguridad de la Cuenta</h2>
+                    <p className="text-sm text-gray-400 font-sans">Protege tu acceso con verificación de doble factor.</p>
                   </div>
-                  <p className="text-[9px] text-gray-400 mt-2 pl-1 leading-relaxed">
-                    💡 Esta clave permite que GestiónPro analice tus PDFs de gastos automáticamente mediante Google Gemini. 
-                    <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="ml-1 text-purple-600 hover:underline font-bold">Consigue una gratis aquí</a>.
-                  </p>
-                </div>
-              </div>
-            </div>
+                  <ShieldCheck className="text-green-100" size={48} />
+               </div>
 
-            <div className="bg-white rounded-3xl border p-8 shadow-sm">
-              <h2 className="text-xl font-bold font-head mb-8 flex items-center gap-3 text-gray-800 border-b pb-4">
-                <Scale className="text-orange-600" size={24} /> Cláusulas Legales
-              </h2>
-              <div className="space-y-6">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1 font-sans flex items-center gap-2">
-                    <FileText size={14} /> Condiciones Generales (Pie de Presupuestos)
-                  </label>
-                  <textarea 
-                    value={condicionesLegales} 
-                    onChange={e => setCondicionesLegales(e.target.value)} 
-                    rows={4}
-                    className="w-full px-5 py-4 rounded-2xl border bg-gray-50 outline-none font-sans text-sm resize-none focus:bg-white transition-colors"
-                    placeholder="Escribe aquí las condiciones generales que aparecerán en tus presupuestos..."
-                  />
-                  <p className="text-[9px] text-gray-400 italic pl-1">💡 Consejo: Puedes usar EMAIL_PLACEHOLDER que se sustituirá por tu email corporativo automáticamente.</p>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1 font-sans flex items-center gap-2">
-                    <ShieldCheck size={14} /> Texto LOPD (Protección de Datos)
-                  </label>
-                  <textarea 
-                    value={lopdText} 
-                    onChange={e => setLopdText(e.target.value)} 
-                    rows={4}
-                    className="w-full px-5 py-4 rounded-2xl border bg-gray-50 outline-none font-sans text-sm resize-none focus:bg-white transition-colors"
-                    placeholder="Texto legal obligatorio para la protección de datos..."
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1 font-sans flex items-center gap-2">
-                    <CheckCircle2 size={14} /> Texto de Aceptación (Espacio para Firma)
-                  </label>
-                  <textarea 
-                    value={textoAceptacion} 
-                    onChange={e => setTextoAceptacion(e.target.value)} 
-                    rows={3}
-                    className="w-full px-5 py-4 rounded-2xl border bg-gray-50 outline-none font-sans text-sm resize-none focus:bg-white transition-colors"
-                    placeholder="Ej: Acepto el presente presupuesto y las condiciones generales descritas..."
-                  />
-                </div>
-
-                <div className="pt-4 border-t border-dashed flex justify-end">
-                  <button 
-                    onClick={handleSaveLegales}
-                    className="px-6 py-3 bg-gray-900 text-white font-bold rounded-2xl shadow-lg text-sm"
-                  >
-                    Guardar Cláusulas
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-3xl border p-8 shadow-sm border-orange-100 overflow-hidden relative">
-              <div className="absolute top-0 right-0 p-8 opacity-5 text-orange-600 rotate-12">
-                 <Smartphone size={160} />
-              </div>
-              <h2 className="text-xl font-bold font-head mb-8 flex items-center gap-3 text-orange-600 relative z-10">
-                <ShieldCheck size={24} /> Verificación de Doble Factor
-              </h2>
-              
-              <div className="space-y-6 relative z-10">
-                <div className="flex items-center justify-between p-6 bg-orange-50/50 rounded-2xl border border-orange-100">
-                  <div className="flex gap-4 items-center">
-                    <div className={`p-3 rounded-xl ${twoFactorEnabled ? 'bg-green-100 text-green-600' : 'bg-orange-100 text-orange-600'}`}>
-                       <Smartphone size={24} />
+               <div className="space-y-8">
+                  <div className="flex items-center justify-between p-10 bg-green-50/50 rounded-[2.5rem] border border-green-100">
+                    <div className="flex gap-6 items-center">
+                      <div className={`p-5 rounded-2xl ${twoFactorEnabled ? 'bg-green-100 text-green-600' : 'bg-gray-200 text-gray-400'}`}>
+                         <Smartphone size={32} />
+                      </div>
+                      <div className="space-y-1">
+                        <h3 className="text-lg font-black text-gray-900">Doble Factor (2FA)</h3>
+                        <p className="text-sm font-medium text-gray-500">Capa adicional de seguridad mediante Google Authenticator.</p>
+                      </div>
                     </div>
-                    <div className="font-sans">
-                      <h3 className="text-sm font-bold text-gray-800">Capa de Seguridad Estándar</h3>
-                      <p className="text-[10px] text-gray-500 font-medium">Usa tu App de Authenticator favorita.</p>
+                    <button 
+                      onClick={() => twoFactorEnabled ? disable2FA() : setup2FA()}
+                      className={`px-10 py-4 rounded-2xl text-xs font-black tracking-widest transition-all ${twoFactorEnabled ? 'bg-red-50 text-red-600 border border-red-100 hover:bg-red-100' : 'bg-green-600 text-white shadow-xl shadow-green-200 hover:bg-green-700'}`}
+                    >
+                      {twoFactorEnabled ? 'DESACTIVAR' : 'CONFIGURAR AHORA'}
+                    </button>
+                  </div>
+
+                  {isSettingUp2FA && isMounted && (
+                    <div className="animate-in zoom-in-95 duration-300">
+                      <TwoFactorSetup 
+                        qrUrl={qrUrl}
+                        verifyToken={verifyToken}
+                        setVerifyToken={setVerifyToken}
+                        onConfirm={confirm2FA}
+                        onCancel={() => setIsSettingUp2FA(false)}
+                      />
                     </div>
-                  </div>
-                  <button 
-                    onClick={() => twoFactorEnabled ? disable2FA() : setup2FA()}
-                    className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all font-sans ${twoFactorEnabled ? 'bg-red-50 text-red-600 border border-red-100 hover:bg-red-100' : 'bg-orange-600 text-white shadow-lg shadow-orange-100 hover:bg-orange-700'}`}
-                  >
-                    {twoFactorEnabled ? 'DESACTIVAR' : 'CONFIGURAR'}
-                  </button>
-                </div>
-
-                {isSettingUp2FA && isMounted && (
-                  <TwoFactorSetup 
-                    qrUrl={qrUrl}
-                    verifyToken={verifyToken}
-                    setVerifyToken={setVerifyToken}
-                    onConfirm={confirm2FA}
-                    onCancel={() => setIsSettingUp2FA(false)}
-                  />
-                )}
-
-                {twoFactorEnabled && !isSettingUp2FA && (
-                  <div className="flex items-center gap-3 p-4 bg-green-50 rounded-2xl border border-green-100 text-green-700 animate-in fade-in duration-500 font-sans">
-                     <CheckCircle2 size={20} />
-                     <span className="text-xs font-bold">Seguridad activa mediante código dinámico externo.</span>
-                  </div>
-                )}
-              </div>
+                  )}
+               </div>
             </div>
-          </div>
+          )}
 
-          <div className="space-y-8">
-            <div className="bg-white rounded-3xl border p-8 shadow-sm">
-              <div className="flex items-center justify-between mb-8 border-b pb-4">
-                <h2 className="text-lg font-bold font-head flex items-center gap-2 text-green-600"><Percent size={20} /> Fiscalidad</h2>
-                <button onClick={handleSyncOfficial} disabled={syncing} className="p-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100"><RefreshCcw size={18} className={syncing ? 'animate-spin' : ''} /></button>
-              </div>
-              <div className="space-y-6 text-left">
-                 <div className="font-sans text-xs">
-                    <div className="flex justify-between items-center mb-3">
-                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Tabla de IVA</p>
-                      <button onClick={() => handleAddTipo('tipos_iva')} className="text-[10px] font-bold text-blue-600">+ Añadir</button>
+          {activeTab === 'fiscalidad' && (
+            <div className="bg-white rounded-[2rem] border p-10 shadow-sm space-y-10 animate-in slide-in-from-bottom-4 duration-500">
+               <div className="flex items-start justify-between border-b pb-8">
+                  <div className="space-y-1">
+                    <h2 className="text-2xl font-black font-head text-gray-900">Gestión Fiscal</h2>
+                    <p className="text-sm text-gray-400 font-sans">Tipos de impuestos y retenciones por defecto.</p>
+                  </div>
+                  <Percent className="text-emerald-100" size={48} />
+               </div>
+
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                  <div className="space-y-6">
+                    <div className="flex justify-between items-center mb-2">
+                      <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest pl-1">Tabla de IVA</h3>
+                      <button onClick={() => handleAddTipo('tipos_iva')} className="text-xs font-bold text-blue-600 hover:underline">+ Nuevo Tipo</button>
                     </div>
                     <div className="space-y-2">
                       {tiposIva.map(t => (
-                        <div key={t.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-2xl border border-gray-100 group">
-                          <span className="font-bold text-gray-600">{t.nombre} ({t.valor}%)</span>
-                          <button onClick={() => handleDeleteTipo('tipos_iva', t.id)} className="p-1 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all font-sans"><Trash2 size={14} /></button>
+                        <div key={t.id} className="flex justify-between items-center p-5 bg-gray-50 rounded-2xl border border-gray-100 group transition-all hover:bg-white hover:shadow-md">
+                          <span className="font-bold text-gray-700">{t.nombre} <span className="text-blue-500 ml-2">{t.valor}%</span></span>
+                          <button onClick={() => handleDeleteTipo('tipos_iva', t.id)} className="p-2 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={16} /></button>
                         </div>
                       ))}
                     </div>
-                 </div>
+                  </div>
 
-                 <div className="space-y-4 pt-4 border-t border-dashed font-sans text-xs">
-                    <div className="flex justify-between items-center mb-3">
-                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Tabla de IRPF (General)</p>
-                      <button onClick={() => handleAddTipo('tipos_irpf')} className="text-[10px] font-bold text-orange-600">+ Añadir</button>
+                  <div className="space-y-6">
+                    <div className="flex justify-between items-center mb-2">
+                      <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest pl-1">Tabla de IRPF</h3>
+                      <button onClick={() => handleAddTipo('tipos_irpf')} className="text-xs font-bold text-orange-600 hover:underline">+ Nuevo Tipo</button>
                     </div>
                     <div className="space-y-2">
                         {tiposIrpf.map(t => (
-                          <div key={t.id} className="flex justify-between items-center p-3 bg-orange-50/30 rounded-2xl border border-orange-100 group">
-                            <span className="font-bold text-gray-600">{t.nombre} ({t.valor}%)</span>
-                            <button onClick={() => handleDeleteTipo('tipos_irpf', t.id)} className="p-1 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all font-sans"><Trash2 size={14} /></button>
+                          <div key={t.id} className="flex justify-between items-center p-5 bg-orange-50/20 rounded-2xl border border-orange-100 group transition-all hover:bg-white hover:shadow-md">
+                            <span className="font-bold text-gray-700">{t.nombre} <span className="text-orange-500 ml-2">{t.valor}%</span></span>
+                            <button onClick={() => handleDeleteTipo('tipos_irpf', t.id)} className="p-2 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={16} /></button>
                           </div>
                         ))}
                     </div>
-                 </div>
+                  </div>
 
-                 <div className="flex items-center justify-between bg-orange-50/20 p-4 rounded-2xl border border-orange-100 mt-4 font-sans">
-                    <div className="font-sans">
-                      <p className="text-[10px] font-bold text-orange-800 uppercase tracking-widest mb-1">Retención Activa</p>
-                      <p className="text-[9px] text-orange-600 leading-tight">Activar IRPF por defecto en Facturas Emitidas (Ventas).</p>
+                  <div className="md:col-span-2 p-8 bg-black rounded-[2rem] text-white flex items-center justify-between">
+                    <div className="space-y-1">
+                      <p className="font-black tracking-tight text-lg">Retención por Defecto</p>
+                      <p className="text-xs text-gray-400 font-sans">Aplica el IRPF seleccionado automáticamente en todas las ventas.</p>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input type="checkbox" checked={tieneRetencion} onChange={e => setTieneRetencion(e.target.checked)} className="sr-only peer" />
-                      <div className="w-11 h-6 bg-gray-300 rounded-full peer peer-checked:bg-orange-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
+                      <div className="w-14 h-8 bg-gray-700 rounded-full peer peer-checked:bg-emerald-500 after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:after:translate-x-full"></div>
                     </label>
-                 </div>
-              </div>
-            </div>
-            
-            <div className="bg-white rounded-3xl border p-8 shadow-sm border-blue-100 font-sans">
-              <h2 className="text-lg font-bold font-head mb-6 flex items-center gap-2 text-blue-600"><Database size={20} /> Salvaguarda</h2>
-              <div className="space-y-4 text-xs font-sans">
-                <button onClick={handleExportBackup} disabled={isBackupLoading} className="w-full flex items-center justify-between p-4 bg-blue-50 hover:bg-blue-100 rounded-2xl border border-blue-100 transition-all group text-left">
-                  <div>
-                    <p className="font-bold text-blue-800">Snapshot Manual</p>
-                    <p className="text-[9px] text-blue-600 italic">Descargar volcado .json</p>
                   </div>
-                  <DownloadCloud size={20} className="text-blue-400 group-hover:scale-110 transition-all" />
-                </button>
-                <div className="relative">
-                  <input type="file" accept=".json" onChange={handleImportBackup} className="hidden" id="restore-up" />
-                  <label htmlFor="restore-up" className="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 rounded-2xl border border-gray-100 cursor-pointer group">
-                    <div className="text-left">
-                      <p className="font-bold text-gray-700">Restaurar Snapshot</p>
-                      <p className="text-[9px] text-gray-400 italic">Importar desde archivo externo</p>
-                    </div>
-                    <RotateCcw size={20} className="text-gray-300 group-hover:rotate-180 transition-all duration-500" />
-                  </label>
-                </div>
-
-                {autoBackups.length > 0 && (
-                  <div className="pt-4 border-t border-dashed space-y-3 font-sans">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1 font-sans">Autoguardado Cloud</p>
-                    <div className="space-y-2">
-                       {autoBackups.map(b => (
-                         <div key={b.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100 text-[10px]">
-                            <div className="flex flex-col">
-                               <span className="font-bold text-gray-700">{b.nombre}</span>
-                               <span className="text-[9px] text-gray-400 italic">{(b.size / 1024 / 1024).toFixed(2)} MB</span>
-                            </div>
-                            <div className="flex gap-1">
-                               <a href={b.archivo_url} download className="p-1.5 hover:bg-white rounded-lg text-blue-600 transition-all font-sans"><DownloadCloud size={14} /></a>
-                            </div>
-                         </div>
-                       ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="p-10 bg-gradient-to-br from-gray-900 to-black rounded-[40px] text-white shadow-2xl relative overflow-hidden group">
-               <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:rotate-12 transition-transform">
-                 <ShieldCheck size={120} />
                </div>
-               <h3 className="text-lg font-black tracking-tight mb-2 font-sans">Seguridad Bancaria</h3>
-               <p className="text-xs text-gray-400 leading-relaxed font-sans">Encriptación total AES-256 para tus llaves maestras y backups.</p>
             </div>
-          </div>
-        </div>
+          )}
+
+          {activeTab === 'backup' && (
+            <div className="bg-white rounded-[2rem] border p-10 shadow-sm space-y-10 animate-in slide-in-from-bottom-4 duration-500 border-indigo-50">
+               <div className="flex items-start justify-between border-b pb-8">
+                  <div className="space-y-1">
+                    <h2 className="text-2xl font-black font-head text-indigo-900">Seguridad de Datos</h2>
+                    <p className="text-sm text-gray-400 font-sans">Copia de seguridad y restauración del sistema.</p>
+                  </div>
+                  <Database className="text-indigo-100" size={48} />
+               </div>
+
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <button onClick={handleExportBackup} disabled={isBackupLoading} className="flex flex-col items-center gap-6 p-10 bg-indigo-50 rounded-[2rem] border border-indigo-100 hover:bg-indigo-100 transition-all text-center group">
+                     <div className="p-5 bg-white rounded-2xl shadow-sm text-indigo-600 group-hover:scale-110 transition-transform"><DownloadCloud size={32} /></div>
+                     <div className="space-y-2">
+                        <p className="font-black text-indigo-900 text-lg">Exportar Sistema</p>
+                        <p className="text-xs text-indigo-600/70 font-sans">Genera un volcado completo de toda tu base de datos en formato JSON.</p>
+                     </div>
+                  </button>
+
+                  <div className="relative group">
+                    <input type="file" accept=".json" onChange={handleImportBackup} className="hidden" id="restore-up-v2" />
+                    <label htmlFor="restore-up-v2" className="flex flex-col items-center gap-6 p-10 bg-gray-50 rounded-[2rem] border border-gray-100 hover:bg-gray-100 transition-all text-center cursor-pointer h-full">
+                       <div className="p-5 bg-white rounded-2xl shadow-sm text-gray-400 group-hover:rotate-180 transition-all duration-700"><RotateCcw size={32} /></div>
+                       <div className="space-y-2">
+                          <p className="font-black text-gray-800 text-lg">Restaurar Copia</p>
+                          <p className="text-xs text-gray-400 font-sans">Carga un punto de restauración previo para recuperar tu información.</p>
+                       </div>
+                    </label>
+                  </div>
+               </div>
+
+               {autoBackups.length > 0 && (
+                <div className="pt-10 border-t border-dashed space-y-6">
+                   <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest pl-1">Historial de Backups Automáticos</h3>
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {autoBackups.map(b => (
+                        <div key={b.id} className="flex items-center justify-between p-6 bg-gray-50 rounded-2xl border border-gray-100">
+                           <div className="flex gap-4 items-center">
+                              <CloudCheck className="text-blue-500" size={24} />
+                              <div className="flex flex-col">
+                                <span className="font-black text-gray-800 text-sm truncate max-w-[150px]">{b.nombre}</span>
+                                <span className="text-[10px] text-gray-400 font-mono">{(b.size / 1024 / 1024).toFixed(2)} MB</span>
+                              </div>
+                           </div>
+                           <a href={b.archivo_url} download className="p-3 bg-white hover:bg-blue-50 rounded-xl text-blue-600 shadow-sm transition-all"><DownloadCloud size={18} /></a>
+                        </div>
+                      ))}
+                   </div>
+                </div>
+               )}
+            </div>
+          )}
+        </main>
       </div>
     </div>
   );

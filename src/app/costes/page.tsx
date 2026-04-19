@@ -248,9 +248,13 @@ export default function CostesPage() {
           
           // 4. Buscar Proveedor por NIF limpio
           const provExistente = proveedores.find(p => cleanNIF(p.nif) === cleanedNIF);
+
+          setIsAiModalOpen(false);
           
           if (provExistente) {
             setProveedorId(provExistente.id);
+            setDetectedProvider(null);
+            setIsModalOpen(true);
           } else {
             const cpDetected = result.proveedor_cp || "";
             let geoData = { poblacion: "", provincia: "" };
@@ -267,10 +271,12 @@ export default function CostesPage() {
               poblacion: geoData.poblacion,
               provincia: geoData.provincia
             });
+            // Si es un proveedor nuevo, abrimos el modal de validación primero
             setIsProviderReviewModalOpen(true);
+            // La factura se cargará después de validar el proveedor
           }
 
-          // 5. Rellenar formulario
+          // Rellenar formulario (se mostrará tras validar proveedor)
           setNumFactProv(result.num_factura || "");
           setFecha(result.fecha || new Date().toISOString().split('T')[0]);
           setRetencionPct(result.retencion_pct || 0);
@@ -284,8 +290,6 @@ export default function CostesPage() {
             })));
           }
 
-          setIsAiModalOpen(false);
-          setIsModalOpen(true);
           // IMPORTANTE: Guardar el archivo para que se suba al confirmar
           setPdfFile(file);
         } catch (innerErr: any) {
@@ -330,6 +334,8 @@ export default function CostesPage() {
       setProveedorId(data.id);
       setDetectedProvider(null);
       setIsProviderReviewModalOpen(false);
+      // Abrir el modal de factura ahora que el proveedor existe
+      setIsModalOpen(true);
     } catch (err: any) {
       alert("Error al crear proveedor: " + err.message);
     }
@@ -416,7 +422,8 @@ export default function CostesPage() {
         descripcion: l.descripcion,
         unidades: Number(l.unidades),
         precio_unitario: Number(l.precio_unitario),
-        iva_pct: Number(l.iva_pct)
+        iva_pct: Number(l.iva_pct),
+        user_id: user.id
       }));
 
       await supabase.from("coste_lineas").insert(lineasConId);

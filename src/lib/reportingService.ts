@@ -18,13 +18,33 @@ interface VATBookEntry {
   total: number;
 }
 
-export const getVATBookPDF = (type: 'ventas' | 'costes', data: any[], perfil: any): jsPDF => {
-  const doc = new jsPDF('l', 'mm', 'a4'); // Paisaje para que quepan las columnas
-  const title = type === 'ventas' ? 'LIBRO REGISTRO DE FACTURAS EXPEDIDAS (IVA REPERCUTIDO)' : 'LIBRO REGISTRO DE FACTURAS RECIBIDAS (IVA SOPORTADO)';
+const applyCorporateStyle = (doc: jsPDF) => {
+  const width = doc.internal.pageSize.getWidth();
+  const height = doc.internal.pageSize.getHeight();
   
-  // Añadir fondo crema (ede8e0 -> 237, 232, 224)
-  doc.setFillColor(237, 232, 224);
-  doc.rect(0, 0, 297, 210, 'F');
+  const drawBackground = () => {
+    doc.setFillColor(237, 232, 224); // #ede8e0
+    doc.rect(0, 0, width, height, 'F');
+  };
+
+  // Initial draw
+  drawBackground();
+
+  // Auto-draw on every new page
+  const originalAddPage = doc.addPage.bind(doc);
+  doc.addPage = function() {
+    const result = originalAddPage();
+    drawBackground();
+    return result;
+  };
+};
+
+export const getVATBookPDF = (type: 'ventas' | 'costes', data: any[], perfil: any): jsPDF => {
+  const doc = new jsPDF('l', 'mm', 'a4');
+  applyCorporateStyle(doc);
+
+  const title = type === 'ventas' ? 'LIBRO REGISTRO DE FACTURAS EXPEDIDAS (IVA REPERCUTIDO)' : 'LIBRO REGISTRO DE FACTURAS RECIBIDAS (IVA SOPORTADO)';
+  const PAGE_WIDTH = doc.internal.pageSize.getWidth();
 
   // Cabecera del informe
   if (perfil?.logo_url) {
@@ -37,12 +57,13 @@ export const getVATBookPDF = (type: 'ventas' | 'costes', data: any[], perfil: an
 
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
+  doc.setTextColor(0);
   doc.text(title, perfil?.logo_url ? 50 : 14, 15);
   
   doc.setFontSize(10);
   doc.text(`Empresa: ${perfil?.nombre || ''}`, perfil?.logo_url ? 50 : 14, 22);
   doc.text(`NIF: ${perfil?.nif || ''}`, perfil?.logo_url ? 50 : 14, 27);
-  doc.text(`Fecha Generación: ${new Date().toLocaleDateString()}`, 280, 22, { align: 'right' });
+  doc.text(`Fecha Generación: ${new Date().toLocaleDateString()}`, PAGE_WIDTH - 14, 22, { align: 'right' });
 
   const tableData = data.map((v, idx) => [
     type === 'costes' ? (v.num_interno || v.registro_interno || v.numero || '-') : (idx + 1),
@@ -74,16 +95,16 @@ export const getVATBookPDF = (type: 'ventas' | 'costes', data: any[], perfil: an
       'TOTAL'
     ]],
     body: tableData,
-    theme: 'striped',
-    headStyles: { fillStyle: 'bold', fillColor: [40, 40, 40], textColor: 255 },
-    styles: { fontSize: 8, cellPadding: 2 },
+    theme: 'grid',
+    headStyles: { fillColor: [40, 40, 40], textColor: 255, fontStyle: 'bold' },
+    styles: { fontSize: 8, cellPadding: 2, fillColor: [255, 255, 255] },
     columnStyles: {
       5: { halign: 'right' },
       6: { halign: 'center' },
       7: { halign: 'right' },
       8: { halign: 'center' },
       9: { halign: 'right' },
-      10: { halign: 'right' }
+      10: { halign: 'right', fontStyle: 'bold' }
     }
   });
 
@@ -114,123 +135,88 @@ export const exportVATBookExcel = (type: 'ventas' | 'costes', data: any[]) => {
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Libro IVA');
   
-  // Ajustar anchos de columna
   const wscols = [
-    { wch: 8 },  // Registro
-    { wch: 12 }, // Fecha
-    { wch: 15 }, // Factura
-    { wch: 15 }, // NIF
-    { wch: 30 }, // Nombre
-    { wch: 15 }, // Base
-    { wch: 8 },  // IVA %
-    { wch: 15 }, // IVA Cuota
-    { wch: 8 },  // Ret %
-    { wch: 15 }, // Ret Cuota
-    { wch: 15 }, // Total
+    { wch: 8 },  { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 30 },
+    { wch: 15 }, { wch: 8 },  { wch: 15 }, { wch: 8 },  { wch: 15 }, { wch: 15 }
   ];
   worksheet['!cols'] = wscols;
 
   XLSX.writeFile(workbook, `${type === 'ventas' ? 'Libro_IVA_Repercutido' : 'Libro_IVA_Soportado'}_${new Date().toISOString().split('T')[0]}.xlsx`);
 };
 
-export const generateFiscalPack = async (
-  periodName: string,
-  ventas: any[],
-  costes: any[],
-  perfil: any
-) => {
+export const generateFiscalPack = async (periodName: string, ventas: any[], costes: any[], perfil: any) => {
   const zip = new JSZip();
   const folderName = `Pack_Fiscal_${periodName.replace(/\s+/g, '_')}`;
   const root = zip.folder(folderName);
   
-  // 1. Generar Libros de IVA en PDF
   const libVentasDoc = getVATBookPDF('ventas', ventas, perfil);
   const libCostesDoc = getVATBookPDF('costes', costes, perfil);
   
   root?.file('Libro_IVA_Repercutido.pdf', libVentasDoc.output('blob'));
   root?.file('Libro_IVA_Soportado.pdf', libCostesDoc.output('blob'));
   
-  // 2. Carpeta de Facturas Emitidas
   const emitidasFolder = root?.folder('Facturas_Emitidas');
   for (const v of ventas) {
-    if (v.pdf_url) {
+    if (v.archivo_url || v.pdf_url) {
       try {
-        const response = await fetch(v.pdf_url);
+        const response = await fetch(v.archivo_url || v.pdf_url);
         const blob = await response.blob();
-        const fileName = `Factura_${v.serie}-${v.num_factura}.pdf`;
-        emitidasFolder?.file(fileName, blob);
-      } catch (e) {
-        console.error(`Error al descargar factura emitida ${v.num_factura}:`, e);
-      }
+        emitidasFolder?.file(`Factura_${v.serie}-${v.num_factura}.pdf`, blob);
+      } catch (e) { console.error(e); }
     }
   }
   
-  // 3. Carpeta de Facturas Recibidas
   const recibidasFolder = root?.folder('Facturas_Recibidas');
   for (const c of costes) {
-    if (c.pdf_url) {
+    if (c.archivo_url || c.pdf_url) {
       try {
-        const response = await fetch(c.pdf_url);
+        const response = await fetch(c.archivo_url || c.pdf_url);
         const blob = await response.blob();
-        const fileName = `Gasto_${c.num_factura_proveedor || c.id.substring(0,8)}.pdf`;
-        recibidasFolder?.file(fileName, blob);
-      } catch (e) {
-        console.error(`Error al descargar factura recibida ${c.num_factura_proveedor}:`, e);
-      }
+        recibidasFolder?.file(`Gasto_${c.num_factura_proveedor || c.id.substring(0,8)}.pdf`, blob);
+      } catch (e) { console.error(e); }
     }
   }
   
-  // 4. Generar y descargar ZIP
   const content = await zip.generateAsync({ type: 'blob' });
   const url = window.URL.createObjectURL(content);
   const link = document.createElement('a');
   link.href = url;
   link.download = `${folderName}.zip`;
   link.click();
-  window.URL.revokeObjectURL(url);
 };
 
 export const getProjectSummaryPDF = (project: any, perfil: any): jsPDF => {
   const doc = new jsPDF('p', 'mm', 'a4');
   const MARGIN = 14;
-  const PAGE_WIDTH = doc.internal.pageSize.getWidth();
-  const PAGE_HEIGHT = doc.internal.pageSize.getHeight();
-
-  // Añadir fondo crema (ede8e0 -> 237, 232, 224)
-  doc.setFillColor(237, 232, 224);
-  doc.rect(0, 0, PAGE_WIDTH, PAGE_HEIGHT, 'F');
+  applyCorporateStyle(doc);
 
   if (perfil?.logo_url) {
-    try {
-      doc.addImage(perfil.logo_url, 'PNG', MARGIN, 10, 30, 0);
-    } catch (e) {
-      console.error("Error adding logo:", e);
-    }
+    try { doc.addImage(perfil.logo_url, 'PNG', MARGIN, 10, 30, 0); } catch (e) {}
   }
 
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
-  doc.text('RESUMEN DE PRESUPUESTO', perfil?.logo_url ? 50 : MARGIN, 20);
+  doc.setTextColor(121, 85, 72);
+  doc.text('RESUMEN DE PROYECTO', perfil?.logo_url ? 50 : MARGIN, 20);
   
   doc.setFontSize(10);
+  doc.setTextColor(0);
   doc.setFont('helvetica', 'normal');
   doc.text(`Empresa: ${perfil?.nombre || ''}`, perfil?.logo_url ? 50 : MARGIN, 27);
   doc.text(`NIF: ${perfil?.nif || ''}`, perfil?.logo_url ? 50 : MARGIN, 32);
 
-  // Datos Proyecto
   doc.setDrawColor(200);
   doc.line(MARGIN, 40, 210 - MARGIN, 40);
 
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
-  doc.text(`PRESUPUESTO: ${project.nombre}`, MARGIN, 50);
+  doc.text(`PROYECTO: ${project.nombre}`, MARGIN, 50);
   
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
   doc.text(`CLIENTE: ${project.clientes?.nombre || 'Particular'}`, MARGIN, 57);
   doc.text(`ESTADO: ${project.estado?.toUpperCase()}`, MARGIN, 62);
 
-  // Tabla Económica
   const econData = [
     ['VENTA (Facturación)', formatCurrency(project.previstoVenta), formatCurrency(project.totalVentas), formatCurrency(project.totalVentas - project.previstoVenta)],
     ['COSTE (Gastos)', formatCurrency(project.previstoCoste), formatCurrency(project.totalCostes), formatCurrency(project.totalCostes - project.previstoCoste)],
@@ -242,85 +228,34 @@ export const getProjectSummaryPDF = (project: any, perfil: any): jsPDF => {
     head: [['Concepto', 'Presupuesto', 'Real (Actual)', 'Desviación']],
     body: econData,
     theme: 'grid',
-    headStyles: { fillStyle: 'bold', fillColor: [60, 60, 60], textColor: 255 },
-    columnStyles: {
-      1: { halign: 'right' },
-      2: { halign: 'right' },
-      3: { halign: 'right' }
-    }
+    headStyles: { fillColor: [60, 60, 60], textColor: 255 },
+    styles: { fillColor: [255, 255, 255] },
+    columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' } }
   });
 
-  // Resumen Final
   const lastTable = (doc as any).lastAutoTable;
-  const finalY = (lastTable ? lastTable.finalY : 100) + 20;
+  const finalY = (lastTable ? lastTable.finalY : 100) + 15;
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
-  doc.text('Conclusión Económica:', MARGIN, finalY);
-  
-  doc.setFontSize(10);
+  doc.text('Rentabilidad:', MARGIN, finalY);
   doc.setFont('helvetica', 'normal');
-  const conclusion = project.desviacionMargen >= 0 
-    ? `El presupuesto ha superado las expectativas de beneficio en ${formatCurrency(project.desviacionMargen)}.`
-    : `El presupuesto presenta una desviación negativa de ${formatCurrency(Math.abs(project.desviacionMargen))} respecto al plan inicial.`;
-  
-  doc.text(conclusion, MARGIN, finalY + 7);
-  doc.text(`Rentabilidad Final: ${project.margenPct.toFixed(2)}%`, MARGIN, finalY + 14);
+  doc.setFontSize(10);
+  doc.text(`Margen sobre ventas: ${project.margenPct.toFixed(2)}%`, MARGIN, finalY + 7);
 
-  // DETALLE DE FACTURACIÓN
-  if (project.ventas && project.ventas.length > 0) {
+  // DETALLES...
+  if (project.ventas?.length > 0) {
     (doc as any).autoTable({
-      startY: finalY + 25,
-      head: [['Factura', 'Fecha', 'Base Imponible', 'Total', 'Cobrado', 'Pendiente']],
-      body: project.ventas.map((vAny: any) => {
-        const v = vAny as any;
-        const totalCobrado = (project.cobros || []).filter((c: any) => c.venta_id === v.id).reduce((acc: number, c: any) => acc + c.importe, 0);
-        return [
-          `${v.serie}-${v.num_factura}`,
-          new Date(v.fecha).toLocaleDateString(),
-          formatCurrency(v.base_imponible),
-          formatCurrency(v.total),
-          formatCurrency(totalCobrado),
-          formatCurrency(v.total - totalCobrado)
-        ];
-      }),
-      headStyles: { fillColor: [41, 128, 185], textColor: 255 },
-      columnStyles: { 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right' } },
-      didDrawPage: (data: any) => {
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'bold');
-        doc.text('DETALLE DE FACTURACIÓN Y COBROS', MARGIN, data.settings.startY - 5);
-      }
-    });
-  }
-
-  // DETALLE DE COSTES
-  const lastVentasTable = (doc as any).lastAutoTable;
-  const costesStartY = (lastVentasTable ? lastVentasTable.finalY : finalY + 30) + 15;
-
-  if (project.costes && project.costes.length > 0) {
-    (doc as any).autoTable({
-      startY: costesStartY,
-      head: [['Reg.', 'Proveedor', 'Factura Prov.', 'Fecha', 'Total', 'Pagado', 'Pendiente']],
-      body: project.costes.map((cAny: any) => {
-        const c = cAny as any;
-        const totalPagado = (project.pagos || []).filter((p: any) => p.coste_id === c.id).reduce((acc: number, p: any) => acc + p.importe, 0);
-        return [
-          c.num_interno || c.registro_interno || c.numero || '-',
-          c.proveedores?.nombre || 'Gasto',
-          c.num_factura_proveedor || '-',
-          new Date(c.fecha).toLocaleDateString(),
-          formatCurrency(c.total),
-          formatCurrency(totalPagado),
-          formatCurrency(c.total - totalPagado)
-        ];
-      }),
-      headStyles: { fillColor: [192, 57, 43], textColor: 255 },
-      columnStyles: { 4: { halign: 'right' }, 5: { halign: 'right' }, 6: { halign: 'right' } },
-      didDrawPage: (data: any) => {
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'bold');
-        doc.text('DETALLE DE GASTOS Y PAGOS REALES', MARGIN, data.settings.startY - 5);
-      }
+        startY: finalY + 20,
+        head: [['Factura', 'Fecha', 'Total', 'Cobrado']],
+        body: project.ventas.map((v: any) => [
+            `${v.serie}-${v.num_factura}`,
+            new Date(v.fecha).toLocaleDateString(),
+            formatCurrency(v.total),
+            formatCurrency((project.cobros || []).filter((c: any) => c.venta_id === v.id).reduce((acc: number, c: any) => acc + c.importe, 0))
+        ]),
+        theme: 'grid',
+        headStyles: { fillColor: [41, 128, 185] },
+        styles: { fillColor: [255, 255, 255] }
     });
   }
 
@@ -329,5 +264,42 @@ export const getProjectSummaryPDF = (project: any, perfil: any): jsPDF => {
 
 export const exportProjectSummaryPDF = (project: any, perfil: any) => {
   const doc = getProjectSummaryPDF(project, perfil);
-  doc.save(`Resumen_Proyecto_${project.nombre.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
+  doc.save(`Resumen_Proyecto_${project.nombre.replace(/\s+/g, '_')}.pdf`);
+};
+
+export const generateProjectSummaryPDF = async (projects: any[], perfil: any) => {
+    const doc = new jsPDF('l', 'mm', 'a4');
+    applyCorporateStyle(doc);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.setTextColor(121, 85, 72);
+    doc.text('RESUMEN DE MARGEN POR PROYECTO', 14, 20);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(0);
+    doc.text(`${perfil.nombre} - Analítica de Explotación`, 14, 28);
+
+    const tableHead = [['PROYECTO / CLIENTE', 'PRESUPUESTO (VTA)', 'GASTOS REALES', 'MARGEN NETO', '% MARGEN', 'FACTURADO', 'COBRADO']];
+    const tableBody = projects.map(p => [
+      `${p.nombre}\n${p.clientes?.nombre || 'S/C'}`,
+      formatCurrency(p.total || 0),
+      formatCurrency(p.total_gastos || 0),
+      formatCurrency((p.total || 0) - (p.total_gastos || 0)),
+      `${(p.total > 0 ? (((p.total - p.total_gastos) / p.total) * 100) : 0).toFixed(1)}%`,
+      formatCurrency(p.facturado || 0),
+      formatCurrency(p.cobrado || 0)
+    ]);
+
+    (doc as any).autoTable({
+      startY: 35,
+      head: tableHead,
+      body: tableBody,
+      theme: 'grid',
+      headStyles: { fillColor: [121, 85, 72], textColor: 255 },
+      styles: { fontSize: 8, cellPadding: 4, fillColor: [255, 255, 255] },
+      columnStyles: { 3: { fontStyle: 'bold' } }
+    });
+
+    doc.save(`resumen_global_proyectos.pdf`);
 };

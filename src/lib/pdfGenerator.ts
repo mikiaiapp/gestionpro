@@ -80,6 +80,14 @@ export const generatePDF = async (data: PDFData) => {
     doc.rect(0, 0, PAGE_WIDTH, PAGE_HEIGHT, 'F');
   };
 
+  // Sobrescribir addPage para que todas las páginas nuevas tengan el fondo
+  const originalAddPage = doc.addPage.bind(doc);
+  doc.addPage = function() {
+    const result = originalAddPage();
+    drawPageBackground();
+    return result;
+  };
+
   const drawPageBranding = async () => {
     let y = 10;
     if (data.perfil.logo_url) {
@@ -196,7 +204,6 @@ export const generatePDF = async (data: PDFData) => {
 
   // --- PÁGINA 2: ANEXO LEGAL Y FIRMA ---
   doc.addPage();
-  drawPageBackground();
   
   let footerY_P2 = 10;
 
@@ -247,7 +254,6 @@ export const generatePDF = async (data: PDFData) => {
     // Espacio de Firma
     if (currentY > PAGE_HEIGHT - 60) {
       doc.addPage();
-      drawPageBackground();
       currentY = 20;
     }
 

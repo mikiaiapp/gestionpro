@@ -363,7 +363,8 @@ function VentasContent() {
         venta_id: currentVentaId,
         unidades: l.unidades,
         descripcion: l.descripcion,
-        precio_unitario: l.precio_unitario
+        precio_unitario: l.precio_unitario,
+        user_id: user.id
       }));
 
       await supabase.from("venta_lineas").insert(lineasToInsert);
