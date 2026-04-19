@@ -34,7 +34,6 @@ export async function extractDataFromInvoice(base64File: string, apiKey: string)
           ]
         }],
         generationConfig: {
-          response_mime_type: "application/json",
           temperature: 0.1
         }
       })
@@ -46,10 +45,13 @@ export async function extractDataFromInvoice(base64File: string, apiKey: string)
       throw new Error(data.error.message);
     }
 
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    let text = data.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!text) throw new Error("No se ha podido leer el contenido de la factura.");
 
-    return JSON.parse(text.trim());
+    // Limpiamos la respuesta por si la IA añade bloques de código markdown
+    text = text.replace(/```json/g, "").replace(/```/g, "").trim();
+
+    return JSON.parse(text);
   } catch (error: any) {
     console.error("Error en extracción IA:", error);
     throw new Error(`Error de IA: ${error.message}. Por favor, espera un minuto e intenta de nuevo.`);
