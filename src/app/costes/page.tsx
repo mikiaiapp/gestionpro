@@ -371,8 +371,14 @@ export default function CostesPage() {
         fecha,
         total: totalFactura,
         user_id: user.id,
-        proveedor_id: proveedorId,
-        tipo_gasto: tipoGasto
+        proveedor_id: proveedorId || null,
+        proyecto_id: proyectoId || null,
+        base_imponible: baseImponible,
+        retencion_pct: retencionPct,
+        retencion_importe: retencionImporte,
+        iva_importe: totalIva,
+        tipo_gasto: tipoGasto,
+        pagado: false
       };
 
       const setIfFound = (options: string[], value: any) => {
