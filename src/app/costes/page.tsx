@@ -428,6 +428,46 @@ export default function CostesPage() {
       setSaving(false);
     }
   };
+
+  const handleDeleteCoste = async (c: any) => {
+    try {
+      // 1. Comprobar si tiene pagos
+      const { data: pagos } = await supabase
+        .from("pagos")
+        .select("id")
+        .eq("coste_id", c.id);
+      
+      if (pagos && pagos.length > 0) {
+        alert("No se puede eliminar la factura recibida (Motivo: Tiene pagos asociados)");
+        return;
+      }
+
+      // 2. Comprobar si es la última (correlatividad registro interno)
+      const { data: posteriores } = await supabase
+        .from("costes")
+        .select("id")
+        .gt("created_at", c.created_at)
+        .limit(1);
+
+      if (posteriores && posteriores.length > 0) {
+        alert("No se puede eliminar la factura recibida (Motivo: No es la última registrada en el sistema)");
+        return;
+      }
+
+      if (!confirm(`¿Seguro que quieres eliminar este gasto de ${c.proveedores?.nombre}?`)) return;
+
+      const { error } = await supabase.from("costes").delete().eq("id", c.id);
+      if (error) throw error;
+
+      alert("✅ Gasto eliminado correctamente");
+      fetchData();
+    } catch (err: any) {
+      alert("Error al eliminar: " + err.message);
+    } finally {
+      setOpenMenuId(null);
+    }
+  };
+
   const handleSort = (field: string) => {
     let direction: 'asc' | 'desc' = 'asc';
     if (sortConfig && sortConfig.key === field && sortConfig.direction === 'asc') {
@@ -856,12 +896,12 @@ export default function CostesPage() {
                         
                         <div className="h-px bg-gray-100 my-1 mx-2"></div>
                         
-                        <button 
-                          onClick={() => { if(confirm("¿Eliminar este coste?")) supabase.from("costes").delete().eq("id", c.id).then(() => fetchData()); }}
-                          className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                        >
-                          <Trash2 size={16} /> Eliminar
-                        </button>
+                         <button 
+                           onClick={() => handleDeleteCoste(c)}
+                           className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                         >
+                           <Trash2 size={16} /> Eliminar
+                         </button>
                       </div>
                     )}
                   </td>

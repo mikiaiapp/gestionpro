@@ -29,7 +29,7 @@ export const DataTableHeader: React.FC<DataTableHeaderProps> = ({
 
   return (
     <th className={`px-6 py-4 text-[12px] font-black uppercase tracking-wider relative group transition-colors ${hasFilter ? 'bg-orange-50/50' : ''}`}>
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center justify-center gap-3 relative">
         <span 
           className={`cursor-pointer transition-all flex-1 whitespace-nowrap ${isSorted || hasFilter ? 'text-gray-900 scale-[1.02]' : 'text-gray-500 group-hover:text-gray-700'}`} 
           onClick={() => onSort(field)}

@@ -201,14 +201,26 @@ export default function ProveedoresPage() {
   };
 
   const handleDeleteProveedor = async (id: string, name: string) => {
-    if (window.confirm(`¿Seguro que quieres eliminar a ${name}?`)) {
-      try {
+    try {
+      // 1. Comprobar si tiene facturas recibidas
+      const { data: costes } = await supabase
+        .from('costes')
+        .select('id')
+        .eq('proveedor_id', id);
+      
+      if (costes && costes.length > 0) {
+        alert(`No se puede eliminar el proveedor ${name} (Motivo: Tiene facturas recibidas asociadas)`);
+        return;
+      }
+
+      if (window.confirm(`¿Seguro que quieres eliminar a ${name}?`)) {
         const { error } = await supabase.from('proveedores').delete().eq('id', id);
         if (error) throw error;
         await fetchProveedores();
-      } catch (err: any) {
-        alert("Error al eliminar: " + err.message);
+        alert("✅ Proveedor eliminado correctamente");
       }
+    } catch (err: any) {
+      alert("Error al eliminar: " + err.message);
     }
   };
 

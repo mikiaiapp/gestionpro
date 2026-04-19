@@ -218,12 +218,9 @@ function VentasContent() {
       const misCobros = (cbrs || []).filter((c: any) => c.venta_id === v.id);
       const totalCobrado = misCobros.reduce((acc: number, c: any) => acc + (c.importe || 0), 0);
       let estadoPago = 'Pendiente';
-      if (v.total > 0) {
-        if (totalCobrado >= v.total) estadoPago = 'Cobrado';
-        else if (totalCobrado > 0) estadoPago = 'Cobro Parcial';
-      }
+      const pendiente = Math.max(0, (v.total || 0) - totalCobrado);
       
-      return { ...v, totalCobrado, estadoPago };
+      return { ...v, totalCobrado, estadoPago, pendiente };
     });
 
     // Calcular facturación acumulada por proyecto
@@ -447,6 +444,52 @@ function VentasContent() {
     }
   };
 
+  const handleDeleteVenta = async (v: any) => {
+    try {
+      // 1. Comprobar si tiene cobros
+      const { data: cobros } = await supabase
+        .from("cobros")
+        .select("id")
+        .eq("venta_id", v.id);
+      
+      if (cobros && cobros.length > 0) {
+        alert("No se puede eliminar la factura, tendrás que emitir una rectificativa (Motivo: Tiene cobros asociados)");
+        return;
+      }
+
+      // 2. Comprobar si es la última emitida (basado en num_factura y serie)
+      const { data: posteriores } = await supabase
+        .from("ventas")
+        .select("id")
+        .eq("serie", v.serie)
+        .gt("num_factura", v.num_factura)
+        .limit(1);
+
+      if (posteriores && posteriores.length > 0) {
+        alert("No se puede eliminar la factura, tendrás que emitir una rectificativa (Motivo: No es la última factura emitida)");
+        return;
+      }
+
+      // 3. Comprobar Verifactu
+      if (v.verifactu_status === 'enviado') {
+        alert("No se puede eliminar la factura, tendrás que emitir una rectificativa (Motivo: Ya enviada a Verifactu)");
+        return;
+      }
+
+      if (!confirm(`¿Seguro que quieres eliminar la factura ${v.serie}-${v.num_factura}?`)) return;
+
+      const { error } = await supabase.from("ventas").delete().eq("id", v.id);
+      if (error) throw error;
+
+      alert("✅ Factura eliminada correctamente");
+      fetchData();
+    } catch (err: any) {
+      alert("Error al eliminar: " + err.message);
+    } finally {
+      setOpenMenuId(null);
+    }
+  };
+
   const downloadInvoice = async (venta: any) => {
     if (!perfil) {
       alert("Configura primero tus datos de empresa en Ajustes.");
@@ -597,8 +640,9 @@ function VentasContent() {
                       <DataTableHeader label="Fecha" field="fecha" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.fecha || ''} onFilter={handleFilter} />
                       <DataTableHeader label="Cliente" field="cliente" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.cliente || ''} onFilter={handleFilter} />
                       <DataTableHeader label="Total" field="total" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.total || ''} onFilter={handleFilter} />
+                      <DataTableHeader label="Pendiente" field="pendiente" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.pendiente || ''} onFilter={handleFilter} />
                       <DataTableHeader label="Cobro" field="estadoPago" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.estadoPago || ''} onFilter={handleFilter} />
-                      <th className="px-6 py-4 text-[12px] font-black text-gray-500 uppercase tracking-wider text-right">Acciones</th>
+                      <th className="px-6 py-4 text-[12px] font-black text-gray-500 uppercase tracking-wider text-center">Acciones</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[var(--border)]">
@@ -609,6 +653,9 @@ function VentasContent() {
                         <td className="px-6 py-4 text-sm">{v.clientes?.nombre || 'Consumidor Final'}</td>
                         <td className="px-6 py-4 text-sm font-mono font-bold text-right">
                           {new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(v.total || 0)}
+                        </td>
+                        <td className="px-6 py-4 text-sm font-mono font-bold text-right text-red-600">
+                          {v.pendiente > 0 ? new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(v.pendiente) : '—'}
                         </td>
                         <td className="px-6 py-4 text-center">
                           <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
@@ -671,14 +718,12 @@ function VentasContent() {
                                   <Save size={16}/> Editar Factura
                                 </button>
                               <div className="h-px bg-gray-100 my-1 mx-2"></div>
-                              <button 
-                                onClick={() => {
-                                  if (confirm("¿Eliminar factura?")) supabase.from("ventas").delete().eq("id", v.id).then(() => fetchData());
-                                }} 
-                                className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                              >
-                                <Trash2 size={16}/> Eliminar
-                              </button>
+                                <button 
+                                  onClick={() => handleDeleteVenta(v)} 
+                                  className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                                >
+                                  <Trash2 size={16}/> Eliminar
+                                </button>
                             </div>
                           )}
                         </td>

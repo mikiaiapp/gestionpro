@@ -85,11 +85,6 @@ export const generatePDF = async (data: PDFData) => {
     if (data.perfil.logo_url) {
       const b64 = await getBase64FromUrl(data.perfil.logo_url);
       if (b64) doc.addImage(b64, 'PNG', MARGIN, y, 35, 0);
-      y += 30;
-    }
-    if (data.perfil.imagen_corporativa_url) {
-      const b64corp = await getBase64FromUrl(data.perfil.imagen_corporativa_url);
-      if (b64corp) doc.addImage(b64corp, 'PNG', MARGIN, y + 5, 35, 0);
     }
   };
 
@@ -203,98 +198,113 @@ export const generatePDF = async (data: PDFData) => {
   doc.addPage();
   drawPageBackground();
   
-  // Imagen Corporativa Grande (20% de la página ~60mm)
   let footerY_P2 = 10;
-  if (data.perfil.imagen_corporativa_url) {
-    const b64corp = await getBase64FromUrl(data.perfil.imagen_corporativa_url);
-    if (b64corp) {
-        // Calculamos ancho para que mantenga proporción con alto de 55mm
-        doc.addImage(b64corp, 'PNG', MARGIN, footerY_P2, PAGE_WIDTH - (MARGIN * 2), 55, undefined, 'FAST');
-        footerY_P2 += 65;
-    }
-  } else {
-    // Si no hay imagen corporativa, usamos el logo normal pero algo más grande
-    if (data.perfil.logo_url) {
+
+  if (data.tipo === 'PRESUPUESTO') {
+    // Imagen Corporativa Grande SOLO para presupuestos
+    if (data.perfil.imagen_corporativa_url) {
+      const b64corp = await getBase64FromUrl(data.perfil.imagen_corporativa_url);
+      if (b64corp) {
+          doc.addImage(b64corp, 'PNG', MARGIN, footerY_P2, PAGE_WIDTH - (MARGIN * 2), 55, undefined, 'FAST');
+          footerY_P2 += 65;
+      }
+    } else if (data.perfil.logo_url) {
       const b64 = await getBase64FromUrl(data.perfil.logo_url);
       if (b64) doc.addImage(b64, 'PNG', MARGIN, footerY_P2, 50, 0);
       footerY_P2 += 35;
     }
-  }
 
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10);
-  doc.setTextColor(121, 85, 72);
-  doc.text("ANEXO LEGAL Y ACEPTACIÓN", MARGIN, footerY_P2);
-  
-  let currentY = footerY_P2 + 8;
-  doc.setFontSize(7);
-  doc.setTextColor(60);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(121, 85, 72);
+    doc.text("ANEXO LEGAL Y ACEPTACIÓN", MARGIN, footerY_P2);
+    
+    let currentY = footerY_P2 + 8;
+    doc.setFontSize(7);
+    doc.setTextColor(60);
 
-  const userEmail = data.perfil.email || "";
-  const processText = (t: string) => (t || "").replace(/EMAIL_PLACEHOLDER/g, userEmail);
+    const userEmail = data.perfil.email || "";
+    const processText = (t: string) => (t || "").replace(/EMAIL_PLACEHOLDER/g, userEmail);
 
-  const sections = [
-    { title: "CONDICIONES PARTICULARES", content: data.condiciones_particulares },
-    { title: "CONDICIONES GENERALES", content: data.perfil.condiciones_legales },
-    { title: "PROTECCIÓN DE DATOS (LOPD)", content: data.perfil.lopd_text }
-  ];
+    const sections = [
+      { title: "CONDICIONES PARTICULARES", content: data.condiciones_particulares },
+      { title: "CONDICIONES GENERALES", content: data.perfil.condiciones_legales },
+      { title: "PROTECCIÓN DE DATOS (LOPD)", content: data.perfil.lopd_text }
+    ];
 
-  sections.forEach(sec => {
-    if (sec.content && sec.content.trim()) {
-      doc.setFont('helvetica', 'bold');
-      doc.text(sec.title + ":", MARGIN, currentY);
-      currentY += 4;
-      doc.setFont('helvetica', 'normal');
-      const lines = doc.splitTextToSize(processText(sec.content), PAGE_WIDTH - (MARGIN * 2));
-      doc.text(lines, MARGIN, currentY);
-      currentY += (lines.length * 3.2) + 5;
+    sections.forEach(sec => {
+      if (sec.content && sec.content.trim()) {
+        doc.setFont('helvetica', 'bold');
+        doc.text(sec.title + ":", MARGIN, currentY);
+        currentY += 4;
+        doc.setFont('helvetica', 'normal');
+        const lines = doc.splitTextToSize(processText(sec.content), PAGE_WIDTH - (MARGIN * 2));
+        doc.text(lines, MARGIN, currentY);
+        currentY += (lines.length * 3.2) + 5;
+      }
+    });
+
+    // Espacio de Firma
+    if (currentY > PAGE_HEIGHT - 60) {
+      doc.addPage();
+      drawPageBackground();
+      currentY = 20;
     }
-  });
 
-  // Espacio de Firma (comprobar si cabe)
-  if (currentY > PAGE_HEIGHT - 60) {
-    doc.addPage();
-    drawPageBackground();
-    currentY = 20;
-  }
+    currentY += 6;
+    doc.setDrawColor(121, 85, 72);
+    doc.setLineWidth(0.5);
+    doc.line(MARGIN, currentY, PAGE_WIDTH - MARGIN, currentY);
+    
+    currentY += 8;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.text("ACEPTACIÓN DEL CLIENTE:", MARGIN, currentY);
+    
+    currentY += 6;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    const aceptacionText = data.perfil.texto_aceptacion || "Acepto el presente documento y todas las condiciones descritas.";
+    const aceptacionLines = doc.splitTextToSize(processText(aceptacionText), PAGE_WIDTH - (MARGIN * 2));
+    doc.text(aceptacionLines, MARGIN, currentY);
 
-  currentY += 6;
-  doc.setDrawColor(121, 85, 72);
-  doc.setLineWidth(0.5);
-  doc.line(MARGIN, currentY, PAGE_WIDTH - MARGIN, currentY);
-  
-  currentY += 8;
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
-  doc.text("ACEPTACIÓN DEL CLIENTE:", MARGIN, currentY);
-  
-  currentY += 6;
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.5);
-  const aceptacionText = data.perfil.texto_aceptacion || "Acepto el presente documento y todas las condiciones descritas.";
-  const aceptacionLines = doc.splitTextToSize(processText(aceptacionText), PAGE_WIDTH - (MARGIN * 2));
-  doc.text(aceptacionLines, MARGIN, currentY);
+    currentY += (aceptacionLines.length * 4) + 15;
+    
+    doc.line(MARGIN + 10, currentY, MARGIN + 80, currentY);
+    doc.setFontSize(8);
+    doc.text("Firma o Sello del Cliente", MARGIN + 45, currentY + 5, { align: 'center' });
+    doc.text(`Fecha de aceptación: ___ / ___ / 202_`, PAGE_WIDTH - MARGIN - 60, currentY);
 
-  currentY += (aceptacionLines.length * 4) + 15;
-  
-  // Líneas de firma
-  doc.line(MARGIN + 10, currentY, MARGIN + 80, currentY);
-  doc.setFontSize(8);
-  doc.text("Firma o Sello del Cliente", MARGIN + 45, currentY + 5, { align: 'center' });
-  doc.text(`Fecha de aceptación: ___ / ___ / 202_`, PAGE_WIDTH - MARGIN - 60, currentY);
+  } else {
+    // FACTURA: Solo LOPD y QR
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(121, 85, 72);
+    doc.text("INFORMACIÓN LEGAL Y VERIFICACIÓN", MARGIN, footerY_P2);
+    
+    let currentY = footerY_P2 + 10;
+    doc.setFontSize(7);
+    doc.setTextColor(60);
+    
+    doc.setFont('helvetica', 'bold');
+    doc.text("PROTECCIÓN DE DATOS (LOPD):", MARGIN, currentY);
+    currentY += 4;
+    doc.setFont('helvetica', 'normal');
+    const lopdLines = doc.splitTextToSize(data.perfil.lopd_text || "", PAGE_WIDTH - MARGIN * 2 - 40);
+    doc.text(lopdLines, MARGIN, currentY);
 
-  // Verifactu QR si es factura
-  if (data.tipo === 'FACTURA') {
-    const qrSize = 25;
+    // QR Verifactu
+    const qrSize = 35;
     const qrX = PAGE_WIDTH - MARGIN - qrSize;
-    const qrY = PAGE_HEIGHT - MARGIN - 35;
+    const qrY = footerY_P2 + 5;
     
     doc.setFontSize(6);
     doc.setTextColor(0);
-    doc.text("SISTEMA VERI*FACTU", qrX - 5, qrY + 18, { align: 'right' });
+    doc.setFont('helvetica', 'bold');
+    doc.text("SISTEMA VERI*FACTU", qrX + qrSize/2, qrY + qrSize + 4, { align: 'center' });
     
     const qrData = `https://www2.agenciatributaria.gob.es/wlpl/zsce-itst/verifactu/verificar-factura?nif=${data.perfil.nif}&numero=${data.numero}&fecha=${data.fecha}&importe=${data.totales.total}`;
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(qrData)}`;
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrData)}`;
     const qrBase64 = await getBase64FromUrl(qrUrl);
     if (qrBase64) doc.addImage(qrBase64, 'PNG', qrX, qrY, qrSize, qrSize);
   }

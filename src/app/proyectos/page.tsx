@@ -328,6 +328,31 @@ export default function ProyectosPage() {
       console.error("Error al generar PDF:", err);
       alert("Error al generar el presupuesto: " + err.message);
     }
+  const handleDeleteProyecto = async (p: any) => {
+    try {
+      // 1. Comprobar si tiene ventas
+      const { data: ventas } = await supabase
+        .from("ventas")
+        .select("id")
+        .eq("proyecto_id", p.id);
+      
+      if (ventas && ventas.length > 0) {
+        alert("No se puede eliminar el presupuesto (Motivo: Tiene facturas emitidas vinculadas)");
+        return;
+      }
+
+      if (!confirm(`¿Seguro que quieres eliminar el presupuesto ${p.nombre}?`)) return;
+
+      const { error } = await supabase.from("proyectos").delete().eq("id", p.id);
+      if (error) throw error;
+
+      alert("✅ Presupuesto eliminado correctamente");
+      fetchData();
+    } catch (err: any) {
+      alert("Error al eliminar: " + err.message);
+    } finally {
+      setOpenMenuId(null);
+    }
   };
 
   const handleSort = (field: string) => {
@@ -465,14 +490,12 @@ export default function ProyectosPage() {
                                  <Receipt size={16}/> Facturar
                                </button>
                                <div className="h-px bg-gray-100 my-1 mx-2"></div>
-                              <button 
-                                onClick={() => {
-                                  if (confirm("¿Eliminar presupuesto?")) supabase.from("proyectos").delete().eq("id", p.id).then(() => fetchData());
-                                }} 
-                                className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                              >
-                                <Trash2 size={16}/> Eliminar
-                              </button>
+                               <button 
+                                 onClick={() => handleDeleteProyecto(p)} 
+                                 className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                               >
+                                 <Trash2 size={16}/> Eliminar
+                               </button>
                             </div>
                           )}
                        </td>

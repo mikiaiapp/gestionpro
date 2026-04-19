@@ -183,14 +183,26 @@ export default function ClientesPage() {
   };
 
   const handleDeleteCliente = async (id: string, name: string) => {
-    if (window.confirm(`¿Seguro que quieres eliminar a ${name}?`)) {
-      try {
+    try {
+      // 1. Comprobar si tiene presupuestos
+      const { data: projs } = await supabase
+        .from('proyectos')
+        .select('id')
+        .eq('cliente_id', id);
+      
+      if (projs && projs.length > 0) {
+        alert(`No se puede eliminar el cliente ${name} (Motivo: Tiene presupuestos asociados)`);
+        return;
+      }
+
+      if (window.confirm(`¿Seguro que quieres eliminar a ${name}?`)) {
         const { error } = await supabase.from('clientes').delete().eq('id', id);
         if (error) throw error;
         await fetchClientes();
-      } catch (err: any) {
-        alert("Error al eliminar: " + err.message);
+        alert("✅ Cliente eliminado correctamente");
       }
+    } catch (err: any) {
+      alert("Error al eliminar: " + err.message);
     }
   };
 

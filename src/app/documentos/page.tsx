@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { SearchableSelect } from "@/components/SearchableSelect";
+import { generatePDF } from "@/lib/pdfGenerator";
 
 export default function DocumentosPage() {
   const [viewMode, setViewMode] = useState<'explorador' | 'proyecto'>('explorador');
@@ -43,6 +44,7 @@ export default function DocumentosPage() {
     recibidas: any[],
     otros: any[]
   }>({ emitidas: [], recibidas: [], otros: [] });
+  const [perfil, setPerfil] = useState<any>(null);
 
   // Modal Subida Otros
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -64,7 +66,9 @@ export default function DocumentosPage() {
 
   const fetchProyectos = async () => {
     const { data } = await supabase.from('proyectos').select('id, nombre, clientes(nombre)');
+    const { data: perf } = await supabase.from('perfil_negocio').select('*').maybeSingle();
     setProyectos(data || []);
+    setPerfil(perf);
   };
 
   const fetchFiles = async () => {
@@ -94,11 +98,14 @@ export default function DocumentosPage() {
     if (!selectedProjectId) return;
     setLoading(true);
     try {
+      const { data: proj } = await supabase.from('proyectos').select('*, clientes(*)').eq('id', selectedProjectId).single();
+      const { data: lineas } = await supabase.from('proyecto_lineas').select('*').eq('proyecto_id', selectedProjectId);
       const { data: vts } = await supabase.from('ventas').select('*').eq('proyecto_id', selectedProjectId).not('archivo_url', 'is', null);
       const { data: csts } = await supabase.from('costes').select('*, proveedores(nombre)').eq('proyecto_id', selectedProjectId).not('archivo_url', 'is', null);
       const { data: otros } = await supabase.from('proyecto_documentos').select('*').eq('proyecto_id', selectedProjectId).order('created_at', { ascending: false });
 
       setProjectDocs({
+        presupuesto: proj ? { ...proj, lineas: lineas || [] } : undefined,
         emitidas: vts || [],
         recibidas: csts || [],
         otros: otros || []
@@ -107,6 +114,49 @@ export default function DocumentosPage() {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDownloadBudget = async () => {
+    if (!projectDocs.presupuesto || !perfil) {
+      alert("No hay datos suficientes para generar el presupuesto.");
+      return;
+    }
+
+    try {
+      const p = projectDocs.presupuesto;
+      const refFinal = p.num_proyecto || p.numero || p.num_referencia || p.referencia || "S/N";
+      
+      await generatePDF({
+        tipo: 'PRESUPUESTO',
+        numero: `${p.serie || 'P'}-${refFinal}`,
+        fecha: p.fecha,
+        cliente: {
+          nombre: p.clientes?.nombre || 'Cliente Final',
+          nif: p.clientes?.nif || '',
+          direccion: p.clientes?.direccion || '',
+          poblacion: p.clientes?.poblacion || '',
+          cp: p.clientes?.cp || '',
+          provincia: p.clientes?.provincia || '',
+        },
+        perfil: perfil,
+        condiciones_particulares: p.condiciones_particulares || '',
+        lineas: p.lineas.map((l: any) => ({
+          unidades: l.unidades,
+          descripcion: l.descripcion,
+          precio_unitario: l.precio_unitario
+        })),
+        totales: {
+          base: p.base_imponible || 0,
+          iva_pct: 21,
+          iva_importe: p.iva_importe || 0,
+          retencion_pct: p.retencion_pct || 0,
+          retencion_importe: p.retencion_importe || 0,
+          total: p.total || 0
+        }
+      });
+    } catch (err: any) {
+      alert("Error al generar PDF: " + err.message);
     }
   };
 
@@ -294,7 +344,42 @@ export default function DocumentosPage() {
              </div>
 
              {selectedProjectId ? (
-               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  {/* Bloque 0: Presupuesto Original */}
+                  <div className="space-y-4">
+                     <h3 className="flex items-center gap-2 text-xs font-black text-orange-600 uppercase tracking-widest pl-2">
+                        <FolderKanban size={16} /> Presupuesto Original
+                     </h3>
+                     <div className="bg-white rounded-3xl border border-orange-200 shadow-sm p-5 h-fit hover:border-orange-400 transition-all group overflow-hidden relative">
+                        <div className="absolute -right-4 -top-4 opacity-[0.03] group-hover:opacity-[0.1] transition-opacity">
+                           <FileText size={120} />
+                        </div>
+                        {projectDocs.presupuesto ? (
+                          <div className="space-y-4 relative z-10">
+                            <div>
+                               <div className="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-1">Documento Principal</div>
+                               <div className="text-sm font-bold text-gray-800 truncate" title={projectDocs.presupuesto.nombre}>
+                                  {projectDocs.presupuesto.nombre}
+                               </div>
+                               <div className="text-xs font-medium text-gray-400">
+                                  Ref: {projectDocs.presupuesto.serie}-{projectDocs.presupuesto.num_proyecto || projectDocs.presupuesto.numero}
+                               </div>
+                            </div>
+                            <div className="flex gap-2">
+                               <button 
+                                 onClick={handleDownloadBudget}
+                                 className="flex-1 flex items-center justify-center gap-2 py-3 bg-orange-600 text-white rounded-xl text-xs font-bold hover:bg-orange-700 transition-all shadow-lg shadow-orange-100"
+                               >
+                                  <Download size={14} /> DESCARGAR PDF
+                               </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="p-4 text-center text-xs text-gray-400 font-bold">Cargando datos...</p>
+                        )}
+                     </div>
+                  </div>
+
                   {/* Bloque 1: Facturas Emitidas */}
                   <div className="space-y-4">
                      <h3 className="flex items-center gap-2 text-xs font-black text-blue-600 uppercase tracking-widest pl-2">

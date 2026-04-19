@@ -22,6 +22,10 @@ export const getVATBookPDF = (type: 'ventas' | 'costes', data: any[], perfil: an
   const doc = new jsPDF('l', 'mm', 'a4'); // Paisaje para que quepan las columnas
   const title = type === 'ventas' ? 'LIBRO REGISTRO DE FACTURAS EXPEDIDAS (IVA REPERCUTIDO)' : 'LIBRO REGISTRO DE FACTURAS RECIBIDAS (IVA SOPORTADO)';
   
+  // Añadir fondo crema (ede8e0 -> 237, 232, 224)
+  doc.setFillColor(237, 232, 224);
+  doc.rect(0, 0, 297, 210, 'F');
+
   // Cabecera del informe
   if (perfil?.logo_url) {
     try {
