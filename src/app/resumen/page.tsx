@@ -276,12 +276,12 @@ export default function ResumenPage() {
                 <thead>
                   <tr className="bg-[#fcfaf7] border-b border-[var(--border)]">
                     <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-left">Presupuesto</th>
-                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Venta (Prev x Real)</th>
-                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Coste (Prev x Real)</th>
-                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Pendiente de Cobro</th>
-                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Pendiente de Pago</th>
+                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Venta (Real)</th>
                     <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right text-[var(--accent)]">Margen Bruto</th>
                     <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Margen %</th>
+                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Coste (Real)</th>
+                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Pend. Cobro</th>
+                    <th className="px-6 py-4 text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider text-right">Pend. Pago</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--border)]">
@@ -295,6 +295,13 @@ export default function ResumenPage() {
                          <div className="text-gray-400 text-[10px] mb-0.5">{formatCurrency(p.previstoVenta)}</div>
                          <div className="text-green-600 font-bold text-[13px]">{formatCurrency(p.totalVentas)}</div>
                       </td>
+                      <td className={`px-6 py-4 text-right font-mono font-bold text-[13px] ${p.margen >= 0 ? 'text-[var(--accent)]' : 'text-red-700'}`}>
+                         <div>{formatCurrency(p.margen)}</div>
+                         <div className={`text-[10px] mt-0.5 ${p.desviacionMargen >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                            {p.desviacionMargen >= 0 ? '+' : ''}{formatCurrency(p.desviacionMargen)} vs Plan
+                         </div>
+                      </td>
+                      <td className="px-6 py-4 text-right"><span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${p.margenPct >= 15 ? 'bg-green-100 text-green-700' : p.margenPct > 0 ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>{p.margenPct.toFixed(1)}%</span></td>
                       <td className="px-6 py-4 text-right font-mono leading-tight">
                          <div className="text-gray-400 text-[10px] mb-0.5">{formatCurrency(p.previstoCoste)}</div>
                          <div className="text-red-600 font-bold text-[13px]">{formatCurrency(p.totalCostes)}</div>
@@ -305,13 +312,6 @@ export default function ResumenPage() {
                       <td className={`px-6 py-4 text-right font-mono font-bold text-[13px] ${p.pendientePago > 0 ? 'text-red-500' : 'text-gray-300'}`}>
                          {formatCurrency(p.pendientePago)}
                       </td>
-                      <td className={`px-6 py-4 text-right font-mono font-bold text-[13px] ${p.margen >= 0 ? 'text-[var(--accent)]' : 'text-red-700'}`}>
-                         <div>{formatCurrency(p.margen)}</div>
-                         <div className={`text-[10px] mt-0.5 ${p.desviacionMargen >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                            {p.desviacionMargen >= 0 ? '+' : ''}{formatCurrency(p.desviacionMargen)} vs Plan
-                         </div>
-                      </td>
-                      <td className="px-6 py-4 text-right"><span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${p.margenPct >= 15 ? 'bg-green-100 text-green-700' : p.margenPct > 0 ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>{p.margenPct.toFixed(1)}%</span></td>
                     </tr>
                   ))}
                 </tbody>
