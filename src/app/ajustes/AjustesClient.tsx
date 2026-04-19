@@ -442,19 +442,9 @@ export default function AjustesClient() {
 
               {saveError && (
                 <div className="mt-6 p-4 bg-red-50 border border-red-100 rounded-2xl text-red-600 text-xs font-bold font-sans animate-in slide-in-from-top-2">
-                  ⚠️ Error al guardar: {saveError}. Verifica si la columna 'telefono' existe en la tabla 'perfil_negocio'.
+                  ⚠️ Error al guardar: {saveError}.
                 </div>
               )}
-
-              <div className="mt-8 pt-6 border-t border-dashed flex justify-between items-center">
-                <p className="text-[10px] text-gray-400 italic">Los cambios se guardan automáticamente, pero puedes forzar el guardado aquí.</p>
-                <button 
-                  onClick={handleSaveAll}
-                  className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-2xl shadow-lg shadow-blue-100 transition-all active:scale-95 font-sans"
-                >
-                  Guardar Identidad
-                </button>
-              </div>
             </div>
 
             <div className="bg-white rounded-3xl border p-8 shadow-sm">
