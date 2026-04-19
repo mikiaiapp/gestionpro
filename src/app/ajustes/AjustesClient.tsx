@@ -503,6 +503,31 @@ export default function AjustesClient() {
               )}
             </div>
 
+            <div className="bg-white rounded-3xl border p-8 shadow-sm border-purple-50">
+              <h2 className="text-xl font-bold font-head mb-8 flex items-center gap-3 text-purple-600 border-b pb-4">
+                <RefreshCcw size={24} /> Inteligencia Artificial
+              </h2>
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1 font-sans">Gemini API Key (Google Cloud)</label>
+                  <div className="relative">
+                    <input 
+                      type="password" 
+                      value={geminiKey} 
+                      onChange={e => setGeminiKey(e.target.value)} 
+                      className="w-full pl-12 pr-12 py-4 rounded-2xl border bg-gray-50 outline-none font-mono text-sm focus:ring-4 focus:ring-purple-500/5 focus:bg-white transition-all transition-all" 
+                      placeholder="Introduce tu clave AIzaSy..." 
+                    />
+                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" size={18} />
+                  </div>
+                  <p className="text-[9px] text-gray-400 mt-2 pl-1 leading-relaxed">
+                    💡 Esta clave permite que GestiónPro analice tus PDFs de gastos automáticamente mediante Google Gemini. 
+                    <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="ml-1 text-purple-600 hover:underline font-bold">Consigue una gratis aquí</a>.
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <div className="bg-white rounded-3xl border p-8 shadow-sm">
               <h2 className="text-xl font-bold font-head mb-8 flex items-center gap-3 text-gray-800 border-b pb-4">
                 <Scale className="text-orange-600" size={24} /> Cláusulas Legales
