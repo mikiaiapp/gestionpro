@@ -786,17 +786,31 @@ export default function AjustesClient() {
                {autoBackups.length > 0 && (
                 <div className="pt-10 border-t border-dashed space-y-6">
                    <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest pl-1">Historial de Backups Automáticos</h3>
-                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {autoBackups.map(b => (
-                        <div key={b.id} className="flex items-center justify-between p-6 bg-gray-50 rounded-2xl border border-gray-100">
-                           <div className="flex gap-4 items-center">
-                              <Database className="text-blue-500" size={24} />
-                              <div className="flex flex-col">
-                                <span className="font-black text-gray-800 text-sm truncate max-w-[150px]">{b.nombre}</span>
-                                <span className="text-[10px] text-gray-400 font-mono">{(b.size / 1024 / 1024).toFixed(2)} MB • {new Date(b.created_at).toLocaleDateString()}</span>
+                   <div className="flex flex-col gap-3">
+                      {autoBackups.map((b, idx) => (
+                        <div key={b.id} className="group flex items-center justify-between p-5 bg-gray-50 rounded-2xl border border-gray-100 hover:bg-white hover:shadow-xl hover:shadow-indigo-500/5 transition-all duration-300">
+                           <div className="flex gap-5 items-center">
+                              <div className={`p-3 rounded-xl ${idx === 0 ? 'bg-indigo-50 text-indigo-600' : 'bg-gray-100 text-gray-400'} group-hover:scale-110 transition-transform`}>
+                                 <Database size={20} />
+                              </div>
+                              <div className="flex flex-col gap-0.5">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-black text-gray-800 text-sm">{b.nombre}</span>
+                                  {idx === 0 && <span className="px-2 py-0.5 bg-green-100 text-green-700 text-[8px] font-black uppercase tracking-widest rounded-full">Más reciente</span>}
+                                </div>
+                                <span className="text-[10px] text-gray-400 font-medium">
+                                  {new Date(b.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })} • {(b.size / 1024 / 1024).toFixed(2)} MB
+                                </span>
                               </div>
                            </div>
-                           <a href={b.archivo_url} download className="p-3 bg-white hover:bg-blue-50 rounded-xl text-blue-600 shadow-sm transition-all"><DownloadCloud size={18} /></a>
+                           <a 
+                             href={b.archivo_url} 
+                             download 
+                             className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-indigo-50 border border-gray-100 rounded-xl text-indigo-600 text-xs font-bold shadow-sm transition-all"
+                           >
+                             <DownloadCloud size={16} />
+                             <span className="hidden md:inline">Descargar</span>
+                           </a>
                         </div>
                       ))}
                    </div>
