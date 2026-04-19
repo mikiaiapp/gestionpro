@@ -165,9 +165,7 @@ export function Sidebar() {
         <div className="mt-auto border-t border-[var(--border)] pt-4 flex flex-col items-center">
           {logoUrl && (
             <div className="mb-6 px-4 w-full flex justify-center">
-              <div className="p-2 bg-white rounded-xl shadow-sm border border-[var(--border)] w-full flex justify-center overflow-hidden">
-                 <img src={logoUrl} alt="Logo" className="max-h-12 w-auto object-contain" />
-              </div>
+               <img src={logoUrl} alt="Logo" className="max-h-24 w-auto object-contain" />
             </div>
           )}
           <button 

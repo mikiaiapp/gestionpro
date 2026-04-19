@@ -217,8 +217,12 @@ function VentasContent() {
     const preparedVentas = (vts || []).map(v => {
       const misCobros = (cbrs || []).filter((c: any) => c.venta_id === v.id);
       const totalCobrado = misCobros.reduce((acc: number, c: any) => acc + (c.importe || 0), 0);
-      let estadoPago = 'Pendiente';
       const pendiente = Math.max(0, (v.total || 0) - totalCobrado);
+      let estadoPago = 'PENDIENTE';
+      if (v.total > 0) {
+        if (pendiente <= 0.01) estadoPago = 'COBRADA';
+        else if (totalCobrado > 0) estadoPago = 'PARCIALMENTE COBRADA';
+      }
       
       return { ...v, totalCobrado, estadoPago, pendiente };
     });
@@ -698,12 +702,12 @@ function VentasContent() {
                           {v.pendiente > 0 ? new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(v.pendiente) : '—'}
                         </td>
                         <td className="px-6 py-4 text-center">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                            v.estadoPago === 'Cobrado' ? 'bg-green-50 text-green-600' : 
-                            (v.estadoPago === 'Cobro Parcial' || v.estadoPago === 'Parcial') ? 'bg-orange-50 text-orange-600' : 
-                            'bg-gray-50 text-gray-500'
+                          <span className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${
+                            v.estadoPago === 'COBRADA' ? 'bg-green-100 text-green-700' : 
+                            v.estadoPago === 'PARCIALMENTE COBRADA' ? 'bg-orange-100 text-orange-700' : 
+                            'bg-gray-100 text-gray-500'
                           }`}>
-                            {v.estadoPago || 'Pendiente'}
+                            {v.estadoPago}
                           </span>
                         </td>
                         <td className="px-6 py-4 text-right relative">

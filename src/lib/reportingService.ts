@@ -193,6 +193,12 @@ export const generateFiscalPack = async (
 export const getProjectSummaryPDF = (project: any, perfil: any): jsPDF => {
   const doc = new jsPDF('p', 'mm', 'a4');
   const MARGIN = 14;
+  const PAGE_WIDTH = doc.internal.pageSize.getWidth();
+  const PAGE_HEIGHT = doc.internal.pageSize.getHeight();
+
+  // Añadir fondo crema (ede8e0 -> 237, 232, 224)
+  doc.setFillColor(237, 232, 224);
+  doc.rect(0, 0, PAGE_WIDTH, PAGE_HEIGHT, 'F');
 
   if (perfil?.logo_url) {
     try {

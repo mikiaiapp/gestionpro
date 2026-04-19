@@ -100,12 +100,13 @@ export default function CostesPage() {
       const misPagos = (pgts || []).filter((p: any) => p.coste_id === c.id);
       const totalPagado = misPagos.reduce((acc: number, p: any) => acc + (p.importe || 0), 0);
       let estadoPagoRaw = 'Pendiente';
+      const pendiente = Math.max(0, (c.total || 0) - totalPagado);
       if (c.total > 0) {
-        if (totalPagado >= c.total) estadoPagoRaw = 'Pagado';
+        if (pendiente <= 0.01) estadoPagoRaw = 'Pagado';
         else if (totalPagado > 0) estadoPagoRaw = 'Pago Parcial';
       }
       
-      return { ...c, totalPagado, estadoPago: estadoPagoRaw };
+      return { ...c, totalPagado, estadoPago: estadoPagoRaw, pendiente };
     });
 
     setCostes(preparedCostes);
@@ -812,6 +813,7 @@ export default function CostesPage() {
                 <DataTableHeader label="Fecha" field="fecha" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.fecha || ''} onFilter={handleFilter} />
                 <DataTableHeader label="Gasto / Proyecto" field="proyecto" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.proyecto || ''} onFilter={handleFilter} />
                 <DataTableHeader label="Total" field="total" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.total || ''} onFilter={handleFilter} />
+                <DataTableHeader label="Pendiente" field="pendiente" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.pendiente || ''} onFilter={handleFilter} />
                 <DataTableHeader 
                   label="Estado Pago" 
                   field="estado_pago" 
@@ -847,7 +849,8 @@ export default function CostesPage() {
                         {c.tipo_gasto === 'proyecto' ? c.proyectos?.nombre : 'Gasto General'}
                      </span>
                   </td>
-                  <td className="px-6 py-4 text-right font-mono font-bold text-red-600">{formatCurrency(c.total)}</td>
+                  <td className="px-6 py-4 text-sm font-mono font-bold text-right text-gray-900">{formatCurrency(c.total || 0)}</td>
+                  <td className="px-6 py-4 text-sm font-mono font-bold text-right text-red-600">{c.pendiente > 0 ? formatCurrency(c.pendiente) : '—'}</td>
                     <td className="px-6 py-4">
                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
                          c.estadoPago === 'Pagado' ? 'bg-green-50 text-green-600' : 
