@@ -408,7 +408,7 @@ export default function CostesPage() {
       setIfFound(['retencion_importe', 'irpf_importe', 'retencion', 'irpf'], retencionImporte);
       setIfFound(['iva_importe', 'cuota_iva', 'iva_total', 'iva'], totalIva);
       setIfFound(['tipo_gasto', 'categoria'], tipoGasto);
-      setIfFound(['metodo_pago', 'forma_pago'], formaPago);
+      setIfFound(['metodo_pago', 'forma_pago'], pagoForma);
       setIfFound(['estado_pago', 'pagado', 'status_pago'], estadoPago);
 
       setIfFound(['num_interno', 'registro_interno', 'numero'], numInterno);
