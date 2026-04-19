@@ -71,6 +71,7 @@ export default function ClientesPage() {
         return;
       }
 
+      try {
         const { data: list, error } = await supabase
           .from('clientes')
           .select('id, nombre')

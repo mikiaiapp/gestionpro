@@ -73,6 +73,7 @@ export default function ProveedoresPage() {
         return;
       }
 
+      try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
