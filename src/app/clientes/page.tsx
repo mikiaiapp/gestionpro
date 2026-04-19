@@ -42,6 +42,7 @@ export default function ClientesPage() {
   const [poblacion, setPoblacion] = useState('');
   const [provincia, setProvincia] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [nifError, setNifError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchClientes();
@@ -60,6 +61,36 @@ export default function ClientesPage() {
       });
     }
   }, [cp]);
+
+  // Control de Duplicidades por NIF (Real-time)
+  useEffect(() => {
+    const checkDuplicateNIF = async () => {
+      const cleanedNif = cleanNIF(nif);
+      if (cleanedNif.length < 5) {
+        setNifError(null);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from('clientes')
+          .select('id, nombre')
+          .eq('nif', cleanedNif)
+          .maybeSingle();
+
+        if (data && data.id !== editingId) {
+          setNifError(`Ya existe un cliente con este NIF: ${data.nombre}`);
+        } else {
+          setNifError(null);
+        }
+      } catch (err) {
+        console.error("Error al validar NIF:", err);
+      }
+    };
+
+    const timer = setTimeout(checkDuplicateNIF, 500);
+    return () => clearTimeout(timer);
+  }, [nif, editingId]);
 
   const fetchClientes = async () => {
     setLoading(true);
@@ -82,6 +113,10 @@ export default function ClientesPage() {
     e.preventDefault();
     if (!nombre) {
       alert("La Razón Social es obligatoria.");
+      return;
+    }
+    if (nifError) {
+      alert("No se puede guardar: " + nifError);
       return;
     }
 
@@ -140,6 +175,7 @@ export default function ClientesPage() {
     setCp('');
     setPoblacion('');
     setProvincia('');
+    setNifError(null);
   };
 
   const handleDeleteCliente = async (id: string, name: string) => {
@@ -229,7 +265,18 @@ export default function ClientesPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">NIF/CIF</label>
-                    <input type="text" placeholder="52000000X" value={nif} onChange={(e) => setNif(e.target.value.toUpperCase())} className="w-full p-4 rounded-2xl border bg-gray-50 outline-none font-mono" />
+                    <input 
+                      type="text" 
+                      placeholder="52000000X" 
+                      value={nif} 
+                      onChange={(e) => setNif(e.target.value.toUpperCase())} 
+                      className={`w-full p-4 rounded-2xl border bg-gray-50 outline-none font-mono ${nifError ? 'border-red-500 ring-2 ring-red-500/10' : ''}`}
+                    />
+                    {nifError && (
+                      <p className="text-[10px] text-red-500 font-bold mt-1 px-1 flex items-center gap-1 animate-pulse">
+                        <AlertTriangle size={12} /> {nifError}
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Email</label>
