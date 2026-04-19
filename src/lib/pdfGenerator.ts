@@ -55,7 +55,12 @@ const CONDICIONADO_GRAL = ``;
 export const generatePDF = async (data: PDFData) => {
   const doc = new jsPDF();
   const PAGE_WIDTH = doc.internal.pageSize.getWidth();
+  const PAGE_HEIGHT = doc.internal.pageSize.getHeight();
   const MARGIN = 14;
+  
+  // Fondo Crema (igual que el Sidebar #ede8e0)
+  doc.setFillColor(237, 232, 224);
+  doc.rect(0, 0, PAGE_WIDTH, PAGE_HEIGHT, 'F');
   
   // 1. Logo y Datos Emisor (Izquierda)
   if (data.perfil.logo_url) {
