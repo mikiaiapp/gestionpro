@@ -392,20 +392,24 @@ export default function CostesPage() {
       const payload: any = {
         fecha,
         total: totalFactura,
-        user_id: user.id,
-        proveedor_id: proveedorId || null,
-        proyecto_id: proyectoId || null,
-        base_imponible: baseImponible,
-        retencion_pct: retencionPct,
-        retencion_importe: retencionImporte,
-        iva_importe: totalIva,
-        tipo_gasto: tipoGasto
+        user_id: user.id
       };
 
       const setIfFound = (options: string[], value: any) => {
         const key = foundKey(options);
         if (key) payload[key] = value;
       };
+
+      // Mapeo inteligente basado en lo que realmente existe en tu BD
+      setIfFound(['proveedor_id', 'id_proveedor'], proveedorId || null);
+      setIfFound(['proyecto_id', 'id_proyecto'], tipoGasto === "proyecto" ? proyectoId : null);
+      setIfFound(['base_imponible', 'base', 'subtotal'], baseImponible);
+      setIfFound(['retencion_pct', 'irpf_pct'], retencionPct);
+      setIfFound(['retencion_importe', 'irpf_importe', 'retencion', 'irpf'], retencionImporte);
+      setIfFound(['iva_importe', 'cuota_iva', 'iva_total', 'iva'], totalIva);
+      setIfFound(['tipo_gasto', 'categoria'], tipoGasto);
+      setIfFound(['metodo_pago', 'forma_pago'], formaPago);
+      setIfFound(['estado_pago', 'pagado', 'status_pago'], estadoPago);
 
       setIfFound(['num_interno', 'registro_interno', 'numero'], numInterno);
       setIfFound(['num_factura_proveedor', 'numero_factura', 'num_factura', 'factura_prov', 'referencia'], numFactProv);
