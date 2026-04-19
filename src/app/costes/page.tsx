@@ -247,15 +247,19 @@ export default function CostesPage() {
           const cleanedNIF = cleanNIF(result.proveedor_nif);
           
           // 4. Buscar Proveedor por NIF limpio
-          const provExistente = proveedores.find(p => cleanNIF(p.nif) === cleanedNIF);
+          const provExistente = proveedores.find(p => {
+            const cleanP = cleanNIF(p.nif);
+            return cleanP && cleanP === cleanedNIF;
+          });
 
           setIsAiModalOpen(false);
           
-          if (provExistente) {
+          if (provExistente && cleanedNIF !== "") {
             setProveedorId(provExistente.id);
             setDetectedProvider(null);
             setIsModalOpen(true);
           } else {
+            console.log("Proveedor no detectado o NIF vacío. Proponiendo alta...");
             const cpDetected = result.proveedor_cp || "";
             let geoData = { poblacion: "", provincia: "" };
             if (cpDetected.length === 5) {
@@ -422,8 +426,7 @@ export default function CostesPage() {
         descripcion: l.descripcion,
         unidades: Number(l.unidades),
         precio_unitario: Number(l.precio_unitario),
-        iva_pct: Number(l.iva_pct),
-        user_id: user.id
+        iva_pct: Number(l.iva_pct)
       }));
 
       await supabase.from("coste_lineas").insert(lineasConId);
