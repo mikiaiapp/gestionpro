@@ -101,16 +101,19 @@ export default function AjustesClient() {
     setLoading(false);
   };
 
+  const lastSavedPayload = useRef("");
+
   useEffect(() => {
     if (initialLoadDone.current && user) {
       const timer = setTimeout(() => {
         handleSaveAll();
-      }, 1500); // 1.5s debounce
+      }, 3000); // 3s debounce
       return () => clearTimeout(timer);
     }
   }, [
     nombre, nif, cuentaBancaria, direccion, cp, poblacion, provincia, 
-    email, geminiKey, logoUrl, formaPago, tieneRetencion, irpfDefault, 
+    email, geminiKey, logoUrl, formaPago, tieneRetencion, irpfDefault,
+    condicionesLegales, lopdText,
     verifactuCert, verifactuCertPassword, verifactuEnv
   ]);
 
@@ -181,9 +184,13 @@ export default function AjustesClient() {
         forma_pago_default: formaPago, tiene_retencion: tieneRetencion, irpf_default: irpfDefault,
         condiciones_legales: condicionesLegales, lopd_text: lopdText,
         verifactu_certificado: verifactuCert,
-        verifactu_pass: verifactuCertPassword.includes(':') ? verifactuCertPassword : encrypt(verifactuCertPassword),
+        verifactu_pass: verifactuCertPassword,
         verifactu_env: verifactuEnv
       };
+
+      const payloadString = JSON.stringify(payload);
+      if (payloadString === lastSavedPayload.current) return;
+      lastSavedPayload.current = payloadString;
 
       await supabase.from('perfil_negocio').upsert(payload, { onConflict: 'user_id' });
       setAutoStatus('saved');
