@@ -1,10 +1,9 @@
-// Caché en memoria y lista de excluidos temporalmente (por saturación)
+// Caché en memoria para el modelo preferido
 let cachedModel: string | null = null;
-const blacklistedModels = new Set<string>();
 
-async function getBestModel(apiKey: string, forceDiscovery = false): Promise<string> {
-  // Si ya tenemos un modelo y no se pide redescubrimiento, lo devolvemos
-  if (cachedModel && !forceDiscovery) return cachedModel;
+async function getBestModel(apiKey: string, excluded: Set<string> = new Set()): Promise<string> {
+  // Si tenemos un modelo en caché y no está excluido, lo usamos
+  if (cachedModel && !excluded.has(cachedModel)) return cachedModel;
 
   try {
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
@@ -12,49 +11,47 @@ async function getBestModel(apiKey: string, forceDiscovery = false): Promise<str
     if (data.error) throw new Error(data.error.message);
     
     const models = data.models || [];
-    
-    // Jerarquía de preferencia (Ordenado por estabilidad y generosidad de cuota)
     const priorities = [
-      "gemini-1.5-flash",        // Balance perfecto velocidad/cuota
+      "gemini-1.5-flash",
       "gemini-1.5-flash-latest", 
-      "gemini-1.5-flash-8b",     // Más rápido pero cuotas más bajas
-      "gemini-2.0-flash",        // Muy rápido pero límites experimentales estrictos
-      "gemini-1.5-pro"           // Más preciso pero lento
+      "gemini-1.5-flash-8b",
+      "gemini-2.0-flash",
+      "gemini-1.5-pro"
     ];
 
     for (const modelId of priorities) {
       const found = models.find((m: any) => 
         m.name.includes(modelId) && 
         m.supportedGenerationMethods.includes("generateContent") &&
-        !blacklistedModels.has(m.name) // Evitar modelos que sabemos que están saturados
+        !excluded.has(m.name)
       );
       if (found) {
         cachedModel = found.name;
-        return cachedModel!;
+        return found.name;
       }
     }
 
-    const fallback = models.find((m: any) => m.supportedGenerationMethods.includes("generateContent") && !blacklistedModels.has(m.name));
-    cachedModel = fallback?.name || "models/gemini-1.5-flash";
-    return cachedModel!;
+    const fallback = models.find((m: any) => m.supportedGenerationMethods.includes("generateContent") && !excluded.has(m.name));
+    return fallback?.name || "models/gemini-1.5-flash";
   } catch (error) {
     return "models/gemini-1.5-flash";
   }
 }
 
 export async function extractDataFromInvoice(base64File: string, apiKey: string) {
-  const PROMPT = `Extract invoice data: {proveedor_nombre, proveedor_nif, proveedor_direccion, proveedor_cp, num_factura, fecha, lineas: [{descripcion, unidades, precio_unitario, iva_pct}], retencion_pct}. If multiple IVAs, separate into lines. output JSON only.`;
+  const PROMPT = `Extract invoice data: {proveedor_nombre, proveedor_nif, proveedor_direccion, proveedor_cp, num_factura, fecha, lineas: [{descripcion, unidades, precio_unitario, iva_pct}], retencion_pct}. output JSON only.`;
 
-  let lastError = null;
-  const MAX_RETRIES = 3; 
+  let lastErrorMsg = "Error desconocido";
+  const excludedThisSession = new Set<string>();
+  const MAX_RETRIES = 5; // Suficientes intentos para rotar por todos los modelos
 
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     let currentModel = "";
     try {
       const cleanApiKey = apiKey.trim();
-      currentModel = await getBestModel(cleanApiKey);
+      currentModel = await getBestModel(cleanApiKey, excludedThisSession);
       
-      console.log(`⚡ Extracción inteligente (intento ${attempt + 1}) con ${currentModel}`);
+      console.log(`⚡ [Intento ${attempt + 1}/${MAX_RETRIES}] Probando con ${currentModel}`);
 
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/${currentModel}:generateContent?key=${cleanApiKey}`, {
         method: 'POST',
@@ -63,63 +60,52 @@ export async function extractDataFromInvoice(base64File: string, apiKey: string)
           contents: [{
             parts: [
               { text: PROMPT },
-              { 
-                inline_data: { 
-                  mime_type: "application/pdf", 
-                  data: base64File.split(',')[1] || base64File 
-                } 
-              }
+              { inline_data: { mime_type: "application/pdf", data: base64File.split(',')[1] || base64File } }
             ]
           }],
-          generationConfig: {
-            response_mime_type: "application/json",
-            temperature: 0.1,
-          }
+          generationConfig: { response_mime_type: "application/json", temperature: 0.1 }
         })
       });
 
       const data = await response.json();
       
       if (data.error) {
-        const errorMsg = data.error.message.toLowerCase();
-        
-        // Si el error es de cuota (429) o saturación (503 / 429), penalizamos el modelo y reintentamos con otro
-        if (data.error.code === 429 || data.error.code === 503 || errorMsg.includes("quota") || errorMsg.includes("limit")) {
-          console.warn(`⚠️ Modelo ${currentModel} saturado o sin cuota. Buscando alternativa...`);
-          blacklistedModels.add(currentModel); // Lo banneamos temporalmente
-          cachedModel = null; // Forzamos búsqueda de otro modelo
-          await new Promise(r => setTimeout(r, 1000)); // Breve pausa para limpiar el aire
+        lastErrorMsg = data.error.message;
+        const code = data.error.code;
+
+        // Si es error de cuota o saturación, marcamos este modelo como "lleno" para este proceso y reintentamos con otro
+        if (code === 429 || code === 503 || lastErrorMsg.toLowerCase().includes("quota") || lastErrorMsg.toLowerCase().includes("limit")) {
+          console.warn(`⏳ Modelo ${currentModel} agotado. Rotando...`);
+          excludedThisSession.add(currentModel);
+          if (cachedModel === currentModel) cachedModel = null;
+          await new Promise(r => setTimeout(r, 1000));
           continue; 
         }
         
-        if (data.error.code === 404 || data.error.code === 400) {
-          blacklistedModels.add(currentModel);
-          cachedModel = null;
+        // Si el modelo no existe o no es compatible, lo descartamos
+        if (code === 404 || code === 400) {
+          excludedThisSession.add(currentModel);
+          if (cachedModel === currentModel) cachedModel = null;
           continue;
         }
 
-        throw new Error(`API Gemini: ${data.error.message}`);
+        throw new Error(lastErrorMsg);
       }
 
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!text) throw new Error("Sin respuesta de IA");
+      if (!text) throw new Error("La IA no devolvió datos");
       
       return JSON.parse(text.trim());
 
     } catch (error: any) {
-      console.error(`Error en intento ${attempt + 1}:`, error);
-      lastError = error;
-      
-      // Si el error parece de conectividad o de la API misma, probamos otro modelo
-      if (currentModel) {
-        blacklistedModels.add(currentModel);
-        cachedModel = null;
-      }
-
+      console.error(`❌ Error en ${currentModel}:`, error);
+      lastErrorMsg = error.message;
+      excludedThisSession.add(currentModel);
+      if (cachedModel === currentModel) cachedModel = null;
       if (attempt === MAX_RETRIES - 1) break;
       await new Promise(r => setTimeout(r, 500));
     }
   }
 
-  throw lastError || new Error("Fallo en extracción inteligente tras varios intentos");
+  throw new Error(`Fallo en IA tras agotar rotación de modelos. Último error: ${lastErrorMsg}`);
 }
