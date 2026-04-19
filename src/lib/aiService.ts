@@ -1,30 +1,14 @@
-// Motor de IA Optimizado (Bajo Consumo de Cuota y Tokens)
-let cachedModel: string | null = null; // Caché persistente en memoria
-
+// Volviendo a la Robustez Original (Modelo Fijo + Bajo Consumo)
 export async function extractDataFromInvoice(base64File: string, apiKey: string) {
   const cleanApiKey = apiKey.trim();
 
-  // Prompt ultra-comprimido (Ahorro de tokens)
+  // Prompt optimizado al máximo para ahorrar tokens y cuota
   const PROMPT = "Extrae JSON: {proveedor_nombre, proveedor_nif, proveedor_direccion, proveedor_cp, num_factura, fecha (YYYY-MM-DD), lineas:[{descripcion, unidades, precio_unitario, iva_pct}], retencion_pct}. Sé preciso con NIF e importes.";
 
   try {
-    // Escaneo inteligente: Solo ejecutamos ListModels si no hay caché
-    if (!cachedModel) {
-      console.log("🔍 Descubriendo modelo compatible...");
-      const mRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${cleanApiKey}`);
-      const mData = await mRes.json();
-      
-      if (mData.error) throw new Error(mData.error.message);
-      
-      // Priorizamos 1.5-flash por eficiencia
-      cachedModel = mData.models?.find((m: any) => m.name.includes("gemini-1.5-flash"))?.name 
-                   || mData.models?.[0]?.name;
-      
-      console.log(`✅ Modelo seleccionado: ${cachedModel}`);
-    }
-
-    // Llamada directa: Ahorramos 1 petición (RPS) por cada factura
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/${cachedModel}:generateContent?key=${cleanApiKey}`, {
+    // Usamos el modelo 1.5-flash directamente (es el que tiene los límites más altos en el plan gratuito)
+    // Forzamos la versión v1beta que es la más compatible con PDF en el plan Free
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${cleanApiKey}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -34,26 +18,32 @@ export async function extractDataFromInvoice(base64File: string, apiKey: string)
             { inline_data: { mime_type: "application/pdf", data: base64File.split(",")[1] || base64File } }
           ]
         }],
-        generationConfig: { temperature: 0.1 }
+        generationConfig: { 
+          temperature: 0.1,
+          topP: 0.1,
+          topK: 1
+        }
       })
     });
 
     const data = await response.json();
 
     if (data.error) {
-      // Si el modelo guardado da error de disponibilidad, reseteamos caché para el próximo intento
-      if (data.error.code === 404) cachedModel = null;
+      if (data.error.code === 429) {
+        throw new Error(`Límite de Google alcanzado. Por favor, realiza esta factura de nuevo en 60 segundos.`);
+      }
       throw new Error(data.error.message);
     }
 
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!text) throw new Error("IA sin respuesta.");
+    if (!text) throw new Error("Sin respuesta de la IA.");
 
+    // Limpieza de JSON por si la IA añade bloques markdown
     const cleanJson = text.replace(/```json/g, "").replace(/```/g, "").trim();
     return JSON.parse(cleanJson);
 
   } catch (error: any) {
-    console.error("Error en IA (Bajo Consumo):", error.message);
-    throw new Error(`IA: ${error.message}`);
+    console.error("Fallo IA:", error.message);
+    throw new Error(`Atención: ${error.message}`);
   }
 }
