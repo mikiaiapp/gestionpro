@@ -71,7 +71,6 @@ const menuStructure: MenuSection[] = [
   {
     label: "SISTEMA",
     items: [
-      { icon: Users, label: "Usuarios", href: "/usuarios" },
       { icon: Settings, label: "Ajustes", href: "/ajustes" },
     ]
   }
