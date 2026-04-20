@@ -667,21 +667,22 @@ export default function ProyectosPage() {
                </div>
 
                <div className="flex flex-col md:flex-row justify-between items-start pt-8 border-t border-gray-100 gap-8">
-                   {perfil?.tiene_retencion && (
-                     <div>
-                       <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Retención IRPF (%)</label>
-                       <select
-                         value={retencionPct}
-                         onChange={(e) => setRetencionPct(parseFloat(e.target.value) || 0)}
-                         className="w-full p-2.5 rounded-lg border border-gray-200 bg-gray-50 font-bold outline-none focus:bg-white transition-all"
-                       >
-                         <option value="0">Sin Retención (0%)</option>
-                         {tiposIrpf.map(t => (
-                           <option key={t.id} value={t.valor}>{t.nombre} ({t.valor}%)</option>
-                         ))}
-                       </select>
-                     </div>
-                   )}
+                  <div className="w-full md:w-80 space-y-4">
+                    {perfil?.tiene_retencion && (
+                      <div>
+                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Retención IRPF (%)</label>
+                        <select
+                          value={retencionPct}
+                          onChange={(e) => setRetencionPct(parseFloat(e.target.value) || 0)}
+                          className="w-full p-2.5 rounded-lg border border-gray-200 bg-gray-50 font-bold outline-none focus:bg-white transition-all"
+                        >
+                          <option value="0">Sin Retención (0%)</option>
+                          {tiposIrpf.map(t => (
+                            <option key={t.id} value={t.valor}>{t.nombre} ({t.valor}%)</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                     <div className="p-4 rounded-xl border border-red-50 bg-red-50/50">
                       <label className="block text-[10px] font-bold text-red-400 uppercase mb-1">TOTAL COSTE PREVISTO</label>
                       <div className="text-xl font-mono font-bold text-red-600">
