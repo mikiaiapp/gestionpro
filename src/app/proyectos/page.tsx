@@ -667,20 +667,21 @@ export default function ProyectosPage() {
                </div>
 
                <div className="flex flex-col md:flex-row justify-between items-start pt-8 border-t border-gray-100 gap-8">
-                  <div className="w-full md:w-80 space-y-4">
-                    <div>
-                      <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Retención IRPF (%)</label>
-                      <select
-                        value={retencionPct}
-                        onChange={(e) => setRetencionPct(parseFloat(e.target.value) || 0)}
-                        className="w-full p-2.5 rounded-lg border border-gray-200 bg-gray-50 font-bold outline-none focus:bg-white transition-all"
-                      >
-                        <option value="0">Sin Retención (0%)</option>
-                        {tiposIrpf.map(t => (
-                          <option key={t.id} value={t.valor}>{t.nombre} ({t.valor}%)</option>
-                        ))}
-                      </select>
-                    </div>
+                   {perfil?.tiene_retencion && (
+                     <div>
+                       <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Retención IRPF (%)</label>
+                       <select
+                         value={retencionPct}
+                         onChange={(e) => setRetencionPct(parseFloat(e.target.value) || 0)}
+                         className="w-full p-2.5 rounded-lg border border-gray-200 bg-gray-50 font-bold outline-none focus:bg-white transition-all"
+                       >
+                         <option value="0">Sin Retención (0%)</option>
+                         {tiposIrpf.map(t => (
+                           <option key={t.id} value={t.valor}>{t.nombre} ({t.valor}%)</option>
+                         ))}
+                       </select>
+                     </div>
+                   )}
                     <div className="p-4 rounded-xl border border-red-50 bg-red-50/50">
                       <label className="block text-[10px] font-bold text-red-400 uppercase mb-1">TOTAL COSTE PREVISTO</label>
                       <div className="text-xl font-mono font-bold text-red-600">
@@ -691,7 +692,7 @@ export default function ProyectosPage() {
                   <div className="w-full md:w-80 space-y-3">
                     <div className="flex justify-between text-sm"><span>Base Imponible (Venta):</span><span className="font-mono font-bold">{formatCurrency(baseImponible)}</span></div>
                     <div className="flex justify-between text-sm"><span>IVA (21%):</span><span className="font-mono font-bold">{formatCurrency(cuotaIva)}</span></div>
-                    {retencionPct > 0 && <div className="flex justify-between text-sm text-red-600"><span>Retención ({retencionPct}%):</span><span className="font-mono font-bold">-{formatCurrency(retencionImporte)}</span></div>}
+                    {perfil?.tiene_retencion && retencionPct > 0 && <div className="flex justify-between text-sm text-red-600"><span>Retención ({retencionPct}%):</span><span className="font-mono font-bold">-{formatCurrency(retencionImporte)}</span></div>}
                     <div className="flex justify-between text-xl font-bold pt-3 border-t-2 border-gray-200 text-gray-800"><span>TOTAL VENTA:</span><span className="text-orange-600">{formatCurrency(totalProyecto)}</span></div>
                </div>
                </div>
