@@ -486,7 +486,7 @@ export default function ProyectosPage() {
                 <p className="text-[var(--muted)] font-medium">Planificación y gestión de presupuestos financieros.</p>
               </div>
               <button 
-                onClick={() => { setEditingId(null); setNombre(""); setClienteId(""); setNumReferencia(""); setLineas([{ unidades: 1, descripcion: "", precio_unitario: 0 }]); setIsEditorOpen(true); }}
+                onClick={() => { setEditingId(null); setNombre(""); setClienteId(""); setNumReferencia(""); setLineas([{ unidades: 1, descripcion: "", precio_unitario: 0, coste: 0 }]); setIsEditorOpen(true); }}
                 className="flex items-center gap-2 px-6 py-3 rounded-xl bg-[var(--accent)] text-white font-bold hover:shadow-lg transition-all active:scale-[0.98]"
               >
                 <Plus size={18} /> Nuevo Presupuesto
@@ -694,11 +694,9 @@ export default function ProyectosPage() {
                     <div className="flex justify-between text-sm"><span>IVA (21%):</span><span className="font-mono font-bold">{formatCurrency(cuotaIva)}</span></div>
                     {retencionPct > 0 && <div className="flex justify-between text-sm text-red-600"><span>Retención ({retencionPct}%):</span><span className="font-mono font-bold">-{formatCurrency(retencionImporte)}</span></div>}
                     <div className="flex justify-between text-xl font-bold pt-3 border-t-2 border-gray-200 text-gray-800"><span>TOTAL VENTA:</span><span className="text-orange-600">{formatCurrency(totalProyecto)}</span></div>
-                  </div>
+               </div>
                </div>
 
-                  </div>
-               </div>
 
                <div className="mt-8 pt-8 border-t border-dashed border-gray-200 space-y-6">
                   {/* Condiciones Particulares: específicas de este presupuesto */}
