@@ -377,7 +377,8 @@ export default function DocumentosPage() {
                    <div className="flex flex-col items-center justify-center p-32 text-center">
                       <Files size={64} className="text-gray-100 mb-4" />
                       <p className="text-gray-400 font-bold">Sin archivos en esta ubicación.</p>
-                               ) : (
+                   </div>
+                ) : (
                    <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
                       {/* Encabezado Estilo Windows */}
                       <div className="hidden md:grid grid-cols-12 gap-4 px-6 py-3 border-b border-gray-100 bg-gray-50/50 text-[10px] font-bold uppercase tracking-wider text-slate-500">
@@ -464,7 +465,6 @@ export default function DocumentosPage() {
                          })}
                       </div>
                    </div>
-    </div>
                 )}
              </div>
           </div>
