@@ -165,12 +165,12 @@ export default function ProyectosPage() {
     const totalCoste = newLineas.reduce((acc, l) => acc + (l.unidades * (l.coste_unitario || 0)), 0);
     setCostePrevisto(totalCoste);
   };
-  const updateLinea = (index: number, field: keyof LineaProyecto, value: any) => {
+  const updateLinea = (index: number, updates: Partial<LineaProyecto>) => {
     const newLineas = [...lineas];
-    newLineas[index] = { ...newLineas[index], [field]: value };
+    newLineas[index] = { ...newLineas[index], ...updates };
     setLineas(newLineas);
 
-    // Auto-calculamos el coste previsto total
+    // Auto-calculamos el coste previsto total con los nuevos datos
     const totalCoste = newLineas.reduce((acc, l) => acc + (l.unidades * (l.coste_unitario || 0)), 0);
     setCostePrevisto(totalCoste);
   };
@@ -644,18 +644,17 @@ export default function ProyectosPage() {
                   <tbody>
                     {lineas.map((linea, idx) => (
                       <tr key={idx}>
-                        <td className="py-2 pr-4"><textarea rows={1} value={linea.descripcion} onChange={(e) => updateLinea(idx, "descripcion", e.target.value)} className="w-full p-2 rounded-lg border border-gray-100 text-sm" /></td>
+                        <td className="py-2 pr-4"><textarea rows={1} value={linea.descripcion} onChange={(e) => updateLinea(idx, { descripcion: e.target.value })} className="w-full p-2 rounded-lg border border-gray-100 text-sm" /></td>
                         <td className="py-2 pr-4">
                           <input 
                             type="text" 
                             inputMode="decimal"
-                            value={linea.coste_unitario === 0 ? '' : linea.coste_unitario} 
+                            value={linea.coste_unitario === 0 ? '' : (linea.coste_unitario || '')} 
                             onChange={(e) => {
                                const raw = e.target.value.replace(',', '.');
                                if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
                                  const val = raw === '' ? 0 : parseFloat(raw);
-                                 updateLinea(idx, "coste_unitario", isNaN(val) ? 0 : val);
-                                 updateLinea(idx, "unidades", 1);
+                                 updateLinea(idx, { coste_unitario: isNaN(val) ? 0 : val, unidades: 1 });
                                }
                             }} 
                             onFocus={(e) => e.target.select()}
@@ -667,13 +666,12 @@ export default function ProyectosPage() {
                           <input 
                             type="text" 
                             inputMode="decimal"
-                            value={linea.precio_unitario === 0 ? '' : linea.precio_unitario} 
+                            value={linea.precio_unitario === 0 ? '' : (linea.precio_unitario || '')} 
                             onChange={(e) => {
                                const raw = e.target.value.replace(',', '.');
                                if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
                                  const val = raw === '' ? 0 : parseFloat(raw);
-                                 updateLinea(idx, "precio_unitario", isNaN(val) ? 0 : val);
-                                 updateLinea(idx, "unidades", 1);
+                                 updateLinea(idx, { precio_unitario: isNaN(val) ? 0 : val, unidades: 1 });
                                }
                             }} 
                             onFocus={(e) => e.target.select()}
