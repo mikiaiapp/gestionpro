@@ -485,7 +485,7 @@ export default function ResumenPage() {
                                    return (
                                      <React.Fragment key={c.id}>
                                        <tr className="bg-white">
-                                         <td className="px-4 py-3 font-bold text-blue-600">{c.num_interno || c.registro_interno || c.numero}</td>
+                                         <td className="px-4 py-3 font-bold text-blue-600">{c.num_interno || c.numero || "S/N"}</td>
                                          <td className="px-4 py-3">
                                             <div className="font-bold">{c.proveedores?.nombre || 'Gasto'}</div>
                                             <div className="text-[9px] text-gray-400 flex items-center gap-1 uppercase tracking-tighter">

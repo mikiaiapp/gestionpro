@@ -126,7 +126,7 @@ export default function DocumentosPage() {
          });
 
       } else if (currentPath === "recibidas") {
-         const { data: dCosts } = await supabase.from('costes').select('id, registro_interno, num_interno, numero, num_factura_proveedor, archivo_url, proveedores(nombre)').not('archivo_url', 'is', null).eq('user_id', user.id);
+         const { data: dCosts } = await supabase.from('costes').select('id, num_interno, numero, num_factura_proveedor, archivo_url, proveedores(nombre)').not('archivo_url', 'is', null).eq('user_id', user.id);
          
          const physical = stFiles.map(f => ({
             ...f,

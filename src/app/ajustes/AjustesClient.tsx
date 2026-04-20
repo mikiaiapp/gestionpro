@@ -59,6 +59,17 @@ export default function AjustesClient() {
   const [imagenCorporativaUrl, setImagenCorporativaUrl] = useState('');
   const [textoAceptacion, setTextoAceptacion] = useState('');
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Contadores y Series
+  const [contadorVentas, setContadorVentas] = useState(1);
+  const [contadorCostes, setContadorCostes] = useState(1);
+  const [contadorProyectos, setContadorProyectos] = useState(1);
+  const [serieVentas, setSerieVentas] = useState('A');
+  const [serieCostes, setSerieCostes] = useState('A');
+  const [serieProyectos, setSerieProyectos] = useState('P');
+  const [prefijoVentas, setPrefijoVentas] = useState('');
+  const [prefijoCostes, setPrefijoCostes] = useState('');
+  const [prefijoProyectos, setPrefijoProyectos] = useState('');
   
   const [verifactuCert, setVerifactuCert] = useState('');
   const [verifactuCertPassword, setVerifactuCertPassword] = useState('');
@@ -118,7 +129,10 @@ export default function AjustesClient() {
     nombre, nif, cuentaBancaria, direccion, cp, poblacion, provincia, 
     email, geminiKey, logoUrl, imagenCorporativaUrl, formaPago, tieneRetencion, irpfDefault,
     condicionesLegales, lopdText, telefono, textoAceptacion,
-    verifactuCert, verifactuCertPassword, verifactuEnv
+    verifactuCert, verifactuCertPassword, verifactuEnv,
+    contadorVentas, contadorCostes, contadorProyectos,
+    serieVentas, serieCostes, serieProyectos,
+    prefijoVentas, prefijoCostes, prefijoProyectos
   ]);
 
   const fetchAutoBackups = async (userId: string) => {
@@ -162,6 +176,17 @@ export default function AjustesClient() {
         setTelefono(data.telefono || '');
         setImagenCorporativaUrl(data.imagen_corporativa_url || '');
         setTextoAceptacion(data.texto_aceptacion || '');
+        
+        // Contadores
+        setContadorVentas(data.contador_ventas || 1);
+        setContadorCostes(data.contador_costes || 1);
+        setContadorProyectos(data.contador_proyectos || 1);
+        setSerieVentas(data.serie_ventas || 'A');
+        setSerieCostes(data.serie_costes || 'A');
+        setSerieProyectos(data.serie_proyectos || 'P');
+        setPrefijoVentas(data.prefijo_ventas || '');
+        setPrefijoCostes(data.prefijo_costes || '');
+        setPrefijoProyectos(data.prefijo_proyectos || '');
       }
       
       const { data: prof } = await supabase.from('perfiles').select('two_factor_enabled, two_factor_secret').eq('id', userId).single();
@@ -196,7 +221,16 @@ export default function AjustesClient() {
         texto_aceptacion: textoAceptacion,
         verifactu_certificado: verifactuCert,
         verifactu_pass: verifactuCertPassword,
-        verifactu_env: verifactuEnv
+        verifactu_env: verifactuEnv,
+        contador_ventas: contadorVentas,
+        contador_costes: contadorCostes,
+        contador_proyectos: contadorProyectos,
+        serie_ventas: serieVentas,
+        serie_costes: serieCostes,
+        serie_proyectos: serieProyectos,
+        prefijo_ventas: prefijoVentas,
+        prefijo_costes: prefijoCostes,
+        prefijo_proyectos: prefijoProyectos
       };
 
       const payloadString = JSON.stringify(payload);
@@ -619,6 +653,45 @@ export default function AjustesClient() {
                   <input type="text" placeholder="C.P." value={cp} maxLength={5} onChange={e => setCp(e.target.value)} className="px-6 py-5 rounded-[1.5rem] border bg-gray-50 outline-none font-mono focus:bg-white transition-all" />
                   <input type="text" placeholder="Ciudad" value={poblacion} onChange={e => setPoblacion(e.target.value)} className="px-6 py-5 rounded-[1.5rem] border bg-gray-50 outline-none font-sans focus:bg-white transition-all" />
                   <input type="text" placeholder="Provincia" value={provincia} onChange={e => setProvincia(e.target.value)} className="px-6 py-5 rounded-[1.5rem] border bg-gray-50 outline-none font-sans focus:bg-white transition-all" />
+                </div>
+
+                <div className="md:col-span-2 pt-8 border-t border-dashed">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="p-2 bg-blue-50 rounded-lg text-blue-600"><RotateCcw size={18} /></div>
+                    <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest pl-1 font-sans">Contadores de Documentos</h3>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8 p-8 bg-gray-50 rounded-[2rem] border border-gray-100">
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Ventas (Emitidas)</label>
+                      <div className="flex gap-2">
+                        <input type="text" value={serieVentas} onChange={e => setSerieVentas(e.target.value.toUpperCase())} maxLength={3} placeholder="S" className="w-20 px-4 py-4 rounded-2xl border bg-white font-black text-blue-600 text-center uppercase" />
+                        <input type="text" value={prefijoVentas} onChange={e => setPrefijoVentas(e.target.value)} placeholder="Prefijo (ej: INV-)" title="Prefijo opcional" className="w-32 px-4 py-4 rounded-2xl border bg-white font-bold text-xs" />
+                        <input type="number" value={contadorVentas} onChange={e => setContadorVentas(parseInt(e.target.value) || 1)} className="flex-1 px-4 py-4 rounded-2xl border bg-white font-mono font-bold text-lg" />
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Compras (Gastos)</label>
+                      <div className="flex gap-2">
+                        <input type="text" value={serieCostes} onChange={e => setSerieCostes(e.target.value.toUpperCase())} maxLength={3} placeholder="G" className="w-20 px-4 py-4 rounded-2xl border bg-white font-black text-red-600 text-center uppercase" />
+                        <input type="text" value={prefijoCostes} onChange={e => setPrefijoCostes(e.target.value)} placeholder="Prefijo" className="w-32 px-4 py-4 rounded-2xl border bg-white font-bold text-xs" />
+                        <input type="number" value={contadorCostes} onChange={e => setContadorCostes(parseInt(e.target.value) || 1)} className="flex-1 px-4 py-4 rounded-2xl border bg-white font-mono font-bold text-lg" />
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Presupuestos</label>
+                      <div className="flex gap-2">
+                        <input type="text" value={serieProyectos} onChange={e => setSerieProyectos(e.target.value.toUpperCase())} maxLength={3} placeholder="P" className="w-20 px-4 py-4 rounded-2xl border bg-white font-black text-orange-600 text-center uppercase" />
+                        <input type="text" value={prefijoProyectos} onChange={e => setPrefijoProyectos(e.target.value)} placeholder="Prefijo" className="w-32 px-4 py-4 rounded-2xl border bg-white font-bold text-xs" />
+                        <input type="number" value={contadorProyectos} onChange={e => setContadorProyectos(parseInt(e.target.value) || 1)} className="flex-1 px-4 py-4 rounded-2xl border bg-white font-mono font-bold text-lg" />
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-gray-400 mt-4 px-2 italic font-sans">
+                    Define aquí el número por el que deseas que comiencen tus próximos documentos. Se incrementarán automáticamente después de cada emisión.
+                  </p>
                 </div>
                </div>
 

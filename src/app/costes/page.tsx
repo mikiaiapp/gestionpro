@@ -84,13 +84,23 @@ export default function CostesPage() {
   // Numeración correlativa automática (Libro de IVA Soportado)
   useEffect(() => {
     if (!editingId && isModalOpen && costes.length >= 0) {
-       const maxNum = costes.reduce((acc, c) => {
-        const n = parseInt(c.num_interno || c.registro_interno || c.numero || "0");
+       // 1. Obtener base del perfil
+       let nextNum = perfil?.contador_costes || 1;
+
+       // 2. Verificar contra base de datos por seguridad
+       const dbMax = costes.reduce((acc, c) => {
+        const n = parseInt(c.num_interno || c.numero || "0");
         return isNaN(n) ? acc : Math.max(acc, n);
        }, 0);
-       setNumInterno((maxNum + 1).toString());
+
+       if (dbMax >= nextNum) nextNum = dbMax + 1;
+       
+       setNumInterno(nextNum.toString());
+       
+       // Sintonizar serie por defecto si existe
+       if (perfil?.serie_costes) setSerie(perfil.serie_costes);
     }
-  }, [isModalOpen, editingId, costes]);
+  }, [isModalOpen, editingId, costes, perfil]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -426,7 +436,7 @@ export default function CostesPage() {
       setIfFound(['metodo_pago', 'forma_pago'], pagoForma);
       setIfFound(['estado_pago', 'pagado', 'status_pago'], estadoPago);
 
-      setIfFound(['num_interno', 'registro_interno', 'numero'], numInterno);
+      setIfFound(['num_interno', 'numero'], numInterno);
       setIfFound(['num_factura_proveedor', 'numero_factura', 'num_factura', 'factura_prov', 'referencia'], numFactProv);
       setIfFound(['base_imponible', 'base', 'subtotal'], baseImponible);
       setIfFound(['iva_importe', 'cuota_iva', 'iva_total', 'iva'], totalIva);
@@ -454,26 +464,21 @@ export default function CostesPage() {
       }
       setIfFound(['pdf_url', 'archivo_url', 'url_archivo'], finalPdfUrl);
 
-      // Si no tenemos columnas detectadas (primer registro), forzamos mapeo estándar
+      // Si no tenemos columnas detectadas (primer registro), forzamos mapeo estándar más seguro
       if (availableCols.length === 0) {
-        payload.registro_interno = numInterno;
+        payload.num_interno = numInterno;
         payload.num_factura_proveedor = numFactProv;
         payload.base_imponible = baseImponible;
-        payload.iva_importe = totalIva;
+        payload.total = totalFactura;
         payload.archivo_url = finalPdfUrl;
       }
 
       let currentId = editingId;
       if (editingId) {
-        console.log("📝 Actualizando factura existente ID:", editingId);
-        const { error: uErr } = await supabase.from("costes").update(payload).eq("id", editingId);
-        if (uErr) {
-           console.error("❌ Error en UPDATE costes:", uErr);
-           throw new Error(`[TABLA COSTES] No se pudo actualizar: ${uErr.message}`);
-        }
+        const { error: updErr } = await supabase.from('costes').update(payload).eq('id', editingId).eq('user_id', user.id);
+        if (updErr) throw updErr;
         await supabase.from("coste_lineas").delete().eq("coste_id", editingId);
       } else {
-        console.log("🆕 Insertando nueva factura en tabla 'costes'...");
         const { data: newCosteRows, error: iErr } = await supabase.from("costes").insert([payload]).select('id');
         
         if (iErr) {
@@ -486,7 +491,12 @@ export default function CostesPage() {
         }
         
         currentId = newCosteRows[0].id;
-        console.log("✅ Cabecera creada ID:", currentId);
+
+        // INCREMENTAR CONTADOR EN PERFIL
+        const nextCount = (perfil?.contador_costes || 1) + 1;
+        await supabase.from("perfil_negocio").update({ contador_costes: nextCount }).eq("user_id", user.id);
+        setPerfil({ ...perfil, contador_costes: nextCount });
+        console.log("✅ Gasto creado con ID:", currentId);
       }
 
       const lineasConId = lineas.map(l => ({

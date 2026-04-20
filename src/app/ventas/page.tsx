@@ -180,30 +180,42 @@ function VentasContent() {
 
   const getNextNumber = (targetSerie: string, allVentas: any[]) => {
     const currentYear = new Date().getFullYear();
-    const yearPrefix = `${currentYear}-`;
+    const defaultPrefix = `${currentYear}-`;
+    const finalPrefix = perfil?.prefijo_ventas || defaultPrefix;
+    
+    // 1. Obtener base del perfil
+    let nextNum = perfil?.contador_ventas || 1;
+
+    // 2. Verificar contra base de datos por seguridad
     const filteredVentas = allVentas.filter(v => 
       v.serie === targetSerie && 
       v.num_factura && 
-      v.num_factura.startsWith(yearPrefix)
+      v.num_factura.startsWith(finalPrefix)
     );
 
     if (filteredVentas.length > 0) {
-      const numbers = filteredVentas.map(v => {
-        const parts = v.num_factura.split("-");
-        return parseInt(parts[1], 10) || 0;
+      const dbNumbers = filteredVentas.map(v => {
+        const parts = v.num_factura.split(finalPrefix);
+        const lastPart = parts[parts.length - 1];
+        return parseInt(lastPart, 10) || 0;
       });
-      const nextNum = Math.max(...numbers) + 1;
-      return `${yearPrefix}${nextNum.toString().padStart(3, "0")}`;
+      const maxInDb = Math.max(...dbNumbers);
+      if (maxInDb >= nextNum) nextNum = maxInDb + 1;
     }
-    return `${yearPrefix}001`;
+
+    // Si el prefijo ya termina en guion o separador, no añadimos otro (o dejamos que el usuario lo decida)
+    return `${finalPrefix}${nextNum.toString().padStart(3, "0")}`;
   };
 
   useEffect(() => {
     if (isEditorOpen && !editingId) {
-      const next = getNextNumber(serie, ventas);
+      // Usar serie del perfil si existe
+      const defaultSerie = perfil?.serie_ventas || "A";
+      setSerie(defaultSerie);
+      const next = getNextNumber(defaultSerie, ventas);
       setNumFactura(next);
     }
-  }, [serie, isEditorOpen, editingId, ventas]);
+  }, [isEditorOpen, editingId, ventas, perfil]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -362,6 +374,11 @@ function VentasContent() {
         const { data: venta, error: vError } = await supabase.from("ventas").insert([payload]).select().single();
         if (vError) throw vError;
         currentVentaId = venta.id;
+
+        // INCREMENTAR CONTADOR EN PERFIL
+        const nextCount = (perfil?.contador_ventas || 1) + 1;
+        await supabase.from("perfil_negocio").update({ contador_ventas: nextCount }).eq("user_id", user.id);
+        setPerfil({ ...perfil, contador_ventas: nextCount });
       }
 
       const lineasToInsert = lineas.map(l => ({

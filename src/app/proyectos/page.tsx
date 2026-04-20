@@ -62,36 +62,47 @@ export default function ProyectosPage() {
 
   const getNextNumber = (targetSerie: string, allProjs: any[]) => {
     const currentYear = new Date().getFullYear();
-    const yearPrefix = `${currentYear}-`;
+    const defaultPrefix = `${currentYear}-`;
+    const finalPrefix = perfil?.prefijo_proyectos || defaultPrefix;
+    
+    // 1. Obtener base del perfil
+    let nextNum = perfil?.contador_proyectos || 1;
+
+    // 2. Verificar contra base de datos por seguridad
     const filtered = allProjs.filter(p => 
       p.serie === targetSerie && 
       p[columnKey] && 
-      p[columnKey].startsWith(yearPrefix)
+      p[columnKey].startsWith(finalPrefix)
     );
 
     if (filtered.length > 0) {
-      const numbers = filtered.map(p => {
-        const parts = p[columnKey].split("-");
-        return parseInt(parts[1], 10) || 0;
+      const dbNumbers = filtered.map(p => {
+        const parts = p[columnKey].split(finalPrefix);
+        const lastPart = parts[parts.length - 1];
+        return parseInt(lastPart, 10) || 0;
       });
-      const nextNum = Math.max(...numbers) + 1;
-      return `${yearPrefix}${nextNum.toString().padStart(3, "0")}`;
+      const maxInDb = Math.max(...dbNumbers);
+      if (maxInDb >= nextNum) nextNum = maxInDb + 1;
     }
-    return `${yearPrefix}001`;
+
+    return `${finalPrefix}${nextNum.toString().padStart(3, "0")}`;
   };
 
   useEffect(() => {
     if (isEditorOpen && !editingId) {
-      const next = getNextNumber(serie, proyectos);
+      // Usar serie del perfil si existe
+      const defaultSerie = perfil?.serie_proyectos || "P";
+      setSerie(defaultSerie);
+      const next = getNextNumber(defaultSerie, proyectos);
       setNumReferencia(next);
       
       // Pre-cargar textos legales de Ajustes
       if (perfil) {
-        setCondiciones(perfil.condiciones_particulares || "");
-        setLopd(perfil.lopd_text || "");
+        setCondiciones(perfil.condiciones_legales || perfil.condiciones_particulares || "");
+        setLopd(perfil.lopd_text || perfil.lopd || "");
       }
     }
-  }, [serie, isEditorOpen, editingId, proyectos, perfil]);
+  }, [isEditorOpen, editingId, proyectos, perfil]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -248,6 +259,11 @@ export default function ProyectosPage() {
         const { data: projData, error: insErr } = await supabase.from("proyectos").insert([payload]).select().single();
         if (insErr) throw insErr;
         currentId = projData.id;
+
+        // INCREMENTAR CONTADOR EN PERFIL
+        const nextCount = (perfil?.contador_proyectos || 1) + 1;
+        await supabase.from("perfil_negocio").update({ contador_proyectos: nextCount }).eq("user_id", user.id);
+        setPerfil({ ...perfil, contador_proyectos: nextCount });
       }
 
       const lineasToInsert = lineas.map(l => {
