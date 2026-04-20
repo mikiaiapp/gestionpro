@@ -91,17 +91,12 @@ export default function ProyectosPage() {
 
   useEffect(() => {
     if (isEditorOpen && !editingId) {
-      // Usar serie del perfil si existe
       const defaultSerie = perfil?.serie_proyectos || "P";
       setSerie(defaultSerie);
       const next = getNextNumber(defaultSerie, proyectos);
       setNumReferencia(next);
-      
-      // Pre-cargar textos legales de Ajustes
-      if (perfil) {
-        setCondiciones(perfil.condiciones_legales || perfil.condiciones_particulares || "");
-        setLopd(perfil.lopd_text || perfil.lopd || "");
-      }
+      // Las condiciones particulares empiezan vacías en un nuevo presupuesto
+      setCondiciones("");
     }
   }, [isEditorOpen, editingId, proyectos, perfil]);
 
@@ -713,11 +708,37 @@ export default function ProyectosPage() {
                   </div>
                </div>
 
-               <div className="mt-8 pt-8 border-t border-dashed border-gray-200">
-                  <div className="space-y-2 max-w-2xl">
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Condiciones Particulares</label>
-                    <textarea value={condiciones} onChange={e => setCondiciones(e.target.value)} rows={3} className="w-full p-4 rounded-xl border bg-gray-50 text-xs focus:bg-white transition-all outline-none" placeholder="Condiciones específicas para este presupuesto..." />
+               <div className="mt-8 pt-8 border-t border-dashed border-gray-200 space-y-6">
+                  {/* Condiciones Particulares: específicas de este presupuesto */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <div className="h-2 w-2 rounded-full bg-orange-400" />
+                      <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest">Condiciones Particulares</label>
+                      <span className="text-[9px] text-gray-400 italic">(específicas de este presupuesto — se imprimirán primero)</span>
+                    </div>
+                    <textarea 
+                      value={condiciones} 
+                      onChange={e => setCondiciones(e.target.value)} 
+                      rows={4} 
+                      className="w-full p-4 rounded-xl border border-orange-100 bg-orange-50/30 text-xs focus:bg-white focus:border-orange-200 transition-all outline-none" 
+                      placeholder="Ej: Precio válido por 30 días. Incluye materiales de primera calidad. Plazo de ejecución estimado: 2 semanas..."
+                    />
                   </div>
+
+                  {/* Preview Condiciones Generales (solo lectura, vienen de Ajustes) */}
+                  {perfil?.condiciones_legales && (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <div className="h-2 w-2 rounded-full bg-gray-300" />
+                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Condiciones Generales</label>
+                        <span className="text-[9px] text-gray-400 italic">(definidas en Ajustes — se imprimirán después de las particulares)</span>
+                      </div>
+                      <div className="w-full p-4 rounded-xl border border-gray-100 bg-gray-50 text-xs text-gray-400 italic leading-relaxed line-clamp-3">
+                        {perfil.condiciones_legales}
+                      </div>
+                    </div>
+                  )}
+               </div>
                </div>
             </div>
           </div>
