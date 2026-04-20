@@ -109,7 +109,7 @@ export default function AjustesClient() {
     setUser(user);
     await Promise.all([
       fetchPerfil(user.id),
-      fetchTipos(),
+      fetchTipos(user.id),
       fetchAutoBackups(user.id)
     ]);
     initialLoadDone.current = true;
