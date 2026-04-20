@@ -661,89 +661,107 @@ export default function AjustesClient() {
                     <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest pl-1 font-sans">Contadores de Documentos</h3>
                   </div>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8 p-8 bg-gray-50 rounded-[2rem] border border-gray-100">
-                    {/* Ventas */}
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between px-1">
-                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.15em]">Ventas (Emitidas)</label>
-                        <div className="h-1.5 w-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
+                  <div className="space-y-4">
+                    {/* Fila Ventas */}
+                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between p-6 bg-white rounded-[2rem] border border-gray-100 shadow-sm hover:shadow-md transition-shadow gap-6 group">
+                      <div className="flex items-center gap-4">
+                        <div className="p-3 bg-blue-50 rounded-2xl text-blue-600 transition-transform group-hover:scale-110">
+                           <FileText size={20} />
+                        </div>
+                        <div className="space-y-0.5">
+                           <h4 className="text-sm font-black text-gray-900 uppercase tracking-tight">Ventas</h4>
+                           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Facturación Emitida</p>
+                        </div>
                       </div>
-                      <div className="grid grid-cols-5 gap-3">
-                        <div className="col-span-2 space-y-1.5">
-                           <span className="text-[9px] font-bold text-gray-300 uppercase tracking-widest pl-1">Prefijo</span>
+                      
+                      <div className="flex items-center gap-4 w-full md:w-auto">
+                        <div className="space-y-1.5 flex-1 md:flex-none">
+                           <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest pl-1">Prefijo</span>
                            <input 
                               type="text" 
                               value={prefijoVentas} 
                               onChange={e => setPrefijoVentas(e.target.value)} 
                               placeholder="F-" 
-                              className="w-full px-4 py-4 rounded-2xl border bg-white font-black text-blue-600 text-center uppercase focus:ring-4 focus:ring-blue-500/5 focus:border-blue-200 transition-all outline-none" 
+                              className="w-full md:w-24 px-4 py-3.5 rounded-2xl border bg-gray-50/50 font-black text-blue-600 text-center uppercase focus:bg-white focus:ring-4 focus:ring-blue-500/5 transition-all outline-none" 
                            />
                         </div>
-                        <div className="col-span-3 space-y-1.5">
-                           <span className="text-[9px] font-bold text-gray-300 uppercase tracking-widest pl-1">Nº Actual</span>
+                        <div className="space-y-1.5 flex-2 md:flex-none">
+                           <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest pl-1">Siguiente Número</span>
                            <input 
                               type="number" 
                               value={contadorVentas} 
                               onChange={e => setContadorVentas(parseInt(e.target.value) || 1)} 
-                              className="w-full px-5 py-4 rounded-2xl border bg-white font-mono font-bold text-lg text-right text-gray-800 focus:ring-4 focus:ring-blue-500/5 focus:border-blue-200 transition-all outline-none" 
+                              className="w-full md:w-32 px-5 py-3.5 rounded-2xl border bg-gray-50/50 font-mono font-bold text-gray-800 text-right focus:bg-white focus:ring-4 focus:ring-blue-500/5 transition-all outline-none" 
                            />
                         </div>
                       </div>
                     </div>
 
-                    {/* Compras */}
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between px-1">
-                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.15em]">Compras (Gastos)</label>
-                        <div className="h-1.5 w-1.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
+                    {/* Fila Compras */}
+                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between p-6 bg-white rounded-[2rem] border border-gray-100 shadow-sm hover:shadow-md transition-shadow gap-6 group">
+                      <div className="flex items-center gap-4">
+                        <div className="p-3 bg-red-50 rounded-2xl text-red-600 transition-transform group-hover:scale-110">
+                           <ShieldCheck size={20} />
+                        </div>
+                        <div className="space-y-0.5">
+                           <h4 className="text-sm font-black text-gray-900 uppercase tracking-tight">Compras</h4>
+                           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Gastos y Recibidas</p>
+                        </div>
                       </div>
-                      <div className="grid grid-cols-5 gap-3">
-                        <div className="col-span-2 space-y-1.5" title="Nombre de serie o prefijo">
-                           <span className="text-[9px] font-bold text-gray-300 uppercase tracking-widest pl-1">Prefijo</span>
+                      
+                      <div className="flex items-center gap-4 w-full md:w-auto">
+                        <div className="space-y-1.5 flex-1 md:flex-none">
+                           <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest pl-1">Prefijo</span>
                            <input 
                               type="text" 
                               value={prefijoCostes} 
                               onChange={e => setPrefijoCostes(e.target.value)} 
                               placeholder="G-" 
-                              className="w-full px-4 py-4 rounded-2xl border bg-white font-black text-red-600 text-center uppercase focus:ring-4 focus:ring-red-500/5 focus:border-red-200 transition-all outline-none" 
+                              className="w-full md:w-24 px-4 py-3.5 rounded-2xl border bg-gray-50/50 font-black text-red-600 text-center uppercase focus:bg-white focus:ring-4 focus:ring-red-500/5 transition-all outline-none" 
                            />
                         </div>
-                        <div className="col-span-3 space-y-1.5">
-                           <span className="text-[9px] font-bold text-gray-300 uppercase tracking-widest pl-1">Nº Actual</span>
+                        <div className="space-y-1.5 flex-2 md:flex-none">
+                           <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest pl-1">Siguiente Número</span>
                            <input 
                               type="number" 
                               value={contadorCostes} 
                               onChange={e => setContadorCostes(parseInt(e.target.value) || 1)} 
-                              className="w-full px-5 py-4 rounded-2xl border bg-white font-mono font-bold text-lg text-right text-gray-800 focus:ring-4 focus:ring-red-500/5 focus:border-red-200 transition-all outline-none" 
+                              className="w-full md:w-32 px-5 py-3.5 rounded-2xl border bg-gray-50/50 font-mono font-bold text-gray-800 text-right focus:bg-white focus:ring-4 focus:ring-red-500/5 transition-all outline-none" 
                            />
                         </div>
                       </div>
                     </div>
 
-                    {/* Presupuestos */}
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between px-1">
-                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.15em]">Presupuestos</label>
-                        <div className="h-1.5 w-1.5 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.5)]" />
+                    {/* Fila Presupuestos */}
+                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between p-6 bg-white rounded-[2rem] border border-gray-100 shadow-sm hover:shadow-md transition-shadow gap-6 group">
+                      <div className="flex items-center gap-4">
+                        <div className="p-3 bg-orange-50 rounded-2xl text-orange-600 transition-transform group-hover:scale-110">
+                           <ImageIcon size={20} />
+                        </div>
+                        <div className="space-y-0.5">
+                           <h4 className="text-sm font-black text-gray-900 uppercase tracking-tight">Presupuestos</h4>
+                           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Propuestas y Proyectos</p>
+                        </div>
                       </div>
-                      <div className="grid grid-cols-5 gap-3">
-                        <div className="col-span-2 space-y-1.5">
-                           <span className="text-[9px] font-bold text-gray-300 uppercase tracking-widest pl-1">Prefijo</span>
+                      
+                      <div className="flex items-center gap-4 w-full md:w-auto">
+                        <div className="space-y-1.5 flex-1 md:flex-none">
+                           <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest pl-1">Prefijo</span>
                            <input 
                               type="text" 
                               value={prefijoProyectos} 
                               onChange={e => setPrefijoProyectos(e.target.value)} 
                               placeholder="P-" 
-                              className="w-full px-4 py-4 rounded-2xl border bg-white font-black text-orange-600 text-center uppercase focus:ring-4 focus:ring-orange-500/5 focus:border-orange-200 transition-all outline-none" 
+                              className="w-full md:w-24 px-4 py-3.5 rounded-2xl border bg-gray-50/50 font-black text-orange-600 text-center uppercase focus:bg-white focus:ring-4 focus:ring-orange-500/5 transition-all outline-none" 
                            />
                         </div>
-                        <div className="col-span-3 space-y-1.5">
-                           <span className="text-[9px] font-bold text-gray-300 uppercase tracking-widest pl-1">Nº Actual</span>
+                        <div className="space-y-1.5 flex-2 md:flex-none">
+                           <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest pl-1">Siguiente Número</span>
                            <input 
                               type="number" 
                               value={contadorProyectos} 
                               onChange={e => setContadorProyectos(parseInt(e.target.value) || 1)} 
-                              className="w-full px-5 py-4 rounded-2xl border bg-white font-mono font-bold text-lg text-right text-gray-800 focus:ring-4 focus:ring-orange-500/5 focus:border-orange-200 transition-all outline-none" 
+                              className="w-full md:w-32 px-5 py-3.5 rounded-2xl border bg-gray-50/50 font-mono font-bold text-gray-800 text-right focus:bg-white focus:ring-4 focus:ring-orange-500/5 transition-all outline-none" 
                            />
                         </div>
                       </div>
