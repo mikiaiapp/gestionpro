@@ -268,7 +268,19 @@ export default function ProyectosPage() {
         return item;
       });
 
-      await supabase.from("proyecto_lineas").insert(lineasToInsert);
+      // Insertar líneas con manejo de errores robusto
+      const { error: lineasError } = await supabase.from("proyecto_lineas").insert(lineasToInsert);
+      if (lineasError) {
+        // Fallback: Si falla (posiblemente por coste_unitario), intentamos sin esa columna
+        console.warn("Insert con coste_unitario falló, intentando sin ella:", lineasError.message);
+        const lineasBasicas = lineasToInsert.map(({ coste_unitario, ...l }: any) => l);
+        const { error: lineasErr2 } = await supabase.from("proyecto_lineas").insert(lineasBasicas);
+        if (lineasErr2) {
+          console.error("Error crítico al guardar líneas del presupuesto:", lineasErr2);
+          // No bloqueamos el guardado del presupuesto, pero avisamos al usuario
+          alert("⚠️ Advertencia: El presupuesto se guardó pero hubo un error al guardar las partidas. Contacta con soporte si se repite.");
+        }
+      }
 
       // --- AUTO ARCHIVADO PDF ---
       try {
@@ -338,7 +350,8 @@ export default function ProyectosPage() {
       const { data: lineasData, error: lineasErr } = await supabase
         .from("proyecto_lineas")
         .select("*")
-        .eq("proyecto_id", p.id);
+        .eq("proyecto_id", p.id)
+        .eq("user_id", p.user_id);
 
       if (lineasErr) throw lineasErr;
 
