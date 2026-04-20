@@ -41,6 +41,7 @@ export default function ClientesPage() {
   const [cp, setCp] = useState('');
   const [poblacion, setPoblacion] = useState('');
   const [provincia, setProvincia] = useState('');
+  const [telefono, setTelefono] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [nifError, setNifError] = useState<string | null>(null);
 
@@ -145,6 +146,7 @@ export default function ClientesPage() {
         nombre,
         nif: cleanNIF(nif),
         email,
+        telefono,
         direccion,
         codigo_postal: cp,
         poblacion,
@@ -180,6 +182,7 @@ export default function ClientesPage() {
     setNombre(c.nombre);
     setNif(c.nif || '');
     setEmail(c.email || '');
+    setTelefono(c.telefono || '');
     setDireccion(c.direccion || '');
     setCp(c.codigo_postal || '');
     setPoblacion(c.poblacion || '');
@@ -191,6 +194,7 @@ export default function ClientesPage() {
     setNombre('');
     setNif('');
     setEmail('');
+    setTelefono('');
     setDireccion('');
     setCp('');
     setPoblacion('');
@@ -318,6 +322,10 @@ export default function ClientesPage() {
                     <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Email</label>
                     <input type="email" placeholder="cliente@servicios.com" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full p-4 rounded-2xl border bg-gray-50 outline-none" />
                   </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Teléfono</label>
+                    <input type="tel" placeholder="+34 600 000 000" value={telefono} onChange={(e) => setTelefono(e.target.value)} className="w-full p-4 rounded-2xl border bg-gray-50 outline-none" />
+                  </div>
                 </div>
 
                 <div className="space-y-5 pt-4 border-t border-dashed">
@@ -392,7 +400,9 @@ export default function ClientesPage() {
                         <div className="font-black text-gray-800 text-lg tracking-tight mb-1 group-hover:text-blue-600 transition-colors">{c.nombre}</div>
                         <div className="text-xs text-gray-400 font-medium flex items-center gap-2">
                            <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
-                           {c.email || 'Sin correo asociado'}
+                           {c.email || 'Sin correo'} 
+                           {c.telefono && <span className="text-gray-200">|</span>}
+                           {c.telefono && <span>{c.telefono}</span>}
                         </div>
                       </td>
                       <td className="px-10 py-6">

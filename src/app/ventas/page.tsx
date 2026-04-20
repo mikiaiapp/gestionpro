@@ -404,6 +404,8 @@ function VentasContent() {
             poblacion: vFull.clientes?.poblacion || '',
             cp: vFull.clientes?.cp || '',
             provincia: vFull.clientes?.provincia || '',
+            email: vFull.clientes?.email || '',
+            telefono: vFull.clientes?.telefono || '',
           },
           perfil: perfil,
           lineas: lineas,
@@ -858,22 +860,27 @@ function VentasContent() {
 
               <div className="mb-8 overflow-x-auto">
                 <table className="w-full border-collapse min-w-[600px]">
-                  <thead>
                     <tr className="text-left">
-                      <th className="w-20 pb-3 text-[10px] font-bold text-gray-400 uppercase">Ud.</th>
                       <th className="pb-3 text-[10px] font-bold text-gray-400 uppercase">Descripción / Concepto</th>
-                      <th className="w-32 pb-3 text-[10px] font-bold text-gray-400 uppercase text-right">Precio Ud.</th>
-                      <th className="w-32 pb-3 text-[10px] font-bold text-gray-400 uppercase text-right">Total</th>
+                      <th className="w-32 pb-3 text-[10px] font-bold text-gray-400 uppercase text-right">Importe</th>
                       <th className="w-10"></th>
                     </tr>
-                  </thead>
                   <tbody>
                     {lineas.map((linea, idx) => (
                       <tr key={idx}>
-                        <td className="py-2 pr-4"><input type="number" value={linea.unidades} onChange={(e) => updateLinea(idx, "unidades", parseFloat(e.target.value))} className="w-full p-2 rounded-lg border border-gray-100 font-bold text-center" /></td>
                         <td className="py-2 pr-4"><textarea rows={1} value={linea.descripcion} onChange={(e) => updateLinea(idx, "descripcion", e.target.value)} className="w-full p-2 rounded-lg border border-gray-100 text-sm resize-none" /></td>
-                        <td className="py-2 pr-4"><input type="number" value={linea.precio_unitario} onChange={(e) => updateLinea(idx, "precio_unitario", parseFloat(e.target.value))} className="w-full p-2 rounded-lg border border-gray-100 text-right font-mono" /></td>
-                        <td className="py-2 text-right font-bold text-gray-700 font-mono">{formatCurrency(linea.unidades * linea.precio_unitario)}</td>
+                        <td className="py-2 pr-4">
+                          <input 
+                            type="number" 
+                            value={linea.precio_unitario} 
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value) || 0;
+                              updateLinea(idx, "precio_unitario", val);
+                              updateLinea(idx, "unidades", 1);
+                            }} 
+                            className="w-full p-2 rounded-lg border border-gray-100 text-right font-mono font-bold text-gray-700" 
+                          />
+                        </td>
                         <td className="py-2 text-center">{lineas.length > 1 && <button onClick={() => removeLinea(idx)} className="text-red-300 hover:text-red-500"><Trash2 size={16}/></button>}</td>
                       </tr>
                     ))}

@@ -299,6 +299,8 @@ export default function ProyectosPage() {
             poblacion: pFull.clientes?.poblacion || '',
             cp: pFull.clientes?.codigo_postal || '',
             provincia: pFull.clientes?.provincia || '',
+            email: pFull.clientes?.email || '',
+            telefono: pFull.clientes?.telefono || '',
           },
           perfil: perfil,
           condiciones_particulares: pFull.condiciones_particulares || '',
@@ -629,22 +631,38 @@ export default function ProyectosPage() {
                 <table className="w-full text-left min-w-[600px]">
                   <thead>
                     <tr>
-                      <th className="w-20 pb-3 text-[10px] font-bold text-gray-400 uppercase">Ud.</th>
                       <th className="pb-3 text-[10px] font-bold text-gray-400 uppercase">Descripción / Partida</th>
-                      <th className="w-32 pb-3 text-[10px] font-bold text-gray-400 uppercase text-right">Coste Ud.</th>
-                      <th className="w-32 pb-3 text-[10px] font-bold text-gray-400 uppercase text-right">Venta Ud.</th>
-                      <th className="w-32 pb-3 text-[10px] font-bold text-gray-400 uppercase text-right">Total Venta</th>
+                      <th className="w-32 pb-3 text-[10px] font-bold text-gray-400 uppercase text-right">Coste Est.</th>
+                      <th className="w-32 pb-3 text-[10px] font-bold text-gray-400 uppercase text-right">Importe Venta</th>
                       <th className="w-10"></th>
                     </tr>
                   </thead>
                   <tbody>
                     {lineas.map((linea, idx) => (
                       <tr key={idx}>
-                        <td className="py-2 pr-4"><input type="number" value={linea.unidades} onChange={(e) => updateLinea(idx, "unidades", parseFloat(e.target.value))} className="w-full p-2 rounded-lg border border-gray-100 font-bold text-center" /></td>
                         <td className="py-2 pr-4"><textarea rows={1} value={linea.descripcion} onChange={(e) => updateLinea(idx, "descripcion", e.target.value)} className="w-full p-2 rounded-lg border border-gray-100 text-sm" /></td>
-                        <td className="py-2 pr-4"><input type="number" value={linea.coste_unitario} onChange={(e) => updateLinea(idx, "coste_unitario", parseFloat(e.target.value))} className="w-full p-2 rounded-lg border border-gray-100 text-right font-mono text-red-600" /></td>
-                        <td className="py-2 pr-4"><input type="number" value={linea.precio_unitario} onChange={(e) => updateLinea(idx, "precio_unitario", parseFloat(e.target.value))} className="w-full p-2 rounded-lg border border-gray-100 text-right font-mono text-green-600" /></td>
-                        <td className="py-2 text-right font-bold text-gray-700 font-mono">{formatCurrency(linea.unidades * linea.precio_unitario)}</td>
+                        <td className="py-2 pr-4">
+                          <input 
+                            type="number" 
+                            value={linea.coste_unitario} 
+                            onChange={(e) => {
+                               updateLinea(idx, "coste_unitario", parseFloat(e.target.value) || 0);
+                               updateLinea(idx, "unidades", 1);
+                            }} 
+                            className="w-full p-2 rounded-lg border border-gray-100 text-right font-mono text-red-600" 
+                          />
+                        </td>
+                        <td className="py-2 pr-4">
+                          <input 
+                            type="number" 
+                            value={linea.precio_unitario} 
+                            onChange={(e) => {
+                               updateLinea(idx, "precio_unitario", parseFloat(e.target.value) || 0);
+                               updateLinea(idx, "unidades", 1);
+                            }} 
+                            className="w-full p-2 rounded-lg border border-gray-100 text-right font-mono text-green-600 font-bold" 
+                          />
+                        </td>
                         <td className="py-2 text-center">{lineas.length > 1 && <button onClick={() => removeLinea(idx)} className="text-red-300 hover:text-red-500"><Trash2 size={16}/></button>}</td>
                       </tr>
                     ))}

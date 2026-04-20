@@ -67,6 +67,7 @@ export default function CostesPage() {
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [pdfUrl, setPdfUrl] = useState<string>("");
   const [perfil, setPerfil] = useState<any>(null);
+  const [tiposIRPF, setTiposIRPF] = useState<any[]>([]);
 
   useEffect(() => {
     fetchData();
@@ -140,6 +141,15 @@ export default function CostesPage() {
 
     setCostes(preparedCostes);
     setProveedores(provs || []);
+
+    // Fetch Tipos IRPF
+    const { data: irpfData } = await supabase
+      .from('tipos_irpf')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('valor');
+    setTiposIRPF(irpfData || []);
+
     const preparedProjs = (projs || []).map(p => ({
       ...p,
       nombre: `[${p.clientes?.nombre || 'S/C'}] ${p.nombre}`
@@ -904,7 +914,16 @@ export default function CostesPage() {
                    <div className="flex flex-col md:flex-row justify-between pt-8 border-t bg-gray-50/50 p-6 rounded-2xl gap-8 font-mono">
                       <div className="w-full md:w-64">
                          <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1 font-sans">Retención IRPF (%)</label>
-                         <input type="number" value={retencionPct} onChange={(e) => setRetencionPct(parseFloat(e.target.value) || 0)} className="w-full p-2.5 rounded-lg border border-gray-200 font-bold" />
+                         <select 
+                            value={retencionPct} 
+                            onChange={(e) => setRetencionPct(parseFloat(e.target.value) || 0)} 
+                            className="w-full p-2.5 rounded-lg border border-gray-200 font-bold font-sans"
+                          >
+                             <option value="0">0% (Sin IRPF)</option>
+                             {tiposIRPF.map((t: any) => (
+                               <option key={t.id} value={t.valor}>{t.nombre} ({t.valor}%)</option>
+                             ))}
+                          </select>
                       </div>
                       <div className="w-full md:w-80 space-y-3">
                          <div className="flex justify-between text-sm text-gray-500"><span>Base Imponible Tot.:</span><span className="font-bold text-gray-700">{formatCurrency(baseImponible)}</span></div>

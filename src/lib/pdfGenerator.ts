@@ -22,6 +22,8 @@ interface PDFData {
     poblacion: string;
     cp: string;
     provincia: string;
+    email?: string;
+    telefono?: string;
   };
   perfil: {
     nombre: string;
@@ -144,17 +146,17 @@ export const generatePDF = async (data: PDFData) => {
   const clienteLines = [
     data.cliente.nombre,
     data.cliente.nif ? `NIF: ${data.cliente.nif}` : '',
+    data.cliente.email ? `Email: ${data.cliente.email}` : '',
+    data.cliente.telefono ? `Tel: ${data.cliente.telefono}` : '',
     data.cliente.direccion,
     `${data.cliente.cp || ''} ${data.cliente.poblacion || ''} ${data.cliente.provincia ? `(${data.cliente.provincia})` : ''}`
   ].filter(Boolean);
   doc.text(clienteLines, clientX, 55);
 
-  // Tabla
-  const tableHead = [['CANT.', 'DESCRIPCIÓN', 'PRECIO UD.', 'TOTAL']];
+  // Tabla Simplificada (Descripción e Importe)
+  const tableHead = [['DESCRIPCIÓN / CONCEPTO', 'IMPORTE']];
   const tableBody = data.lineas.map(l => [
-    l.unidades,
     l.descripcion,
-    new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(l.precio_unitario),
     new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(l.unidades * l.precio_unitario)
   ]);
 
@@ -166,9 +168,7 @@ export const generatePDF = async (data: PDFData) => {
     headStyles: { fillColor: [245, 243, 239], textColor: [0, 0, 0], lineWidth: 0.1, fontStyle: 'bold' },
     styles: { fontSize: 8.5, cellPadding: 4, font: 'helvetica', fillColor: [255, 255, 255] },
     columnStyles: {
-      0: { halign: 'center', cellWidth: 20 },
-      2: { halign: 'right', cellWidth: 35 },
-      3: { halign: 'right', cellWidth: 35, fontStyle: 'bold' }
+      1: { halign: 'right', cellWidth: 40, fontStyle: 'bold' }
     }
   });
 
