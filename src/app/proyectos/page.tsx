@@ -647,29 +647,37 @@ export default function ProyectosPage() {
                         <td className="py-2 pr-4"><textarea rows={1} value={linea.descripcion} onChange={(e) => updateLinea(idx, "descripcion", e.target.value)} className="w-full p-2 rounded-lg border border-gray-100 text-sm" /></td>
                         <td className="py-2 pr-4">
                           <input 
-                            type="number" 
-                            step="any"
-                            value={linea.coste_unitario || ''} 
+                            type="text" 
+                            inputMode="decimal"
+                            value={linea.coste_unitario === 0 ? '' : linea.coste_unitario} 
                             onChange={(e) => {
-                               const val = e.target.value === '' ? 0 : parseFloat(e.target.value);
-                               updateLinea(idx, "coste_unitario", val);
-                               updateLinea(idx, "unidades", 1);
+                               const raw = e.target.value.replace(',', '.');
+                               if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
+                                 const val = raw === '' ? 0 : parseFloat(raw);
+                                 updateLinea(idx, "coste_unitario", isNaN(val) ? 0 : val);
+                                 updateLinea(idx, "unidades", 1);
+                               }
                             }} 
-                            className="w-full p-2 rounded-lg border border-gray-100 text-right font-mono text-red-600" 
+                            onFocus={(e) => e.target.select()}
+                            className="w-full p-2 rounded-lg border border-gray-100 text-right font-mono text-red-600 focus:ring-2 focus:ring-red-100 outline-none" 
                             placeholder="0.00"
                           />
                         </td>
                         <td className="py-2 pr-4">
                           <input 
-                            type="number" 
-                            step="any"
-                            value={linea.precio_unitario || ''} 
+                            type="text" 
+                            inputMode="decimal"
+                            value={linea.precio_unitario === 0 ? '' : linea.precio_unitario} 
                             onChange={(e) => {
-                               const val = e.target.value === '' ? 0 : parseFloat(e.target.value);
-                               updateLinea(idx, "precio_unitario", val);
-                               updateLinea(idx, "unidades", 1);
+                               const raw = e.target.value.replace(',', '.');
+                               if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
+                                 const val = raw === '' ? 0 : parseFloat(raw);
+                                 updateLinea(idx, "precio_unitario", isNaN(val) ? 0 : val);
+                                 updateLinea(idx, "unidades", 1);
+                               }
                             }} 
-                            className="w-full p-2 rounded-lg border border-gray-100 text-right font-mono text-green-600 font-bold" 
+                            onFocus={(e) => e.target.select()}
+                            className="w-full p-2 rounded-lg border border-gray-100 text-right font-mono text-green-600 font-bold focus:ring-2 focus:ring-green-100 outline-none" 
                             placeholder="0.00"
                           />
                         </td>
