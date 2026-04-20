@@ -114,12 +114,16 @@ export default function DocumentosPage() {
          });
 
          setFiles(stFiles);
-      } else if (currentPath === "recibidas") {
          // Si estamos en "recibidas", inyectamos facturas RECIBIDAS de la BD
          const { data: dCosts } = await supabase.from('costes').select('id, registro_interno, num_interno, numero, num_factura_proveedor, archivo_url, proveedores(nombre)').not('archivo_url', 'is', null);
          
-         // Filtramos carpetas físicas en vistas de negocio para evitar ruido (Solo mostramos archivos)
-         stFiles = stFiles.filter(f => f.url || f.archivo_url || f.pdf_url);
+         // Enriquecemos archivos físicos con URL para que no se filtren
+         const stFilesEnriched = stFiles.map(f => ({
+            ...f,
+            url: getPublicUrl(f.name),
+            type: f.metadata?.mimetype?.includes('pdf') ? 'PDF' : 'Archivo',
+            origin: 'Storage'
+         }));
 
          const dbDocs = (dCosts || []).map(c => {
             const regNum = c.registro_interno || c.num_interno || c.numero || "S/N";
@@ -132,14 +136,20 @@ export default function DocumentosPage() {
             };
          });
          
-         setFiles([...stFiles, ...dbDocs]);
+         // Combinamos y filtramos solo placeholders técnicos
+         setFiles([...stFilesEnriched, ...dbDocs].filter(f => f.name !== '.emptyFolderPlaceholder'));
       } else if (currentPath === "emitidas") {
          // Si estamos en "emitidas", inyectamos PRE y EMI de la BD
          const { data: dProjs } = await supabase.from('proyectos').select('id, nombre, archivo_url').not('archivo_url', 'is', null);
          const { data: dVents } = await supabase.from('ventas').select('id, serie, num_factura, archivo_url, clientes(nombre)').not('archivo_url', 'is', null);
 
-         // Filtramos carpetas físicas en vistas de negocio para evitar ruido (Solo mostramos archivos)
-         stFiles = stFiles.filter(f => f.url || f.archivo_url || f.pdf_url);
+         // Enriquecemos archivos físicos
+         const stFilesEnriched = stFiles.map(f => ({
+            ...f,
+            url: getPublicUrl(f.name),
+            type: f.metadata?.mimetype?.includes('pdf') ? 'PDF' : 'Archivo',
+            origin: 'Storage'
+         }));
 
          const dbDocs = [
             ...(dProjs || []).map(p => ({ 
@@ -158,8 +168,16 @@ export default function DocumentosPage() {
             }))
          ];
          
-         setFiles([...stFiles, ...dbDocs]);
+         setFiles([...stFilesEnriched, ...dbDocs].filter(f => f.name !== '.emptyFolderPlaceholder'));
       } else if (currentPath === "otros") {
+         // Enriquecemos archivos físicos
+         const stFilesEnriched = stFiles.map(f => ({
+            ...f,
+            url: getPublicUrl(f.name),
+            type: f.metadata?.mimetype?.includes('pdf') ? 'PDF' : 'Archivo',
+            origin: 'Storage'
+         }));
+
          // Inyectamos documentos adjuntos de proyectos
          const { data: dOtros } = await supabase.from('proyecto_documentos').select('id, nombre, archivo_url, proyecto_id, proyectos(nombre)').not('archivo_url', 'is', null);
          const dbDocs = (dOtros || []).map(o => ({ 
@@ -169,9 +187,14 @@ export default function DocumentosPage() {
             type: 'Adjunto Proyecto',
             context: (o as any).proyectos?.nombre 
          }));
-         setFiles([...stFiles, ...dbDocs]);
+         setFiles([...stFilesEnriched, ...dbDocs].filter(f => f.name !== '.emptyFolderPlaceholder'));
       } else {
-         setFiles(stFiles);
+         // Para carpetas normales, enriquecemos para tener URLs funcionales
+         const stFilesEnriched = stFiles.map(f => ({
+            ...f,
+            url: f.id ? getPublicUrl(f.name) : null // Si tiene ID es archivo, si no es carpeta virtual
+         }));
+         setFiles(stFilesEnriched);
       }
     } catch (err: any) {
       console.error(err);
