@@ -61,30 +61,23 @@ export default function ProyectosPage() {
     fetchData();
   }, []);
 
-  const getNextNumber = (targetSerie: string, allProjs: any[]) => {
-    const currentYear = new Date().getFullYear();
-    const defaultPrefix = `${currentYear}-`;
-    const finalPrefix = perfil?.prefijo_proyectos || defaultPrefix;
-    
-    // 1. Obtener base del perfil
-    let nextNum = perfil?.contador_proyectos || 1;
+  const getNextNumber = (allProjs: any[]) => {
+    const finalPrefix = perfil?.prefijo_proyectos || `${new Date().getFullYear()}-`;
 
-    // 2. Verificar contra base de datos por seguridad
-    const filtered = allProjs.filter(p => 
-      p.serie === targetSerie && 
-      p[columnKey] && 
-      p[columnKey].startsWith(finalPrefix)
-    );
+    // Extraer todos los números existentes con este prefijo
+    const numbers = allProjs
+      .filter(p => p[columnKey] && p[columnKey].startsWith(finalPrefix))
+      .map(p => {
+        const after = p[columnKey].slice(finalPrefix.length);
+        return parseInt(after, 10);
+      })
+      .filter(n => !isNaN(n) && n > 0);
 
-    if (filtered.length > 0) {
-      const dbNumbers = filtered.map(p => {
-        const parts = p[columnKey].split(finalPrefix);
-        const lastPart = parts[parts.length - 1];
-        return parseInt(lastPart, 10) || 0;
-      });
-      const maxInDb = Math.max(...dbNumbers);
-      if (maxInDb >= nextNum) nextNum = maxInDb + 1;
-    }
+    // Si hay documentos existentes: siguiente = máximo + 1
+    // Si no hay ninguno: usar el número de inicio configurado en Ajustes
+    const nextNum = numbers.length > 0
+      ? Math.max(...numbers) + 1
+      : (perfil?.contador_proyectos || 1);
 
     return `${finalPrefix}${nextNum}`;
   };
@@ -93,9 +86,8 @@ export default function ProyectosPage() {
     if (isEditorOpen && !editingId) {
       const defaultSerie = perfil?.serie_proyectos || "P";
       setSerie(defaultSerie);
-      const next = getNextNumber(defaultSerie, proyectos);
+      const next = getNextNumber(proyectos);
       setNumReferencia(next);
-      // Las condiciones particulares empiezan vacías en un nuevo presupuesto
       setCondiciones("");
     }
   }, [isEditorOpen, editingId, proyectos, perfil]);
@@ -258,11 +250,7 @@ export default function ProyectosPage() {
         const { data: projData, error: insErr } = await supabase.from("proyectos").insert([payload]).select().single();
         if (insErr) throw insErr;
         currentId = projData.id;
-
-        // INCREMENTAR CONTADOR EN PERFIL
-        const nextCount = (perfil?.contador_proyectos || 1) + 1;
-        await supabase.from("perfil_negocio").update({ contador_proyectos: nextCount }).eq("user_id", user.id);
-        setPerfil({ ...perfil, contador_proyectos: nextCount });
+        // No incrementamos el contador del perfil: getNextNumber lo calcula dinámicamente desde la BD
       }
 
       const lineasToInsert = lineas.map(l => {
