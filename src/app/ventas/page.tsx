@@ -190,11 +190,10 @@ function VentasContent() {
       })
       .filter(n => !isNaN(n) && n > 0);
 
-    // Si hay facturas existentes: siguiente = máximo + 1
-    // Si no hay ninguna: usar el número de inicio configurado en Ajustes
-    const nextNum = numbers.length > 0
-      ? Math.max(...numbers) + 1
-      : (perfil?.contador_ventas || 1);
+    let nextNum = (perfil?.contador_ventas || 1);
+    while (numbers.includes(nextNum)) {
+      nextNum++;
+    }
 
     return `${finalPrefix}${nextNum}`;
   };

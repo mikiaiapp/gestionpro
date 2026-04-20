@@ -99,9 +99,10 @@ export default function CostesPage() {
 
       // Si hay registros: siguiente = máximo + 1
       // Si no hay ninguno: usar el número de inicio configurado en Ajustes
-      const nextNum = numbers.length > 0
-        ? Math.max(...numbers) + 1
-        : (perfil?.contador_costes || 1);
+      let nextNum = (perfil?.contador_costes || 1);
+      while (numbers.includes(nextNum)) {
+        nextNum++;
+      }
 
       setNumInterno(`${finalPrefix}${nextNum}`);
       if (perfil?.serie_costes) setSerie(perfil.serie_costes);
