@@ -10,7 +10,7 @@ import { DataTableHeader } from "@/components/DataTableHeader";
 import { generatePDF } from "@/lib/pdfGenerator";
 import { formatCurrency } from "@/lib/format";
 import { SearchableSelect } from "@/components/SearchableSelect";
-import { uploadInvoiceFile } from "@/lib/storageService";
+import { uploadInvoiceFile, deleteInvoiceFile } from "@/lib/storageService";
 
 interface LineaProyecto {
   unidades: number;
@@ -410,6 +410,9 @@ export default function ProyectosPage() {
 
       const { error } = await supabase.from("proyectos").delete().eq("id", p.id).eq("user_id", user.id);
       if (error) throw error;
+
+      // Eliminar el PDF del Storage para no dejar archivos huérfanos en la gestión documental
+      if (p.archivo_url) await deleteInvoiceFile(p.archivo_url);
 
       alert("✅ Presupuesto eliminado correctamente");
       fetchData();

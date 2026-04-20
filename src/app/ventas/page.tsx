@@ -13,7 +13,7 @@ import { sendInvoiceToAeat } from "@/lib/aeatService";
 import { encrypt } from "@/lib/encryption";
 import { UploadCloud, ShieldCheck, OctagonAlert } from "lucide-react";
 import { exportVATBookPDF, exportVATBookExcel } from "@/lib/reportingService";
-import { uploadInvoiceFile } from "@/lib/storageService";
+import { uploadInvoiceFile, deleteInvoiceFile } from "@/lib/storageService";
 
 interface LineaFactura {
   unidades: number;
@@ -541,6 +541,9 @@ function VentasContent() {
 
       const { error } = await supabase.from("ventas").delete().eq("id", v.id).eq("user_id", user.id);
       if (error) throw error;
+
+      // Eliminar el PDF del Storage para no dejar archivos huérfanos en la gestión documental
+      if (v.archivo_url) await deleteInvoiceFile(v.archivo_url);
 
       alert("✅ Factura eliminada correctamente");
       fetchData();

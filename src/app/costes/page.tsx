@@ -584,6 +584,10 @@ export default function CostesPage() {
       const { error } = await supabase.from("costes").delete().eq("id", c.id).eq("user_id", user.id);
       if (error) throw error;
 
+      // Eliminar el PDF del Storage para no dejar archivos huérfanos en la gestión documental
+      const pdfUrl = c.archivo_url || c.pdf_url;
+      if (pdfUrl) await deleteInvoiceFile(pdfUrl);
+
       alert("✅ Gasto eliminado correctamente");
       fetchData();
     } catch (err: any) {
