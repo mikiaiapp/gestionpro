@@ -274,9 +274,9 @@ function VentasContent() {
   const addLinea = () => setLineas([...lineas, { unidades: 1, descripcion: "", precio_unitario: 0 }]);
   const removeLinea = (index: number) => setLineas(lineas.filter((_, i) => i !== index));
   
-  const updateLinea = (index: number, field: keyof LineaFactura, value: any) => {
+  const updateLinea = (index: number, updates: Partial<LineaFactura>) => {
     const newLineas = [...lineas];
-    newLineas[index] = { ...newLineas[index], [field]: value };
+    newLineas[index] = { ...newLineas[index], ...updates };
     setLineas(newLineas);
   };
 
@@ -855,17 +855,22 @@ function VentasContent() {
                   <tbody>
                     {lineas.map((linea, idx) => (
                       <tr key={idx}>
-                        <td className="py-2 pr-4"><textarea rows={1} value={linea.descripcion} onChange={(e) => updateLinea(idx, "descripcion", e.target.value)} className="w-full p-2 rounded-lg border border-gray-100 text-sm resize-none" /></td>
+                        <td className="py-2 pr-4"><textarea rows={1} value={linea.descripcion} onChange={(e) => updateLinea(idx, { descripcion: e.target.value })} className="w-full p-2 rounded-lg border border-gray-100 text-sm resize-none" /></td>
                         <td className="py-2 pr-4">
                           <input 
-                            type="number" 
-                            value={linea.precio_unitario} 
+                            type="text"
+                            inputMode="decimal"
+                            value={linea.precio_unitario === 0 ? '' : (linea.precio_unitario || '')}
                             onChange={(e) => {
-                              const val = parseFloat(e.target.value) || 0;
-                              updateLinea(idx, "precio_unitario", val);
-                              updateLinea(idx, "unidades", 1);
-                            }} 
-                            className="w-full p-2 rounded-lg border border-gray-100 text-right font-mono font-bold text-gray-700" 
+                              const raw = e.target.value.replace(',', '.');
+                              if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
+                                const val = raw === '' ? 0 : parseFloat(raw);
+                                updateLinea(idx, { precio_unitario: isNaN(val) ? 0 : val, unidades: 1 });
+                              }
+                            }}
+                            onFocus={(e) => e.target.select()}
+                            className="w-full p-2 rounded-lg border border-gray-100 text-right font-mono font-bold text-gray-700 focus:ring-2 focus:ring-blue-100 outline-none"
+                            placeholder="0.00"
                           />
                         </td>
                         <td className="py-2 text-center">{lineas.length > 1 && <button onClick={() => removeLinea(idx)} className="text-red-300 hover:text-red-500"><Trash2 size={16}/></button>}</td>
