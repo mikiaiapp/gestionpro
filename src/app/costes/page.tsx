@@ -83,19 +83,28 @@ export default function CostesPage() {
 
   // Numeración correlativa automática (Libro de IVA Soportado)
   useEffect(() => {
-    if (!editingId && isModalOpen && costes.length >= 0) {
+    if (!editingId && isModalOpen && (costes || []).length >= 0) {
+       const finalPrefix = perfil?.prefijo_costes || "";
+       
        // 1. Obtener base del perfil
        let nextNum = perfil?.contador_costes || 1;
 
        // 2. Verificar contra base de datos por seguridad
-       const dbMax = costes.reduce((acc, c) => {
-        const n = parseInt(c.num_interno || c.numero || "0");
-        return isNaN(n) ? acc : Math.max(acc, n);
-       }, 0);
+       const filtered = (costes || []).filter(c => 
+          (c.num_interno || c.numero || "").startsWith(finalPrefix)
+       );
 
-       if (dbMax >= nextNum) nextNum = dbMax + 1;
+       if (filtered.length > 0) {
+          const dbNums = filtered.map(c => {
+             const val = c.num_interno || c.numero || "";
+             const numStr = val.replace(finalPrefix, "");
+             return parseInt(numStr) || 0;
+          });
+          const maxInDb = Math.max(...dbNums);
+          if (maxInDb >= nextNum) nextNum = maxInDb + 1;
+       }
        
-       setNumInterno(nextNum.toString());
+       setNumInterno(`${finalPrefix}${nextNum}`);
        
        // Sintonizar serie por defecto si existe
        if (perfil?.serie_costes) setSerie(perfil.serie_costes);

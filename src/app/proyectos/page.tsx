@@ -85,7 +85,7 @@ export default function ProyectosPage() {
       if (maxInDb >= nextNum) nextNum = maxInDb + 1;
     }
 
-    return `${finalPrefix}${nextNum.toString().padStart(3, "0")}`;
+    return `${finalPrefix}${nextNum}`;
   };
 
   useEffect(() => {
@@ -290,7 +290,7 @@ export default function ProyectosPage() {
         
         const pdfDoc = await generatePDF({
           tipo: 'PRESUPUESTO',
-          numero: `${pFull.serie || 'P'}-${refFinal}`,
+          numero: refFinal,
           fecha: pFull.fecha,
           cliente: {
             nombre: pFull.clientes?.nombre || 'Particular',

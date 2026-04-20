@@ -203,8 +203,8 @@ function VentasContent() {
       if (maxInDb >= nextNum) nextNum = maxInDb + 1;
     }
 
-    // Si el prefijo ya termina en guion o separador, no añadimos otro (o dejamos que el usuario lo decida)
-    return `${finalPrefix}${nextNum.toString().padStart(3, "0")}`;
+    // Si el prefijo ya termina en guion o separador, no añadimos otro
+    return `${finalPrefix}${nextNum}`;
   };
 
   useEffect(() => {
@@ -395,7 +395,7 @@ function VentasContent() {
         const { data: vFull } = await supabase.from('ventas').select('*, clientes(*)').eq('id', currentVentaId).single();
         const pdfDoc = await generatePDF({
           tipo: 'FACTURA',
-          numero: `${vFull.serie}-${vFull.num_factura}`,
+          numero: vFull.num_factura || `${vFull.serie}-${vFull.id.substring(0, 5)}`,
           fecha: vFull.fecha,
           cliente: {
             nombre: vFull.clientes?.nombre || 'Particular',
