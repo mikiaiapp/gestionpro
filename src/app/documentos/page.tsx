@@ -71,7 +71,7 @@ export default function DocumentosPage() {
     setPerfil(perf);
   };
 
-  const fetchFiles = async () => {
+   const fetchFiles = async () => {
     setLoading(true);
     setFiles([]);
     try {
@@ -87,76 +87,80 @@ export default function DocumentosPage() {
       if (error) throw error;
       
       // Filtrar backups y placeholders técnicos
-      let stFiles = (storageData || [])
-          .filter(f => f.name !== '.emptyFolderPlaceholder' && f.name !== 'backups')
-          .map(f => ({ ...f, origin: 'Explorador' }));
+      const stFiles = (storageData || [])
+          .filter(f => f.name !== '.emptyFolderPlaceholder' && f.name !== 'backups');
 
-      // 2. Database Documents (Unified Explorer - Solo inyectamos en carpetas específicas o raíz filtrada)
+      // 2. Proceso de Enriquecimiento y Unificación
+      let results: any[] = [];
+
       if (!currentPath) { 
-         // En la raíz solo aseguramos que existan las carpetas principales y NO inyectamos archivos sueltos
-         if (!stFiles.find(f => f.name === 'recibidas')) {
-           stFiles.push({ name: 'recibidas', metadata: null });
-         }
-         if (!stFiles.find(f => f.name === 'emitidas')) {
-           stFiles.push({ name: 'emitidas', metadata: null });
-         }
-         if (!stFiles.find(f => f.name === 'otros')) {
-           stFiles.push({ name: 'otros', metadata: null });
-         }
-         
-         // Ordenamos para que las carpetas aparezcan primero
-         stFiles.sort((a, b) => {
-            const isAFolder = !a.id; // En Supabase list, los archivos tienen ID, las carpetas NO
-            const isBFolder = !b.id;
-            if (isAFolder && !isBFolder) return -1;
-            if (!isAFolder && isBFolder) return 1;
-            return a.name.localeCompare(b.name);
-         });
+         // VISTA RAÍZ
+         const virtualFolders = ['recibidas', 'emitidas', 'otros'].map(name => ({
+            name,
+            isFolder: true,
+            origin: 'Virtual'
+         }));
 
-         setFiles(stFiles);
-         // Si estamos en "recibidas", inyectamos facturas RECIBIDAS de la BD
-         const { data: dCosts } = await supabase.from('costes').select('id, registro_interno, num_interno, numero, num_factura_proveedor, archivo_url, proveedores(nombre)').not('archivo_url', 'is', null);
-         
-         // Enriquecemos archivos físicos con URL para que no se filtren
-         const stFilesEnriched = stFiles.map(f => ({
+         // Los archivos físicos de la raíz (si los hay)
+         const physicalFiles = stFiles.map(f => ({
             ...f,
-            url: getPublicUrl(f.name),
-            type: f.metadata?.mimetype?.includes('pdf') ? 'PDF' : 'Archivo',
+            isFolder: !f.id ? true : false,
+            url: f.id ? getPublicUrl(f.name) : null,
             origin: 'Storage'
          }));
 
-         const dbDocs = (dCosts || []).map(c => {
+         // Mezclamos asegurando que las carpetas "recibidas/emitidas" manuales no se dupliquen si existen físicas
+         results = [...virtualFolders];
+         physicalFiles.forEach(pf => {
+            if (!results.find(r => r.name === pf.name)) {
+               results.push(pf);
+            }
+         });
+
+      } else if (currentPath === "recibidas") {
+         const { data: dCosts } = await supabase.from('costes').select('id, registro_interno, num_interno, numero, num_factura_proveedor, archivo_url, proveedores(nombre)').not('archivo_url', 'is', null);
+         
+         const physical = stFiles.map(f => ({
+            ...f,
+            isFolder: !f.id ? true : false,
+            url: f.id ? getPublicUrl(f.name) : null,
+            type: 'Archivo',
+            origin: 'Storage'
+         }));
+
+         const database = (dCosts || []).map(c => {
             const regNum = c.registro_interno || c.num_interno || c.numero || "S/N";
             return { 
                id: c.id, 
                name: `REC - ${regNum} - ${(c as any).proveedores?.nombre}.pdf`, 
                url: c.archivo_url, 
                type: 'Factura Recibida',
+               isFolder: false,
                context: (c as any).proveedores?.nombre 
             };
          });
          
-         // Combinamos y filtramos solo placeholders técnicos
-         setFiles([...stFilesEnriched, ...dbDocs].filter(f => f.name !== '.emptyFolderPlaceholder'));
+         results = [...physical, ...database];
+
       } else if (currentPath === "emitidas") {
-         // Si estamos en "emitidas", inyectamos PRE y EMI de la BD
          const { data: dProjs } = await supabase.from('proyectos').select('id, nombre, archivo_url').not('archivo_url', 'is', null);
          const { data: dVents } = await supabase.from('ventas').select('id, serie, num_factura, archivo_url, clientes(nombre)').not('archivo_url', 'is', null);
 
-         // Enriquecemos archivos físicos
-         const stFilesEnriched = stFiles.map(f => ({
+         const physical = stFiles.map(f => ({
             ...f,
-            url: getPublicUrl(f.name),
-            type: f.metadata?.mimetype?.includes('pdf') ? 'PDF' : 'Archivo',
+            isFolder: !f.id ? true : false,
+            url: f.id ? getPublicUrl(f.name) : null,
+            type: 'Archivo',
             origin: 'Storage'
          }));
 
-         const dbDocs = [
+         const database = [
             ...(dProjs || []).map(p => ({ 
               id: p.id, 
               name: `PRE - ${p.nombre}.pdf`, 
               url: p.archivo_url, 
               type: 'Presupuesto',
+              isFolder: false,
               context: p.nombre 
             })),
             ...(dVents || []).map(v => ({ 
@@ -164,38 +168,50 @@ export default function DocumentosPage() {
               name: `EMI - ${v.serie}-${v.num_factura} - ${(v as any).clientes?.nombre}.pdf`, 
               url: v.archivo_url, 
               type: 'Factura Emitida',
+              isFolder: false,
               context: (v as any).clientes?.nombre 
             }))
          ];
          
-         setFiles([...stFilesEnriched, ...dbDocs].filter(f => f.name !== '.emptyFolderPlaceholder'));
+         results = [...physical, ...database];
+
       } else if (currentPath === "otros") {
-         // Enriquecemos archivos físicos
-         const stFilesEnriched = stFiles.map(f => ({
+         const physical = stFiles.map(f => ({
             ...f,
-            url: getPublicUrl(f.name),
-            type: f.metadata?.mimetype?.includes('pdf') ? 'PDF' : 'Archivo',
+            isFolder: !f.id ? true : false,
+            url: f.id ? getPublicUrl(f.name) : null,
+            type: 'Archivo',
             origin: 'Storage'
          }));
 
-         // Inyectamos documentos adjuntos de proyectos
          const { data: dOtros } = await supabase.from('proyecto_documentos').select('id, nombre, archivo_url, proyecto_id, proyectos(nombre)').not('archivo_url', 'is', null);
-         const dbDocs = (dOtros || []).map(o => ({ 
+         const database = (dOtros || []).map(o => ({ 
             id: o.id, 
             name: o.nombre, 
             url: o.archivo_url, 
             type: 'Adjunto Proyecto',
+            isFolder: false,
             context: (o as any).proyectos?.nombre 
          }));
-         setFiles([...stFilesEnriched, ...dbDocs].filter(f => f.name !== '.emptyFolderPlaceholder'));
+
+         results = [...physical, ...database];
+
       } else {
-         // Para carpetas normales, enriquecemos para tener URLs funcionales
-         const stFilesEnriched = stFiles.map(f => ({
+         results = stFiles.map(f => ({
             ...f,
-            url: f.id ? getPublicUrl(f.name) : null // Si tiene ID es archivo, si no es carpeta virtual
+            isFolder: !f.id ? true : false,
+            url: f.id ? getPublicUrl(f.name) : null,
+            origin: 'Storage'
          }));
-         setFiles(stFilesEnriched);
       }
+
+      // Limpieza final de placeholders y ordenación
+      setFiles(results.filter(f => f.name !== '.emptyFolderPlaceholder').sort((a, b) => {
+         if (a.isFolder && !b.isFolder) return -1;
+         if (!a.isFolder && b.isFolder) return 1;
+         return a.name.localeCompare(b.name);
+      }));
+
     } catch (err: any) {
       console.error(err);
     } finally {
@@ -413,7 +429,7 @@ export default function DocumentosPage() {
 
                       <div className="divide-y divide-gray-50">
                          {files.filter((f: any) => f.name.toLowerCase().includes(searchTerm.toLowerCase())).map((file: any, index: number) => {
-                            const isFolder = !file.url && !file.archivo_url && !file.pdf_url;
+                            const isFolder = file.isFolder;
                             return (
                                <div 
                                  key={file.id || file.name || index} 
