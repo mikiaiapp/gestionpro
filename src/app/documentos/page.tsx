@@ -95,19 +95,19 @@ export default function DocumentosPage() {
       if (!currentPath) { 
          // En la raíz solo aseguramos que existan las carpetas principales y NO inyectamos archivos sueltos
          if (!stFiles.find(f => f.name === 'recibidas')) {
-           stFiles.push({ name: 'recibidas', id: 'folder-recibidas', metadata: null });
+           stFiles.push({ name: 'recibidas', metadata: null });
          }
          if (!stFiles.find(f => f.name === 'emitidas')) {
-           stFiles.push({ name: 'emitidas', id: 'folder-emitidas', metadata: null });
+           stFiles.push({ name: 'emitidas', metadata: null });
          }
          if (!stFiles.find(f => f.name === 'otros')) {
-           stFiles.push({ name: 'otros', id: 'folder-otros', metadata: null });
+           stFiles.push({ name: 'otros', metadata: null });
          }
          
          // Ordenamos para que las carpetas aparezcan primero
          stFiles.sort((a, b) => {
-            const isAFolder = !a.url && !a.archivo_url && !a.pdf_url;
-            const isBFolder = !b.url && !b.archivo_url && !b.pdf_url;
+            const isAFolder = !a.id; // En Supabase list, los archivos tienen ID, las carpetas NO
+            const isBFolder = !b.id;
             if (isAFolder && !isBFolder) return -1;
             if (!isAFolder && isBFolder) return 1;
             return a.name.localeCompare(b.name);
