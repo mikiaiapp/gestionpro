@@ -408,7 +408,7 @@ function VentasContent() {
 
         const blob = pdfDoc.output('blob');
         const publicUrl = await uploadInvoiceFile(blob, 'ventas', { 
-          number: `${vFull.serie}-${vFull.num_factura}`, 
+          number: vFull.num_factura, 
           entity: vFull.clientes?.nombre || 'Cliente' 
         });
 
@@ -452,7 +452,7 @@ function VentasContent() {
       setPerfil({ ...perfil, verifactu_pass: encrypted });
     }
 
-    if (!confirm(`¿Transmitir la factura ${v.serie}-${v.num_factura} a la AEAT (Verifactu)?`)) return;
+    if (!confirm(`¿Transmitir la factura ${v.num_factura} a la AEAT (Verifactu)?`)) return;
 
     setSaving(true);
     try {
@@ -467,7 +467,7 @@ function VentasContent() {
 
       const record: any = {
         nifExpedidor: perfil.nif,
-        numFactura: `${v.serie}-${v.num_factura}`,
+        numFactura: v.num_factura,
         fechaExpedicion: v.fecha,
         tipoFactura: 'F1', // Factura ordinaria
         importeTotal: v.total,
@@ -537,7 +537,7 @@ function VentasContent() {
         return;
       }
 
-      if (!confirm(`¿Seguro que quieres eliminar la factura ${v.serie}-${v.num_factura}?`)) return;
+      if (!confirm(`¿Seguro que quieres eliminar la factura ${v.num_factura}?`)) return;
 
       const { error } = await supabase.from("ventas").delete().eq("id", v.id).eq("user_id", user.id);
       if (error) throw error;
@@ -564,7 +564,7 @@ function VentasContent() {
       // Mapear los datos de la factura al formato esperado por el generador
       const pdfData: any = {
         tipo: 'FACTURA',
-        numero: `${venta.serie}-${venta.num_factura}`,
+        numero: venta.num_factura,
         fecha: venta.fecha,
         cliente: {
           nombre: venta.clientes?.nombre || 'Consumidor Final',
@@ -595,7 +595,7 @@ function VentasContent() {
 
       // Subir a Storage si no tiene pdf_url o si queremos actualizarla
       const publicUrl = await uploadInvoiceFile(pdfBlob, 'ventas', {
-        number: `${venta.serie}-${venta.num_factura}`,
+        number: venta.num_factura,
         entity: venta.clientes?.nombre || 'cliente'
       });
 
@@ -631,7 +631,7 @@ function VentasContent() {
       if (!columnFilters[key]) return true;
       let val = '';
       if (key === 'cliente') val = v.clientes?.nombre || '';
-      else if (key === 'num_factura') val = `${v.serie}-${v.num_factura}` || '';
+      else if (key === 'num_factura') val = v.num_factura || '';
       else if (key === 'total') val = v.total.toString() || '';
       else if (key === 'estadoPago') val = v.estadoPago || '';
       else val = v[key] || '';
@@ -647,8 +647,8 @@ function VentasContent() {
       aVal = a.clientes?.nombre || '';
       bVal = b.clientes?.nombre || '';
     } else if (sortConfig.key === 'num_factura') {
-      aVal = `${a.serie}-${a.num_factura}` || '';
-      bVal = `${b.serie}-${b.num_factura}` || '';
+      aVal = a.num_factura || '';
+      bVal = b.num_factura || '';
     } else if (sortConfig.key === 'total') {
       aVal = a.total || 0;
       bVal = b.total || 0;
@@ -712,7 +712,7 @@ function VentasContent() {
                   <tbody className="divide-y divide-[var(--border)]">
                     {filteredVentas.map(v => (
                       <tr key={v.id} className="hover:bg-gray-50 group transition-colors">
-                        <td className="px-6 py-4 text-sm font-bold">{v.serie}-{v.num_factura}</td>
+                        <td className="px-6 py-4 text-sm font-bold">{v.num_factura}</td>
                         <td className="px-6 py-4 text-sm text-[var(--muted)]">{new Date(v.fecha).toLocaleDateString()}</td>
                         <td className="px-6 py-4 text-sm">{v.clientes?.nombre || 'Consumidor Final'}</td>
                         <td className="px-6 py-4 text-sm font-mono font-bold text-right">
