@@ -739,7 +739,6 @@ export default function ProyectosPage() {
                     </div>
                   )}
                </div>
-               </div>
             </div>
           </div>
         )}
