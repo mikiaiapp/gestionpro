@@ -85,16 +85,52 @@ export default function DocumentosPage() {
         });
 
       if (error) throw error;
-      const stFiles = (storageData || [])
-          .filter(f => f.name !== '.emptyFolderPlaceholder')
+      
+      // Filtrar backups y placeholders técnicos
+      let stFiles = (storageData || [])
+          .filter(f => f.name !== '.emptyFolderPlaceholder' && f.name !== 'backups')
           .map(f => ({ ...f, origin: 'Explorador' }));
 
-      // 2. Database Documents (Unified Explorer)
-      if (!currentPath) { // Solo en la raíz del explorador mezclamos todo para el "Vista por Todos"
+      // 2. Database Documents (Unified Explorer - Solo inyectamos en carpetas específicas o raíz filtrada)
+      if (!currentPath) { 
+         // En la raíz solo aseguramos que existan las carpetas principales y NO inyectamos archivos sueltos
+         if (!stFiles.find(f => f.name === 'recibidas')) {
+           stFiles.push({ name: 'recibidas', id: 'folder-recibidas', metadata: null });
+         }
+         if (!stFiles.find(f => f.name === 'emitidas')) {
+           stFiles.push({ name: 'emitidas', id: 'folder-emitidas', metadata: null });
+         }
+         if (!stFiles.find(f => f.name === 'otros')) {
+           stFiles.push({ name: 'otros', id: 'folder-otros', metadata: null });
+         }
+         
+         // Ordenamos para que las carpetas aparezcan primero
+         stFiles.sort((a, b) => {
+            const isAFolder = !a.url && !a.archivo_url && !a.pdf_url;
+            const isBFolder = !b.url && !b.archivo_url && !b.pdf_url;
+            if (isAFolder && !isBFolder) return -1;
+            if (!isAFolder && isBFolder) return 1;
+            return a.name.localeCompare(b.name);
+         });
+
+         setFiles(stFiles);
+      } else if (currentPath === "recibidas") {
+         // Si estamos en "recibidas", inyectamos facturas RECIBIDAS de la BD
+         const { data: dCosts } = await supabase.from('costes').select('id, num_factura_proveedor, archivo_url, proveedores(nombre)').not('archivo_url', 'is', null);
+         
+         const dbDocs = (dCosts || []).map(c => ({ 
+            id: c.id, 
+            name: `REC - ${c.num_factura_proveedor} - ${(c as any).proveedores?.nombre}.pdf`, 
+            url: c.archivo_url, 
+            type: 'Factura Recibida',
+            context: (c as any).proveedores?.nombre 
+         }));
+         
+         setFiles([...stFiles, ...dbDocs]);
+      } else if (currentPath === "emitidas") {
+         // Si estamos en "emitidas", inyectamos PRE y EMI de la BD
          const { data: dProjs } = await supabase.from('proyectos').select('id, nombre, archivo_url').not('archivo_url', 'is', null);
          const { data: dVents } = await supabase.from('ventas').select('id, serie, num_factura, archivo_url, clientes(nombre)').not('archivo_url', 'is', null);
-         const { data: dCosts } = await supabase.from('costes').select('id, num_factura_proveedor, archivo_url, proveedores(nombre)').not('archivo_url', 'is', null);
-         const { data: dOtros } = await supabase.from('proyecto_documentos').select('id, nombre, archivo_url, proyecto_id, proyectos(nombre)').not('archivo_url', 'is', null);
 
          const dbDocs = [
             ...(dProjs || []).map(p => ({ 
@@ -110,24 +146,20 @@ export default function DocumentosPage() {
               url: v.archivo_url, 
               type: 'Factura Emitida',
               context: (v as any).clientes?.nombre 
-            })),
-            ...(dCosts || []).map(c => ({ 
-              id: c.id, 
-              name: `REC - ${c.num_factura_proveedor} - ${(c as any).proveedores?.nombre}.pdf`, 
-              url: c.archivo_url, 
-              type: 'Factura Recibida',
-              context: (c as any).proveedores?.nombre 
-            })),
-            ...(dOtros || []).map(o => ({ 
-              id: o.id, 
-              name: o.nombre, 
-              url: o.archivo_url, 
-              type: 'Adjunto Proyecto',
-              context: (o as any).proyectos?.nombre 
             }))
          ];
          
-         // Mezclamos
+         setFiles([...stFiles, ...dbDocs]);
+      } else if (currentPath === "otros") {
+         // Inyectamos documentos adjuntos de proyectos
+         const { data: dOtros } = await supabase.from('proyecto_documentos').select('id, nombre, archivo_url, proyecto_id, proyectos(nombre)').not('archivo_url', 'is', null);
+         const dbDocs = (dOtros || []).map(o => ({ 
+            id: o.id, 
+            name: o.nombre, 
+            url: o.archivo_url, 
+            type: 'Adjunto Proyecto',
+            context: (o as any).proyectos?.nombre 
+         }));
          setFiles([...stFiles, ...dbDocs]);
       } else {
          setFiles(stFiles);
