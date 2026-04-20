@@ -447,14 +447,23 @@ export default function CostesPage() {
       if (availableCols.includes('iva_pct')) payload.iva_pct = 21;
       if (availableCols.includes('retencion_pct')) payload.retencion_pct = retencionPct;
 
-      // Subida de PDF
+      // Subida de PDF (Atomicidad: Si falla la BD, borraremos el archivo)
       let finalPdfUrl = pdfUrl;
+      const prov = proveedores.find(p => p.id === proveedorId);
+      let uploadedPath: string | null = null;
+
       if (pdfFile) {
-        const prov = proveedores.find(p => p.id === proveedorId);
-        finalPdfUrl = await uploadInvoiceFile(pdfFile, 'costes', {
-          number: numInterno,
-          entity: prov?.nombre || 'proveedor'
-        });
+        try {
+          finalPdfUrl = await uploadInvoiceFile(pdfFile, 'costes', {
+            number: numInterno,
+            entity: prov?.nombre || 'proveedor'
+          });
+          uploadedPath = finalPdfUrl; // Guardamos para borrar si falla el insert
+        } catch (uploadErr: any) {
+          alert("Error al subir el PDF: " + uploadErr.message);
+          setSaving(false);
+          return;
+        }
       }
 
       if (!finalPdfUrl) {
@@ -463,6 +472,8 @@ export default function CostesPage() {
          return;
       }
       setIfFound(['pdf_url', 'archivo_url', 'url_archivo'], finalPdfUrl);
+
+      // ... resto de la lógica de fallback ...
 
       // Si no tenemos columnas detectadas (primer registro), forzamos mapeo estándar más seguro
       if (availableCols.length === 0) {
@@ -483,6 +494,10 @@ export default function CostesPage() {
         
         if (iErr) {
           console.error("❌ Error CRÍTIC EN TABLA 'COSTES':", iErr);
+          // Borrar archivo si falló la inserción (Requisito Integridad)
+          if (uploadedPath) {
+             await deleteInvoiceFile(uploadedPath);
+          }
           throw new Error(`[TABLA COSTES] Fallo de Seguridad (RLS): ${iErr.message}`);
         }
         
