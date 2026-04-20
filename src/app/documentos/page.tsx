@@ -128,14 +128,6 @@ export default function DocumentosPage() {
       } else if (currentPath === "recibidas") {
          const { data: dCosts } = await supabase.from('costes').select('id, num_interno, numero, num_factura_proveedor, archivo_url, proveedores(nombre)').not('archivo_url', 'is', null).eq('user_id', user.id);
          
-         const physical = stFiles.map(f => ({
-            ...f,
-            isFolder: !f.id ? true : false,
-            url: f.id ? getPublicUrl(f.name, user.id) : null,
-            type: 'Archivo',
-            origin: 'Storage'
-         }));
-
          const database = (dCosts || []).map(c => {
             const regNum = c.registro_interno || c.num_interno || c.numero || "S/N";
             return { 
@@ -148,19 +140,11 @@ export default function DocumentosPage() {
             };
          });
          
-         results = [...physical, ...database];
+         results = [...database];
 
       } else if (currentPath === "emitidas") {
          const { data: dProjs } = await supabase.from('proyectos').select('id, nombre, archivo_url').not('archivo_url', 'is', null).eq('user_id', user.id);
          const { data: dVents } = await supabase.from('ventas').select('id, serie, num_factura, archivo_url, clientes(nombre)').not('archivo_url', 'is', null).eq('user_id', user.id);
-
-         const physical = stFiles.map(f => ({
-            ...f,
-            isFolder: !f.id ? true : false,
-            url: f.id ? getPublicUrl(f.name, user.id) : null,
-            type: 'Archivo',
-            origin: 'Storage'
-         }));
 
          const database = [
             ...(dProjs || []).map(p => ({ 
@@ -181,7 +165,7 @@ export default function DocumentosPage() {
             }))
          ];
          
-         results = [...physical, ...database];
+         results = [...database];
 
       } else if (currentPath === "otros") {
          const physical = stFiles.map(f => ({
@@ -227,7 +211,59 @@ export default function DocumentosPage() {
     }
   };
 
-  const fetchProjectDocs = async () => {
+  
+  const cleanupOrphans = async () => {
+    if (!confirm('¿Deseas escanear y eliminar archivos PDF huérfanos que no están vinculados a ningún registro?')) return;
+    setLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const folders = ['emitidas', 'recibidas', 'presupuestos'];
+      let deletedCount = 0;
+
+      const [v, c, p, o] = await Promise.all([
+        supabase.from('ventas').select('archivo_url').not('archivo_url', 'is', null),
+        supabase.from('costes').select('archivo_url').not('archivo_url', 'is', null),
+        supabase.from('proyectos').select('archivo_url').not('archivo_url', 'is', null),
+        supabase.from('proyecto_documentos').select('archivo_url').not('archivo_url', 'is', null)
+      ]);
+
+      const allUrls = [
+        ...(v.data || []).map(r => r.archivo_url),
+        ...(c.data || []).map(r => r.archivo_url),
+        ...(p.data || []).map(r => r.archivo_url),
+        ...(o.data || []).map(r => r.archivo_url)
+      ];
+
+      for (const folder of folders) {
+        const { data: stFiles } = await supabase.storage.from('facturas').list(`${user.id}/${folder}`);
+        if (stFiles) {
+          const orphans = stFiles.filter(f => {
+            if (f.name === '.emptyFolderPlaceholder') return false;
+            const fullPath = `${user.id}/${folder}/${f.name}`;
+            const { data: { publicUrl } } = supabase.storage.from('facturas').getPublicUrl(fullPath);
+            return !allUrls.includes(publicUrl);
+          });
+
+          if (orphans.length > 0) {
+            const pathsToDelete = orphans.map(f => `${user.id}/${folder}/${f.name}`);
+            const { error: delErr } = await supabase.storage.from('facturas').remove(pathsToDelete);
+            if (!delErr) deletedCount += orphans.length;
+          }
+        }
+      }
+
+      alert(`✅ Limpieza finalizada. Se han eliminado ${deletedCount} archivos huérfanos.`);
+      fetchFiles();
+    } catch (err: any) {
+      alert('Error durante la limpieza: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+const fetchProjectDocs = async () => {
     if (!selectedProjectId) return;
     setLoading(true);
     try {
@@ -359,7 +395,16 @@ export default function DocumentosPage() {
       <div className="flex-1 p-8 overflow-y-auto">
         <header className="flex justify-between items-end mb-10">
           <div>
-            <h1 className="text-3xl font-bold font-head tracking-tight text-[var(--foreground)] mb-1">Gestión Documental</h1>
+            <div className="flex items-center gap-4">
+              <h1 className="text-3xl font-bold font-head tracking-tight text-[var(--foreground)] mb-1">Gestión Documental</h1>
+              <button 
+                onClick={cleanupOrphans}
+                className="px-3 py-1.5 rounded-lg text-[10px] font-bold text-red-500 hover:bg-red-50 border border-red-100 transition-all flex items-center gap-2"
+                title="Eliminar archivos sin registro vinculado"
+              >
+                <Trash2 size={12} /> LIMPIAR HISTORIAL HUÉRFANO
+              </button>
+            </div>
             <p className="text-[var(--muted)] font-medium">Control total de la documentación de tu negocio.</p>
           </div>
           
