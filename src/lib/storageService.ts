@@ -6,12 +6,19 @@ export const uploadInvoiceFile = async (
   type: 'ventas' | 'costes' | 'presupuestos', 
   metadata: { number: string; entity: string }
 ): Promise<string> => {
-  // Limpiar nombre de entidad para evitar caracteres raros en el nombre de archivo
-  const cleanEntity = metadata.entity.replace(/[^a-z0-9]/gi, '_').toLowerCase().substring(0, 20);
+  // Limpiar nombre de entidad de forma estricta para evitar subcarpetas accidentales o caracteres raros
+  const cleanEntity = metadata.entity
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // Quitar tildes
+    .replace(/[^a-z0-9]/gi, '_')     // Quitar todo lo que no sea alfanumérico
+    .toLowerCase()
+    .substring(0, 30);
+
   const prefixes = { ventas: 'EMI', costes: 'REC', presupuestos: 'PRE' };
   const folders = { ventas: 'emitidas', costes: 'recibidas', presupuestos: 'presupuestos' };
   
-  const fileName = `${prefixes[type]}_${metadata.number}_${cleanEntity}.pdf`;
+  // Nombre de archivo: [PREFIJO]_[NUMERO]_[ENTIDAD].pdf
+  const fileName = `${prefixes[type]}_${metadata.number}_${cleanEntity}.pdf`.replace(/__+/g, '_');
   const path = `${folders[type]}/${fileName}`;
 
   const { data, error } = await supabase.storage

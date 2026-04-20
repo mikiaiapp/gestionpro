@@ -116,21 +116,30 @@ export default function DocumentosPage() {
          setFiles(stFiles);
       } else if (currentPath === "recibidas") {
          // Si estamos en "recibidas", inyectamos facturas RECIBIDAS de la BD
-         const { data: dCosts } = await supabase.from('costes').select('id, num_factura_proveedor, archivo_url, proveedores(nombre)').not('archivo_url', 'is', null);
+         const { data: dCosts } = await supabase.from('costes').select('id, registro_interno, num_interno, numero, num_factura_proveedor, archivo_url, proveedores(nombre)').not('archivo_url', 'is', null);
          
-         const dbDocs = (dCosts || []).map(c => ({ 
-            id: c.id, 
-            name: `REC - ${c.num_factura_proveedor} - ${(c as any).proveedores?.nombre}.pdf`, 
-            url: c.archivo_url, 
-            type: 'Factura Recibida',
-            context: (c as any).proveedores?.nombre 
-         }));
+         // Filtramos carpetas físicas en vistas de negocio para evitar ruido (Solo mostramos archivos)
+         stFiles = stFiles.filter(f => f.url || f.archivo_url || f.pdf_url);
+
+         const dbDocs = (dCosts || []).map(c => {
+            const regNum = c.registro_interno || c.num_interno || c.numero || "S/N";
+            return { 
+               id: c.id, 
+               name: `REC - ${regNum} - ${(c as any).proveedores?.nombre}.pdf`, 
+               url: c.archivo_url, 
+               type: 'Factura Recibida',
+               context: (c as any).proveedores?.nombre 
+            };
+         });
          
          setFiles([...stFiles, ...dbDocs]);
       } else if (currentPath === "emitidas") {
          // Si estamos en "emitidas", inyectamos PRE y EMI de la BD
          const { data: dProjs } = await supabase.from('proyectos').select('id, nombre, archivo_url').not('archivo_url', 'is', null);
          const { data: dVents } = await supabase.from('ventas').select('id, serie, num_factura, archivo_url, clientes(nombre)').not('archivo_url', 'is', null);
+
+         // Filtramos carpetas físicas en vistas de negocio para evitar ruido (Solo mostramos archivos)
+         stFiles = stFiles.filter(f => f.url || f.archivo_url || f.pdf_url);
 
          const dbDocs = [
             ...(dProjs || []).map(p => ({ 
@@ -368,59 +377,94 @@ export default function DocumentosPage() {
                    <div className="flex flex-col items-center justify-center p-32 text-center">
                       <Files size={64} className="text-gray-100 mb-4" />
                       <p className="text-gray-400 font-bold">Sin archivos en esta ubicación.</p>
+                               ) : (
+                   <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+                      {/* Encabezado Estilo Windows */}
+                      <div className="hidden md:grid grid-cols-12 gap-4 px-6 py-3 border-b border-gray-100 bg-gray-50/50 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                         <div className="col-span-6 flex items-center">Nombre de Archivo</div>
+                         <div className="col-span-3 flex items-center">Origen / Contexto</div>
+                         <div className="col-span-2 flex items-center">Categoría</div>
+                         <div className="col-span-1 text-right flex items-center justify-end">Acciones</div>
+                      </div>
+
+                      <div className="divide-y divide-gray-50">
+                         {files.filter((f: any) => f.name.toLowerCase().includes(searchTerm.toLowerCase())).map((file: any, index: number) => {
+                            const isFolder = !file.url && !file.archivo_url && !file.pdf_url;
+                            return (
+                               <div 
+                                 key={file.id || file.name || index} 
+                                 onClick={() => {
+                                   if (isFolder) {
+                                     setCurrentPath(currentPath ? `${currentPath}/${file.name}` : file.name);
+                                   } else {
+                                     window.open(file.url || file.archivo_url || file.pdf_url, '_blank');
+                                   }
+                                 }}
+                                 className="group grid grid-cols-1 md:grid-cols-12 gap-2 md:gap-4 px-6 py-2.5 hover:bg-blue-50/30 transition-all cursor-pointer items-center"
+                               >
+                                  {/* Nombre */}
+                                  <div className="col-span-12 md:col-span-6 flex items-center gap-3 min-w-0">
+                                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isFolder ? 'bg-blue-50 text-blue-500' : 'bg-purple-50 text-purple-400'}`}>
+                                        {isFolder ? <FolderOpen size={18} /> : <FileText size={18} />}
+                                     </div>
+                                     <div className="min-w-0">
+                                        <p className="font-bold text-slate-700 truncate text-[13px] group-hover:text-blue-600 transition-colors">
+                                           {file.name}
+                                        </p>
+                                        <p className="md:hidden text-[10px] text-slate-400 truncate">
+                                           {file.context || 'Documento'} • {file.type || 'Archivo'}
+                                        </p>
+                                     </div>
+                                  </div>
+
+                                  {/* Contexto */}
+                                  <div className="hidden md:block col-span-3 text-[11px] font-bold text-gray-400 uppercase tracking-tight truncate">
+                                     {file.context || '-'}
+                                  </div>
+
+                                  {/* Categoría */}
+                                  <div className="hidden md:block col-span-2">
+                                     {file.type && (
+                                        <span className="px-2 py-0.5 rounded-full bg-orange-50 text-orange-600 text-[8px] font-black uppercase tracking-widest">
+                                           {file.type}
+                                        </span>
+                                     )}
+                                  </div>
+                                  
+                                  {/* Acciones */}
+                                  <div className="col-span-12 md:col-span-1 flex justify-end gap-1 opacity-40 group-hover:opacity-100 transition-opacity">
+                                     {!isFolder && (
+                                        <>
+                                           <a 
+                                              href={file.url || file.archivo_url} 
+                                              target="_blank" 
+                                              onClick={(e) => e.stopPropagation()}
+                                              className="p-1.5 hover:bg-purple-50 rounded-md text-purple-400"
+                                           >
+                                              <ExternalLink size={14} />
+                                           </a>
+                                           <a 
+                                              href={file.url || file.archivo_url} 
+                                              download={file.name} 
+                                              onClick={(e) => e.stopPropagation()}
+                                              className="p-1.5 hover:bg-green-50 rounded-md text-green-500"
+                                           >
+                                              <Download size={14} />
+                                           </a>
+                                        </>
+                                     )}
+                                     {isFolder && (
+                                        <div className="p-1.5 text-gray-300">
+                                           <ChevronRight size={14} />
+                                        </div>
+                                     )}
+                                  </div>
+                               </div>
+                            );
+                         })}
+                      </div>
                    </div>
-                ) : (
-                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                      {files.filter((f: any) => f.name.toLowerCase().includes(searchTerm.toLowerCase())).map((file: any, index: number) => {
-                          const isFolder = !file.url && !file.archivo_url && !file.pdf_url;
-                          return (
-                             <div 
-                               key={file.id || file.name || index} 
-                               onClick={() => {
-                                 if (isFolder) {
-                                   setCurrentPath(currentPath ? `${currentPath}/${file.name}` : file.name);
-                                 } else {
-                                   window.open(file.url || file.archivo_url || file.pdf_url, '_blank');
-                                 }
-                               }}
-                               className={`p-4 rounded-3xl border transition-all group flex flex-col justify-between min-h-[160px] relative overflow-hidden bg-white ${isFolder ? 'cursor-pointer border-blue-100 hover:border-blue-400 hover:bg-blue-50/50' : 'cursor-pointer border-gray-100 hover:border-purple-300 hover:bg-purple-50/20'}`}
-                             >
-                                <div className="absolute -right-4 -top-4 opacity-[0.03] group-hover:opacity-[0.1] transition-opacity">
-                                   {isFolder ? <FolderOpen size={100} /> : <FileText size={100} />}
-                                </div>
-                                <div className="relative z-10">
-                                   {file.type && (
-                                     <div className="inline-block px-2 py-0.5 rounded-full bg-orange-100 text-orange-600 text-[8px] font-black uppercase tracking-widest mb-2">
-                                        {file.type}
-                                     </div>
-                                   )}
-                                   <div className={`mb-2 ${isFolder ? 'text-blue-500' : 'text-purple-400'}`}>
-                                      {isFolder ? <FolderOpen size={24} /> : <FileText size={24} />}
-                                   </div>
-                                   <div className="font-bold text-[13px] text-gray-700 break-words leading-tight min-h-[2.5em] line-clamp-2">
-                                      {file.name}
-                                   </div>
-                                   {file.context && (
-                                     <div className="text-[9px] text-gray-400 font-bold mt-1 uppercase tracking-tight truncate">
-                                        {file.context}
-                                     </div>
-                                   )}
-                                </div>
-                                <div className="flex justify-between items-end mt-4 relative z-10">
-                                   <span className="text-[9px] font-black text-gray-300 uppercase">
-                                      {isFolder ? 'Carpeta' : (file.metadata?.size ? `${(file.metadata.size / 1024 / 1024).toFixed(2)} MB` : 'PDF')}
-                                   </span>
-                                   {!isFolder && (
-                                     <div className="flex gap-2">
-                                        <a href={file.url || file.archivo_url} target="_blank" className="p-2 bg-white rounded-lg border hover:shadow-md transition-all text-purple-500"><ExternalLink size={14} /></a>
-                                        <a href={file.url || file.archivo_url} download={file.name} className="p-2 bg-white rounded-lg border hover:shadow-md transition-all text-green-500"><Download size={14} /></a>
-                                     </div>
-                                   )}
-                                </div>
-                             </div>
-                          );
-                       })}
-                   </div>
+    </div>
                 )}
              </div>
           </div>
