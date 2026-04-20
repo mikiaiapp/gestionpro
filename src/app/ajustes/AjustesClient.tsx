@@ -665,27 +665,57 @@ export default function AjustesClient() {
                     <div className="space-y-3">
                       <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Ventas (Emitidas)</label>
                       <div className="flex gap-2">
-                        <input type="text" value={serieVentas} onChange={e => setSerieVentas(e.target.value.toUpperCase())} maxLength={3} placeholder="S" className="w-20 px-4 py-4 rounded-2xl border bg-white font-black text-blue-600 text-center uppercase" />
-                        <input type="text" value={prefijoVentas} onChange={e => setPrefijoVentas(e.target.value)} placeholder="Prefijo (ej: INV-)" title="Prefijo opcional" className="w-32 px-4 py-4 rounded-2xl border bg-white font-bold text-xs" />
-                        <input type="number" value={contadorVentas} onChange={e => setContadorVentas(parseInt(e.target.value) || 1)} className="flex-1 px-4 py-4 rounded-2xl border bg-white font-mono font-bold text-lg" />
+                        <input 
+                          type="text" 
+                          value={prefijoVentas} 
+                          onChange={e => setPrefijoVentas(e.target.value)} 
+                          placeholder="Prefijo (ej: F-)" 
+                          className="w-24 px-4 py-4 rounded-2xl border bg-white font-black text-blue-600 text-center" 
+                        />
+                        <input 
+                          type="number" 
+                          value={contadorVentas} 
+                          onChange={e => setContadorVentas(parseInt(e.target.value) || 1)} 
+                          className="flex-1 px-4 py-4 rounded-2xl border bg-white font-mono font-bold text-lg" 
+                        />
                       </div>
                     </div>
 
                     <div className="space-y-3">
                       <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Compras (Gastos)</label>
                       <div className="flex gap-2">
-                        <input type="text" value={serieCostes} onChange={e => setSerieCostes(e.target.value.toUpperCase())} maxLength={3} placeholder="G" className="w-20 px-4 py-4 rounded-2xl border bg-white font-black text-red-600 text-center uppercase" />
-                        <input type="text" value={prefijoCostes} onChange={e => setPrefijoCostes(e.target.value)} placeholder="Prefijo" className="w-32 px-4 py-4 rounded-2xl border bg-white font-bold text-xs" />
-                        <input type="number" value={contadorCostes} onChange={e => setContadorCostes(parseInt(e.target.value) || 1)} className="flex-1 px-4 py-4 rounded-2xl border bg-white font-mono font-bold text-lg" />
+                        <input 
+                          type="text" 
+                          value={prefijoCostes} 
+                          onChange={e => setPrefijoCostes(e.target.value)} 
+                          placeholder="Prefijo" 
+                          className="w-24 px-4 py-4 rounded-2xl border bg-white font-black text-red-600 text-center" 
+                        />
+                        <input 
+                          type="number" 
+                          value={contadorCostes} 
+                          onChange={e => setContadorCostes(parseInt(e.target.value) || 1)} 
+                          className="flex-1 px-4 py-4 rounded-2xl border bg-white font-mono font-bold text-lg" 
+                        />
                       </div>
                     </div>
 
                     <div className="space-y-3">
                       <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Presupuestos</label>
                       <div className="flex gap-2">
-                        <input type="text" value={serieProyectos} onChange={e => setSerieProyectos(e.target.value.toUpperCase())} maxLength={3} placeholder="P" className="w-20 px-4 py-4 rounded-2xl border bg-white font-black text-orange-600 text-center uppercase" />
-                        <input type="text" value={prefijoProyectos} onChange={e => setPrefijoProyectos(e.target.value)} placeholder="Prefijo" className="w-32 px-4 py-4 rounded-2xl border bg-white font-bold text-xs" />
-                        <input type="number" value={contadorProyectos} onChange={e => setContadorProyectos(parseInt(e.target.value) || 1)} className="flex-1 px-4 py-4 rounded-2xl border bg-white font-mono font-bold text-lg" />
+                        <input 
+                          type="text" 
+                          value={prefijoProyectos} 
+                          onChange={e => setPrefijoProyectos(e.target.value)} 
+                          placeholder="Prefijo" 
+                          className="w-24 px-4 py-4 rounded-2xl border bg-white font-black text-orange-600 text-center" 
+                        />
+                        <input 
+                          type="number" 
+                          value={contadorProyectos} 
+                          onChange={e => setContadorProyectos(parseInt(e.target.value) || 1)} 
+                          className="flex-1 px-4 py-4 rounded-2xl border bg-white font-mono font-bold text-lg" 
+                        />
                       </div>
                     </div>
                   </div>
