@@ -15,7 +15,8 @@ import { uploadInvoiceFile, deleteInvoiceFile } from "@/lib/storageService";
 interface LineaProyecto {
   unidades: number;
   descripcion: string;
-  precio_unitario: number;
+  precio_unitario: number; // venta prevista por línea
+  coste: number;           // coste previsto por línea
 }
 
 export default function ProyectosPage() {
@@ -52,7 +53,7 @@ export default function ProyectosPage() {
   const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
   const [estado, setEstado] = useState("Abierto");
   const [retencionPct, setRetencionPct] = useState(0);
-  const [lineas, setLineas] = useState<LineaProyecto[]>([{ unidades: 1, descripcion: "", precio_unitario: 0 }]);
+  const [lineas, setLineas] = useState<LineaProyecto[]>([{ unidades: 1, descripcion: "", precio_unitario: 0, coste: 0 }]);
   const [condiciones, setCondiciones] = useState("");
 
   useEffect(() => {
@@ -143,7 +144,7 @@ export default function ProyectosPage() {
     }
   };
 
-  const addLinea = () => setLineas([...lineas, { unidades: 1, descripcion: "", precio_unitario: 0 }]);
+  const addLinea = () => setLineas([...lineas, { unidades: 1, descripcion: "", precio_unitario: 0, coste: 0 }]);
   const removeLinea = (index: number) => {
     const newLineas = lineas.filter((_, i) => i !== index);
     setLineas(newLineas);
@@ -154,7 +155,8 @@ export default function ProyectosPage() {
     setLineas(newLineas);
   };
 
-  const baseImponible = lineas.reduce((acc, l) => acc + (l.unidades * l.precio_unitario), 0);
+  const baseImponible = lineas.reduce((acc, l) => acc + l.precio_unitario, 0);
+  const costePrevisto = lineas.reduce((acc, l) => acc + l.coste, 0);
   const cuotaIva = baseImponible * 0.21;
   const retencionImporte = (baseImponible * (retencionPct || 0)) / 100;
   const totalProyecto = baseImponible + cuotaIva - retencionImporte;
@@ -175,15 +177,17 @@ export default function ProyectosPage() {
     setRetencionPct(p.retencion_pct || 0);
     setCondiciones(p.condiciones_particulares || p.condiciones || "");
 
-    const { data: lineasData } = await supabase.from("proyecto_lineas").select("*").eq("proyecto_id", p.id).eq("user_id", user.id);
+    // proyecto_lineas no tiene columna user_id — filtrar solo por proyecto_id
+    const { data: lineasData } = await supabase.from("proyecto_lineas").select("*").eq("proyecto_id", p.id);
     if (lineasData && lineasData.length > 0) {
       setLineas(lineasData.map((l: any) => ({
         unidades: 1,
         descripcion: l.descripcion,
-        precio_unitario: l.precio_unitario
+        precio_unitario: l.precio_unitario || 0,
+        coste: l.coste || 0
       })));
     } else {
-      setLineas([{ unidades: 1, descripcion: "", precio_unitario: 0 }]);
+      setLineas([{ unidades: 1, descripcion: "", precio_unitario: 0, coste: 0 }]);
     }
     setIsEditorOpen(true);
   };
@@ -230,7 +234,8 @@ export default function ProyectosPage() {
       if (editingId) {
         const { error: updateErr } = await supabase.from("proyectos").update(payload).eq("id", editingId).eq("user_id", user.id);
         if (updateErr) throw updateErr;
-        await supabase.from("proyecto_lineas").delete().eq("proyecto_id", editingId).eq("user_id", user.id);
+        // proyecto_lineas no tiene user_id — solo filtrar por proyecto_id
+        await supabase.from("proyecto_lineas").delete().eq("proyecto_id", editingId);
       } else {
         const { data: projData, error: insErr } = await supabase.from("proyectos").insert([payload]).select().single();
         if (insErr) throw insErr;
@@ -238,18 +243,25 @@ export default function ProyectosPage() {
         // No incrementamos el contador del perfil: getNextNumber lo calcula dinámicamente desde la BD
       }
 
-      const lineasToInsert = lineas.map(l => ({
+      // Insertar líneas — intentar con coste, fallback sin él si la columna no existe aún
+      const lineasBase = lineas.map(l => ({
         proyecto_id: currentId,
         unidades: 1,
         descripcion: l.descripcion,
         precio_unitario: l.precio_unitario,
-        user_id: user.id
+        coste: l.coste
       }));
 
-      const { error: lineasError } = await supabase.from("proyecto_lineas").insert(lineasToInsert);
+      const { error: lineasError } = await supabase.from("proyecto_lineas").insert(lineasBase);
       if (lineasError) {
-        console.error("Error al guardar líneas del presupuesto:", lineasError);
-        alert("⚠️ Error al guardar las partidas: " + lineasError.message);
+        // Fallback sin coste si la columna no existe en BD todavía
+        console.warn("Insert con coste falló, reintentando sin él:", lineasError.message);
+        const lineasSinCoste = lineasBase.map(({ coste, ...l }) => l);
+        const { error: lineasErr2 } = await supabase.from("proyecto_lineas").insert(lineasSinCoste);
+        if (lineasErr2) {
+          console.error("Error crítico al guardar líneas:", lineasErr2);
+          alert("⚠️ Error al guardar las partidas: " + lineasErr2.message);
+        }
       }
 
       // --- AUTO ARCHIVADO PDF ---
@@ -483,7 +495,6 @@ export default function ProyectosPage() {
 
             <div className="glass-card bg-white shadow-sm border-[var(--border)] overflow-visible min-h-[400px] mb-20">
 
-               
                <table className="w-full border-collapse">
                  <thead>
                    <tr className="bg-gray-50/50 border-b border-[var(--border)]">
@@ -600,65 +611,94 @@ export default function ProyectosPage() {
                  </div>
                </div>
 
-               <div className="mb-8 overflow-x-auto">
-                 <table className="w-full text-left min-w-[400px]">
-                   <thead>
-                     <tr>
-                       <th className="pb-3 text-[10px] font-bold text-gray-400 uppercase">Descripción / Partida</th>
-                       <th className="w-44 pb-3 text-[10px] font-bold text-gray-400 uppercase text-right">Importe</th>
-                       <th className="w-10"></th>
-                     </tr>
-                   </thead>
-                   <tbody>
-                     {lineas.map((linea, idx) => (
-                       <tr key={idx}>
-                         <td className="py-2 pr-4"><textarea rows={1} value={linea.descripcion} onChange={(e) => updateLinea(idx, { descripcion: e.target.value })} className="w-full p-2 rounded-lg border border-gray-100 text-sm" /></td>
-                         <td className="py-2 pr-4">
-                           <input
-                             type="text"
-                             inputMode="decimal"
-                             value={linea.precio_unitario === 0 ? '' : (linea.precio_unitario || '')}
-                             onChange={(e) => {
-                                const raw = e.target.value.replace(',', '.');
-                                if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
-                                  const val = raw === '' ? 0 : parseFloat(raw);
-                                  updateLinea(idx, { precio_unitario: isNaN(val) ? 0 : val });
-                                }
-                             }}
-                             onFocus={(e) => e.target.select()}
-                             className="w-full p-2 rounded-lg border border-gray-100 text-right font-mono text-gray-800 font-bold focus:ring-2 focus:ring-orange-100 outline-none"
-                             placeholder="0.00"
-                           />
-                         </td>
-                         <td className="py-2 text-center">{lineas.length > 1 && <button onClick={() => removeLinea(idx)} className="text-red-300 hover:text-red-500"><Trash2 size={16}/></button>}</td>
-                       </tr>
-                     ))}
-                   </tbody>
-                 </table>
-                 <button onClick={addLinea} className="mt-4 flex items-center gap-2 text-sm font-bold text-orange-600 hover:underline"><Plus size={16}/> Añadir partida</button>
-               </div>
-
-               <div className="flex flex-col md:flex-row justify-between items-start pt-8 border-t border-gray-100 gap-8">
-                  <div className="w-full md:w-64">
-                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Retención IRPF (%)</label>
-                    <select
-                      value={retencionPct}
-                      onChange={(e) => setRetencionPct(parseFloat(e.target.value) || 0)}
-                      className="w-full p-2.5 rounded-lg border border-gray-200 bg-gray-50 font-bold outline-none focus:bg-white transition-all"
-                    >
-                      <option value="0">Sin Retención (0%)</option>
-                      {tiposIrpf.map(t => (
-                        <option key={t.id} value={t.valor}>{t.nombre} ({t.valor}%)</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="w-full md:w-80 space-y-3">
-                    <div className="flex justify-between text-sm"><span>Base Imponible:</span><span className="font-mono font-bold">{formatCurrency(baseImponible)}</span></div>
-                    <div className="flex justify-between text-sm"><span>IVA (21%):</span><span className="font-mono font-bold">{formatCurrency(cuotaIva)}</span></div>
-                    {retencionPct > 0 && <div className="flex justify-between text-sm text-red-600"><span>Retención ({retencionPct}%):</span><span className="font-mono font-bold">-{formatCurrency(retencionImporte)}</span></div>}
-                    <div className="flex justify-between text-xl font-bold pt-3 border-t-2 border-gray-200 text-gray-800"><span>TOTAL:</span><span className="text-orange-600">{formatCurrency(totalProyecto)}</span></div>
-                  </div>
-               </div>
+               <div className="mb-8 overflow-x-auto">
+                 <table className="w-full text-left min-w-[600px]">
+                   <thead>
+                     <tr>
+                       <th className="pb-3 text-[10px] font-bold text-gray-400 uppercase">Descripción / Partida</th>
+                       <th className="w-32 pb-3 text-[10px] font-bold text-gray-400 uppercase text-right">Coste Prev.</th>
+                       <th className="w-32 pb-3 text-[10px] font-bold text-gray-400 uppercase text-right">Venta Prev.</th>
+                       <th className="w-10"></th>
+                     </tr>
+                   </thead>
+                   <tbody>
+                     {lineas.map((linea, idx) => (
+                       <tr key={idx}>
+                         <td className="py-2 pr-4"><textarea rows={1} value={linea.descripcion} onChange={(e) => updateLinea(idx, { descripcion: e.target.value })} className="w-full p-2 rounded-lg border border-gray-100 text-sm" /></td>
+                         <td className="py-2 pr-4">
+                           <input
+                             type="text"
+                             inputMode="decimal"
+                             value={linea.coste === 0 ? '' : (linea.coste || '')}
+                             onChange={(e) => {
+                                const raw = e.target.value.replace(',', '.');
+                                if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
+                                  const val = raw === '' ? 0 : parseFloat(raw);
+                                  updateLinea(idx, { coste: isNaN(val) ? 0 : val });
+                                }
+                             }}
+                             onFocus={(e) => e.target.select()}
+                             className="w-full p-2 rounded-lg border border-gray-100 text-right font-mono text-red-600 focus:ring-2 focus:ring-red-100 outline-none"
+                             placeholder="0.00"
+                           />
+                         </td>
+                         <td className="py-2 pr-4">
+                           <input
+                             type="text"
+                             inputMode="decimal"
+                             value={linea.precio_unitario === 0 ? '' : (linea.precio_unitario || '')}
+                             onChange={(e) => {
+                                const raw = e.target.value.replace(',', '.');
+                                if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
+                                  const val = raw === '' ? 0 : parseFloat(raw);
+                                  updateLinea(idx, { precio_unitario: isNaN(val) ? 0 : val });
+                                }
+                             }}
+                             onFocus={(e) => e.target.select()}
+                             className="w-full p-2 rounded-lg border border-gray-100 text-right font-mono text-green-600 font-bold focus:ring-2 focus:ring-green-100 outline-none"
+                             placeholder="0.00"
+                           />
+                         </td>
+                         <td className="py-2 text-center">{lineas.length > 1 && <button onClick={() => removeLinea(idx)} className="text-red-300 hover:text-red-500"><Trash2 size={16}/></button>}</td>
+                       </tr>
+                     ))}
+                   </tbody>
+                 </table>
+                 <button onClick={addLinea} className="mt-4 flex items-center gap-2 text-sm font-bold text-orange-600 hover:underline"><Plus size={16}/> Añadir partida</button>
+               </div>
+
+               <div className="flex flex-col md:flex-row justify-between items-start pt-8 border-t border-gray-100 gap-8">
+                  <div className="w-full md:w-80 space-y-4">
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Retención IRPF (%)</label>
+                      <select
+                        value={retencionPct}
+                        onChange={(e) => setRetencionPct(parseFloat(e.target.value) || 0)}
+                        className="w-full p-2.5 rounded-lg border border-gray-200 bg-gray-50 font-bold outline-none focus:bg-white transition-all"
+                      >
+                        <option value="0">Sin Retención (0%)</option>
+                        {tiposIrpf.map(t => (
+                          <option key={t.id} value={t.valor}>{t.nombre} ({t.valor}%)</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="p-4 rounded-xl border border-red-50 bg-red-50/50">
+                      <label className="block text-[10px] font-bold text-red-400 uppercase mb-1">TOTAL COSTE PREVISTO</label>
+                      <div className="text-xl font-mono font-bold text-red-600">
+                        {formatCurrency(costePrevisto)}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="w-full md:w-80 space-y-3">
+                    <div className="flex justify-between text-sm"><span>Base Imponible (Venta):</span><span className="font-mono font-bold">{formatCurrency(baseImponible)}</span></div>
+                    <div className="flex justify-between text-sm"><span>IVA (21%):</span><span className="font-mono font-bold">{formatCurrency(cuotaIva)}</span></div>
+                    {retencionPct > 0 && <div className="flex justify-between text-sm text-red-600"><span>Retención ({retencionPct}%):</span><span className="font-mono font-bold">-{formatCurrency(retencionImporte)}</span></div>}
+                    <div className="flex justify-between text-xl font-bold pt-3 border-t-2 border-gray-200 text-gray-800"><span>TOTAL VENTA:</span><span className="text-orange-600">{formatCurrency(totalProyecto)}</span></div>
+                  </div>
+               </div>
+
+                  </div>
+               </div>
 
                <div className="mt-8 pt-8 border-t border-dashed border-gray-200 space-y-6">
                   {/* Condiciones Particulares: específicas de este presupuesto */}

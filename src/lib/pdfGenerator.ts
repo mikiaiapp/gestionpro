@@ -157,7 +157,7 @@ export const generatePDF = async (data: PDFData) => {
   const tableHead = [['DESCRIPCIÓN / CONCEPTO', 'IMPORTE']];
   const tableBody = data.lineas.map(l => [
     l.descripcion,
-    new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(l.unidades * l.precio_unitario)
+    new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(l.precio_unitario || 0)
   ]);
 
   doc.autoTable({
