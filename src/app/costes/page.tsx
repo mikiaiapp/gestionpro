@@ -473,7 +473,6 @@ export default function CostesPage() {
       }
       setIfFound(['pdf_url', 'archivo_url', 'url_archivo'], finalPdfUrl);
 
-      // ... resto de la lógica de fallback ...
 
       // Si no tenemos columnas detectadas (primer registro), forzamos mapeo estándar más seguro
       if (availableCols.length === 0) {
