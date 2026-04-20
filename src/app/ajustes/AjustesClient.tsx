@@ -662,60 +662,90 @@ export default function AjustesClient() {
                   </div>
                   
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-8 p-8 bg-gray-50 rounded-[2rem] border border-gray-100">
-                    <div className="space-y-3">
-                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Ventas (Emitidas)</label>
-                      <div className="flex gap-2">
-                        <input 
-                          type="text" 
-                          value={prefijoVentas} 
-                          onChange={e => setPrefijoVentas(e.target.value)} 
-                          placeholder="Prefijo (ej: F-)" 
-                          className="w-24 px-4 py-4 rounded-2xl border bg-white font-black text-blue-600 text-center" 
-                        />
-                        <input 
-                          type="number" 
-                          value={contadorVentas} 
-                          onChange={e => setContadorVentas(parseInt(e.target.value) || 1)} 
-                          className="flex-1 px-4 py-4 rounded-2xl border bg-white font-mono font-bold text-lg" 
-                        />
+                    {/* Ventas */}
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between px-1">
+                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.15em]">Ventas (Emitidas)</label>
+                        <div className="h-1.5 w-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
+                      </div>
+                      <div className="grid grid-cols-5 gap-3">
+                        <div className="col-span-2 space-y-1.5">
+                           <span className="text-[9px] font-bold text-gray-300 uppercase tracking-widest pl-1">Prefijo</span>
+                           <input 
+                              type="text" 
+                              value={prefijoVentas} 
+                              onChange={e => setPrefijoVentas(e.target.value)} 
+                              placeholder="F-" 
+                              className="w-full px-4 py-4 rounded-2xl border bg-white font-black text-blue-600 text-center uppercase focus:ring-4 focus:ring-blue-500/5 focus:border-blue-200 transition-all outline-none" 
+                           />
+                        </div>
+                        <div className="col-span-3 space-y-1.5">
+                           <span className="text-[9px] font-bold text-gray-300 uppercase tracking-widest pl-1">Nº Actual</span>
+                           <input 
+                              type="number" 
+                              value={contadorVentas} 
+                              onChange={e => setContadorVentas(parseInt(e.target.value) || 1)} 
+                              className="w-full px-5 py-4 rounded-2xl border bg-white font-mono font-bold text-lg text-right text-gray-800 focus:ring-4 focus:ring-blue-500/5 focus:border-blue-200 transition-all outline-none" 
+                           />
+                        </div>
                       </div>
                     </div>
 
-                    <div className="space-y-3">
-                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Compras (Gastos)</label>
-                      <div className="flex gap-2">
-                        <input 
-                          type="text" 
-                          value={prefijoCostes} 
-                          onChange={e => setPrefijoCostes(e.target.value)} 
-                          placeholder="Prefijo" 
-                          className="w-24 px-4 py-4 rounded-2xl border bg-white font-black text-red-600 text-center" 
-                        />
-                        <input 
-                          type="number" 
-                          value={contadorCostes} 
-                          onChange={e => setContadorCostes(parseInt(e.target.value) || 1)} 
-                          className="flex-1 px-4 py-4 rounded-2xl border bg-white font-mono font-bold text-lg" 
-                        />
+                    {/* Compras */}
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between px-1">
+                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.15em]">Compras (Gastos)</label>
+                        <div className="h-1.5 w-1.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
+                      </div>
+                      <div className="grid grid-cols-5 gap-3">
+                        <div className="col-span-2 space-y-1.5" title="Nombre de serie o prefijo">
+                           <span className="text-[9px] font-bold text-gray-300 uppercase tracking-widest pl-1">Prefijo</span>
+                           <input 
+                              type="text" 
+                              value={prefijoCostes} 
+                              onChange={e => setPrefijoCostes(e.target.value)} 
+                              placeholder="G-" 
+                              className="w-full px-4 py-4 rounded-2xl border bg-white font-black text-red-600 text-center uppercase focus:ring-4 focus:ring-red-500/5 focus:border-red-200 transition-all outline-none" 
+                           />
+                        </div>
+                        <div className="col-span-3 space-y-1.5">
+                           <span className="text-[9px] font-bold text-gray-300 uppercase tracking-widest pl-1">Nº Actual</span>
+                           <input 
+                              type="number" 
+                              value={contadorCostes} 
+                              onChange={e => setContadorCostes(parseInt(e.target.value) || 1)} 
+                              className="w-full px-5 py-4 rounded-2xl border bg-white font-mono font-bold text-lg text-right text-gray-800 focus:ring-4 focus:ring-red-500/5 focus:border-red-200 transition-all outline-none" 
+                           />
+                        </div>
                       </div>
                     </div>
 
-                    <div className="space-y-3">
-                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Presupuestos</label>
-                      <div className="flex gap-2">
-                        <input 
-                          type="text" 
-                          value={prefijoProyectos} 
-                          onChange={e => setPrefijoProyectos(e.target.value)} 
-                          placeholder="Prefijo" 
-                          className="w-24 px-4 py-4 rounded-2xl border bg-white font-black text-orange-600 text-center" 
-                        />
-                        <input 
-                          type="number" 
-                          value={contadorProyectos} 
-                          onChange={e => setContadorProyectos(parseInt(e.target.value) || 1)} 
-                          className="flex-1 px-4 py-4 rounded-2xl border bg-white font-mono font-bold text-lg" 
-                        />
+                    {/* Presupuestos */}
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between px-1">
+                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.15em]">Presupuestos</label>
+                        <div className="h-1.5 w-1.5 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.5)]" />
+                      </div>
+                      <div className="grid grid-cols-5 gap-3">
+                        <div className="col-span-2 space-y-1.5">
+                           <span className="text-[9px] font-bold text-gray-300 uppercase tracking-widest pl-1">Prefijo</span>
+                           <input 
+                              type="text" 
+                              value={prefijoProyectos} 
+                              onChange={e => setPrefijoProyectos(e.target.value)} 
+                              placeholder="P-" 
+                              className="w-full px-4 py-4 rounded-2xl border bg-white font-black text-orange-600 text-center uppercase focus:ring-4 focus:ring-orange-500/5 focus:border-orange-200 transition-all outline-none" 
+                           />
+                        </div>
+                        <div className="col-span-3 space-y-1.5">
+                           <span className="text-[9px] font-bold text-gray-300 uppercase tracking-widest pl-1">Nº Actual</span>
+                           <input 
+                              type="number" 
+                              value={contadorProyectos} 
+                              onChange={e => setContadorProyectos(parseInt(e.target.value) || 1)} 
+                              className="w-full px-5 py-4 rounded-2xl border bg-white font-mono font-bold text-lg text-right text-gray-800 focus:ring-4 focus:ring-orange-500/5 focus:border-orange-200 transition-all outline-none" 
+                           />
+                        </div>
                       </div>
                     </div>
                   </div>
