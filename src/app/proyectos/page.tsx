@@ -24,6 +24,7 @@ export default function ProyectosPage() {
   const [proyectos, setProyectos] = useState<any[]>([]);
   const [clientes, setClientes] = useState<any[]>([]);
   const [perfil, setPerfil] = useState<any>(null);
+  const [tiposIrpf, setTiposIrpf] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [columnKey, setColumnKey] = useState("num_proyecto"); 
@@ -121,6 +122,9 @@ export default function ProyectosPage() {
 
       const { data: clis } = await supabase.from("clientes").select("id, nombre").eq("user_id", user.id).order("nombre");
       const { data: perf } = await supabase.from("perfil_negocio").select("*").eq("user_id", user.id).maybeSingle();
+      const { data: irpf } = await supabase.from("tipos_irpf").select("*").eq("user_id", user.id).order("valor", { ascending: false });
+
+      setTiposIrpf(irpf || []);
 
       // Escaneo Activo de Columnas
       const possibleKeys = ['num_proyecto', 'num_referencia', 'numero', 'referencia'];
@@ -644,23 +648,29 @@ export default function ProyectosPage() {
                         <td className="py-2 pr-4">
                           <input 
                             type="number" 
-                            value={linea.coste_unitario} 
+                            step="any"
+                            value={linea.coste_unitario || ''} 
                             onChange={(e) => {
-                               updateLinea(idx, "coste_unitario", parseFloat(e.target.value) || 0);
+                               const val = e.target.value === '' ? 0 : parseFloat(e.target.value);
+                               updateLinea(idx, "coste_unitario", val);
                                updateLinea(idx, "unidades", 1);
                             }} 
                             className="w-full p-2 rounded-lg border border-gray-100 text-right font-mono text-red-600" 
+                            placeholder="0.00"
                           />
                         </td>
                         <td className="py-2 pr-4">
                           <input 
                             type="number" 
-                            value={linea.precio_unitario} 
+                            step="any"
+                            value={linea.precio_unitario || ''} 
                             onChange={(e) => {
-                               updateLinea(idx, "precio_unitario", parseFloat(e.target.value) || 0);
+                               const val = e.target.value === '' ? 0 : parseFloat(e.target.value);
+                               updateLinea(idx, "precio_unitario", val);
                                updateLinea(idx, "unidades", 1);
                             }} 
                             className="w-full p-2 rounded-lg border border-gray-100 text-right font-mono text-green-600 font-bold" 
+                            placeholder="0.00"
                           />
                         </td>
                         <td className="py-2 text-center">{lineas.length > 1 && <button onClick={() => removeLinea(idx)} className="text-red-300 hover:text-red-500"><Trash2 size={16}/></button>}</td>
@@ -673,12 +683,21 @@ export default function ProyectosPage() {
 
                <div className="flex flex-col md:flex-row justify-between items-start pt-8 border-t border-gray-100 gap-8">
                   <div className="w-full md:w-64">
-                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Retención (%)</label>
-                    <input type="number" value={retencionPct} onChange={(e) => setRetencionPct(parseFloat(e.target.value) || 0)} className="w-full p-2 rounded-lg border border-gray-200 font-bold" />
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Retención IRPF (%)</label>
+                    <select 
+                      value={retencionPct} 
+                      onChange={(e) => setRetencionPct(parseFloat(e.target.value) || 0)} 
+                      className="w-full p-2.5 rounded-lg border border-gray-200 bg-gray-50 font-bold outline-none focus:bg-white transition-all"
+                    >
+                      <option value="0">Sin Retención (0%)</option>
+                      {tiposIrpf.map(t => (
+                        <option key={t.id} value={t.valor}>{t.nombre} ({t.valor}%)</option>
+                      ))}
+                    </select>
                   </div>
                   <div className="w-full md:w-64">
                     <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Total Coste Previsto (€)</label>
-                    <input type="number" value={costePrevisto} readOnly className="w-full p-2 rounded-lg border border-gray-100 bg-gray-50 font-bold text-red-600 cursor-not-allowed" />
+                    <input type="number" step="any" value={costePrevisto} readOnly className="w-full p-2 rounded-lg border border-gray-100 bg-gray-50 font-bold text-red-600 cursor-not-allowed" />
                   </div>
                   <div className="w-full md:w-80 space-y-3">
                     <div className="flex justify-between text-sm"><span>Base Imponible:</span><span className="font-mono font-bold">{formatCurrency(baseImponible)}</span></div>
