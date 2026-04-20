@@ -178,41 +178,32 @@ function VentasContent() {
     fetchData();
   }, []);
 
-  const getNextNumber = (targetSerie: string, allVentas: any[]) => {
-    const currentYear = new Date().getFullYear();
-    const defaultPrefix = `${currentYear}-`;
-    const finalPrefix = perfil?.prefijo_ventas || defaultPrefix;
-    
-    // 1. Obtener base del perfil
-    let nextNum = perfil?.contador_ventas || 1;
+  const getNextNumber = (allVentas: any[]) => {
+    const finalPrefix = perfil?.prefijo_ventas || `${new Date().getFullYear()}-`;
 
-    // 2. Verificar contra base de datos por seguridad
-    const filteredVentas = allVentas.filter(v => 
-      v.serie === targetSerie && 
-      v.num_factura && 
-      v.num_factura.startsWith(finalPrefix)
-    );
+    // Extraer todos los números existentes con este prefijo
+    const numbers = allVentas
+      .filter(v => v.num_factura && v.num_factura.startsWith(finalPrefix))
+      .map(v => {
+        const after = v.num_factura.slice(finalPrefix.length);
+        return parseInt(after, 10);
+      })
+      .filter(n => !isNaN(n) && n > 0);
 
-    if (filteredVentas.length > 0) {
-      const dbNumbers = filteredVentas.map(v => {
-        const parts = v.num_factura.split(finalPrefix);
-        const lastPart = parts[parts.length - 1];
-        return parseInt(lastPart, 10) || 0;
-      });
-      const maxInDb = Math.max(...dbNumbers);
-      if (maxInDb >= nextNum) nextNum = maxInDb + 1;
-    }
+    // Si hay facturas existentes: siguiente = máximo + 1
+    // Si no hay ninguna: usar el número de inicio configurado en Ajustes
+    const nextNum = numbers.length > 0
+      ? Math.max(...numbers) + 1
+      : (perfil?.contador_ventas || 1);
 
-    // Si el prefijo ya termina en guion o separador, no añadimos otro
     return `${finalPrefix}${nextNum}`;
   };
 
   useEffect(() => {
     if (isEditorOpen && !editingId) {
-      // Usar serie del perfil si existe
       const defaultSerie = perfil?.serie_ventas || "A";
       setSerie(defaultSerie);
-      const next = getNextNumber(defaultSerie, ventas);
+      const next = getNextNumber(ventas);
       setNumFactura(next);
     }
   }, [isEditorOpen, editingId, ventas, perfil]);
@@ -374,11 +365,7 @@ function VentasContent() {
         const { data: venta, error: vError } = await supabase.from("ventas").insert([payload]).select().single();
         if (vError) throw vError;
         currentVentaId = venta.id;
-
-        // INCREMENTAR CONTADOR EN PERFIL
-        const nextCount = (perfil?.contador_ventas || 1) + 1;
-        await supabase.from("perfil_negocio").update({ contador_ventas: nextCount }).eq("user_id", user.id);
-        setPerfil({ ...perfil, contador_ventas: nextCount });
+        // No incrementamos el contador del perfil: getNextNumber lo calcula dinámicamente desde la BD
       }
 
       const lineasToInsert = lineas.map(l => ({

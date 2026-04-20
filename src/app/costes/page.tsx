@@ -84,31 +84,27 @@ export default function CostesPage() {
 
   // Numeración correlativa automática (Libro de IVA Soportado)
   useEffect(() => {
-    if (!editingId && isModalOpen && (costes || []).length >= 0) {
-       const finalPrefix = perfil?.prefijo_costes || "";
-       
-       // 1. Obtener base del perfil
-       let nextNum = perfil?.contador_costes || 1;
+    if (!editingId && isModalOpen) {
+      const finalPrefix = perfil?.prefijo_costes || "";
 
-       // 2. Verificar contra base de datos por seguridad
-       const filtered = (costes || []).filter(c => 
-          (c.num_interno || c.numero || "").startsWith(finalPrefix)
-       );
+      // Extraer todos los números existentes con este prefijo
+      const numbers = (costes || [])
+        .map(c => {
+          const val = c.num_interno || c.numero || "";
+          if (!val.startsWith(finalPrefix)) return NaN;
+          const numStr = val.slice(finalPrefix.length);
+          return parseInt(numStr, 10);
+        })
+        .filter(n => !isNaN(n) && n > 0);
 
-       if (filtered.length > 0) {
-          const dbNums = filtered.map(c => {
-             const val = c.num_interno || c.numero || "";
-             const numStr = val.replace(finalPrefix, "");
-             return parseInt(numStr) || 0;
-          });
-          const maxInDb = Math.max(...dbNums);
-          if (maxInDb >= nextNum) nextNum = maxInDb + 1;
-       }
-       
-       setNumInterno(`${finalPrefix}${nextNum}`);
-       
-       // Sintonizar serie por defecto si existe
-       if (perfil?.serie_costes) setSerie(perfil.serie_costes);
+      // Si hay registros: siguiente = máximo + 1
+      // Si no hay ninguno: usar el número de inicio configurado en Ajustes
+      const nextNum = numbers.length > 0
+        ? Math.max(...numbers) + 1
+        : (perfil?.contador_costes || 1);
+
+      setNumInterno(`${finalPrefix}${nextNum}`);
+      if (perfil?.serie_costes) setSerie(perfil.serie_costes);
     }
   }, [isModalOpen, editingId, costes, perfil]);
 
@@ -524,12 +520,7 @@ export default function CostesPage() {
         }
         
         currentId = newCosteRows[0].id;
-
-        // INCREMENTAR CONTADOR EN PERFIL
-        const nextCount = (perfil?.contador_costes || 1) + 1;
-        await supabase.from("perfil_negocio").update({ contador_costes: nextCount }).eq("user_id", user.id);
-        setPerfil({ ...perfil, contador_costes: nextCount });
-        console.log("✅ Gasto creado con ID:", currentId);
+        // No incrementamos el contador del perfil: se calcula dinámicamente desde la BD
       }
 
       const lineasConId = lineas.map(l => ({
