@@ -74,7 +74,10 @@ export default function CostesPage() {
   }, []);
 
   const fetchPerfil = async () => {
-    const { data } = await supabase.from("perfil_negocio").select("*").single();
+    const { data: userData } = await supabase.auth.getUser();
+    const user = userData?.user;
+    if (!user) return;
+    const { data } = await supabase.from("perfil_negocio").select("*").eq("user_id", user.id).maybeSingle();
     if (data) setPerfil(data);
   };
 
@@ -91,10 +94,17 @@ export default function CostesPage() {
 
   const fetchData = async () => {
     setLoading(true);
-    const { data: csts } = await supabase.from("costes").select("*, proveedores(nombre), proyectos(nombre), coste_lineas(*)").order("fecha", { ascending: false });
-    const { data: pgts } = await supabase.from("pagos").select("*");
-    const { data: provs } = await supabase.from("proveedores").select("id, nombre, nif").order("nombre");
-    const { data: projs } = await supabase.from("proyectos").select("id, nombre, estado, cliente_id, clientes(nombre)").order("nombre");
+    const { data: userData } = await supabase.auth.getUser();
+    const user = userData?.user;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    const { data: csts } = await supabase.from("costes").select("*, proveedores(nombre), proyectos(nombre), coste_lineas(*)").eq("user_id", user.id).order("fecha", { ascending: false });
+    const { data: pgts } = await supabase.from("pagos").select("*").eq("user_id", user.id);
+    const { data: provs } = await supabase.from("proveedores").select("id, nombre, nif").eq("user_id", user.id).order("nombre");
+    const { data: projs } = await supabase.from("proyectos").select("id, nombre, estado, cliente_id, clientes(nombre)").eq("user_id", user.id).order("nombre");
 
     const preparedCostes = (csts || []).map(c => {
       const misPagos = (pgts || []).filter((p: any) => p.coste_id === c.id);
@@ -223,8 +233,12 @@ export default function CostesPage() {
 
     setIsExtracting(true);
     try {
-      // 1. Obtener la API Key de Ajustes
-      const { data: perf } = await supabase.from('perfil_negocio').select('gemini_key').single();
+      const { data: userData } = await supabase.auth.getUser();
+      const user = userData?.user;
+      if (!user) throw new Error("No hay sesión activa");
+
+      // 1. Obtener la API Key de Ajustes (Filtrado por usuario)
+      const { data: perf } = await supabase.from('perfil_negocio').select('gemini_key').eq('user_id', user.id).maybeSingle();
       if (!perf?.gemini_key) {
         alert("Configura primero tu Gemini API Key en Ajustes.");
         setIsExtracting(false);
@@ -370,13 +384,14 @@ export default function CostesPage() {
       const availableCols = (colProbe && colProbe.length > 0) ? Object.keys(colProbe[0]) : [];
       const foundKey = (options: string[]) => options.find(o => availableCols.includes(o));
 
-      // CONTROL DE DUPLICADOS (Solo en creación)
+      // CONTROL DE DUPLICADOS (Solo en creación - Filtrado por usuario)
       if (!editingId && numFactProv && proveedorId) {
         const colNum = foundKey(['num_factura_proveedor', 'numero_factura', 'num_factura', 'factura_prov', 'referencia']) || 'num_factura_proveedor';
         const { data: dupe } = await supabase
           .from('costes')
           .select('id, fecha')
           .eq('proveedor_id', proveedorId)
+          .eq('user_id', user.id)
           .eq(colNum, numFactProv)
           .maybeSingle();
 
@@ -501,21 +516,27 @@ export default function CostesPage() {
 
   const handleDeleteCoste = async (c: any) => {
     try {
-      // 1. Comprobar si tiene pagos
+      const { data: userData } = await supabase.auth.getUser();
+      const user = userData?.user;
+      if (!user) return;
+
+      // 1. Comprobar si tiene pagos (Filtrado por usuario)
       const { data: pagos } = await supabase
         .from("pagos")
         .select("id")
-        .eq("coste_id", c.id);
+        .eq("coste_id", c.id)
+        .eq("user_id", user.id);
       
       if (pagos && pagos.length > 0) {
         alert("No se puede eliminar la factura recibida (Motivo: Tiene pagos asociados)");
         return;
       }
 
-      // 2. Comprobar si es la última (correlatividad registro interno)
+      // 2. Comprobar si es la última (correlatividad registro interno filtrada por usuario)
       const { data: posteriores } = await supabase
         .from("costes")
         .select("id")
+        .eq("user_id", user.id)
         .gt("created_at", c.created_at)
         .limit(1);
 
@@ -526,7 +547,7 @@ export default function CostesPage() {
 
       if (!confirm(`¿Seguro que quieres eliminar este gasto de ${c.proveedores?.nombre}?`)) return;
 
-      const { error } = await supabase.from("costes").delete().eq("id", c.id);
+      const { error } = await supabase.from("costes").delete().eq("id", c.id).eq("user_id", user.id);
       if (error) throw error;
 
       alert("✅ Gasto eliminado correctamente");

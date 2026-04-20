@@ -62,7 +62,7 @@ export default function ClientesPage() {
     }
   }, [cp]);
 
-  // Control de Duplicidades por NIF (Real-time)
+  // Control de Duplicidades por NIF (Real-time - Filtrado por usuario)
   useEffect(() => {
     const checkDuplicateNIF = async () => {
       const cleanedNif = cleanNIF(nif);
@@ -72,10 +72,14 @@ export default function ClientesPage() {
       }
 
       try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
         const { data: list, error } = await supabase
           .from('clientes')
           .select('id, nombre')
-          .eq('nif', cleanedNif);
+          .eq('nif', cleanedNif)
+          .eq('user_id', user.id);
 
         if (list && list.length > 0) {
           const duplicate = list.find(c => c.id !== editingId);
@@ -99,9 +103,17 @@ export default function ClientesPage() {
   const fetchClientes = async () => {
     setLoading(true);
     try {
+      const { data: userData } = await supabase.auth.getUser();
+      const user = userData?.user;
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('clientes')
         .select('*')
+        .eq('user_id', user.id)
         .order('nombre');
       
       if (error) throw error;
@@ -126,6 +138,9 @@ export default function ClientesPage() {
 
     setSaving(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("No hay sesión activa");
+
       const payload = {
         nombre,
         nif: cleanNIF(nif),
@@ -133,12 +148,13 @@ export default function ClientesPage() {
         direccion,
         codigo_postal: cp,
         poblacion,
-        provincia
+        provincia,
+        user_id: user.id
       };
 
       let error;
       if (editingId) {
-        const { error: updateError } = await supabase.from('clientes').update(payload).eq('id', editingId);
+        const { error: updateError } = await supabase.from('clientes').update(payload).eq('id', editingId).eq('user_id', user.id);
         error = updateError;
       } else {
         const { error: insertError } = await supabase.from('clientes').insert(payload);
@@ -184,11 +200,15 @@ export default function ClientesPage() {
 
   const handleDeleteCliente = async (id: string, name: string) => {
     try {
-      // 1. Comprobar si tiene presupuestos
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // 1. Comprobar si tiene presupuestos (Filtrado por usuario)
       const { data: projs } = await supabase
         .from('proyectos')
         .select('id')
-        .eq('cliente_id', id);
+        .eq('cliente_id', id)
+        .eq('user_id', user.id);
       
       if (projs && projs.length > 0) {
         alert(`No se puede eliminar el cliente ${name} (Motivo: Tiene presupuestos asociados)`);
@@ -196,7 +216,7 @@ export default function ClientesPage() {
       }
 
       if (window.confirm(`¿Seguro que quieres eliminar a ${name}?`)) {
-        const { error } = await supabase.from('clientes').delete().eq('id', id);
+        const { error } = await supabase.from('clientes').delete().eq('id', id).eq('user_id', user.id);
         if (error) throw error;
         await fetchClientes();
         alert("✅ Cliente eliminado correctamente");

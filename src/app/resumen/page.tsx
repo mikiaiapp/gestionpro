@@ -25,12 +25,19 @@ export default function ResumenPage() {
   const fetchResumen = async () => {
     setLoading(true);
     try {
-      const { data: projs } = await supabase.from("proyectos").select("*, clientes(nombre)");
-      const { data: vts } = await supabase.from("ventas").select("id, proyecto_id, total");
-      const { data: csts } = await supabase.from("costes").select("id, proyecto_id, total");
-      const { data: cbrs } = await supabase.from("cobros").select("venta_id, importe");
-      const { data: pgs } = await supabase.from("pagos").select("coste_id, importe");
-      const { data: perf } = await supabase.from("perfil_negocio").select("*").maybeSingle();
+      const { data: userData } = await supabase.auth.getUser();
+      const user = userData?.user;
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
+      const { data: projs } = await supabase.from("proyectos").select("*, clientes(nombre)").eq("user_id", user.id);
+      const { data: vts } = await supabase.from("ventas").select("id, proyecto_id, total").eq("user_id", user.id);
+      const { data: csts } = await supabase.from("costes").select("id, proyecto_id, total").eq("user_id", user.id);
+      const { data: cbrs } = await supabase.from("cobros").select("venta_id, importe").eq("user_id", user.id);
+      const { data: pgs } = await supabase.from("pagos").select("coste_id, importe").eq("user_id", user.id);
+      const { data: perf } = await supabase.from("perfil_negocio").select("*").eq("user_id", user.id).maybeSingle();
 
       const consolidated = (projs || []).map(p => {
         const misVentas = (vts || []).filter(v => v.proyecto_id === p.id);
@@ -83,11 +90,15 @@ export default function ResumenPage() {
   const fetchProjectDetails = async (project: any) => {
     setLoadingDetails(true);
     try {
+      const { data: userData } = await supabase.auth.getUser();
+      const user = userData?.user;
+      if (!user) return;
+
       const [vts, csts, cbrs, pgs] = await Promise.all([
-        supabase.from("ventas").select("*").eq("proyecto_id", project.id),
-        supabase.from("costes").select("*").eq("proyecto_id", project.id),
-        supabase.from("cobros").select("*"),
-        supabase.from("pagos").select("*")
+        supabase.from("ventas").select("*").eq("proyecto_id", project.id).eq("user_id", user.id),
+        supabase.from("costes").select("*").eq("proyecto_id", project.id).eq("user_id", user.id),
+        supabase.from("cobros").select("*").eq("user_id", user.id),
+        supabase.from("pagos").select("*").eq("user_id", user.id)
       ]);
 
       setDetails({

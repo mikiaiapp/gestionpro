@@ -105,9 +105,17 @@ export default function ProveedoresPage() {
   const fetchProveedores = async () => {
     setLoading(true);
     try {
+      const { data: userData } = await supabase.auth.getUser();
+      const user = userData?.user;
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('proveedores')
         .select('*')
+        .eq('user_id', user.id)
         .order('nombre');
       
       if (error) throw error;
@@ -143,7 +151,7 @@ export default function ProveedoresPage() {
         nif: cleanNIF(nif),
         email,
         direccion,
-        codigo_postal: cp, // NOMBRE CORRECTO EN DB: codigo_postal
+        codigo_postal: cp, 
         poblacion,
         provincia,
         user_id: user.id
@@ -151,7 +159,7 @@ export default function ProveedoresPage() {
 
       let error;
       if (editingId) {
-        const { error: updateError } = await supabase.from('proveedores').update(payload).eq('id', editingId);
+        const { error: updateError } = await supabase.from('proveedores').update(payload).eq('id', editingId).eq('user_id', user.id);
         error = updateError;
       } else {
         const { error: insertError } = await supabase.from('proveedores').insert(payload);
@@ -202,11 +210,15 @@ export default function ProveedoresPage() {
 
   const handleDeleteProveedor = async (id: string, name: string) => {
     try {
-      // 1. Comprobar si tiene facturas recibidas
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // 1. Comprobar si tiene facturas recibidas (Filtrado por usuario)
       const { data: costes } = await supabase
         .from('costes')
         .select('id')
-        .eq('proveedor_id', id);
+        .eq('proveedor_id', id)
+        .eq('user_id', user.id);
       
       if (costes && costes.length > 0) {
         alert(`No se puede eliminar el proveedor ${name} (Motivo: Tiene facturas recibidas asociadas)`);
@@ -214,7 +226,7 @@ export default function ProveedoresPage() {
       }
 
       if (window.confirm(`¿Seguro que quieres eliminar a ${name}?`)) {
-        const { error } = await supabase.from('proveedores').delete().eq('id', id);
+        const { error } = await supabase.from('proveedores').delete().eq('id', id).eq('user_id', user.id);
         if (error) throw error;
         await fetchProveedores();
         alert("✅ Proveedor eliminado correctamente");

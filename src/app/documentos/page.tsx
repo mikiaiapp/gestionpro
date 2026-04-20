@@ -75,10 +75,16 @@ export default function DocumentosPage() {
     setLoading(true);
     setFiles([]);
     try {
-      // 1. Storage Files (Standard Explorer)
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const userRoot = user.id;
+      const bucketPath = currentPath ? `${userRoot}/${currentPath}` : userRoot;
+
+      // 1. Storage Files (Standard Explorer) - FILTRADO POR USER ROOT
       const { data: storageData, error } = await supabase.storage
         .from('facturas')
-        .list(currentPath || undefined, {
+        .list(bucketPath || undefined, {
           limit: 100,
           offset: 0,
           sortBy: { column: 'name', order: 'asc' }
@@ -86,18 +92,20 @@ export default function DocumentosPage() {
 
       if (error) throw error;
       
-      // Filtrar backups y placeholders técnicos
       const stFiles = (storageData || [])
           .filter(f => f.name !== '.emptyFolderPlaceholder' && f.name !== 'backups');
 
-      // 2. Proceso de Enriquecimiento y Unificación
       let results: any[] = [];
 
       if (!currentPath) { 
-         // VISTA RAÍZ
+         const { data: dPerf } = await supabase.from('perfil_negocio').select('nombre_comercial').eq('user_id', user.id).maybeSingle();
+         const businessName = dPerf?.nombre_comercial || "Mi Negocio";
+
          const virtualFolders = ['recibidas', 'emitidas', 'otros'].map(name => ({
             name,
             isFolder: true,
+            context: businessName,
+            type: 'Carpeta Virtual',
             origin: 'Virtual'
          }));
 
@@ -105,7 +113,7 @@ export default function DocumentosPage() {
          const physicalFiles = stFiles.map(f => ({
             ...f,
             isFolder: !f.id ? true : false,
-            url: f.id ? getPublicUrl(f.name) : null,
+            url: f.id ? getPublicUrl(f.name, user.id) : null,
             origin: 'Storage'
          }));
 
@@ -118,12 +126,12 @@ export default function DocumentosPage() {
          });
 
       } else if (currentPath === "recibidas") {
-         const { data: dCosts } = await supabase.from('costes').select('id, registro_interno, num_interno, numero, num_factura_proveedor, archivo_url, proveedores(nombre)').not('archivo_url', 'is', null);
+         const { data: dCosts } = await supabase.from('costes').select('id, registro_interno, num_interno, numero, num_factura_proveedor, archivo_url, proveedores(nombre)').not('archivo_url', 'is', null).eq('user_id', user.id);
          
          const physical = stFiles.map(f => ({
             ...f,
             isFolder: !f.id ? true : false,
-            url: f.id ? getPublicUrl(f.name) : null,
+            url: f.id ? getPublicUrl(f.name, user.id) : null,
             type: 'Archivo',
             origin: 'Storage'
          }));
@@ -143,13 +151,13 @@ export default function DocumentosPage() {
          results = [...physical, ...database];
 
       } else if (currentPath === "emitidas") {
-         const { data: dProjs } = await supabase.from('proyectos').select('id, nombre, archivo_url').not('archivo_url', 'is', null);
-         const { data: dVents } = await supabase.from('ventas').select('id, serie, num_factura, archivo_url, clientes(nombre)').not('archivo_url', 'is', null);
+         const { data: dProjs } = await supabase.from('proyectos').select('id, nombre, archivo_url').not('archivo_url', 'is', null).eq('user_id', user.id);
+         const { data: dVents } = await supabase.from('ventas').select('id, serie, num_factura, archivo_url, clientes(nombre)').not('archivo_url', 'is', null).eq('user_id', user.id);
 
          const physical = stFiles.map(f => ({
             ...f,
             isFolder: !f.id ? true : false,
-            url: f.id ? getPublicUrl(f.name) : null,
+            url: f.id ? getPublicUrl(f.name, user.id) : null,
             type: 'Archivo',
             origin: 'Storage'
          }));
@@ -179,12 +187,12 @@ export default function DocumentosPage() {
          const physical = stFiles.map(f => ({
             ...f,
             isFolder: !f.id ? true : false,
-            url: f.id ? getPublicUrl(f.name) : null,
+            url: f.id ? getPublicUrl(f.name, user.id) : null,
             type: 'Archivo',
             origin: 'Storage'
          }));
 
-         const { data: dOtros } = await supabase.from('proyecto_documentos').select('id, nombre, archivo_url, proyecto_id, proyectos(nombre)').not('archivo_url', 'is', null);
+         const { data: dOtros } = await supabase.from('proyecto_documentos').select('id, nombre, archivo_url, proyecto_id, proyectos(nombre)').not('archivo_url', 'is', null).eq('user_id', user.id);
          const database = (dOtros || []).map(o => ({ 
             id: o.id, 
             name: o.nombre, 
@@ -338,10 +346,10 @@ export default function DocumentosPage() {
     }
   };
 
-  const getPublicUrl = (fileName: string) => {
+  const getPublicUrl = (fileName: string, userId: string) => {
     const { data: { publicUrl } } = supabase.storage
       .from('facturas')
-      .getPublicUrl(`${currentPath}/${fileName}`);
+      .getPublicUrl(`${userId}/${currentPath}/${fileName}`);
     return publicUrl;
   };
 

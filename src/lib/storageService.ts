@@ -6,25 +6,30 @@ export const uploadInvoiceFile = async (
   type: 'ventas' | 'costes' | 'presupuestos', 
   metadata: { number: string; entity: string }
 ): Promise<string> => {
-  // Limpiar nombre de entidad de forma estricta para evitar subcarpetas accidentales o caracteres raros
+  // Obtener usuario para aislamiento
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("No hay sesión activa para subir archivos");
+
+  // Limpiar nombre de entidad
   const cleanEntity = metadata.entity
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "") // Quitar tildes
-    .replace(/[^a-z0-9]/gi, '_')     // Quitar todo lo que no sea alfanumérico
+    .replace(/[\u0300-\u036f]/g, "") 
+    .replace(/[^a-z0-9]/gi, '_')     
     .toLowerCase()
     .substring(0, 30);
 
   const prefixes = { ventas: 'EMI', costes: 'REC', presupuestos: 'PRE' };
   const folders = { ventas: 'emitidas', costes: 'recibidas', presupuestos: 'presupuestos' };
   
-  // Nombre de archivo: [PREFIJO]_[NUMERO]_[ENTIDAD].pdf
   const fileName = `${prefixes[type]}_${metadata.number}_${cleanEntity}.pdf`.replace(/__+/g, '_');
-  const path = `${folders[type]}/${fileName}`;
+  
+  // RUTA ESTANCA POR USUARIO: {user_id}/{folder}/{file}
+  const path = `${user.id}/${folders[type]}/${fileName}`;
 
   const { data, error } = await supabase.storage
     .from('facturas')
     .upload(path, file, {
-      upsert: true, // Esto permite "reemplazar" si ya existe
+      upsert: true,
       contentType: 'application/pdf'
     });
 
@@ -33,7 +38,6 @@ export const uploadInvoiceFile = async (
     throw error;
   }
 
-  // Obtener URL pública
   const { data: { publicUrl } } = supabase.storage
     .from('facturas')
     .getPublicUrl(path);
@@ -44,7 +48,11 @@ export const uploadInvoiceFile = async (
 export const deleteInvoiceFile = async (url: string) => {
   if (!url) return;
   try {
-    const path = url.split('/facturas/')[1];
+    // Extraer el path relativo después del nombre del bucket
+    // Ej: .../storage/v1/object/public/facturas/{user_id}/recibidas/file.pdf
+    const parts = url.split('/facturas/');
+    const path = parts.length > 1 ? parts[1] : null;
+    
     if (path) {
       await supabase.storage.from('facturas').remove([path]);
     }

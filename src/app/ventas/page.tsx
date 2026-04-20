@@ -207,12 +207,19 @@ function VentasContent() {
 
   const fetchData = async () => {
     setLoading(true);
-    const { data: vts } = await supabase.from("ventas").select("*, clientes(*), proyectos(nombre), venta_lineas(*)").order("fecha", { ascending: false });
-    const { data: cbrs } = await supabase.from("cobros").select("*");
-    const { data: clis } = await supabase.from("clientes").select("*").order("nombre");
-    const { data: projs } = await supabase.from("proyectos").select("id, nombre, estado, cliente_id, base_imponible, clientes(*)").order("nombre");
-    const { data: fbc } = await supabase.from("formas_cobro").select("*").order("nombre");
-    const { data: perf } = await supabase.from("perfil_negocio").select("*").maybeSingle();
+    const { data: userData } = await supabase.auth.getUser();
+    const user = userData?.user;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    const { data: vts } = await supabase.from("ventas").select("*, clientes(*), proyectos(nombre), venta_lineas(*)").eq("user_id", user.id).order("fecha", { ascending: false });
+    const { data: cbrs } = await supabase.from("cobros").select("*").eq("user_id", user.id);
+    const { data: clis } = await supabase.from("clientes").select("*").eq("user_id", user.id).order("nombre");
+    const { data: projs } = await supabase.from("proyectos").select("id, nombre, estado, cliente_id, base_imponible, clientes(*)").eq("user_id", user.id).order("nombre");
+    const { data: fbc } = await supabase.from("formas_cobro").select("*").order("nombre"); // Esto suele ser global, pero si es por usuario, añadir eq
+    const { data: perf } = await supabase.from("perfil_negocio").select("*").eq("user_id", user.id).maybeSingle();
 
     const preparedVentas = (vts || []).map(v => {
       const misCobros = (cbrs || []).filter((c: any) => c.venta_id === v.id);
@@ -238,7 +245,6 @@ function VentasContent() {
     setClientes(clis || []);
     
     // Preparar proyectos con nombre de cliente para el selector
-    // Filtrar solo abiertos/pendientes Y que no estén facturados al 100%
     const preparedProjs = (projs || [])
       .filter(p => {
         const pEstado = (p.estado || "").toLowerCase();
@@ -247,7 +253,6 @@ function VentasContent() {
         
         const yaFacturado = facturacionPorProyecto[p.id] || 0;
         const totalProy = p.base_imponible || 0;
-        // Si no tiene base imponible, no es facturable por avance
         if (totalProy <= 0) return false;
 
         return yaFacturado < (totalProy - 0.01);
@@ -490,22 +495,28 @@ function VentasContent() {
 
   const handleDeleteVenta = async (v: any) => {
     try {
-      // 1. Comprobar si tiene cobros
+      const { data: userData } = await supabase.auth.getUser();
+      const user = userData?.user;
+      if (!user) return;
+
+      // 1. Comprobar si tiene cobros (Filtrado por usuario)
       const { data: cobros } = await supabase
         .from("cobros")
         .select("id")
-        .eq("venta_id", v.id);
+        .eq("venta_id", v.id)
+        .eq("user_id", user.id);
       
       if (cobros && cobros.length > 0) {
         alert("No se puede eliminar la factura, tendrás que emitir una rectificativa (Motivo: Tiene cobros asociados)");
         return;
       }
 
-      // 2. Comprobar si es la última emitida (basado en num_factura y serie)
+      // 2. Comprobar si es la última emitida (Filtrado por usuario)
       const { data: posteriores } = await supabase
         .from("ventas")
         .select("id")
         .eq("serie", v.serie)
+        .eq("user_id", user.id)
         .gt("num_factura", v.num_factura)
         .limit(1);
 
@@ -522,7 +533,7 @@ function VentasContent() {
 
       if (!confirm(`¿Seguro que quieres eliminar la factura ${v.serie}-${v.num_factura}?`)) return;
 
-      const { error } = await supabase.from("ventas").delete().eq("id", v.id);
+      const { error } = await supabase.from("ventas").delete().eq("id", v.id).eq("user_id", user.id);
       if (error) throw error;
 
       alert("✅ Factura eliminada correctamente");

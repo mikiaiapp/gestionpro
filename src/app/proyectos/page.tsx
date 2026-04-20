@@ -96,18 +96,22 @@ export default function ProyectosPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
+      const { data: userData } = await supabase.auth.getUser();
+      const user = userData?.user;
+      if (!user) return;
+
       // Simplificamos la consulta para que no falle si hay problemas con las líneas (como en el Resumen)
-      const { data: projs, error: fetchError } = await supabase.from("proyectos").select("*, clientes(*)").order("created_at", { ascending: false });
+      const { data: projs, error: fetchError } = await supabase.from("proyectos").select("*, clientes(*)").eq("user_id", user.id).order("created_at", { ascending: false });
       
       if (fetchError) {
         console.error("Error al cargar proyectos:", fetchError);
         alert("Error al cargar proyectos: " + fetchError.message);
       }
 
-      const { data: clis } = await supabase.from("clientes").select("id, nombre").order("nombre");
-      const { data: perf } = await supabase.from("perfil_negocio").select("*").maybeSingle();
+      const { data: clis } = await supabase.from("clientes").select("id, nombre").eq("user_id", user.id).order("nombre");
+      const { data: perf } = await supabase.from("perfil_negocio").select("*").eq("user_id", user.id).maybeSingle();
 
-      // Escaneo Activo de Columnas - Detectamos TODAS las columnas válidas para sincronizar
+      // Escaneo Activo de Columnas
       const possibleKeys = ['num_proyecto', 'num_referencia', 'numero', 'referencia'];
       const foundKeys: string[] = [];
       for (const key of possibleKeys) {
@@ -117,8 +121,8 @@ export default function ProyectosPage() {
       setValidRefKeys(foundKeys);
       if (foundKeys.length > 0) setColumnKey(foundKeys[0]);
 
-      const { data: vts } = await supabase.from("ventas").select("proyecto_id, total, id");
-      const { data: cbrs } = await supabase.from("cobros").select("venta_id, importe");
+      const { data: vts } = await supabase.from("ventas").select("proyecto_id, total, id").eq("user_id", user.id);
+      const { data: cbrs } = await supabase.from("cobros").select("venta_id, importe").eq("user_id", user.id);
 
       // Procesamiento de datos financieros por proyecto
       const mappedProjs = (projs || []).map(p => {
@@ -162,6 +166,10 @@ export default function ProyectosPage() {
   const totalProyecto = baseImponible + cuotaIva - retencionImporte;
 
   const openEditProyecto = async (p: any) => {
+    const { data: userData } = await supabase.auth.getUser();
+    const user = userData?.user;
+    if (!user) return;
+
     setEditingId(p.id);
     setNombre(p.nombre);
     setSerie(p.serie || "P");
@@ -176,8 +184,8 @@ export default function ProyectosPage() {
     setCondiciones(p.condiciones_particulares || p.condiciones || "");
     setLopd(p.lopd_text || p.lopd || "");
 
-    // Cargamos las líneas por separado al editar
-    const { data: lineasData } = await supabase.from("proyecto_lineas").select("*").eq("proyecto_id", p.id);
+    // Cargamos las líneas filtradas por usuario
+    const { data: lineasData } = await supabase.from("proyecto_lineas").select("*").eq("proyecto_id", p.id).eq("user_id", user.id);
     
     if (lineasData && lineasData.length > 0) {
       setLineas(lineasData.map((l: any) => ({
@@ -233,9 +241,9 @@ export default function ProyectosPage() {
 
       let currentId = editingId;
       if (editingId) {
-        const { error: updateErr } = await supabase.from("proyectos").update(payload).eq("id", editingId);
+        const { error: updateErr } = await supabase.from("proyectos").update(payload).eq("id", editingId).eq("user_id", user.id);
         if (updateErr) throw updateErr;
-        await supabase.from("proyecto_lineas").delete().eq("proyecto_id", editingId);
+        await supabase.from("proyecto_lineas").delete().eq("proyecto_id", editingId).eq("user_id", user.id);
       } else {
         const { data: projData, error: insErr } = await supabase.from("proyectos").insert([payload]).select().single();
         if (insErr) throw insErr;
@@ -247,9 +255,10 @@ export default function ProyectosPage() {
           proyecto_id: currentId,
           unidades: l.unidades,
           descripcion: l.descripcion,
-          precio_unitario: l.precio_unitario
+          precio_unitario: l.precio_unitario,
+          user_id: user.id
         };
-        // Solo enviamos coste_unitario si existe la columna en DB (intentamos enviarlo)
+        // Solo enviamos coste_unitario si existe la columna en DB
         if (l.coste_unitario !== undefined) {
           item.coste_unitario = l.coste_unitario;
         }
@@ -376,11 +385,16 @@ export default function ProyectosPage() {
 
   const handleDeleteProyecto = async (p: any) => {
     try {
-      // 1. Comprobar si tiene ventas
+      const { data: userData } = await supabase.auth.getUser();
+      const user = userData?.user;
+      if (!user) return;
+
+      // 1. Comprobar si tiene ventas (Filtrado por usuario)
       const { data: ventas } = await supabase
         .from("ventas")
         .select("id")
-        .eq("proyecto_id", p.id);
+        .eq("proyecto_id", p.id)
+        .eq("user_id", user.id);
       
       if (ventas && ventas.length > 0) {
         alert("No se puede eliminar el presupuesto (Motivo: Tiene facturas emitidas vinculadas)");
@@ -389,7 +403,7 @@ export default function ProyectosPage() {
 
       if (!confirm(`¿Seguro que quieres eliminar el presupuesto ${p.nombre}?`)) return;
 
-      const { error } = await supabase.from("proyectos").delete().eq("id", p.id);
+      const { error } = await supabase.from("proyectos").delete().eq("id", p.id).eq("user_id", user.id);
       if (error) throw error;
 
       alert("✅ Presupuesto eliminado correctamente");

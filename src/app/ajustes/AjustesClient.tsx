@@ -172,9 +172,9 @@ export default function AjustesClient() {
     } catch (e) { console.error(e); }
   };
 
-  const fetchTipos = async () => {
-    const { data: iva } = await supabase.from('tipos_iva').select('*').order('valor', { ascending: false });
-    const { data: irpf } = await supabase.from('tipos_irpf').select('*').order('valor', { ascending: false });
+  const fetchTipos = async (userId: string) => {
+    const { data: iva } = await supabase.from('tipos_iva').select('*').eq('user_id', userId).order('valor', { ascending: false });
+    const { data: irpf } = await supabase.from('tipos_irpf').select('*').eq('user_id', userId).order('valor', { ascending: false });
     setTiposIva(iva || []);
     setTiposIrpf(irpf || []);
   };
@@ -248,12 +248,13 @@ export default function AjustesClient() {
     input.accept = 'image/*';
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
-      if (!file) return;
+      if (!file || !user) return;
 
       setAutoStatus('saving');
       const fileExt = file.name.split('.').pop();
       const fileName = `${Math.random()}.${fileExt}`;
-      const filePath = `logos/${fileName}`;
+      // Aislamiento Físico: Usar carpeta del usuario
+      const filePath = `${user.id}/logos/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('logos')
@@ -322,10 +323,11 @@ export default function AjustesClient() {
     const file = event.target.files?.[0];
     if (!file || !user) return;
     const fileName = `${user.id}-${Math.random()}.${file.name.split('.').pop()}`;
+    const filePath = `${user.id}/logos/${fileName}`;
     setIsSaving(true);
     try {
-      await supabase.storage.from('logos').upload(fileName, file);
-      const { data: { publicUrl } } = supabase.storage.from('logos').getPublicUrl(fileName);
+      await supabase.storage.from('logos').upload(filePath, file);
+      const { data: { publicUrl } } = supabase.storage.from('logos').getPublicUrl(filePath);
       setLogoUrl(publicUrl);
     } catch (error: any) {
       alert('⚠️ ' + error.message);
@@ -349,7 +351,7 @@ export default function AjustesClient() {
         { user_id: user.id, nombre: 'IRPF Nuevos Auton.', valor: 7 },
         { user_id: user.id, nombre: 'IRPF Alquileres', valor: 19 }
       ]);
-      fetchTipos();
+      fetchTipos(user.id);
     } catch (e) { console.error(e); } finally { setSyncing(false); }
   };
 
@@ -359,14 +361,16 @@ export default function AjustesClient() {
     const v = prompt("Valor %:");
     if (n && v) {
       await supabase.from(tabla).insert({ user_id: user.id, nombre: n, valor: parseFloat(v) });
-      fetchTipos();
+      fetchTipos(user.id);
     }
   };
 
   const handleDeleteTipo = async (tabla: 'tipos_iva' | 'tipos_irpf', id: string) => {
     if (confirm("¿Eliminar?")) {
-      await supabase.from(tabla).delete().eq('id', id);
-      fetchTipos();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      await supabase.from(tabla).delete().eq('id', id).eq('user_id', user.id);
+      fetchTipos(user.id);
     }
   };
 
