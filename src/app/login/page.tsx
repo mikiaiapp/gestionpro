@@ -2,42 +2,81 @@
 
 import React, { useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Mail, Lock, LogIn, Loader2, LayoutDashboard, Smartphone } from 'lucide-react';
+import { Mail, Lock, LogIn, Loader2, LayoutDashboard, Smartphone, User, CheckCircle2 } from 'lucide-react';
 import { authenticator } from 'otplib';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [nombre, setNombre] = useState('');
+  const [isRegister, setIsRegister] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [success, setSuccess] = useState(false);
 
   const [show2FA, setShow2FA] = useState(false);
   const [token, setToken] = useState('');
   const [tempUser, setTempUser] = useState<any>(null);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setMessage('');
+    setSuccess(false);
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    });
-
-    if (error) {
-      setMessage("❌ Error: " + error.message);
-      setLoading(false);
-    } else if (data.user) {
-      // Verificar si tiene 2FA activado
-      const { data: profile } = await supabase.from('perfiles').select('two_factor_enabled, two_factor_secret').eq('id', data.user.id).single();
-      
-      if (profile?.two_factor_enabled && profile?.two_factor_secret) {
-        setTempUser({ id: data.user.id, secret: profile.two_factor_secret });
-        setShow2FA(true);
+    if (isRegister) {
+      // PROCESO DE REGISTRO
+      if (!nombre.trim()) {
+        setMessage("❌ El nombre es obligatorio.");
         setLoading(false);
-      } else {
-        window.location.href = '/resumen';
+        return;
+      }
+
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { full_name: nombre }
+        }
+      });
+
+      if (error) {
+        setMessage("❌ Error al registrar: " + error.message);
+      } else if (data.user) {
+        // Intentar crear el perfil manualmente por si el trigger no existe
+        const { error: pError } = await supabase.from('perfiles').insert({
+          id: data.user.id,
+          nombre: nombre,
+          email: email,
+          rol: 'Usuario'
+        });
+
+        setSuccess(true);
+        setMessage("✅ ¡Cuenta creada! Por favor, verifica tu email para activar el acceso.");
+        // Opcional: setIsRegister(false);
+      }
+      setLoading(false);
+    } else {
+      // PROCESO DE LOGIN
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (error) {
+        setMessage("❌ Error: " + error.message);
+        setLoading(false);
+      } else if (data.user) {
+        // Verificar si tiene 2FA activado
+        const { data: profile } = await supabase.from('perfiles').select('two_factor_enabled, two_factor_secret').eq('id', data.user.id).single();
+        
+        if (profile?.two_factor_enabled && profile?.two_factor_secret) {
+          setTempUser({ id: data.user.id, secret: profile.two_factor_secret });
+          setShow2FA(true);
+          setLoading(false);
+        } else {
+          window.location.href = '/resumen';
+        }
       }
     }
   };
@@ -96,7 +135,7 @@ export default function LoginPage() {
           </form>
 
           {message && (
-            <div className="mt-6 p-4 bg-red-50 text-red-700 rounded-2xl text-xs font-bold leading-relaxed">
+            <div className={`mt-6 p-4 rounded-2xl text-xs font-bold leading-relaxed ${success ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
               {message}
             </div>
           )}
@@ -116,51 +155,93 @@ export default function LoginPage() {
             <LayoutDashboard className="text-blue-600" size={40} />
           </div>
           <h2 className="text-4xl font-black text-gray-800 tracking-tighter">GestionPro</h2>
-          <p className="text-gray-400 mt-2 font-medium">Panel de Control Inteligente</p>
+          <p className="text-gray-400 mt-2 font-medium">{isRegister ? 'Crea tu nueva cuenta' : 'Panel de Control Inteligente'}</p>
         </div>
 
-        <form onSubmit={handleLogin} className="space-y-6">
-          <div className="space-y-2">
-            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-2">Email Corporativo</label>
-            <div className="relative group">
-              <Mail className="absolute left-5 top-5 text-gray-300 group-focus-within:text-blue-500 transition-colors" size={18} />
-              <input 
-                type="email" 
-                required 
-                value={email} 
-                onChange={e => setEmail(e.target.value)}
-                className="w-full pl-14 pr-4 py-5 rounded-3xl border bg-gray-50 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all font-medium"
-                placeholder="ejemplo@empresa.com"
-              />
-            </div>
+        {success ? (
+          <div className="text-center space-y-6 py-4">
+             <div className="bg-green-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto">
+                <CheckCircle2 className="text-green-500" size={40} />
+             </div>
+             <p className="text-gray-600 font-medium leading-relaxed">{message}</p>
+             <button 
+               onClick={() => { setIsRegister(false); setSuccess(false); setMessage(''); }}
+               className="text-blue-600 font-bold hover:underline"
+             >
+               Ir a Iniciar Sesión
+             </button>
           </div>
+        ) : (
+          <form onSubmit={handleAuth} className="space-y-6">
+            {isRegister && (
+              <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-500">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-2">Nombre Completo</label>
+                <div className="relative group">
+                  <User className="absolute left-5 top-5 text-gray-300 group-focus-within:text-blue-500 transition-colors" size={18} />
+                  <input 
+                    type="text" 
+                    required 
+                    value={nombre} 
+                    onChange={e => setNombre(e.target.value)}
+                    className="w-full pl-14 pr-4 py-5 rounded-3xl border bg-gray-50 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all font-medium"
+                    placeholder="Juan Pérez"
+                  />
+                </div>
+              </div>
+            )}
 
-          <div className="space-y-2">
-            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-2">Clave de Seguridad</label>
-            <div className="relative group">
-              <Lock className="absolute left-5 top-5 text-gray-300 group-focus-within:text-blue-500 transition-colors" size={18} />
-              <input 
-                type="password" 
-                required 
-                value={password} 
-                onChange={e => setPassword(e.target.value)}
-                className="w-full pl-14 pr-4 py-5 rounded-3xl border bg-gray-50 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all font-medium"
-                placeholder="••••••••"
-              />
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-2">Email Corporativo</label>
+              <div className="relative group">
+                <Mail className="absolute left-5 top-5 text-gray-300 group-focus-within:text-blue-500 transition-colors" size={18} />
+                <input 
+                  type="email" 
+                  required 
+                  value={email} 
+                  onChange={e => setEmail(e.target.value)}
+                  className="w-full pl-14 pr-4 py-5 rounded-3xl border bg-gray-50 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all font-medium"
+                  placeholder="ejemplo@empresa.com"
+                />
+              </div>
             </div>
-          </div>
 
-          <button 
-            type="submit" 
-            disabled={loading}
-            className="w-full py-5 bg-gray-900 text-white font-black rounded-3xl shadow-2xl hover:bg-black transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-50"
-          >
-            {loading ? <Loader2 className="animate-spin" /> : <LogIn size={20} />}
-            Entrar al Sistema
-          </button>
-        </form>
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-2">Clave de Seguridad</label>
+              <div className="relative group">
+                <Lock className="absolute left-5 top-5 text-gray-300 group-focus-within:text-blue-500 transition-colors" size={18} />
+                <input 
+                  type="password" 
+                  required 
+                  value={password} 
+                  onChange={e => setPassword(e.target.value)}
+                  className="w-full pl-14 pr-4 py-5 rounded-3xl border bg-gray-50 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all font-medium"
+                  placeholder="••••••••"
+                />
+              </div>
+            </div>
 
-        {message && (
+            <button 
+              type="submit" 
+              disabled={loading}
+              className="w-full py-5 bg-gray-900 text-white font-black rounded-3xl shadow-2xl hover:bg-black transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-50"
+            >
+              {loading ? <Loader2 className="animate-spin" /> : (isRegister ? <CheckCircle2 size={20} /> : <LogIn size={20} />)}
+              {isRegister ? 'Crear mi Cuenta' : 'Entrar al Sistema'}
+            </button>
+
+            <div className="text-center pt-2">
+              <button 
+                type="button"
+                onClick={() => { setIsRegister(!isRegister); setMessage(''); }}
+                className="text-xs font-bold text-gray-500 hover:text-blue-600 transition-colors"
+              >
+                {isRegister ? '¿Ya tienes cuenta? Inicia Sesión' : '¿No tienes cuenta? Regístrate gratis'}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {message && !success && (
           <div className="p-4 bg-red-50 text-red-700 rounded-3xl text-xs font-bold text-center leading-relaxed">
             {message}
           </div>
@@ -175,3 +256,5 @@ export default function LoginPage() {
     </div>
   );
 }
+
+
