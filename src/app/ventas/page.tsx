@@ -717,10 +717,14 @@ function VentasContent() {
                         <td className="px-6 py-4 text-sm text-[var(--muted)]">{new Date(v.fecha).toLocaleDateString()}</td>
                         <td className="px-6 py-4 text-sm">{v.clientes?.nombre || 'Consumidor Final'}</td>
                         <td className="px-6 py-4 text-sm font-mono font-bold text-right">
-                          {new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(v.total || 0)}
+                          <div className="font-black text-gray-800 text-lg tracking-tight mb-1 group-hover:text-orange-600 transition-colors">
+                            {formatCurrency(v.total || 0)}
+                          </div>
                         </td>
                         <td className="px-6 py-4 text-sm font-mono font-bold text-right text-red-600">
-                          {v.pendiente > 0 ? new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(v.pendiente) : '—'}
+                          <div className={`text-[10px] font-bold ${v.pendiente > 0 ? 'text-red-500 bg-red-50' : 'text-green-600 bg-green-50'} px-2 py-0.5 rounded-full inline-flex items-center gap-1 border border-current/10`}>
+                            {v.pendiente > 0 ? formatCurrency(v.pendiente) : '-'}
+                          </div>
                         </td>
                         <td className="px-6 py-4 text-center">
                           <span className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${

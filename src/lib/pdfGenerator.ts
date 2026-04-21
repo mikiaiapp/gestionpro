@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import { formatCurrency } from './format';
 
 // Extender tipos para jspdf-autotable
 declare module 'jspdf' {
@@ -157,7 +158,7 @@ export const generatePDF = async (data: PDFData) => {
   const tableHead = [['DESCRIPCIÓN / CONCEPTO', 'IMPORTE']];
   const tableBody = data.lineas.map(l => [
     l.descripcion,
-    new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(l.precio_unitario || 0)
+    formatCurrency(l.precio_unitario || 0)
   ]);
 
   doc.autoTable({
@@ -179,15 +180,15 @@ export const generatePDF = async (data: PDFData) => {
   doc.setTextColor(0);
   
   doc.text('Base Imponible:', totalsX, finalY);
-  doc.text(new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(data.totales.base), PAGE_WIDTH - MARGIN, finalY, { align: 'right' });
+  doc.text(formatCurrency(data.totales.base), PAGE_WIDTH - MARGIN, finalY, { align: 'right' });
   
   doc.text(`IVA (${data.totales.iva_pct}%):`, totalsX, finalY + 7);
-  doc.text(new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(data.totales.iva_importe), PAGE_WIDTH - MARGIN, finalY + 7, { align: 'right' });
+  doc.text(formatCurrency(data.totales.iva_importe), PAGE_WIDTH - MARGIN, finalY + 7, { align: 'right' });
 
   if (data.totales.retencion_pct > 0) {
     doc.setTextColor(150, 0, 0);
     doc.text(`Retención IRPF (${data.totales.retencion_pct}%):`, totalsX, finalY + 14);
-    doc.text(`-${new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(data.totales.retencion_importe)}`, PAGE_WIDTH - MARGIN, finalY + 14, { align: 'right' });
+    doc.text(`-${formatCurrency(data.totales.retencion_importe)}`, PAGE_WIDTH - MARGIN, finalY + 14, { align: 'right' });
   }
 
   const grandTotalY = finalY + (data.totales.retencion_pct > 0 ? 25 : 18);
@@ -195,7 +196,7 @@ export const generatePDF = async (data: PDFData) => {
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(121, 85, 72);
   doc.text('TOTAL:', totalsX, grandTotalY);
-  doc.text(new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(data.totales.total), PAGE_WIDTH - MARGIN, grandTotalY, { align: 'right' });
+  doc.text(formatCurrency(data.totales.total), PAGE_WIDTH - MARGIN, grandTotalY, { align: 'right' });
 
   // Pie P1
   doc.setFontSize(7);
