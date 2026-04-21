@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { Receipt, Plus, Search, MoreHorizontal, Loader2, Trash2, Save, FileText, Download, Printer, FolderKanban, ChevronUp, ChevronDown, Filter, HandCoins } from "lucide-react";
+import { Receipt, Plus, Search, MoreHorizontal, Loader2, Trash2, Save, Pencil, FileText, Download, Printer, FolderKanban, ChevronUp, ChevronDown, Filter, HandCoins } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Sidebar } from "@/components/Sidebar";
 import { DataTableHeader } from "@/components/DataTableHeader";
@@ -778,7 +778,7 @@ function VentasContent() {
                                   </button>
                                 )}
                                 <button onClick={() => openEditVenta(v)} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-700 transition-colors">
-                                  <Save size={16}/> Editar Factura
+                                  <Pencil size={16}/> Editar Factura
                                 </button>
                               <div className="h-px bg-gray-100 my-1 mx-2"></div>
                                 <button 

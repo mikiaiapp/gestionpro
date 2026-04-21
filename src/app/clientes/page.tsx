@@ -7,7 +7,7 @@ import {
   Plus, 
   Search, 
   Trash2, 
-  Save, 
+  Pencil, 
   Loader2,
   MapPin,
   X,
@@ -425,7 +425,7 @@ export default function ClientesPage() {
                       <td className="px-10 py-6 text-right">
                         <div className="flex justify-end gap-2">
                           <button onClick={() => openEditModal(c)} className="p-3 hover:bg-blue-100 text-gray-400 hover:text-blue-600 rounded-xl transition-all border border-transparent hover:border-blue-200">
-                             <Save size={18} />
+                             <Pencil size={18} />
                           </button>
                           <button onClick={() => handleDeleteCliente(c.id, c.nombre)} className="p-3 hover:bg-red-50 text-gray-400 hover:text-red-500 rounded-xl transition-all border border-transparent hover:border-red-100">
                              <Trash2 size={18} />

@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 
 import { useRouter } from "next/navigation";
-import { FolderKanban, Plus, Search, MoreHorizontal, Loader2, Save, Trash2, Printer, ChevronUp, ChevronDown, Filter, Receipt } from "lucide-react";
+import { FolderKanban, Plus, Search, MoreHorizontal, Loader2, Save, Pencil, Trash2, Printer, ChevronUp, ChevronDown, Filter, Receipt } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Sidebar } from "@/components/Sidebar";
 import { DataTableHeader } from "@/components/DataTableHeader";
@@ -542,7 +542,7 @@ export default function ProyectosPage() {
                           {openMenuId === p.id && (
                             <div className="absolute right-6 top-12 w-48 bg-white rounded-xl shadow-xl border border-[var(--border)] z-50 py-2 animate-in fade-in slide-in-from-top-2 duration-200 text-left">
                               <button onClick={() => downloadBudget(p)} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-700 transition-colors"><Printer size={16}/> Imprimir PDF</button>
-                              <button onClick={() => openEditProyecto(p)} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-700 transition-colors"><Save size={16}/> Editar Presupuesto</button>
+                              <button onClick={() => openEditProyecto(p)} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-700 transition-colors"><Pencil size={16}/> Editar Presupuesto</button>
                               <button 
                                  onClick={() => router.push(`/ventas?proyectoId=${p.id}&mode=avance`)} 
                                  className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-600 hover:bg-orange-50 hover:text-orange-700 transition-colors"

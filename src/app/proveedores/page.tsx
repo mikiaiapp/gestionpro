@@ -8,7 +8,7 @@ import {
   Search, 
   MoreHorizontal, 
   Trash2, 
-  Save, 
+  Pencil, 
   Loader2,
   TrendingDown,
   MapPin,
@@ -433,7 +433,7 @@ export default function ProveedoresPage() {
                       <td className="px-10 py-6 text-right">
                         <div className="flex justify-end gap-2">
                           <button onClick={() => openEditModal(p)} className="p-3 hover:bg-orange-100 text-gray-400 hover:text-orange-600 rounded-xl transition-all border border-transparent hover:border-orange-200">
-                             <Save size={18} />
+                             <Pencil size={18} />
                           </button>
                           <button onClick={() => handleDeleteProveedor(p.id, p.nombre)} className="p-3 hover:bg-red-50 text-gray-400 hover:text-red-500 rounded-xl transition-all border border-transparent hover:border-red-100">
                              <Trash2 size={18} />

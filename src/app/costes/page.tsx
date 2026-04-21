@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { Plus, MoreHorizontal, Loader2, Receipt, Upload, Save, Trash2, X, Sparkles, AlertCircle, UserPlus, ChevronUp, ChevronDown, Filter, Search, HandCoins, Download, FileText, Paperclip } from "lucide-react";
+import { Plus, MoreHorizontal, Loader2, Receipt, Upload, Save, Pencil, Trash2, X, Sparkles, AlertCircle, UserPlus, ChevronUp, ChevronDown, Filter, Search, HandCoins, Download, FileText, Paperclip } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Sidebar } from "@/components/Sidebar";
 import { DataTableHeader } from "@/components/DataTableHeader";
@@ -1031,7 +1031,7 @@ export default function CostesPage() {
                         <div className="h-px bg-gray-100 my-1 mx-2"></div>
 
                         <button onClick={() => openEditModal(c)} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
-                          <Receipt size={16} className="text-blue-500" /> Editar Factura
+                          <Pencil size={16} className="text-blue-500" /> Editar Factura
                         </button>
                         
                         {c.estado_pago !== 'Pagado' && (
