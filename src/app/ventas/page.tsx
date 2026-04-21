@@ -611,7 +611,8 @@ function VentasContent() {
 
   const handleSendByEmail = async (venta: any) => {
     if (!perfil || !perfil.smtp_email || !perfil.smtp_app_password) {
-      alert("⚠️ Configura primero tu cuenta de envío (Gmail/App Password) en Ajustes > Email.");
+      const missing = !perfil ? 'Perfil' : (!perfil.smtp_email ? 'Email' : 'Contraseña de Aplicación');
+      alert(`⚠️ Configuración incompleta (${missing}). Revisa Ajustes > Email.`);
       return;
     }
 

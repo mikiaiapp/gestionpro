@@ -141,7 +141,8 @@ export default function AjustesClient() {
     verifactuCert, verifactuCertPassword, verifactuEnv,
     contadorVentas, contadorCostes, contadorProyectos,
     serieVentas, serieCostes, serieProyectos,
-    prefijoVentas, prefijoCostes, prefijoProyectos
+    prefijoVentas, prefijoCostes, prefijoProyectos,
+    smtpEmail, smtpPassword, smtpHost, smtpPort
   ]);
 
   const fetchAutoBackups = async (userId: string) => {
