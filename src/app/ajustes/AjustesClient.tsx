@@ -128,7 +128,8 @@ export default function AjustesClient() {
   const lastSavedPayload = useRef("");
 
   useEffect(() => {
-    if (initialLoadDone.current && user) {
+    // Solo disparamos el auto-guardado si la carga inicial ha terminado del todo
+    if (initialLoadDone.current && user && !loading) {
       const timer = setTimeout(() => {
         handleSaveAll();
       }, 1500); // 1.5s debounce
@@ -542,9 +543,18 @@ export default function AjustesClient() {
         }),
       });
       const data = await res.json();
-      setEmailTestResult(data.success ? 'ok' : 'error');
-    } catch {
+      if (data.success) {
+        setEmailTestResult('ok');
+        // Forzamos un guardado inmediato si la prueba es exitosa
+        handleSaveAll();
+      } else {
+        setEmailTestResult('error');
+        setSaveError(data.error || 'Error al validar conexión');
+      }
+    } catch (err: any) {
+      console.error(err);
       setEmailTestResult('error');
+      setSaveError(err.message || 'Fallo crítico en la conexión');
     } finally {
       setTestingEmail(false);
     }
@@ -1186,8 +1196,9 @@ export default function AjustesClient() {
                   </div>
                 )}
                 {emailTestResult === 'error' && (
-                  <div className="p-4 bg-red-50 text-red-700 rounded-2xl text-sm font-bold border border-red-100 animate-in zoom-in-95">
-                    ❌ Fallo en la conexión. Asegúrate de que los datos son correctos.
+                  <div className="p-4 bg-red-50 text-red-700 rounded-2xl text-sm font-bold border border-red-100 animate-in zoom-in-95 leading-relaxed">
+                    ❌ Fallo en la conexión:<br/>
+                    <span className="font-normal text-xs">{saveError || 'Asegúrate de que los datos son correctos.'}</span>
                   </div>
                 )}
               </div>

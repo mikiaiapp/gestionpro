@@ -48,12 +48,13 @@ export async function POST(req: NextRequest) {
     }
 
     await transporter.sendMail(mailOptions);
-
     return NextResponse.json({ success: true });
   } catch (err: any) {
     console.error('Error sending email:', err);
-    return NextResponse.json({ 
-      error: err.message || 'Error al enviar el email.' 
-    }, { status: 500 });
+    let userMessage = err.message || 'Error al enviar el email.';
+    if (err.code === 'EAUTH') userMessage = 'Error de autenticación: El email o la contraseña son incorrectos.';
+    else if (err.code === 'ESOCKET') userMessage = 'Error de conexión: No se pudo conectar al servidor SMTP.';
+    else if (err.code === 'ETIMEDOUT') userMessage = 'Tiempo de espera agotado. Revisa el host y el puerto.';
+    return NextResponse.json({ error: userMessage }, { status: 500 });
   }
 }
