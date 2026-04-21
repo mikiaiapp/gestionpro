@@ -1095,8 +1095,7 @@ export default function AjustesClient() {
                       Google no permite usar tu contraseña normal. Debes crear una <strong>Contraseña de Aplicación</strong>:
                     </p>
                     <ol className="text-[11px] text-blue-700 list-decimal list-inside space-y-1 pl-1">
-                      <li>Ve a <strong>myaccount.google.com</strong> → Seguridad</li>
-                      <li>Busca <strong>"Contraseñas de aplicación"</strong> (requiere 2FA activado)</li>
+                      <li>Ve a <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer" className="font-bold underline decoration-blue-300 hover:text-blue-900 transition-colors">Configuración de Contraseñas de Aplicación</a></li>
                       <li>Genera una para "Correo" y pégala abajo (16 caracteres)</li>
                     </ol>
                   </div>
