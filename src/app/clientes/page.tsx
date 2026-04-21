@@ -15,7 +15,8 @@ import {
   UserCheck,
   ChevronUp,
   ChevronDown,
-  Filter
+  Filter,
+  Save
 } from 'lucide-react';
 import { Sidebar } from '@/components/Sidebar';
 import { DataTableHeader } from '@/components/DataTableHeader';
