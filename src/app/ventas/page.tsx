@@ -669,7 +669,8 @@ function VentasContent() {
           pdfBase64,
           fileName: `Factura_${venta.num_factura}.pdf`,
           smtpEmail: perfil.smtp_email,
-          smtpPassword: decrypt(perfil.smtp_app_password)
+          smtpPassword: decrypt(perfil.smtp_app_password),
+          senderName: perfil.nombre
         }),
       });
 

@@ -3,7 +3,7 @@ import nodemailer from 'nodemailer';
 
 export async function POST(req: NextRequest) {
   try {
-    const { to, subject, body, pdfBase64, fileName, smtpEmail, smtpPassword, smtpHost, smtpPort } = await req.json();
+    const { to, subject, body, pdfBase64, fileName, smtpEmail, smtpPassword, smtpHost, smtpPort, senderName } = await req.json();
 
     if (!smtpEmail || !smtpPassword) {
       return NextResponse.json({ error: 'Falta la configuración de email en Ajustes.' }, { status: 400 });
@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
     });
 
     const mailOptions: any = {
-      from: `"GestiónPro" <${smtpEmail}>`,
+      from: `"${senderName || 'GestiónPro'}" <${smtpEmail}>`,
       to,
       subject,
       html: `

@@ -444,7 +444,8 @@ export default function ProyectosPage() {
           pdfBase64,
           fileName: `Presupuesto_${p.nombre.replace(/\s+/g, '_')}.pdf`,
           smtpEmail: perfil.smtp_email,
-          smtpPassword: decrypt(perfil.smtp_app_password)
+          smtpPassword: decrypt(perfil.smtp_app_password),
+          senderName: perfil.nombre
         }),
       });
 

@@ -282,6 +282,7 @@ export default function AjustesClient() {
         console.error("Save error:", error.message);
         setSaveError(error.message);
         setAutoStatus('idle');
+        alert("❌ Error al guardar datos en la base de datos: " + error.message);
         return;
       }
 
@@ -540,6 +541,7 @@ export default function AjustesClient() {
           smtpPassword,
           smtpHost,
           smtpPort,
+          senderName: nombre
         }),
       });
       const data = await res.json();
