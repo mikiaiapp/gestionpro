@@ -331,8 +331,7 @@ export default function ProyectosPage() {
       const { data: lineasData, error: lineasErr } = await supabase
         .from("proyecto_lineas")
         .select("*")
-        .eq("proyecto_id", p.id)
-        .eq("user_id", p.user_id);
+        .eq("proyecto_id", p.id);
 
       if (lineasErr) throw lineasErr;
 
