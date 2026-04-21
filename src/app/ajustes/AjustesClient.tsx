@@ -75,6 +75,15 @@ export default function AjustesClient() {
   const [verifactuCertPassword, setVerifactuCertPassword] = useState('');
   const [verifactuEnv, setVerifactuEnv] = useState<'pruebas' | 'produccion'>('pruebas');
   
+  // Email SMTP
+  const [smtpEmail, setSmtpEmail] = useState('');
+  const [smtpPassword, setSmtpPassword] = useState('');
+  const [smtpHost, setSmtpHost] = useState('smtp.gmail.com');
+  const [smtpPort, setSmtpPort] = useState('587');
+  const [useGmailPreset, setUseGmailPreset] = useState(true);
+  const [testingEmail, setTestingEmail] = useState(false);
+  const [emailTestResult, setEmailTestResult] = useState<'ok' | 'error' | null>(null);
+  
   const [tiposIva, setTiposIva] = useState<any[]>([]);
   const [tiposIrpf, setTiposIrpf] = useState<any[]>([]);
   const [syncing, setSyncing] = useState(false);
@@ -180,6 +189,12 @@ export default function AjustesClient() {
         setTelefono(data.telefono || '');
         setImagenCorporativaUrl(data.imagen_corporativa_url || '');
         setTextoAceptacion(data.texto_aceptacion || '');
+        const rawSmtpPass = data.smtp_app_password || '';
+        setSmtpEmail(data.smtp_email || '');
+        setSmtpPassword(rawSmtpPass.includes(':') ? decrypt(rawSmtpPass) : rawSmtpPass);
+        setSmtpHost(data.smtp_host || 'smtp.gmail.com');
+        setSmtpPort(data.smtp_port || '587');
+        setUseGmailPreset(data.smtp_host === 'smtp.gmail.com' || !data.smtp_host);
         
         // Contadores
         setContadorVentas(data.contador_ventas || 1);
@@ -226,6 +241,10 @@ export default function AjustesClient() {
         verifactu_certificado: verifactuCert,
         verifactu_pass: encrypt(verifactuCertPassword),
         verifactu_env: verifactuEnv,
+        smtp_email: smtpEmail,
+        smtp_app_password: smtpPassword ? encrypt(smtpPassword) : '',
+        smtp_host: smtpHost,
+        smtp_port: smtpPort,
         contador_ventas: contadorVentas,
         contador_costes: contadorCostes,
         contador_proyectos: contadorProyectos,
@@ -491,7 +510,33 @@ export default function AjustesClient() {
     }
   };
 
-  const [activeTab, setActiveTab] = useState<'perfil' | 'ai' | 'legales' | 'seguridad' | 'fiscalidad' | 'backup'>('perfil');
+  const [activeTab, setActiveTab] = useState<'perfil' | 'ai' | 'legales' | 'seguridad' | 'fiscalidad' | 'backup' | 'email'>('perfil');
+
+  const handleTestEmail = async () => {
+    setTestingEmail(true);
+    setEmailTestResult(null);
+    try {
+      const res = await fetch('/api/email/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: smtpEmail,
+          subject: '✅ Prueba de Conexión — GestiónPro',
+          body: 'Si recibes este email, la configuración SMTP está correcta.',
+          smtpEmail,
+          smtpPassword,
+          smtpHost,
+          smtpPort,
+        }),
+      });
+      const data = await res.json();
+      setEmailTestResult(data.success ? 'ok' : 'error');
+    } catch {
+      setEmailTestResult('error');
+    } finally {
+      setTestingEmail(false);
+    }
+  };
 
   if (loading) return null;
 
@@ -510,6 +555,7 @@ export default function AjustesClient() {
     { id: 'ai', label: 'IA & Bot', icon: RefreshCcw, color: 'text-purple-600' },
     { id: 'legales', label: 'Legal & LOPD', icon: Scale, color: 'text-orange-600' },
     { id: 'seguridad', label: 'Seguridad', icon: ShieldCheck, color: 'text-green-600' },
+    { id: 'email', label: 'Email', icon: FileText, color: 'text-blue-500' },
     { id: 'fiscalidad', label: 'Fiscalidad', icon: Percent, color: 'text-emerald-600' },
     { id: 'backup', label: 'Backup', icon: Database, color: 'text-indigo-600' },
   ];
@@ -1019,6 +1065,124 @@ export default function AjustesClient() {
                    </div>
                 </div>
                )}
+            </div>
+          )}
+          {activeTab === 'email' && (
+            <div className="space-y-8 animate-in fade-in duration-300">
+              <div className="bg-white rounded-[2rem] border p-8 shadow-sm space-y-6">
+                <div>
+                  <h2 className="text-2xl font-black font-head text-blue-900">Configuración de Email</h2>
+                  <p className="text-sm text-gray-400 mt-1">Configura tu servidor de correo para enviar documentos.</p>
+                </div>
+
+                <div className="flex bg-gray-100 p-1.5 rounded-2xl w-fit">
+                  <button 
+                    onClick={() => { setUseGmailPreset(true); setSmtpHost('smtp.gmail.com'); setSmtpPort('587'); }}
+                    className={`px-6 py-2.5 rounded-xl text-xs font-black transition-all ${useGmailPreset ? 'bg-white shadow-sm text-blue-600' : 'text-gray-400'}`}
+                  >GMAIL</button>
+                  <button 
+                    onClick={() => setUseGmailPreset(false)}
+                    className={`px-6 py-2.5 rounded-xl text-xs font-black transition-all ${!useGmailPreset ? 'bg-white shadow-sm text-blue-600' : 'text-gray-400'}`}
+                  >OTRO (SMTP)</button>
+                </div>
+
+                {useGmailPreset ? (
+                  <div className="bg-blue-50 rounded-2xl p-4 border border-blue-100 space-y-2">
+                    <p className="text-xs font-black text-blue-800 uppercase tracking-wider flex items-center gap-2">
+                       <ShieldCheck size={14} /> Requisito: Contraseña de Aplicación
+                    </p>
+                    <p className="text-xs text-blue-700 leading-relaxed">
+                      Google no permite usar tu contraseña normal. Debes crear una <strong>Contraseña de Aplicación</strong>:
+                    </p>
+                    <ol className="text-[11px] text-blue-700 list-decimal list-inside space-y-1 pl-1">
+                      <li>Ve a <strong>myaccount.google.com</strong> → Seguridad</li>
+                      <li>Busca <strong>"Contraseñas de aplicación"</strong> (requiere 2FA activado)</li>
+                      <li>Genera una para "Correo" y pégala abajo (16 caracteres)</li>
+                    </ol>
+                  </div>
+                ) : (
+                  <div className="bg-orange-50 rounded-2xl p-4 border border-orange-100">
+                    <p className="text-xs text-orange-800 leading-relaxed font-medium">
+                      Introduce los datos de tu proveedor SMTP (Outlook, Yahoo, Hostinger, etc.).
+                    </p>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {!useGmailPreset && (
+                    <>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Servidor SMTP</label>
+                        <input
+                          type="text"
+                          placeholder="smtp.proveedor.com"
+                          value={smtpHost}
+                          onChange={e => setSmtpHost(e.target.value)}
+                          className="w-full p-4 rounded-2xl border bg-gray-50 outline-none font-medium"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Puerto</label>
+                        <input
+                          type="text"
+                          placeholder="587 o 465"
+                          value={smtpPort}
+                          onChange={e => setSmtpPort(e.target.value)}
+                          className="w-full p-4 rounded-2xl border bg-gray-50 outline-none font-medium"
+                        />
+                      </div>
+                    </>
+                  )}
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Usuario / Email</label>
+                    <input
+                      type="email"
+                      placeholder="tu@email.com"
+                      value={smtpEmail}
+                      onChange={e => setSmtpEmail(e.target.value)}
+                      className="w-full p-4 rounded-2xl border bg-gray-50 outline-none font-medium"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Contraseña {useGmailPreset ? '(de Aplicación)' : ''}</label>
+                    <input
+                      type="password"
+                      placeholder="••••••••••••••••"
+                      value={smtpPassword}
+                      onChange={e => setSmtpPassword(e.target.value)}
+                      className="w-full p-4 rounded-2xl border bg-gray-50 outline-none font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-4 border-t border-gray-100">
+                  <button
+                    onClick={handleTestEmail}
+                    disabled={testingEmail || !smtpEmail || !smtpPassword}
+                    className="flex items-center gap-2 px-6 py-4 bg-blue-600 text-white font-black rounded-2xl hover:bg-blue-700 transition-all disabled:opacity-50 shadow-lg shadow-blue-100 uppercase text-[11px] tracking-widest"
+                  >
+                    {testingEmail ? <Loader2 className="animate-spin" size={16} /> : <CheckCircle2 size={16} />}
+                    Probar & Validar
+                  </button>
+                  <button
+                    onClick={handleSaveAll}
+                    className="flex items-center gap-2 px-6 py-4 bg-gray-900 text-white font-black rounded-2xl hover:bg-black transition-all shadow-lg uppercase text-[11px] tracking-widest"
+                  >
+                    Guardar Cambios
+                  </button>
+                </div>
+
+                {emailTestResult === 'ok' && (
+                  <div className="p-4 bg-green-50 text-green-700 rounded-2xl text-sm font-bold flex items-center gap-2 border border-green-100 animate-in zoom-in-95">
+                    <CheckCircle2 size={18} /> ¡Excelente! Conexión validada. Revisa tu bandeja de entrada.
+                  </div>
+                )}
+                {emailTestResult === 'error' && (
+                  <div className="p-4 bg-red-50 text-red-700 rounded-2xl text-sm font-bold border border-red-100 animate-in zoom-in-95">
+                    ❌ Fallo en la conexión. Asegúrate de que los datos son correctos.
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </main>

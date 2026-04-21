@@ -3,8 +3,9 @@
 import { useEffect, useState, useMemo } from "react";
 
 import { useRouter } from "next/navigation";
-import { FolderKanban, Plus, Search, MoreHorizontal, Loader2, Save, Pencil, Trash2, Printer, ChevronUp, ChevronDown, Filter, Receipt } from "lucide-react";
+import { FolderKanban, Plus, Search, MoreHorizontal, Loader2, Save, Pencil, Trash2, Printer, ChevronUp, ChevronDown, Filter, Receipt, Mail } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { decrypt } from "@/lib/encryption";
 import { Sidebar } from "@/components/Sidebar";
 import { DataTableHeader } from "@/components/DataTableHeader";
 import { generatePDF } from "@/lib/pdfGenerator";
@@ -383,6 +384,84 @@ export default function ProyectosPage() {
     }
   };
 
+  const handleSendBudgetByEmail = async (p: any) => {
+    if (!perfil || !perfil.smtp_email || !perfil.smtp_app_password) {
+      alert("⚠️ Configura primero tu cuenta de envío (Gmail/App Password) en Ajustes > Email.");
+      return;
+    }
+
+    const recipientEmail = p.clientes?.email;
+    if (!recipientEmail) {
+      alert("⚠️ El cliente no tiene un email configurado.");
+      return;
+    }
+
+    if (!confirm(`¿Enviar este presupuesto por email a ${recipientEmail}?`)) return;
+
+    setLoading(true);
+    try {
+      const pdfData: any = {
+        tipo: 'PRESUPUESTO',
+        numero: `${p.serie}-${p[columnKey]}`,
+        fecha: p.fecha,
+        cliente: {
+          nombre: p.clientes?.nombre || 'Cliente',
+          nif: p.clientes?.nif || '',
+          direccion: p.clientes?.direccion || '',
+          poblacion: p.clientes?.poblacion || '',
+          cp: p.clientes?.codigo_postal || '',
+          provincia: p.clientes?.provincia || '',
+          email: p.clientes?.email || '',
+          telefono: p.clientes?.telefono || ''
+        },
+        perfil: perfil,
+        lineas: (p.proyectos_lineas || p.proyecto_lineas || []).map((l: any) => ({
+          unidades: l.unidades,
+          descripcion: l.descripcion,
+          precio_unitario: l.precio_unitario
+        })),
+        totales: {
+          base: p.base_imponible || p.total / 1.21,
+          iva_pct: p.iva_pct || 21,
+          iva_importe: p.iva_importe || (p.total - (p.total / 1.21)),
+          retencion_pct: p.retencion_pct || 0,
+          retencion_importe: p.retencion_importe || 0,
+          total: p.total
+        }
+      };
+
+      const doc = await generatePDF(pdfData);
+      const pdfBase64 = doc.output('datauristring').split(',')[1];
+
+      const res = await fetch('/api/email/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: recipientEmail,
+          subject: `Presupuesto ${p.nombre} — ${perfil.nombre}`,
+          body: `Hola ${p.clientes?.nombre || ''},\n\nLe enviamos adjunto el presupuesto solicitado para su revisión.\n\nQuedamos a su disposición para cualquier duda.\n\nSaludos cordiales,\n${perfil.nombre}`,
+          pdfBase64,
+          fileName: `Presupuesto_${p.nombre.replace(/\s+/g, '_')}.pdf`,
+          smtpEmail: perfil.smtp_email,
+          smtpPassword: decrypt(perfil.smtp_app_password)
+        }),
+      });
+
+      const result = await res.json();
+      if (result.success) {
+        alert("✅ Presupuesto enviado correctamente por email.");
+      } else {
+        alert("❌ Error al enviar: " + result.error);
+      }
+    } catch (err: any) {
+      console.error("Error sending budget email:", err);
+      alert("❌ Error inesperado al enviar el email.");
+    } finally {
+      setLoading(false);
+      setOpenMenuId(null);
+    }
+  };
+
   const handleDeleteProyecto = async (p: any) => {
     try {
       const { data: userData } = await supabase.auth.getUser();
@@ -544,6 +623,10 @@ export default function ProyectosPage() {
                           {openMenuId === p.id && (
                             <div className="absolute right-6 top-12 w-48 bg-white rounded-xl shadow-xl border border-[var(--border)] z-50 py-2 animate-in fade-in slide-in-from-top-2 duration-200 text-left">
                               <button onClick={() => downloadBudget(p)} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-700 transition-colors"><Printer size={16}/> Imprimir PDF</button>
+                              
+                              <button onClick={() => handleSendBudgetByEmail(p)} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-blue-600 hover:bg-blue-50 transition-colors">
+                                <Mail size={16}/> Enviar por Email
+                              </button>
                               <button onClick={() => openEditProyecto(p)} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-700 transition-colors"><Pencil size={16}/> Editar Presupuesto</button>
                               <button 
                                  onClick={() => router.push(`/ventas?proyectoId=${p.id}&mode=avance`)} 

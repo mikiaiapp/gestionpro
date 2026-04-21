@@ -15,7 +15,8 @@ import {
   LogOut,
   LayoutDashboard,
   FileArchive,
-  Files
+  Files,
+  TrendingUp
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
@@ -37,6 +38,7 @@ const menuStructure: MenuSection[] = [
     label: "ANÁLISIS",
     items: [
       { icon: BarChart3, label: "Resumen Presupuestos", href: "/resumen" },
+      { icon: TrendingUp, label: "Dashboard KPIs", href: "/kpi" },
     ]
   },
   {
@@ -176,10 +178,36 @@ export function Sidebar() {
             <span>Cerrar Sesión</span>
           </button>
           <div className="text-[9px] text-center text-gray-400 font-bold uppercase tracking-widest pb-4">
-            GestiónPro v2.4.0
+            GestiónPro v1.7.0
           </div>
         </div>
       </aside>
+
+      {/* ── PWA Mobile Bottom Nav ────────────────────────────────── */}
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-[60] bg-white border-t border-gray-200 flex items-center justify-around px-2 py-2 safe-area-inset-bottom shadow-2xl shadow-black/10">
+        {[
+          { icon: BarChart3, href: "/resumen", label: "Inicio" },
+          { icon: FolderKanban, href: "/proyectos", label: "Presupuestos" },
+          { icon: Receipt, href: "/ventas", label: "Facturas" },
+          { icon: TrendingUp, href: "/kpi", label: "KPIs" },
+          { icon: Settings, href: "/ajustes", label: "Ajustes" },
+        ].map(({ icon: Icon, href, label }) => {
+          const active = pathname === href;
+          return (
+            <Link
+              key={href}
+              href={href}
+              onClick={() => setIsOpen(false)}
+              className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-all ${
+                active ? "text-[var(--accent)]" : "text-gray-400 hover:text-gray-600"
+              }`}
+            >
+              <Icon size={22} strokeWidth={active ? 2.5 : 1.5} />
+              <span className={`text-[9px] font-bold uppercase tracking-wide ${active ? "text-[var(--accent)]" : ""}`}>{label}</span>
+            </Link>
+          );
+        })}
+      </nav>
     </>
   );
 }

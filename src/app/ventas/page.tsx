@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { Receipt, Plus, Search, MoreHorizontal, Loader2, Trash2, Save, Pencil, FileText, Download, Printer, FolderKanban, ChevronUp, ChevronDown, Filter, HandCoins } from "lucide-react";
+import { Receipt, Plus, Search, MoreHorizontal, Loader2, Trash2, Save, Pencil, FileText, Download, Printer, FolderKanban, ChevronUp, ChevronDown, Filter, HandCoins, Mail } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Sidebar } from "@/components/Sidebar";
 import { DataTableHeader } from "@/components/DataTableHeader";
@@ -609,6 +609,84 @@ function VentasContent() {
     }
   };
 
+  const handleSendByEmail = async (venta: any) => {
+    if (!perfil || !perfil.smtp_email || !perfil.smtp_app_password) {
+      alert("⚠️ Configura primero tu cuenta de envío (Gmail/App Password) en Ajustes > Email.");
+      return;
+    }
+
+    const recipientEmail = venta.clientes?.email;
+    if (!recipientEmail) {
+      alert("⚠️ El cliente no tiene un email configurado.");
+      return;
+    }
+
+    if (!confirm(`¿Enviar esta factura por email a ${recipientEmail}?`)) return;
+
+    setSaving(true);
+    try {
+      const pdfData: any = {
+        tipo: 'FACTURA',
+        numero: venta.num_factura,
+        fecha: venta.fecha,
+        cliente: {
+          nombre: venta.clientes?.nombre || 'Consumidor Final',
+          nif: venta.clientes?.nif || '',
+          direccion: venta.clientes?.direccion || '',
+          poblacion: venta.clientes?.poblacion || '',
+          cp: venta.clientes?.codigo_postal || '',
+          provincia: venta.clientes?.provincia || '',
+          email: venta.clientes?.email || '',
+          telefono: venta.clientes?.telefono || ''
+        },
+        perfil: perfil,
+        lineas: (venta.venta_lineas || []).map((l: any) => ({
+          unidades: l.unidades,
+          descripcion: l.descripcion,
+          precio_unitario: l.precio_unitario
+        })),
+        totales: {
+          base: venta.base_imponible,
+          iva_pct: venta.iva_pct || 21,
+          iva_importe: venta.iva_importe,
+          retencion_pct: venta.retencion_pct || 0,
+          retencion_importe: venta.retencion_importe || 0,
+          total: venta.total
+        }
+      };
+
+      const doc = await generatePDF(pdfData);
+      const pdfBase64 = doc.output('datauristring').split(',')[1];
+
+      const res = await fetch('/api/email/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: recipientEmail,
+          subject: `Factura ${venta.num_factura} — ${perfil.nombre}`,
+          body: `Hola ${venta.clientes?.nombre || ''},\n\nAdjuntamos la factura ${venta.num_factura} correspondiente a nuestros servicios.\n\nSaludos cordiales,\n${perfil.nombre}`,
+          pdfBase64,
+          fileName: `Factura_${venta.num_factura}.pdf`,
+          smtpEmail: perfil.smtp_email,
+          smtpPassword: decrypt(perfil.smtp_app_password)
+        }),
+      });
+
+      const result = await res.json();
+      if (result.success) {
+        alert("✅ Factura enviada correctamente.");
+      } else {
+        alert("❌ Error al enviar: " + result.error);
+      }
+    } catch (err: any) {
+      console.error("Error sending email:", err);
+      alert("❌ Error inesperado al enviar el email.");
+    } finally {
+      setSaving(false);
+      setOpenMenuId(null);
+    }
+  };
+
   const handleSort = (field: string) => {
     let direction: 'asc' | 'desc' = 'asc';
     if (sortConfig && sortConfig.key === field && sortConfig.direction === 'asc') {
@@ -759,6 +837,10 @@ function VentasContent() {
                             <div className="absolute right-6 top-12 w-48 bg-white rounded-xl shadow-xl border border-[var(--border)] z-50 py-2 animate-in fade-in slide-in-from-top-2 duration-200 text-left">
                               <button onClick={() => downloadInvoice(v)} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-700 transition-colors">
                                 <Printer size={16}/> Imprimir Factura
+                              </button>
+
+                              <button onClick={() => handleSendByEmail(v)} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-blue-600 hover:bg-blue-50 transition-colors">
+                                <Mail size={16}/> Enviar por Email
                               </button>
 
                               {v.pdf_url && (
