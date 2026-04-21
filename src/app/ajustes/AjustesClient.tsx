@@ -59,6 +59,7 @@ export default function AjustesClient() {
   const [imagenCorporativaUrl, setImagenCorporativaUrl] = useState('');
   const [textoAceptacion, setTextoAceptacion] = useState('');
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [perfilId, setPerfilId] = useState<string | null>(null);
 
   // Contadores y Series
   const [contadorVentas, setContadorVentas] = useState(1);
@@ -166,6 +167,7 @@ export default function AjustesClient() {
     try {
       const { data } = await supabase.from('perfil_negocio').select('*').eq('user_id', userId).maybeSingle();
       if (data) {
+        setPerfilId(data.id);
         setNombre(data.nombre || '');
         setNif(data.nif || '');
         const rawIBAN = data.cuenta_bancaria || '';
@@ -197,7 +199,7 @@ export default function AjustesClient() {
         setSmtpHost(data.smtp_host || 'smtp.gmail.com');
         setSmtpPort(data.smtp_port || '587');
         setUseGmailPreset(data.smtp_host === 'smtp.gmail.com' || !data.smtp_host);
-        
+
         // Contadores
         setContadorVentas(data.contador_ventas || 1);
         setContadorCostes(data.contador_costes || 1);
@@ -208,6 +210,27 @@ export default function AjustesClient() {
         setPrefijoVentas(data.prefijo_ventas || '');
         setPrefijoCostes(data.prefijo_costes || '');
         setPrefijoProyectos(data.prefijo_proyectos || '');
+
+        // Inicializamos el comparador con los datos recién cargados para evitar que el primer render dispare un auto-save
+        const rawIBAN_init = data.cuenta_bancaria || '';
+        const decryptedIBAN_init = rawIBAN_init.includes(':') ? decrypt(rawIBAN_init) : rawIBAN_init;
+        const rawVfPass_init = data.verifactu_pass || '';
+        const decVfPass_init = rawVfPass_init.includes(':') ? decrypt(rawVfPass_init) : rawVfPass_init;
+        const rawSmtpPass_init = data.smtp_app_password || '';
+        const decSmtpPass_init = rawSmtpPass_init.includes(':') ? decrypt(rawSmtpPass_init) : rawSmtpPass_init;
+
+        lastSavedPayload.current = JSON.stringify({
+          nombre: data.nombre || '', nif: data.nif || '', direccion: data.direccion || '', cp: data.cp || '', poblacion: data.poblacion || '', provincia: data.provincia || '', 
+          cuentaBancaria: decryptedIBAN_init ? formatIBAN(decryptedIBAN_init) : '', 
+          email: data.email || '', geminiKey: data.gemini_key || '', logoUrl: data.logo_url || '', imagenCorporativaUrl: data.imagen_corporativa_url || '', 
+          formaPago: data.forma_pago_default || 'Transferencia Bancaria', tieneRetencion: data.tiene_retencion || false, irpfDefault: Number(data.irpf_default) || 0,
+          condicionesLegales: data.condiciones_legales || '', lopdText: data.lopd_text || '', telefono: data.telefono || '', textoAceptacion: data.texto_aceptacion || '',
+          verifactuCert: data.verifactu_certificado || '', verifactuCertPassword: decVfPass_init, verifactuEnv: data.verifactu_env || 'pruebas',
+          smtpEmail: data.smtp_email || '', smtpPassword: decSmtpPass_init, smtpHost: data.smtp_host || 'smtp.gmail.com', smtpPort: data.smtp_port || '587',
+          contadorVentas: data.contador_ventas || 1, contadorCostes: data.contador_costes || 1, contadorProyectos: data.contador_proyectos || 1,
+          serieVentas: data.serie_ventas || 'A', serieCostes: data.serie_costes || 'A', serieProyectos: data.serie_proyectos || 'P',
+          prefijoVentas: data.prefijo_ventas || '', prefijoCostes: data.prefijo_costes || '', prefijoProyectos: data.prefijo_proyectos || ''
+        });
       }
       
       const { data: prof } = await supabase.from('perfiles').select('two_factor_enabled, two_factor_secret').eq('id', userId).single();
@@ -230,6 +253,7 @@ export default function AjustesClient() {
     setAutoStatus('saving');
     try {
       const payload: any = {
+        id: perfilId,
         user_id: user.id,
         nombre, nif, direccion, cp, poblacion, provincia,
         cuenta_bancaria: encrypt(cuentaBancaria.replace(/\s/g, '')),
