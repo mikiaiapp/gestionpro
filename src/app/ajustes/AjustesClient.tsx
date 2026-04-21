@@ -103,6 +103,7 @@ export default function AjustesClient() {
   const [autoBackups, setAutoBackups] = useState<any[]>([]);
 
   const initialLoadDone = useRef(false);
+  const latestValuesRef = useRef<any>(null);
 
   useEffect(() => {
     setIsMounted(true);
@@ -146,6 +147,40 @@ export default function AjustesClient() {
     prefijoVentas, prefijoCostes, prefijoProyectos,
     smtpEmail, smtpPassword, smtpHost, smtpPort
   ]);
+
+  // Mantener el ref actualizado para el guardado en unmount
+  useEffect(() => {
+    latestValuesRef.current = {
+      nombre, nif, direccion, cp, poblacion, provincia, cuentaBancaria, 
+      email, geminiKey, logoUrl, imagenCorporativaUrl, formaPago, tieneRetencion, irpfDefault,
+      condicionesLegales, lopdText, telefono, textoAceptacion,
+      verifactuCert, verifactuCertPassword, verifactuEnv,
+      smtpEmail, smtpPassword, smtpHost, smtpPort,
+      contadorVentas, contadorCostes, contadorProyectos,
+      serieVentas, serieCostes, serieProyectos,
+      prefijoVentas, prefijoCostes, prefijoProyectos
+    };
+  }, [
+    nombre, nif, direccion, cp, poblacion, provincia, cuentaBancaria, 
+    email, geminiKey, logoUrl, imagenCorporativaUrl, formaPago, tieneRetencion, irpfDefault,
+    condicionesLegales, lopdText, telefono, textoAceptacion,
+    verifactuCert, verifactuCertPassword, verifactuEnv,
+    smtpEmail, smtpPassword, smtpHost, smtpPort,
+    contadorVentas, contadorCostes, contadorProyectos,
+    serieVentas, serieCostes, serieProyectos,
+    prefijoVentas, prefijoCostes, prefijoProyectos
+  ]);
+
+  // Guardado al desmontar (por si el usuario sale antes del timeout)
+  useEffect(() => {
+    return () => {
+      // El navegador/React a veces corta las llamadas asíncronas en unmount,
+      // pero en una SPA la navegación interna suele permitir completar el fetch.
+      if (initialLoadDone.current) {
+        handleSaveAll();
+      }
+    };
+  }, []);
 
   const fetchAutoBackups = async (userId: string) => {
     const { data } = await supabase.from('backups').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(5);
@@ -251,48 +286,59 @@ export default function AjustesClient() {
   const handleSaveAll = async () => {
     if (!user) return;
     setAutoStatus('saving');
+    const vals = latestValuesRef.current || { 
+      nombre, nif, direccion, cp, poblacion, provincia, cuentaBancaria, 
+      email, geminiKey, logoUrl, imagenCorporativaUrl, formaPago, tieneRetencion, irpfDefault,
+      condicionesLegales, lopdText, telefono, textoAceptacion,
+      verifactuCert, verifactuCertPassword, verifactuEnv,
+      smtpEmail, smtpPassword, smtpHost, smtpPort,
+      contadorVentas, contadorCostes, contadorProyectos,
+      serieVentas, serieCostes, serieProyectos,
+      prefijoVentas, prefijoCostes, prefijoProyectos
+    };
+
     try {
       const payload: any = {
         id: perfilId,
         user_id: user.id,
-        nombre, nif, direccion, cp, poblacion, provincia,
-        cuenta_bancaria: encrypt(cuentaBancaria.replace(/\s/g, '')),
-        email, gemini_key: geminiKey, logo_url: logoUrl, 
-        imagen_corporativa_url: imagenCorporativaUrl,
-        forma_pago_default: formaPago, tiene_retencion: tieneRetencion, irpf_default: irpfDefault,
-        telefono,
-        condiciones_legales: condicionesLegales,
-        lopd_text: lopdText,
-        texto_aceptacion: textoAceptacion,
-        verifactu_certificado: verifactuCert,
-        verifactu_pass: encrypt(verifactuCertPassword),
-        verifactu_env: verifactuEnv,
-        smtp_email: smtpEmail,
-        smtp_app_password: smtpPassword ? encrypt(smtpPassword) : '',
-        smtp_host: smtpHost,
-        smtp_port: smtpPort,
-        contador_ventas: contadorVentas,
-        contador_costes: contadorCostes,
-        contador_proyectos: contadorProyectos,
-        serie_ventas: serieVentas,
-        serie_costes: serieCostes,
-        serie_proyectos: serieProyectos,
-        prefijo_ventas: prefijoVentas,
-        prefijo_costes: prefijoCostes,
-        prefijo_proyectos: prefijoProyectos
+        nombre: vals.nombre, 
+        nif: vals.nif, 
+        direccion: vals.direccion, 
+        cp: vals.cp, 
+        poblacion: vals.poblacion, 
+        provincia: vals.provincia,
+        cuenta_bancaria: encrypt(vals.cuentaBancaria.replace(/\s/g, '')),
+        email: vals.email, 
+        gemini_key: vals.geminiKey, 
+        logo_url: vals.logoUrl, 
+        imagen_corporativa_url: vals.imagenCorporativaUrl,
+        forma_pago_default: vals.formaPago, 
+        tiene_retencion: vals.tieneRetencion, 
+        irpf_default: vals.irpfDefault,
+        telefono: vals.telefono,
+        condiciones_legales: vals.condicionesLegales,
+        lopd_text: vals.lopdText,
+        texto_aceptacion: vals.textoAceptacion,
+        verifactu_certificado: vals.verifactuCert,
+        verifactu_pass: encrypt(vals.verifactuCertPassword),
+        verifactu_env: vals.verifactuEnv,
+        smtp_email: vals.smtpEmail,
+        smtp_app_password: vals.smtpPassword ? encrypt(vals.smtpPassword) : '',
+        smtp_host: vals.smtpHost,
+        smtp_port: vals.smtpPort,
+        contador_ventas: vals.contadorVentas,
+        contador_costes: vals.contadorCostes,
+        contador_proyectos: vals.contadorProyectos,
+        serie_ventas: vals.serieVentas,
+        serie_costes: vals.serieCostes,
+        serie_proyectos: vals.serieProyectos,
+        prefijo_ventas: vals.prefijoVentas,
+        prefijo_costes: vals.prefijoCostes,
+        prefijo_proyectos: vals.prefijoProyectos
       };
 
       // Comparamos estados brutos para evitar bucles por el IV aleatorio del cifrado
-      const stateToCompare = JSON.stringify({
-        nombre, nif, direccion, cp, poblacion, provincia, cuentaBancaria, 
-        email, geminiKey, logoUrl, imagenCorporativaUrl, formaPago, tieneRetencion, irpfDefault,
-        condicionesLegales, lopdText, telefono, textoAceptacion,
-        verifactuCert, verifactuCertPassword, verifactuEnv,
-        smtpEmail, smtpPassword, smtpHost, smtpPort,
-        contadorVentas, contadorCostes, contadorProyectos,
-        serieVentas, serieCostes, serieProyectos,
-        prefijoVentas, prefijoCostes, prefijoProyectos
-      });
+      const stateToCompare = JSON.stringify(vals);
 
       if (stateToCompare === lastSavedPayload.current) {
         setAutoStatus('idle');
@@ -1187,6 +1233,7 @@ export default function AjustesClient() {
                       placeholder="tu@email.com"
                       value={smtpEmail}
                       onChange={e => setSmtpEmail(e.target.value)}
+                      onBlur={() => handleSaveAll()}
                       className="w-full p-4 rounded-2xl border bg-gray-50 outline-none font-medium"
                     />
                   </div>
@@ -1197,6 +1244,7 @@ export default function AjustesClient() {
                       placeholder="••••••••••••••••"
                       value={smtpPassword}
                       onChange={e => setSmtpPassword(e.target.value)}
+                      onBlur={() => handleSaveAll()}
                       className="w-full p-4 rounded-2xl border bg-gray-50 outline-none font-mono"
                     />
                   </div>
