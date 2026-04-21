@@ -388,7 +388,7 @@ function VentasContent() {
             nif: vFull.clientes?.nif || '',
             direccion: vFull.clientes?.direccion || '',
             poblacion: vFull.clientes?.poblacion || '',
-            cp: vFull.clientes?.cp || '',
+            cp: vFull.clientes?.codigo_postal || '',
             provincia: vFull.clientes?.provincia || '',
             email: vFull.clientes?.email || '',
             telefono: vFull.clientes?.telefono || '',
@@ -570,8 +570,10 @@ function VentasContent() {
           nif: venta.clientes?.nif || '',
           direccion: venta.clientes?.direccion || '',
           poblacion: venta.clientes?.poblacion || '',
-          cp: venta.clientes?.cp || '',
-          provincia: venta.clientes?.provincia || ''
+          cp: venta.clientes?.codigo_postal || '',
+          provincia: venta.clientes?.provincia || '',
+          email: venta.clientes?.email || '',
+          telefono: venta.clientes?.telefono || ''
         },
         perfil: perfil,
         lineas: (venta.venta_lineas || []).map((l: any) => ({

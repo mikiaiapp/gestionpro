@@ -355,8 +355,10 @@ export default function ProyectosPage() {
           nif: p.clientes?.nif || '',
           direccion: p.clientes?.direccion || '',
           poblacion: p.clientes?.poblacion || '',
-          cp: p.clientes?.codigo_postal || '', // Fixed mapping
+          cp: p.clientes?.codigo_postal || '',
           provincia: p.clientes?.provincia || '',
+          email: p.clientes?.email || '',
+          telefono: p.clientes?.telefono || '',
         },
         perfil: perfil,
         condiciones_particulares: p.condiciones_particulares || p.condiciones || '',
