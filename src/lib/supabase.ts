@@ -10,7 +10,14 @@ const getSupabase = () => {
     console.warn('⚠️ Supabase: Faltan llaves de conexión.');
     return null;
   }
-  return createClient(supabaseUrl, supabaseAnonKey);
+  return createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      storage: typeof window !== 'undefined' ? window.sessionStorage : undefined,
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true,
+    }
+  });
 };
 
-export const supabase = getSupabase() as any;
+export const supabase = (getSupabase() || {}) as any;
