@@ -257,8 +257,19 @@ export default function AjustesClient() {
         prefijo_proyectos: prefijoProyectos
       };
 
-      const payloadString = JSON.stringify(payload);
-      if (payloadString === lastSavedPayload.current) {
+      // Comparamos estados brutos para evitar bucles por el IV aleatorio del cifrado
+      const stateToCompare = JSON.stringify({
+        nombre, nif, direccion, cp, poblacion, provincia, cuentaBancaria, 
+        email, geminiKey, logoUrl, imagenCorporativaUrl, formaPago, tieneRetencion, irpfDefault,
+        condicionesLegales, lopdText, telefono, textoAceptacion,
+        verifactuCert, verifactuCertPassword, verifactuEnv,
+        smtpEmail, smtpPassword, smtpHost, smtpPort,
+        contadorVentas, contadorCostes, contadorProyectos,
+        serieVentas, serieCostes, serieProyectos,
+        prefijoVentas, prefijoCostes, prefijoProyectos
+      });
+
+      if (stateToCompare === lastSavedPayload.current) {
         setAutoStatus('idle');
         return;
       }
@@ -273,7 +284,7 @@ export default function AjustesClient() {
         return;
       }
 
-      lastSavedPayload.current = payloadString;
+      lastSavedPayload.current = stateToCompare;
       setAutoStatus('saved');
       window.dispatchEvent(new Event('perfil_updated'));
       setTimeout(() => setAutoStatus('idle'), 2000);
@@ -1164,12 +1175,9 @@ export default function AjustesClient() {
                     {testingEmail ? <Loader2 className="animate-spin" size={16} /> : <CheckCircle2 size={16} />}
                     Probar & Validar
                   </button>
-                  <button
-                    onClick={handleSaveAll}
-                    className="flex items-center gap-2 px-6 py-4 bg-gray-900 text-white font-black rounded-2xl hover:bg-black transition-all shadow-lg uppercase text-[11px] tracking-widest"
-                  >
-                    Guardar Cambios
-                  </button>
+                  <div className="flex-1"></div>
+                  {autoStatus === 'saving' && <div className="flex items-center gap-2 text-xs font-bold text-blue-600 animate-pulse"><Loader2 size={14} className="animate-spin" /> Guardando...</div>}
+                  {autoStatus === 'saved' && <div className="flex items-center gap-2 text-xs font-bold text-green-600"><CheckCircle2 size={14} /> Guardado</div>}
                 </div>
 
                 {emailTestResult === 'ok' && (
