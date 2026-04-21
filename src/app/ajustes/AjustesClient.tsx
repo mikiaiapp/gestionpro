@@ -24,7 +24,7 @@ import {
 import { Sidebar } from '@/components/Sidebar';
 import { getFullLocationByCP } from '@/lib/geoData';
 import { formatIBAN } from '@/lib/validations';
-import { encrypt } from '@/lib/encryption';
+import { encrypt, decrypt } from '@/lib/encryption';
 import { totp } from '@/lib/totp';
 
 // Componente de 2FA cargado dinámicamente para seguridad total contra errores de hidratación
@@ -157,7 +157,9 @@ export default function AjustesClient() {
       if (data) {
         setNombre(data.nombre || '');
         setNif(data.nif || '');
-        setCuentaBancaria(data.cuenta_bancaria ? formatIBAN(data.cuenta_bancaria) : '');
+        const rawIBAN = data.cuenta_bancaria || '';
+        const decryptedIBAN = rawIBAN.includes(':') ? decrypt(rawIBAN) : rawIBAN;
+        setCuentaBancaria(decryptedIBAN ? formatIBAN(decryptedIBAN) : '');
         setDireccion(data.direccion || '');
         setCp(data.cp || '');
         setPoblacion(data.poblacion || '');
@@ -171,7 +173,9 @@ export default function AjustesClient() {
         setCondicionesLegales(data.condiciones_legales || '');
         setLopdText(data.lopd_text || '');
         setVerifactuCert(data.verifactu_certificado || '');
-        setVerifactuCertPassword(data.verifactu_pass || '');
+        const rawVfPass = data.verifactu_pass || '';
+        const decVfPass = rawVfPass.includes(':') ? decrypt(rawVfPass) : rawVfPass;
+        setVerifactuCertPassword(decVfPass);
         setVerifactuEnv(data.verifactu_env || 'pruebas');
         setTelefono(data.telefono || '');
         setImagenCorporativaUrl(data.imagen_corporativa_url || '');
@@ -211,7 +215,7 @@ export default function AjustesClient() {
       const payload: any = {
         user_id: user.id,
         nombre, nif, direccion, cp, poblacion, provincia,
-        cuenta_bancaria: cuentaBancaria.replace(/\s/g, ''),
+        cuenta_bancaria: encrypt(cuentaBancaria.replace(/\s/g, '')),
         email, gemini_key: geminiKey, logo_url: logoUrl, 
         imagen_corporativa_url: imagenCorporativaUrl,
         forma_pago_default: formaPago, tiene_retencion: tieneRetencion, irpf_default: irpfDefault,
@@ -220,7 +224,7 @@ export default function AjustesClient() {
         lopd_text: lopdText,
         texto_aceptacion: textoAceptacion,
         verifactu_certificado: verifactuCert,
-        verifactu_pass: verifactuCertPassword,
+        verifactu_pass: encrypt(verifactuCertPassword),
         verifactu_env: verifactuEnv,
         contador_ventas: contadorVentas,
         contador_costes: contadorCostes,

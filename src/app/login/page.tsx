@@ -10,6 +10,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [nombre, setNombre] = useState('');
   const [isRegister, setIsRegister] = useState(false);
+  const [isForgot, setIsForgot] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [success, setSuccess] = useState(false);
@@ -79,6 +80,30 @@ export default function LoginPage() {
         }
       }
     }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setMessage('');
+    
+    if (!email) {
+      setMessage("❌ Por favor, introduce tu email.");
+      setLoading(false);
+      return;
+    }
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/login?mode=reset`,
+    });
+
+    if (error) {
+      setMessage("❌ Error: " + error.message);
+    } else {
+      setSuccess(true);
+      setMessage("✅ Email de recuperación enviado. Revisa tu bandeja de entrada.");
+    }
+    setLoading(false);
   };
 
   const handleVerify2FA = async (e: React.FormEvent) => {
@@ -172,26 +197,33 @@ export default function LoginPage() {
              </button>
           </div>
         ) : (
-          <form onSubmit={handleAuth} className="space-y-6">
-            {isRegister && (
-              <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-500">
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-2">Nombre Completo</label>
-                <div className="relative group">
-                  <User className="absolute left-5 top-5 text-gray-300 group-focus-within:text-blue-500 transition-colors" size={18} />
-                  <input 
-                    type="text" 
-                    required 
-                    value={nombre} 
-                    onChange={e => setNombre(e.target.value)}
-                    className="w-full pl-14 pr-4 py-5 rounded-3xl border bg-gray-50 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all font-medium"
-                    placeholder="Juan Pérez"
-                  />
-                </div>
+              <div className="flex justify-between items-center pt-2">
+                <button 
+                  type="button"
+                  onClick={() => { setIsForgot(true); setIsRegister(false); setMessage(''); }}
+                  className="text-xs font-bold text-gray-400 hover:text-blue-600 transition-colors"
+                >
+                  ¿Has olvidado tu contraseña?
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => { setIsRegister(!isRegister); setIsForgot(false); setMessage(''); }}
+                  className="text-xs font-bold text-gray-500 hover:text-blue-600 transition-colors"
+                >
+                  {isRegister ? '¿Ya tienes cuenta? Inicia Sesión' : '¿No tienes cuenta? Regístrate'}
+                </button>
               </div>
-            )}
+            </form>
+          )
+        )}
 
+        {isForgot && !success && (
+          <form onSubmit={handleForgotPassword} className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+            <h3 className="text-xl font-bold text-gray-800 text-center">Recuperar Acceso</h3>
+            <p className="text-xs text-gray-400 text-center">Te enviaremos un enlace seguro para restablecer tu clave.</p>
+            
             <div className="space-y-2">
-              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-2">Email Corporativo</label>
+              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-2">Email de tu cuenta</label>
               <div className="relative group">
                 <Mail className="absolute left-5 top-5 text-gray-300 group-focus-within:text-blue-500 transition-colors" size={18} />
                 <input 
@@ -205,37 +237,22 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-2">Clave de Seguridad</label>
-              <div className="relative group">
-                <Lock className="absolute left-5 top-5 text-gray-300 group-focus-within:text-blue-500 transition-colors" size={18} />
-                <input 
-                  type="password" 
-                  required 
-                  value={password} 
-                  onChange={e => setPassword(e.target.value)}
-                  className="w-full pl-14 pr-4 py-5 rounded-3xl border bg-gray-50 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all font-medium"
-                  placeholder="••••••••"
-                />
-              </div>
-            </div>
-
             <button 
               type="submit" 
               disabled={loading}
-              className="w-full py-5 bg-gray-900 text-white font-black rounded-3xl shadow-2xl hover:bg-black transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-50"
+              className="w-full py-5 bg-blue-600 text-white font-black rounded-3xl shadow-xl shadow-blue-200 hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
             >
-              {loading ? <Loader2 className="animate-spin" /> : (isRegister ? <CheckCircle2 size={20} /> : <LogIn size={20} />)}
-              {isRegister ? 'Crear mi Cuenta' : 'Entrar al Sistema'}
+              {loading ? <Loader2 className="animate-spin" /> : <Mail size={20} />}
+              Enviar Email de Recuperación
             </button>
 
-            <div className="text-center pt-2">
+            <div className="text-center">
               <button 
                 type="button"
-                onClick={() => { setIsRegister(!isRegister); setMessage(''); }}
-                className="text-xs font-bold text-gray-500 hover:text-blue-600 transition-colors"
+                onClick={() => { setIsForgot(false); setMessage(''); }}
+                className="text-xs font-bold text-gray-400 hover:text-gray-600 transition-colors"
               >
-                {isRegister ? '¿Ya tienes cuenta? Inicia Sesión' : '¿No tienes cuenta? Regístrate gratis'}
+                ← Volver al Inicio
               </button>
             </div>
           </form>
