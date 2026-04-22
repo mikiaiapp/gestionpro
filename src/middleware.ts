@@ -18,61 +18,34 @@ export async function middleware(request: NextRequest) {
             return request.cookies.get(name)?.value;
           },
           set(name: string, value: string, options: CookieOptions) {
-            // FORZAMOS COOKIE DE SESIÓN: Eliminamos maxAge y expires
-            // Esto hace que la cookie se borre automáticamente al cerrar el navegador
-            const sessionOptions = { 
-              ...options, 
-              maxAge: undefined, 
-              expires: undefined 
-            };
+            // Omitimos maxAge para que sea de sesión
+            const sessionOptions = { ...options };
+            delete sessionOptions.maxAge;
 
-            request.cookies.set({
-              name,
-              value,
-              ...sessionOptions,
-            });
+            request.cookies.set({ name, value, ...sessionOptions });
             response = NextResponse.next({
-              request: {
-                headers: request.headers,
-              },
+              request: { headers: request.headers },
             });
-            response.cookies.set({
-              name,
-              value,
-              ...sessionOptions,
-            });
+            response.cookies.set({ name, value, ...sessionOptions });
           },
           remove(name: string, options: CookieOptions) {
-            const sessionOptions = { 
-              ...options, 
-              maxAge: undefined, 
-              expires: undefined 
-            };
+            const sessionOptions = { ...options };
+            delete sessionOptions.maxAge;
 
-            request.cookies.set({
-              name,
-              value: '',
-              ...sessionOptions,
-            });
+            request.cookies.set({ name, value: '', ...sessionOptions });
             response = NextResponse.next({
-              request: {
-                headers: request.headers,
-              },
+              request: { headers: request.headers },
             });
-            response.cookies.set({
-              name,
-              value: '',
-              ...sessionOptions,
-            });
+            response.cookies.set({ name, value: '', ...sessionOptions });
           },
         },
       }
     );
 
-    const { data: { session } } = await supabase.auth.getSession();
+    // IMPORTANTE: Usamos getUser() para validar la sesión de forma real en el servidor
+    const { data: { user } } = await supabase.auth.getUser();
 
     const pathname = request.nextUrl.pathname;
-    
     const isPublicPath = 
       pathname === '/login' || 
       pathname === '/signup' || 
@@ -81,19 +54,19 @@ export async function middleware(request: NextRequest) {
       pathname.startsWith('/_next/') ||
       pathname.includes('.');
 
-    if (!session && !isPublicPath) {
+    if (!user && !isPublicPath) {
       const url = request.nextUrl.clone();
       url.pathname = '/login';
       return NextResponse.redirect(url);
     }
 
-    if (session && (pathname === '/login' || pathname === '/signup')) {
+    if (user && (pathname === '/login' || pathname === '/signup')) {
       const url = request.nextUrl.clone();
       url.pathname = '/resumen';
       return NextResponse.redirect(url);
     }
   } catch (e) {
-    console.error('Middleware execution error:', e);
+    console.error('Middleware Critical Error:', e);
   }
 
   return response;
