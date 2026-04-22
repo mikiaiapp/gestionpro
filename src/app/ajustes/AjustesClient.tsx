@@ -105,6 +105,18 @@ export default function AjustesClient() {
   const initialLoadDone = useRef(false);
   const latestValuesRef = useRef<any>(null);
 
+  // Mantener el ref actualizado sincronamente para que el guardado en unmount tenga siempre lo último
+  latestValuesRef.current = {
+    nombre, nif, direccion, cp, poblacion, provincia, cuentaBancaria, 
+    email, geminiKey, logoUrl, imagenCorporativaUrl, formaPago, tieneRetencion, irpfDefault,
+    condicionesLegales, lopdText, telefono, textoAceptacion,
+    verifactuCert, verifactuCertPassword, verifactuEnv,
+    smtpEmail, smtpPassword, smtpHost, smtpPort,
+    contadorVentas, contadorCostes, contadorProyectos,
+    serieVentas, serieCostes, serieProyectos,
+    prefijoVentas, prefijoCostes, prefijoProyectos
+  };
+
   useEffect(() => {
     setIsMounted(true);
     checkUser();
@@ -148,28 +160,6 @@ export default function AjustesClient() {
     smtpEmail, smtpPassword, smtpHost, smtpPort
   ]);
 
-  // Mantener el ref actualizado para el guardado en unmount
-  useEffect(() => {
-    latestValuesRef.current = {
-      nombre, nif, direccion, cp, poblacion, provincia, cuentaBancaria, 
-      email, geminiKey, logoUrl, imagenCorporativaUrl, formaPago, tieneRetencion, irpfDefault,
-      condicionesLegales, lopdText, telefono, textoAceptacion,
-      verifactuCert, verifactuCertPassword, verifactuEnv,
-      smtpEmail, smtpPassword, smtpHost, smtpPort,
-      contadorVentas, contadorCostes, contadorProyectos,
-      serieVentas, serieCostes, serieProyectos,
-      prefijoVentas, prefijoCostes, prefijoProyectos
-    };
-  }, [
-    nombre, nif, direccion, cp, poblacion, provincia, cuentaBancaria, 
-    email, geminiKey, logoUrl, imagenCorporativaUrl, formaPago, tieneRetencion, irpfDefault,
-    condicionesLegales, lopdText, telefono, textoAceptacion,
-    verifactuCert, verifactuCertPassword, verifactuEnv,
-    smtpEmail, smtpPassword, smtpHost, smtpPort,
-    contadorVentas, contadorCostes, contadorProyectos,
-    serieVentas, serieCostes, serieProyectos,
-    prefijoVentas, prefijoCostes, prefijoProyectos
-  ]);
 
   // Guardado al desmontar (por si el usuario sale antes del timeout)
   useEffect(() => {
