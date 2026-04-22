@@ -11,7 +11,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Falta la clave API de Google Gemini." }, { status: 400 });
     }
 
-    // 1. Descubrimiento dinámico de modelos disponibles para esta clave
+    // 1. Descubrimiento dinámico de modelos
     let availableModels: string[] = [];
     try {
       const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${cleanApiKey}`);
@@ -19,13 +19,12 @@ export async function POST(req: Request) {
       if (data.models) {
         availableModels = data.models
           .filter((m: any) => m.supportedGenerationMethods.includes("generateContent"))
-          .map((m: any) => m.name); // Ya incluyen el prefijo "models/"
+          .map((m: any) => m.name);
       }
     } catch (e) {
-      console.warn("Error en descubrimiento, usando lista estática.");
+      console.warn("Error en descubrimiento.");
     }
 
-    // Prioridad: Flash 1.5 -> Pro 1.5 -> Cualquier otro disponible
     const priority = ["gemini-1.5-flash", "gemini-1.5-pro", "flash"];
     const modelsToTry = [
       ...availableModels.sort((a, b) => {
@@ -33,28 +32,44 @@ export async function POST(req: Request) {
         const bScore = priority.findIndex(p => b.includes(p));
         return (aScore === -1 ? 99 : aScore) - (bScore === -1 ? 99 : bScore);
       }),
-      "models/gemini-1.5-flash", // Fallbacks manuales por si falla el descubrimiento
+      "models/gemini-1.5-flash",
       "models/gemini-1.5-pro"
     ];
 
-    // Eliminamos duplicados
     const uniqueModels = [...new Set(modelsToTry)];
 
-    const PROMPT = `Extrae datos de esta factura en JSON estricto:
+    // PROMPT REFORZADO: Instrucciones de agrupación más agresivas y al principio
+    const PROMPT = `INSTRUCCIÓN CRÍTICA: NO EXTRAIGAS ARTÍCULOS INDIVIDUALES. 
+    Debes generar un resumen contable agrupado por tipo de IVA.
+
+    Extrae los datos en este formato JSON:
     {
-      "proveedor_nombre", "proveedor_nif", "proveedor_direccion", "proveedor_cp",
-      "num_factura", "fecha" (YYYY-MM-DD),
-      "lineas": [{"descripcion": "Base imponible al X%", "unidades": 1, "precio_unitario": 0.00, "iva_pct": X}],
+      "proveedor_nombre": "Nombre",
+      "proveedor_nif": "NIF",
+      "proveedor_direccion": "Dirección",
+      "proveedor_cp": "CP",
+      "num_factura": "Número",
+      "fecha": "YYYY-MM-DD",
+      "lineas": [
+        {
+          "descripcion": "Base imponible al X%", 
+          "unidades": 1, 
+          "precio_unitario": SUMA_DE_BASES_DE_ESE_IVA, 
+          "iva_pct": X
+        }
+      ],
       "retencion_pct": X
     }
-    REGLA: Agrupa por tipo de IVA. Una línea por cada % de IVA. El precio es la suma de las bases.`;
+
+    REGLAS DE ORO:
+    1. Si hay 10 artículos al 21% de IVA, genera una ÚNICA línea con la descripción "Base imponible al 21%".
+    2. El "precio_unitario" de esa línea debe ser la suma total de las bases imponibles de todos los artículos de ese tipo de IVA.
+    3. Si hay varios tipos de IVA (ej: 21% y 10%), genera exactamente una línea para cada tipo.`;
 
     let lastError = "No se pudieron encontrar modelos compatibles.";
     
-    // Intentamos con todos los modelos disponibles hasta que uno responda
     for (const fullModelName of uniqueModels) {
       try {
-        console.log(`Probando modelo: ${fullModelName}`);
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/${fullModelName}:generateContent?key=${cleanApiKey}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -65,7 +80,10 @@ export async function POST(req: Request) {
                 { inline_data: { mime_type: "application/pdf", data: base64File.split(",")[1] || base64File } }
               ]
             }],
-            generationConfig: { temperature: 0.1 }
+            generationConfig: { 
+              temperature: 0.1,
+              response_mime_type: "application/json"
+            }
           })
         });
 
@@ -73,27 +91,23 @@ export async function POST(req: Request) {
 
         if (data.error) {
           lastError = data.error.message;
-          // Si el error es de saturación o límite, pasamos al siguiente inmediatamente
           if (lastError.toLowerCase().includes("demand") || lastError.toLowerCase().includes("quota") || data.error.code === 429) {
             continue;
           }
-          // Si es otro error (ej: archivo muy grande), paramos
           throw new Error(lastError);
         }
 
         const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
         if (text) {
-          const cleanJson = text.replace(/```json/g, "").replace(/```/g, "").trim();
-          return NextResponse.json(JSON.parse(cleanJson));
+          return NextResponse.json(JSON.parse(text.trim()));
         }
       } catch (e: any) {
         lastError = e.message;
-        console.warn(`Fallo con ${fullModelName}:`, lastError);
       }
     }
 
     return NextResponse.json({ 
-      error: `Saturación total en Google. Todos los modelos (${uniqueModels.length}) han fallado. Por favor, espera 1 minuto a que se libere tu cuota gratuita. (Último error: ${lastError})` 
+      error: `Error de saturación en Google. (Último error: ${lastError})` 
     }, { status: 503 });
 
   } catch (error: any) {
