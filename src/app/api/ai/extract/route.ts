@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 
-// Incrementamos la duración máxima permitida en Vercel
 export const maxDuration = 60; 
 
 export async function POST(req: Request) {
@@ -12,45 +11,35 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Falta la clave API de Google Gemini." }, { status: 400 });
     }
 
-    // 1. Descubrimiento de modelo (Priorizamos Flash por disponibilidad)
-    let selectedModel = "gemini-1.5-flash"; 
-    let selectedVersion = "v1beta";
+    // 1. Modelos a intentar (en orden de prioridad)
+    const modelsToTry = [
+      "gemini-1.5-flash",
+      "gemini-1.5-pro",
+      "gemini-1.0-pro-vision-latest"
+    ];
 
-    try {
-      const mRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${cleanApiKey}`);
-      const mData = await mRes.json();
-      if (mData.models) {
-        const best = mData.models.find((m: any) => 
-          m.name.includes("gemini-1.5-flash") || m.name.includes("flash")
-        );
-        if (best) selectedModel = best.name;
-      }
-    } catch (e) {
-      console.warn("Error listando modelos, usando fallback flash.");
+    const PROMPT = `Analiza esta factura y extrae los datos en formato JSON estricto:
+    {
+      "proveedor_nombre": "Nombre del emisor",
+      "proveedor_nif": "NIF/CIF",
+      "proveedor_direccion": "Dirección completa",
+      "proveedor_cp": "Código Postal",
+      "num_factura": "Número de factura",
+      "fecha": "YYYY-MM-DD",
+      "lineas": [{"descripcion": "Base imponible al X%", "unidades": 1, "precio_unitario": 0.00, "iva_pct": X}],
+      "retencion_pct": X
     }
+    REGLA CRÍTICA: Agrupa los artículos por tipo de IVA. Crea una única línea por cada porcentaje de IVA (ej: "Base imponible al 21%"). El precio_unitario será la suma de todas las bases de ese tipo.`;
 
-    const PROMPT = `Extrae JSON de factura: {
-      proveedor_nombre, 
-      proveedor_nif, 
-      proveedor_direccion, 
-      proveedor_cp, 
-      num_factura, 
-      fecha (YYYY-MM-DD), 
-      lineas: [{descripcion, unidades: 1, precio_unitario, iva_pct}], 
-      retencion_pct
-    }. 
-    IMPORTANTE: Agrupa los conceptos por tipo de IVA. 
-    Crea una única línea por cada tipo de IVA encontrado con la descripción "Base imponible al X%" y el total de esa base como precio_unitario.`;
-
-    // 2. Ejecución con reintentos y lógica de error clara
-    let attempts = 0;
-    const maxAttempts = 3;
     let lastError = null;
-    
-    while (attempts < maxAttempts) {
-      attempts++;
+    let responseData = null;
+
+    // Intentamos con varios modelos si uno falla por saturación
+    for (const modelName of modelsToTry) {
+      console.log(`Intentando extracción con ${modelName}...`);
+      
       try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/${selectedVersion}/${selectedModel}:generateContent?key=${cleanApiKey}`, {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${cleanApiKey}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -62,9 +51,7 @@ export async function POST(req: Request) {
             }],
             generationConfig: { 
               temperature: 0.1,
-              topP: 0.95,
-              topK: 40,
-              maxOutputTokens: 2048,
+              response_mime_type: "application/json" // Forzamos modo JSON si el modelo lo soporta
             }
           })
         });
@@ -72,41 +59,35 @@ export async function POST(req: Request) {
         const data = await response.json();
 
         if (data.error) {
-          const msg = data.error.message || "";
-          lastError = msg;
-          
-          if (msg.toLowerCase().includes("high demand") || data.error.code === 429 || data.error.code === 503) {
-            if (attempts < maxAttempts) {
-              await new Promise(r => setTimeout(r, 2000 * attempts));
-              continue;
-            }
-            return NextResponse.json({ 
-              error: "Saturación en Google: El servidor de IA está recibiendo demasiadas peticiones. Por favor, espera 30 segundos e inténtalo de nuevo." 
-            }, { status: 503 });
+          lastError = data.error.message;
+          // Si es saturación o cuota, saltamos al siguiente modelo inmediatamente
+          if (lastError.toLowerCase().includes("high demand") || data.error.code === 429 || data.error.code === 503) {
+            continue;
           }
-
-          return NextResponse.json({ error: `Error de Google: ${msg}` }, { status: response.status || 500 });
+          throw new Error(lastError);
         }
 
         const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!text) throw new Error("La IA no generó respuesta.");
-
-        const cleanJson = text.replace(/```json/g, "").replace(/```/g, "").trim();
-        return NextResponse.json(JSON.parse(cleanJson));
-
+        if (text) {
+          responseData = JSON.parse(text.replace(/```json/g, "").replace(/```/g, "").trim());
+          break; // ¡Éxito! Salimos del bucle de modelos
+        }
       } catch (e: any) {
         lastError = e.message;
-        if (attempts >= maxAttempts) throw e;
-        await new Promise(r => setTimeout(r, 1000));
+        console.warn(`Fallo con ${modelName}:`, lastError);
       }
     }
 
-    throw new Error(lastError || "Error desconocido");
+    if (responseData) {
+      return NextResponse.json(responseData);
+    }
+
+    return NextResponse.json({ 
+      error: `No se pudo completar la extracción tras varios intentos. Último error: ${lastError}` 
+    }, { status: 500 });
 
   } catch (error: any) {
-    console.error("Critical AI Route Error:", error);
-    return NextResponse.json({ 
-      error: `Error en la extracción: ${error.message}` 
-    }, { status: 500 });
+    console.error("AI Route Critical Error:", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
