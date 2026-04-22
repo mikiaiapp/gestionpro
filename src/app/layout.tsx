@@ -20,15 +20,16 @@ export const metadata: Metadata = {
     statusBarStyle: 'default',
     title: 'GestiónPro',
   },
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-    maximumScale: 1,
-    userScalable: false,
-  },
   icons: {
     apple: '/icons/icon-192.png',
   },
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 import { AuthGuard } from "@/components/AuthGuard";
