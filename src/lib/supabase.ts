@@ -1,24 +1,20 @@
-import { createBrowserClient } from '@supabase/ssr';
+import { createBrowserClient } from '@supabase/ssr'
 
-// Cliente de Supabase configurado para "Solo Sesión"
-// Al usar sessionStorage y omitir la expiración de la cookie, 
-// el usuario deberá validarse cada vez que cierre el navegador.
+// Cliente de Supabase optimizado para el navegador
+// Gestiona la sesión automáticamente sincronizándola con las cookies del middleware
 export const supabase = createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
   {
     auth: {
       persistSession: true,
-      storageKey: 'gp-auth-session',
-      // Usamos sessionStorage para que los datos mueran al cerrar la pestaña/ventana
-      storage: typeof window !== 'undefined' ? window.sessionStorage : undefined,
+      storageKey: 'gp-auth-token',
     },
     cookieOptions: {
-      // Al no definir maxAge, la cookie se vuelve de sesión (se borra al cerrar el navegador)
-      name: 'sb-auth-token',
+      // Forzamos que la cookie sea de sesión (se borra al cerrar el navegador)
       path: '/',
       sameSite: 'lax',
       secure: process.env.NODE_ENV === 'production',
     }
   }
-);
+)
