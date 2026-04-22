@@ -18,10 +18,18 @@ export async function middleware(request: NextRequest) {
             return request.cookies.get(name)?.value;
           },
           set(name: string, value: string, options: CookieOptions) {
+            // FORZAMOS COOKIE DE SESIÓN: Eliminamos maxAge y expires
+            // Esto hace que la cookie se borre automáticamente al cerrar el navegador
+            const sessionOptions = { 
+              ...options, 
+              maxAge: undefined, 
+              expires: undefined 
+            };
+
             request.cookies.set({
               name,
               value,
-              ...options,
+              ...sessionOptions,
             });
             response = NextResponse.next({
               request: {
@@ -31,14 +39,20 @@ export async function middleware(request: NextRequest) {
             response.cookies.set({
               name,
               value,
-              ...options,
+              ...sessionOptions,
             });
           },
           remove(name: string, options: CookieOptions) {
+            const sessionOptions = { 
+              ...options, 
+              maxAge: undefined, 
+              expires: undefined 
+            };
+
             request.cookies.set({
               name,
               value: '',
-              ...options,
+              ...sessionOptions,
             });
             response = NextResponse.next({
               request: {
@@ -48,7 +62,7 @@ export async function middleware(request: NextRequest) {
             response.cookies.set({
               name,
               value: '',
-              ...options,
+              ...sessionOptions,
             });
           },
         },
@@ -59,7 +73,6 @@ export async function middleware(request: NextRequest) {
 
     const pathname = request.nextUrl.pathname;
     
-    // Rutas públicas y archivos estáticos
     const isPublicPath = 
       pathname === '/login' || 
       pathname === '/signup' || 
@@ -68,14 +81,12 @@ export async function middleware(request: NextRequest) {
       pathname.startsWith('/_next/') ||
       pathname.includes('.');
 
-    // 1. Redirección si no hay sesión y es ruta protegida
     if (!session && !isPublicPath) {
       const url = request.nextUrl.clone();
       url.pathname = '/login';
       return NextResponse.redirect(url);
     }
 
-    // 2. Redirección si hay sesión e intenta ir a login
     if (session && (pathname === '/login' || pathname === '/signup')) {
       const url = request.nextUrl.clone();
       url.pathname = '/resumen';
