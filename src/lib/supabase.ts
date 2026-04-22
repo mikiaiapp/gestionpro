@@ -1,20 +1,8 @@
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createBrowserClient } from '@supabase/ssr';
 
-// Exportamos una función para obtener el cliente o una instancia persistente
-// Esto evita que falle durante el 'prerendering' en el servidor de Vercel
-let supabaseInstance: any;
-
-export const getSupabaseClient = () => {
-  // Durante el build (SSR/Prerendering), devolvemos un proxy o un objeto vacío
-  // para evitar que 'createClientComponentClient' intente acceder a cookies inexistentes
-  if (typeof window === 'undefined') {
-    return {} as any;
-  }
-  
-  if (!supabaseInstance) {
-    supabaseInstance = createClientComponentClient();
-  }
-  return supabaseInstance;
-};
-
-export const supabase = getSupabaseClient();
+// Creamos el cliente de Supabase para el navegador
+// Esto gestiona automáticamente la sincronización de sesión con el servidor vía cookies
+export const supabase = createBrowserClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);

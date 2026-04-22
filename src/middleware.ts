@@ -1,25 +1,64 @@
-import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs';
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+import { createServerClient, type CookieOptions } from '@supabase/ssr';
+import { NextResponse, type NextRequest } from 'next/server';
 
-export async function middleware(req: NextRequest) {
+export async function middleware(request: NextRequest) {
+  let response = NextResponse.next({
+    request: {
+      headers: request.headers,
+    },
+  });
+
   try {
-    const res = NextResponse.next();
-    
-    // Forzamos las claves para evitar errores de entorno en el Edge Runtime
-    const supabase = createMiddlewareClient({ 
-      req, 
-      res 
-    }, {
-      supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
-      supabaseKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    });
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return request.cookies.get(name)?.value;
+          },
+          set(name: string, value: string, options: CookieOptions) {
+            request.cookies.set({
+              name,
+              value,
+              ...options,
+            });
+            response = NextResponse.next({
+              request: {
+                headers: request.headers,
+              },
+            });
+            response.cookies.set({
+              name,
+              value,
+              ...options,
+            });
+          },
+          remove(name: string, options: CookieOptions) {
+            request.cookies.set({
+              name,
+              value: '',
+              ...options,
+            });
+            response = NextResponse.next({
+              request: {
+                headers: request.headers,
+              },
+            });
+            response.cookies.set({
+              name,
+              value: '',
+              ...options,
+            });
+          },
+        },
+      }
+    );
 
-    // Intentamos obtener la sesión de forma segura
     const { data: { session } } = await supabase.auth.getSession();
 
-    const pathname = req.nextUrl.pathname;
-
+    const pathname = request.nextUrl.pathname;
+    
     // Rutas públicas y archivos estáticos
     const isPublicPath = 
       pathname === '/login' || 
@@ -29,28 +68,24 @@ export async function middleware(req: NextRequest) {
       pathname.startsWith('/_next/') ||
       pathname.includes('.');
 
-    // Redirección si no hay sesión
+    // 1. Redirección si no hay sesión y es ruta protegida
     if (!session && !isPublicPath) {
-      const redirectUrl = req.nextUrl.clone();
-      redirectUrl.pathname = '/login';
-      return NextResponse.redirect(redirectUrl);
+      const url = request.nextUrl.clone();
+      url.pathname = '/login';
+      return NextResponse.redirect(url);
     }
 
-    // Redirección si hay sesión e intenta ir a login
+    // 2. Redirección si hay sesión e intenta ir a login
     if (session && (pathname === '/login' || pathname === '/signup')) {
-      const redirectUrl = req.nextUrl.clone();
-      redirectUrl.pathname = '/resumen';
-      return NextResponse.redirect(redirectUrl);
+      const url = request.nextUrl.clone();
+      url.pathname = '/resumen';
+      return NextResponse.redirect(url);
     }
-
-    return res;
   } catch (e) {
-    // Si el middleware falla por cualquier motivo técnico, permitimos el paso
-    // y dejamos que el AuthGuard (cliente) maneje la seguridad.
-    // Esto evita el error 500 que bloquea toda la web.
-    console.error('Middleware Error:', e);
-    return NextResponse.next();
+    console.error('Middleware execution error:', e);
   }
+
+  return response;
 }
 
 export const config = {
