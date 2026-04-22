@@ -887,9 +887,25 @@ export default function CostesPage() {
                         <tbody>
                           {lineas.map((linea, idx) => (
                             <tr key={idx} className="border-b border-gray-50">
-                              <td className="py-3 pr-4 text-center w-20"><input type="number" value={linea.unidades} onChange={(e) => updateLinea(idx, "unidades", parseFloat(e.target.value))} className="w-full p-2 rounded-lg border border-gray-100 font-bold text-center" /></td>
-                              <td className="py-3 pr-4"><input type="text" value={linea.descripcion} onChange={(e) => updateLinea(idx, "descripcion", e.target.value)} className="w-full p-2 rounded-lg border border-gray-100 text-sm" /></td>
-                              <td className="py-3 pr-4"><input type="number" value={linea.precio_unitario} onChange={(e) => updateLinea(idx, "precio_unitario", parseFloat(e.target.value))} className="w-full p-2 rounded-lg border border-gray-100 text-right font-mono" /></td>
+                               <td className="py-3 pr-4 text-center w-20"><input type="number" step="any" value={linea.unidades} onChange={(e) => updateLinea(idx, "unidades", parseFloat(e.target.value))} className="w-full p-2 rounded-lg border border-gray-100 font-bold text-center" /></td>
+                              <td className="py-3 pr-4">
+                                <textarea 
+                                  rows={1} 
+                                  value={linea.descripcion} 
+                                  onChange={(e) => updateLinea(idx, "descripcion", e.target.value)} 
+                                  className="w-full p-2 rounded-lg border border-gray-100 text-sm min-h-[40px] resize-y" 
+                                />
+                              </td>
+                              <td className="py-3 pr-4">
+                                <input 
+                                  type="number" 
+                                  step="any" 
+                                  inputMode="decimal"
+                                  value={linea.precio_unitario} 
+                                  onChange={(e) => updateLinea(idx, "precio_unitario", parseFloat(e.target.value))} 
+                                  className="w-full p-2 rounded-lg border border-gray-100 text-right font-mono" 
+                                />
+                              </td>
                               <td className="py-3 pr-4">
                                 <select value={linea.iva_pct} onChange={(e) => updateLinea(idx, "iva_pct", parseInt(e.target.value))} className="w-full p-2 rounded-lg border border-gray-100 text-xs font-bold text-center">
                                    <option value="21">21%</option>

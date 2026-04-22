@@ -947,7 +947,7 @@ function VentasContent() {
                   <tbody>
                     {lineas.map((linea, idx) => (
                       <tr key={idx}>
-                        <td className="py-2 pr-4"><textarea rows={1} value={linea.descripcion} onChange={(e) => updateLinea(idx, { descripcion: e.target.value })} className="w-full p-2 rounded-lg border border-gray-100 text-sm resize-none" /></td>
+                        <td className="py-2 pr-4"><textarea rows={1} value={linea.descripcion} onChange={(e) => updateLinea(idx, { descripcion: e.target.value })} className="w-full p-2 rounded-lg border border-gray-100 text-sm min-h-[40px] resize-y" /></td>
                         <td className="py-2 pr-4">
                           <input 
                             type="text"
