@@ -1,20 +1,16 @@
-import { createBrowserClient } from '@supabase/ssr'
+import { createClient } from '@supabase/supabase-js';
 
-// Cliente de Supabase optimizado para el navegador
-// Gestiona la sesión automáticamente sincronizándola con las cookies del middleware
-export const supabase = createBrowserClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  {
-    auth: {
-      persistSession: true,
-      storageKey: 'gp-auth-token',
-    },
-    cookieOptions: {
-      // Forzamos que la cookie sea de sesión (se borra al cerrar el navegador)
-      path: '/',
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
-    }
+// Usamos el cliente estándar de supabase-js para máxima estabilidad en el navegador
+// Esta versión es más robusta y menos propensa a errores de inicialización que la versión SSR
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,
+    storageKey: 'gp-auth-token',
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+    flowType: 'pkce'
   }
-)
+});
