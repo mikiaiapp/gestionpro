@@ -18,13 +18,25 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   async function checkAuth() {
     try {
       setLoading(true);
-      const { data: { session } } = await supabase.auth.getSession();
+      
+      // Intentamos obtener la sesión de forma segura
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        console.error("AuthGuard: Error al obtener sesión:", sessionError);
+        // Si hay error, por seguridad asumimos que no hay sesión
+        const isPublicPath = pathname === "/login" || pathname === "/signup" || pathname === "/";
+        if (!isPublicPath) {
+          router.replace("/login");
+        }
+        return;
+      }
 
       const isPublicPath = pathname === "/login" || pathname === "/signup" || pathname === "/";
 
       if (!session && !isPublicPath) {
         setAuthorized(false);
-        router.replace("/login"); // Usamos replace para evitar historial sucio
+        router.replace("/login");
       } else if (session && isPublicPath && pathname !== "/") {
         setAuthorized(true);
         router.replace("/resumen");
@@ -40,9 +52,12 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         }
       }
     } catch (error) {
-      console.error("AuthGuard check error:", error);
+      console.error("AuthGuard: Error crítico:", error);
+      // Fallback de seguridad
+      router.replace("/login");
     } finally {
-      setLoading(false);
+      // Pequeño delay para evitar parpadeos si la redirección es inminente
+      setTimeout(() => setLoading(false), 500);
     }
   }
 
