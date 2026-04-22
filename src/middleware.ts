@@ -1,62 +1,19 @@
-import { createServerClient, type CookieOptions } from '@supabase/ssr';
-import { NextResponse, type NextRequest } from 'next/server';
+import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs';
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 
-export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({
-    request: {
-      headers: request.headers,
-    },
-  });
+export async function middleware(req: NextRequest) {
+  const res = NextResponse.next();
+  const supabase = createMiddlewareClient({ req, res });
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value;
-        },
-        set(name: string, value: string, options: CookieOptions) {
-          request.cookies.set({
-            name,
-            value,
-            ...options,
-          });
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          });
-          response.cookies.set({
-            name,
-            value,
-            ...options,
-          });
-        },
-        remove(name: string, options: CookieOptions) {
-          request.cookies.set({
-            name,
-            value: '',
-            ...options,
-          });
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          });
-          response.cookies.set({
-            name,
-            value: '',
-            ...options,
-          });
-        },
-      },
-    }
-  );
+  // Esto refresca la sesión si es necesario y la pone en las cookies
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
 
-  const { data: { session } } = await supabase.auth.getSession();
+  const pathname = req.nextUrl.pathname;
 
-  const pathname = request.nextUrl.pathname;
+  // Rutas públicas
   const isPublicPath = 
     pathname === '/login' || 
     pathname === '/signup' || 
@@ -65,23 +22,23 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/_next/') ||
     pathname.includes('.');
 
-  // Redirección si no hay sesión
+  // 1. Si no hay sesión y la ruta es protegida -> Ir a login
   if (!session && !isPublicPath) {
-    const url = request.nextUrl.clone();
-    url.pathname = '/login';
-    return NextResponse.redirect(url);
+    const redirectUrl = req.nextUrl.clone();
+    redirectUrl.pathname = '/login';
+    return NextResponse.redirect(redirectUrl);
   }
 
-  // Redirección si ya hay sesión e intenta ir a login
+  // 2. Si hay sesión e intenta ir a login -> Ir a resumen
   if (session && (pathname === '/login' || pathname === '/signup')) {
-    const url = request.nextUrl.clone();
-    url.pathname = '/resumen';
-    return NextResponse.redirect(url);
+    const redirectUrl = req.nextUrl.clone();
+    redirectUrl.pathname = '/resumen';
+    return NextResponse.redirect(redirectUrl);
   }
 
-  return response;
+  return res;
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|icons|manifest.json).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|icons|manifest.json|.*\\.png$).*)'],
 };
