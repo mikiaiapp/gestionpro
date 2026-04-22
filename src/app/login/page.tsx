@@ -18,6 +18,25 @@ export default function LoginPage() {
   const [show2FA, setShow2FA] = useState(false);
   const [token, setToken] = useState('');
   const [tempUser, setTempUser] = useState<any>(null);
+  
+  // Soporte para Reset Password
+  const [isReset, setIsReset] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('mode') === 'reset') {
+      setIsReset(true);
+      setIsForgot(false);
+    }
+
+    // Capturar errores de Supabase en el hash (ej: otp_expired)
+    const hash = window.location.hash;
+    if (hash.includes('error_description')) {
+      const desc = new URLSearchParams(hash.substring(1)).get('error_description');
+      if (desc) setMessage("❌ Error: " + desc.replace(/\+/g, ' '));
+    }
+  }, []);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -106,6 +125,31 @@ export default function LoginPage() {
     setLoading(false);
   };
 
+  const handleUpdatePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setMessage('');
+
+    if (newPassword.length < 6) {
+      setMessage("❌ La contraseña debe tener al menos 6 caracteres.");
+      setLoading(false);
+      return;
+    }
+
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword
+    });
+
+    if (error) {
+      setMessage("❌ Error: " + error.message);
+    } else {
+      setSuccess(true);
+      setMessage("✅ Contraseña actualizada con éxito. Ya puedes entrar.");
+      setIsReset(false);
+    }
+    setLoading(false);
+  };
+
   const handleVerify2FA = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -190,12 +234,42 @@ export default function LoginPage() {
              </div>
              <p className="text-gray-600 font-medium leading-relaxed">{message}</p>
              <button 
-               onClick={() => { setIsRegister(false); setSuccess(false); setMessage(''); }}
+               onClick={() => { setIsRegister(false); setIsReset(false); setSuccess(false); setMessage(''); }}
                className="text-blue-600 font-bold hover:underline"
              >
                Ir a Iniciar Sesión
              </button>
           </div>
+        ) : isReset ? (
+          <form onSubmit={handleUpdatePassword} className="space-y-6 animate-in fade-in zoom-in duration-500">
+            <h3 className="text-xl font-bold text-gray-800 text-center">Nueva Contraseña</h3>
+            <p className="text-xs text-gray-400 text-center">Introduce tu nueva clave de acceso.</p>
+            
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-2">Nueva Clave</label>
+              <div className="relative group">
+                <Lock className="absolute left-5 top-5 text-gray-300 group-focus-within:text-blue-500 transition-colors" size={18} />
+                <input 
+                  type="password" 
+                  required 
+                  value={newPassword} 
+                  onChange={e => setNewPassword(e.target.value)}
+                  className="w-full pl-14 pr-4 py-5 rounded-3xl border bg-gray-50 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all font-medium"
+                  placeholder="••••••••"
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            <button 
+              type="submit" 
+              disabled={loading}
+              className="w-full py-5 bg-blue-600 text-white font-black rounded-3xl shadow-xl shadow-blue-200 hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
+            >
+              {loading ? <Loader2 className="animate-spin" /> : <CheckCircle2 size={20} />}
+              Guardar Nueva Contraseña
+            </button>
+          </form>
         ) : !isForgot ? (
           <form onSubmit={handleAuth} className="space-y-6">
             {isRegister && (
