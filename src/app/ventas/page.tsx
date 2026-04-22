@@ -940,35 +940,25 @@ function VentasContent() {
               </div>
 
               <div className="mb-8 overflow-x-auto">
-                <table className="w-full border-collapse min-w-[700px]">
+                <table className="w-full border-collapse min-w-[600px]">
                   <thead>
                     <tr className="text-left text-gray-400">
-                      <th className="w-20 pb-3 text-[10px] font-bold uppercase text-center">Ud.</th>
                       <th className="pb-3 text-[10px] font-bold uppercase">Descripción / Concepto</th>
-                      <th className="w-32 pb-3 text-[10px] font-bold uppercase text-right">Precio Ud.</th>
+                      <th className="w-32 pb-3 text-[10px] font-bold uppercase text-right">Importe</th>
                       <th className="w-24 pb-3 text-[10px] font-bold uppercase text-center">IVA %</th>
-                      <th className="w-32 pb-3 text-[10px] font-bold uppercase text-right">Total</th>
                       <th className="w-10"></th>
                     </tr>
                   </thead>
                   <tbody>
                     {lineas.map((linea, idx) => (
                       <tr key={idx} className="border-b border-gray-50">
-                        <td className="py-3 pr-4 w-20">
-                          <input 
-                            type="number" 
-                            step="any"
-                            value={linea.unidades} 
-                            onChange={(e) => updateLinea(idx, { unidades: parseFloat(e.target.value) || 0 })} 
-                            className="w-full p-2 rounded-lg border border-gray-100 font-bold text-center" 
-                          />
-                        </td>
                         <td className="py-3 pr-4">
                           <textarea 
                             rows={1} 
                             value={linea.descripcion} 
                             onChange={(e) => updateLinea(idx, { descripcion: e.target.value })} 
                             className="w-full p-2 rounded-lg border border-gray-100 text-sm min-h-[40px] resize-y" 
+                            placeholder="Descripción de la partida..."
                           />
                         </td>
                         <td className="py-3 pr-4">
@@ -977,9 +967,9 @@ function VentasContent() {
                             step="any"
                             inputMode="decimal"
                             value={linea.precio_unitario}
-                            onChange={(e) => updateLinea(idx, { precio_unitario: parseFloat(e.target.value) || 0 })}
+                            onChange={(e) => updateLinea(idx, { precio_unitario: parseFloat(e.target.value) || 0, unidades: 1 })}
                             onFocus={(e) => e.target.select()}
-                            className="w-full p-2 rounded-lg border border-gray-100 text-right font-mono font-bold text-gray-700 focus:ring-2 focus:ring-blue-100 outline-none"
+                            className="w-full p-2 rounded-lg border border-gray-100 text-right font-mono font-bold text-[var(--accent)] focus:ring-2 focus:ring-orange-100 outline-none"
                             placeholder="0.00"
                           />
                         </td>
@@ -987,7 +977,7 @@ function VentasContent() {
                           <select 
                             value={linea.iva_pct ?? 21} 
                             onChange={(e) => updateLinea(idx, { iva_pct: parseInt(e.target.value) })} 
-                            className="w-full p-2 rounded-lg border border-gray-100 text-xs font-bold text-center"
+                            className="w-full p-2 rounded-lg border border-gray-100 text-xs font-bold text-center bg-gray-50"
                           >
                             <option value="21">21%</option>
                             <option value="10">10%</option>
@@ -995,12 +985,9 @@ function VentasContent() {
                             <option value="0">0%</option>
                           </select>
                         </td>
-                        <td className="py-3 text-right font-bold text-gray-700 font-mono">
-                          {formatCurrency(linea.unidades * linea.precio_unitario)}
-                        </td>
                         <td className="py-3 text-center">
                           {lineas.length > 1 && (
-                            <button onClick={() => removeLinea(idx)} className="text-red-300 hover:text-red-500">
+                            <button type="button" onClick={() => removeLinea(idx)} className="text-red-300 hover:text-red-500 transition-colors">
                               <Trash2 size={16}/>
                             </button>
                           )}
@@ -1009,6 +996,9 @@ function VentasContent() {
                     ))}
                   </tbody>
                 </table>
+                <button type="button" onClick={addLinea} className="mt-4 flex items-center gap-2 text-sm font-bold text-[var(--accent)] hover:underline">
+                  <Plus size={16}/> Añadir partida
+                </button>
               </div>
 
               <div className="flex flex-col md:flex-row justify-between pt-8 border-t border-gray-100 gap-8">
