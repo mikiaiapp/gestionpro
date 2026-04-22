@@ -16,7 +16,14 @@ const AUTH_TAG_LENGTH = 16;
  */
 export function encrypt(text: string): string {
   if (!text) return '';
-  const iv = crypto.randomBytes(IV_LENGTH);
+  let iv: Buffer;
+  if (typeof window !== 'undefined' && window.crypto) {
+    const rawIv = new Uint8Array(IV_LENGTH);
+    window.crypto.getRandomValues(rawIv);
+    iv = Buffer.from(rawIv);
+  } else {
+    iv = crypto.randomBytes(IV_LENGTH);
+  }
   const cipher = crypto.createCipheriv('aes-256-gcm', SECRET_KEY, iv);
   
   let encrypted = cipher.update(text, 'utf8', 'hex');

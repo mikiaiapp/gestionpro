@@ -354,6 +354,7 @@ export default function AjustesClient() {
       console.error("Critical Save error:", e.message);
       setSaveError(e.message);
       setAutoStatus('idle');
+      alert("❌ Fallo crítico al intentar guardar (posible error de cifrado): " + e.message);
     }
   };
 
