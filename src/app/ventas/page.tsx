@@ -19,6 +19,7 @@ interface LineaFactura {
   unidades: number;
   descripcion: string;
   precio_unitario: number;
+  iva_pct?: number; // Opcional para retrocompatibilidad
 }
 
 export default function VentasPage() {
@@ -280,7 +281,7 @@ function VentasContent() {
   };
 
   const baseImponible = lineas.reduce((acc, l) => acc + (l.unidades * l.precio_unitario), 0);
-  const cuotaIva = serie === "A" ? baseImponible * 0.21 : 0;
+  const cuotaIva = lineas.reduce((acc, l) => acc + (l.unidades * l.precio_unitario * (serie === "A" ? (l.iva_pct ?? 21) / 100 : 0)), 0);
   const retencionImporte = (baseImponible * (retencionPct || 0)) / 100;
   const totalFactura = baseImponible + cuotaIva - retencionImporte;
 
@@ -343,8 +344,8 @@ function VentasContent() {
       setIfFound(['retencion_importe', 'irpf_importe', 'retencion'], retencionImporte);
       setIfFound(['total', 'importe_total'], totalFactura);
       setIfFound(['proyecto_id', 'id_proyecto'], proyectoId || null);
-      setIfFound(['iva_pct'], (serie === "A" ? 21 : 0));
       setIfFound(['retencion_pct', 'irpf_pct'], retencionPct);
+      setIfFound(['iva_pct'], 21); // Para compatibilidad con columnas simples si existen
 
       // Casos críticos de campos obligatorios si realKeys está vacío (primer insert)
       if (availableCols.length === 0) {
@@ -371,7 +372,8 @@ function VentasContent() {
         venta_id: currentVentaId,
         unidades: l.unidades,
         descripcion: l.descripcion,
-        precio_unitario: l.precio_unitario
+        precio_unitario: l.precio_unitario,
+        iva_pct: l.iva_pct ?? 21
       }));
 
       await supabase.from("venta_lineas").insert(lineasToInsert);
@@ -938,34 +940,71 @@ function VentasContent() {
               </div>
 
               <div className="mb-8 overflow-x-auto">
-                <table className="w-full border-collapse min-w-[600px]">
-                    <tr className="text-left">
-                      <th className="pb-3 text-[10px] font-bold text-gray-400 uppercase">Descripción / Concepto</th>
-                      <th className="w-32 pb-3 text-[10px] font-bold text-gray-400 uppercase text-right">Importe</th>
+                <table className="w-full border-collapse min-w-[700px]">
+                  <thead>
+                    <tr className="text-left text-gray-400">
+                      <th className="w-20 pb-3 text-[10px] font-bold uppercase text-center">Ud.</th>
+                      <th className="pb-3 text-[10px] font-bold uppercase">Descripción / Concepto</th>
+                      <th className="w-32 pb-3 text-[10px] font-bold uppercase text-right">Precio Ud.</th>
+                      <th className="w-24 pb-3 text-[10px] font-bold uppercase text-center">IVA %</th>
+                      <th className="w-32 pb-3 text-[10px] font-bold uppercase text-right">Total</th>
                       <th className="w-10"></th>
                     </tr>
+                  </thead>
                   <tbody>
                     {lineas.map((linea, idx) => (
-                      <tr key={idx}>
-                        <td className="py-2 pr-4"><textarea rows={1} value={linea.descripcion} onChange={(e) => updateLinea(idx, { descripcion: e.target.value })} className="w-full p-2 rounded-lg border border-gray-100 text-sm min-h-[40px] resize-y" /></td>
-                        <td className="py-2 pr-4">
+                      <tr key={idx} className="border-b border-gray-50">
+                        <td className="py-3 pr-4 w-20">
                           <input 
-                            type="text"
+                            type="number" 
+                            step="any"
+                            value={linea.unidades} 
+                            onChange={(e) => updateLinea(idx, { unidades: parseFloat(e.target.value) || 0 })} 
+                            className="w-full p-2 rounded-lg border border-gray-100 font-bold text-center" 
+                          />
+                        </td>
+                        <td className="py-3 pr-4">
+                          <textarea 
+                            rows={1} 
+                            value={linea.descripcion} 
+                            onChange={(e) => updateLinea(idx, { descripcion: e.target.value })} 
+                            className="w-full p-2 rounded-lg border border-gray-100 text-sm min-h-[40px] resize-y" 
+                          />
+                        </td>
+                        <td className="py-3 pr-4">
+                          <input 
+                            type="number"
+                            step="any"
                             inputMode="decimal"
-                            value={linea.precio_unitario === 0 ? '' : (linea.precio_unitario || '')}
-                            onChange={(e) => {
-                              const raw = e.target.value.replace(',', '.');
-                              if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
-                                const val = raw === '' ? 0 : parseFloat(raw);
-                                updateLinea(idx, { precio_unitario: isNaN(val) ? 0 : val, unidades: 1 });
-                              }
-                            }}
+                            value={linea.precio_unitario}
+                            onChange={(e) => updateLinea(idx, { precio_unitario: parseFloat(e.target.value) || 0 })}
                             onFocus={(e) => e.target.select()}
                             className="w-full p-2 rounded-lg border border-gray-100 text-right font-mono font-bold text-gray-700 focus:ring-2 focus:ring-blue-100 outline-none"
                             placeholder="0.00"
                           />
                         </td>
-                        <td className="py-2 text-center">{lineas.length > 1 && <button onClick={() => removeLinea(idx)} className="text-red-300 hover:text-red-500"><Trash2 size={16}/></button>}</td>
+                        <td className="py-3 pr-4">
+                          <select 
+                            value={linea.iva_pct ?? 21} 
+                            onChange={(e) => updateLinea(idx, { iva_pct: parseInt(e.target.value) })} 
+                            className="w-full p-2 rounded-lg border border-gray-100 text-xs font-bold text-center"
+                          >
+                            <option value="21">21%</option>
+                            <option value="10">10%</option>
+                            <option value="4">4%</option>
+                            <option value="0">0%</option>
+                          </select>
+                        </td>
+                        <td className="py-3 text-right font-bold text-gray-700 font-mono">
+                          {formatCurrency(linea.unidades * linea.precio_unitario)}
+                        </td>
+                        <td className="py-3 text-center">
+                          {lineas.length > 1 && (
+                            <button onClick={() => removeLinea(idx)} className="text-red-300 hover:text-red-500">
+                              <Trash2 size={16}/>
+                            </button>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
