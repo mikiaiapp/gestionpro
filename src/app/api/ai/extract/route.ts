@@ -11,11 +11,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Falta la clave API de Google Gemini." }, { status: 400 });
     }
 
-    // 1. Modelos a intentar (en orden de prioridad)
+    // Modelos modernos compatibles con v1beta y procesamiento de PDF
     const modelsToTry = [
       "gemini-1.5-flash",
       "gemini-1.5-pro",
-      "gemini-1.0-pro-vision-latest"
+      "gemini-1.5-flash-8b" // Modelo ultra-ligero, excelente alternativa si los demás están llenos
     ];
 
     const PROMPT = `Analiza esta factura y extrae los datos en formato JSON estricto:
@@ -29,15 +29,12 @@ export async function POST(req: Request) {
       "lineas": [{"descripcion": "Base imponible al X%", "unidades": 1, "precio_unitario": 0.00, "iva_pct": X}],
       "retencion_pct": X
     }
-    REGLA CRÍTICA: Agrupa los artículos por tipo de IVA. Crea una única línea por cada porcentaje de IVA (ej: "Base imponible al 21%"). El precio_unitario será la suma de todas las bases de ese tipo.`;
+    REGLA: Agrupa los artículos por tipo de IVA. Crea una única línea por cada porcentaje de IVA (ej: "Base imponible al 21%"). El precio_unitario es la suma de las bases de ese tipo.`;
 
     let lastError = null;
     let responseData = null;
 
-    // Intentamos con varios modelos si uno falla por saturación
     for (const modelName of modelsToTry) {
-      console.log(`Intentando extracción con ${modelName}...`);
-      
       try {
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${cleanApiKey}`, {
           method: "POST",
@@ -51,7 +48,7 @@ export async function POST(req: Request) {
             }],
             generationConfig: { 
               temperature: 0.1,
-              response_mime_type: "application/json" // Forzamos modo JSON si el modelo lo soporta
+              response_mime_type: "application/json"
             }
           })
         });
@@ -60,8 +57,9 @@ export async function POST(req: Request) {
 
         if (data.error) {
           lastError = data.error.message;
-          // Si es saturación o cuota, saltamos al siguiente modelo inmediatamente
-          if (lastError.toLowerCase().includes("high demand") || data.error.code === 429 || data.error.code === 503) {
+          // Si el error es saturación, pasamos al siguiente modelo
+          if (lastError.toLowerCase().includes("demand") || data.error.code === 429 || data.error.code === 503) {
+            console.log(`Modelo ${modelName} saturado, saltando...`);
             continue;
           }
           throw new Error(lastError);
@@ -69,12 +67,11 @@ export async function POST(req: Request) {
 
         const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
         if (text) {
-          responseData = JSON.parse(text.replace(/```json/g, "").replace(/```/g, "").trim());
-          break; // ¡Éxito! Salimos del bucle de modelos
+          responseData = JSON.parse(text.trim());
+          break; 
         }
       } catch (e: any) {
         lastError = e.message;
-        console.warn(`Fallo con ${modelName}:`, lastError);
       }
     }
 
@@ -83,11 +80,10 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ 
-      error: `No se pudo completar la extracción tras varios intentos. Último error: ${lastError}` 
-    }, { status: 500 });
+      error: `Google Gemini sigue saturado en todos sus modelos. Por favor, espera 1 minuto. (Último error: ${lastError})` 
+    }, { status: 503 });
 
   } catch (error: any) {
-    console.error("AI Route Critical Error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
