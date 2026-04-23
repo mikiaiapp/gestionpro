@@ -121,14 +121,17 @@ export const generatePDF = async (data: PDFData) => {
   drawPageBackground();
   await drawPageBranding();
 
+  // Limpiar número (quitar título si viene incluido con " - ")
+  const displayNumero = data.numero.split(' - ')[0];
+
   // Datos Emisor
   doc.setFont(FONT_FAMILY, 'bold');
-  doc.setFontSize(10);
+  doc.setFontSize(11); // Antes 10
   doc.setTextColor(0, 0, 0);
   doc.text(data.perfil.nombre.toUpperCase(), MARGIN, 85);
   
   doc.setFont(FONT_FAMILY, 'normal');
-  doc.setFontSize(8.5);
+  doc.setFontSize(9.5); // Antes 8.5
   doc.setTextColor(0, 0, 0);
   const emisorLines = [
     `NIF: ${data.perfil.nif}`,
@@ -143,6 +146,7 @@ export const generatePDF = async (data: PDFData) => {
     const decryptedIBAN = rawIBAN.includes(':') ? decrypt(rawIBAN) : rawIBAN;
     
     doc.setFont(FONT_FAMILY, 'bold');
+    doc.setFontSize(9.5);
     doc.setTextColor(0, 0, 0);
     doc.text(`IBAN: ${decryptedIBAN}`, MARGIN, 105);
     doc.setFont(FONT_FAMILY, 'normal');
@@ -154,28 +158,34 @@ export const generatePDF = async (data: PDFData) => {
   doc.setTextColor(121, 85, 72); 
   doc.text(data.tipo, PAGE_WIDTH - MARGIN, 20, { align: 'right' });
   
-  doc.setFontSize(10);
+  doc.setFontSize(10.5); // Antes 10
   doc.setTextColor(0, 0, 0);
-  doc.text(`Número: ${data.numero}`, PAGE_WIDTH - MARGIN, 30, { align: 'right' });
+  doc.text(`Número: ${displayNumero}`, PAGE_WIDTH - MARGIN, 30, { align: 'right' });
   doc.text(`Fecha: ${new Date(data.fecha).toLocaleDateString('es-ES')}`, PAGE_WIDTH - MARGIN, 35, { align: 'right' });
 
   // Cuadro Cliente
   const clientX = 120;
   doc.setFont(FONT_FAMILY, 'bold');
-  doc.setFontSize(9);
+  doc.setFontSize(10); // Antes 9
   doc.setTextColor(0, 0, 0);
   doc.text(data.tipo === 'FACTURA' ? 'FACTURAR A:' : 'PRESUPUESTADO A:', clientX, 50);
   
+  // Nombre del cliente en negrita y un punto más grande
+  doc.setFont(FONT_FAMILY, 'bold');
+  doc.setFontSize(10.5);
+  doc.text(data.cliente.nombre, clientX, 56);
+
+  // Resto de datos del cliente en normal
   doc.setFont(FONT_FAMILY, 'normal');
+  doc.setFontSize(9.5);
   const clienteLines = [
-    data.cliente.nombre,
     data.cliente.nif ? `NIF: ${data.cliente.nif}` : '',
     data.cliente.email ? `Email: ${data.cliente.email}` : '',
     data.cliente.telefono ? `Tel: ${data.cliente.telefono}` : '',
     data.cliente.direccion,
     `${data.cliente.cp || ''} ${data.cliente.poblacion || ''} ${data.cliente.provincia ? `(${data.cliente.provincia})` : ''}`
   ].filter(Boolean);
-  doc.text(clienteLines, clientX, 55);
+  doc.text(clienteLines, clientX, 61);
 
   // Tabla Simplificada (Descripción e Importe)
   const tableHead = [['DESCRIPCIÓN / CONCEPTO', 'IMPORTE']];
@@ -197,7 +207,7 @@ export const generatePDF = async (data: PDFData) => {
       font: FONT_FAMILY
     },
     styles: { 
-      fontSize: 8.5, 
+      fontSize: 9.5, // Antes 8.5
       cellPadding: 4, 
       font: FONT_FAMILY, 
       fillColor: BG_COLOR, 
@@ -211,7 +221,7 @@ export const generatePDF = async (data: PDFData) => {
   // Totales
   const finalY = (doc as any).lastAutoTable.finalY + 15;
   const totalsX = 130;
-  doc.setFontSize(9);
+  doc.setFontSize(10); // Antes 9
   doc.setTextColor(0, 0, 0);
   doc.setFont(FONT_FAMILY, 'normal');
   
@@ -231,7 +241,7 @@ export const generatePDF = async (data: PDFData) => {
   }
 
   const grandTotalY = currentY + 12;
-  doc.setFontSize(12);
+  doc.setFontSize(13); // Antes 12
   doc.setFont(FONT_FAMILY, 'bold');
   doc.setTextColor(121, 85, 72);
   doc.text('TOTAL:', totalsX, grandTotalY);
