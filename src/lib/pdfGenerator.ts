@@ -75,19 +75,27 @@ const getBase64FromUrl = async (url: string): Promise<string> => {
 };
 
 export const generatePDF = async (data: PDFData) => {
-  const doc = new jsPDF();
+  // Crear el documento con soporte para UTF-8 y Identity-H (importante para fuentes personalizadas)
+  const doc = new jsPDF({
+    orientation: 'p',
+    unit: 'mm',
+    format: 'a4',
+    putOnlyUsedFonts: true
+  });
   
   // Registrar fuentes Natasha Walker
-  doc.addFileToVFS('NatashaRegular.otf', NATASHA_REGULAR);
-  doc.addFont('NatashaRegular.otf', 'Natasha', 'normal');
-  doc.addFileToVFS('NatashaBold.otf', NATASHA_BOLD);
-  doc.addFont('NatashaBold.otf', 'Natasha', 'bold');
+  // Usamos extensiones .ttf virtualmente ya que jsPDF las gestiona mejor así internamente
+  doc.addFileToVFS('Natasha-Regular.ttf', NATASHA_REGULAR);
+  doc.addFont('Natasha-Regular.ttf', 'Natasha', 'normal');
+  doc.addFileToVFS('Natasha-Bold.ttf', NATASHA_BOLD);
+  doc.addFont('Natasha-Bold.ttf', 'Natasha', 'bold');
 
   const PAGE_WIDTH = doc.internal.pageSize.getWidth();
   const PAGE_HEIGHT = doc.internal.pageSize.getHeight();
   const MARGIN = 14;
   const BG_COLOR = [237, 232, 224]; // #ede8e0
   const FONT_FAMILY = 'Natasha';
+  const HEADER_BROWN = [141, 110, 99]; // Marrón más suave (antes 101, 75, 62)
 
   const drawPageBackground = () => {
     doc.setFillColor(BG_COLOR[0], BG_COLOR[1], BG_COLOR[2]);
@@ -103,10 +111,9 @@ export const generatePDF = async (data: PDFData) => {
   };
 
   const drawPageBranding = async () => {
-    let y = 10;
     if (data.perfil.logo_url) {
       const b64 = await getBase64FromUrl(data.perfil.logo_url);
-      if (b64) doc.addImage(b64, 'PNG', MARGIN, y, 35, 0);
+      if (b64) doc.addImage(b64, 'PNG', MARGIN, 10, 35, 0);
     }
   };
 
@@ -183,7 +190,7 @@ export const generatePDF = async (data: PDFData) => {
     body: tableBody,
     theme: 'grid',
     headStyles: { 
-      fillColor: [101, 75, 62], 
+      fillColor: HEADER_BROWN, 
       textColor: [255, 255, 255], 
       lineWidth: 0.1, 
       fontStyle: 'bold',
@@ -259,7 +266,7 @@ export const generatePDF = async (data: PDFData) => {
     doc.setTextColor(121, 85, 72);
     doc.text("ANEXO LEGAL Y ACEPTACIÓN", MARGIN, footerY_P2);
     
-    let currentY = footerY_P2 + 8;
+    let currentY_legal = footerY_P2 + 8;
     doc.setFontSize(7);
     doc.setTextColor(0, 0, 0);
 
@@ -275,44 +282,44 @@ export const generatePDF = async (data: PDFData) => {
     sections.forEach(sec => {
       if (sec.content && sec.content.trim()) {
         doc.setFont(FONT_FAMILY, 'bold');
-        doc.text(sec.title + ":", MARGIN, currentY);
-        currentY += 4;
+        doc.text(sec.title + ":", MARGIN, currentY_legal);
+        currentY_legal += 4;
         doc.setFont(FONT_FAMILY, 'normal');
         const lines = doc.splitTextToSize(processText(sec.content), PAGE_WIDTH - (MARGIN * 2));
-        doc.text(lines, MARGIN, currentY);
-        currentY += (lines.length * 3.2) + 5;
+        doc.text(lines, MARGIN, currentY_legal);
+        currentY_legal += (lines.length * 3.2) + 5;
       }
     });
 
-    if (currentY > PAGE_HEIGHT - 60) {
+    if (currentY_legal > PAGE_HEIGHT - 60) {
       doc.addPage();
-      currentY = 20;
+      currentY_legal = 20;
     }
 
-    currentY += 6;
+    currentY_legal += 6;
     doc.setDrawColor(121, 85, 72);
     doc.setLineWidth(0.5);
-    doc.line(MARGIN, currentY, PAGE_WIDTH - MARGIN, currentY);
+    doc.line(MARGIN, currentY_legal, PAGE_WIDTH - MARGIN, currentY_legal);
     
-    currentY += 8;
+    currentY_legal += 8;
     doc.setFont(FONT_FAMILY, 'bold');
     doc.setFontSize(9);
     doc.setTextColor(0, 0, 0);
-    doc.text("ACEPTACIÓN DEL CLIENTE:", MARGIN, currentY);
+    doc.text("ACEPTACIÓN DEL CLIENTE:", MARGIN, currentY_legal);
     
-    currentY += 6;
+    currentY_legal += 6;
     doc.setFont(FONT_FAMILY, 'normal');
     doc.setFontSize(7.5);
     const aceptacionText = data.perfil.texto_aceptacion || "Acepto el presente documento y todas las condiciones descritas.";
     const aceptacionLines = doc.splitTextToSize(processText(aceptacionText), PAGE_WIDTH - (MARGIN * 2));
-    doc.text(aceptacionLines, MARGIN, currentY);
+    doc.text(aceptacionLines, MARGIN, currentY_legal);
 
-    currentY += (aceptacionLines.length * 4) + 15;
+    currentY_legal += (aceptacionLines.length * 4) + 15;
     
-    doc.line(MARGIN + 10, currentY, MARGIN + 80, currentY);
+    doc.line(MARGIN + 10, currentY_legal, MARGIN + 80, currentY_legal);
     doc.setFontSize(8);
-    doc.text("Firma o Sello del Cliente", MARGIN + 45, currentY + 5, { align: 'center' });
-    doc.text(`Fecha de aceptación: ___ / ___ / 202_`, PAGE_WIDTH - MARGIN - 60, currentY);
+    doc.text("Firma o Sello del Cliente", MARGIN + 45, currentY_legal + 5, { align: 'center' });
+    doc.text(`Fecha de aceptación: ___ / ___ / 202_`, PAGE_WIDTH - MARGIN - 60, currentY_legal);
 
   } else {
     doc.setFont(FONT_FAMILY, 'bold');
@@ -320,16 +327,16 @@ export const generatePDF = async (data: PDFData) => {
     doc.setTextColor(121, 85, 72);
     doc.text("INFORMACIÓN LEGAL Y VERIFICACIÓN", MARGIN, footerY_P2);
     
-    let currentY = footerY_P2 + 10;
+    let currentY_fact = footerY_P2 + 10;
     doc.setFontSize(7);
     doc.setTextColor(0, 0, 0);
     
     doc.setFont(FONT_FAMILY, 'bold');
-    doc.text("PROTECCIÓN DE DATOS (LOPD):", MARGIN, currentY);
-    currentY += 4;
+    doc.text("PROTECCIÓN DE DATOS (LOPD):", MARGIN, currentY_fact);
+    currentY_fact += 4;
     doc.setFont(FONT_FAMILY, 'normal');
     const lopdLines = doc.splitTextToSize(data.perfil.lopd_text || "", PAGE_WIDTH - MARGIN * 2 - 40);
-    doc.text(lopdLines, MARGIN, currentY);
+    doc.text(lopdLines, MARGIN, currentY_fact);
 
     const qrSize = 35;
     const qrX = PAGE_WIDTH - MARGIN - qrSize;
