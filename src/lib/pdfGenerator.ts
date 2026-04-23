@@ -40,10 +40,13 @@ interface PDFData {
     lopd_text?: string;
     texto_aceptacion?: string;
     email?: string;
+    web?: string;
     logo_url?: string;
     imagen_corporativa_url?: string;
+    forma_pago_default?: string;
   };
   condiciones_particulares?: string;
+  forma_pago?: string;
   lineas: Array<{
     unidades: number;
     descripcion: string;
@@ -248,10 +251,12 @@ export const generatePDF = async (data: PDFData) => {
   doc.text(formatCurrency(data.totales.total), PAGE_WIDTH - MARGIN, grandTotalY, { align: 'right' });
 
   // Pie P1
-  doc.setFontSize(7);
-  doc.setTextColor(150, 150, 150);
-  doc.setFont(FONT_FAMILY, 'normal');
-  doc.text(`Página 1 de 2 - Generado por GestiónPro`, PAGE_WIDTH / 2, PAGE_HEIGHT - 5, { align: 'center' });
+  if (data.perfil.web) {
+    doc.setFontSize(9);
+    doc.setTextColor(121, 85, 72); // Marrón oscuro
+    doc.setFont(FONT_FAMILY, 'bold');
+    doc.text(data.perfil.web.toLowerCase(), PAGE_WIDTH / 2, PAGE_HEIGHT - 10, { align: 'center' });
+  }
 
   // --- PÁGINA 2: ANEXO LEGAL Y FIRMA ---
   doc.addPage();
@@ -285,6 +290,7 @@ export const generatePDF = async (data: PDFData) => {
 
     const sections = [
       { title: "CONDICIONES PARTICULARES", content: data.condiciones_particulares },
+      { title: "FORMA DE PAGO", content: data.forma_pago || data.perfil.forma_pago_default },
       { title: "CONDICIONES GENERALES", content: data.perfil.condiciones_legales },
       { title: "PROTECCIÓN DE DATOS (LOPD)", content: data.perfil.lopd_text }
     ];
@@ -342,6 +348,14 @@ export const generatePDF = async (data: PDFData) => {
     doc.setTextColor(0, 0, 0);
     
     doc.setFont(FONT_FAMILY, 'bold');
+    doc.text("FORMA DE PAGO:", MARGIN, currentY_fact);
+    currentY_fact += 4;
+    doc.setFont(FONT_FAMILY, 'normal');
+    const fpLines = doc.splitTextToSize(data.forma_pago || data.perfil.forma_pago_default || "", PAGE_WIDTH - MARGIN * 2 - 40);
+    doc.text(fpLines, MARGIN, currentY_fact);
+    currentY_fact += (fpLines.length * 3.5) + 6;
+
+    doc.setFont(FONT_FAMILY, 'bold');
     doc.text("PROTECCIÓN DE DATOS (LOPD):", MARGIN, currentY_fact);
     currentY_fact += 4;
     doc.setFont(FONT_FAMILY, 'normal');
@@ -363,10 +377,13 @@ export const generatePDF = async (data: PDFData) => {
     if (qrBase64) doc.addImage(qrBase64, 'PNG', qrX, qrY, qrSize, qrSize);
   }
 
-  doc.setFontSize(7);
-  doc.setTextColor(150, 150, 150);
-  doc.setFont(FONT_FAMILY, 'normal');
-  doc.text(`Página 2 de 2 - Generado por GestiónPro`, PAGE_WIDTH / 2, PAGE_HEIGHT - 5, { align: 'center' });
+  // Pie P2
+  if (data.perfil.web) {
+    doc.setFontSize(9);
+    doc.setTextColor(121, 85, 72); // Marrón oscuro
+    doc.setFont(FONT_FAMILY, 'bold');
+    doc.text(data.perfil.web.toLowerCase(), PAGE_WIDTH / 2, PAGE_HEIGHT - 10, { align: 'center' });
+  }
 
   doc.save(`${data.tipo.toLowerCase()}_${data.numero}.pdf`);
   return doc;

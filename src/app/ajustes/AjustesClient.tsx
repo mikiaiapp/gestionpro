@@ -58,6 +58,7 @@ export default function AjustesClient() {
   const [telefono, setTelefono] = useState('');
   const [imagenCorporativaUrl, setImagenCorporativaUrl] = useState('');
   const [textoAceptacion, setTextoAceptacion] = useState('');
+  const [web, setWeb] = useState('');
   const [saveError, setSaveError] = useState<string | null>(null);
   const [perfilId, setPerfilId] = useState<string | null>(null);
 
@@ -109,7 +110,7 @@ export default function AjustesClient() {
   latestValuesRef.current = {
     nombre, nif, direccion, cp, poblacion, provincia, cuentaBancaria, 
     email, geminiKey, logoUrl, imagenCorporativaUrl, formaPago, tieneRetencion, irpfDefault,
-    condicionesLegales, lopdText, telefono, textoAceptacion,
+    condicionesLegales, lopdText, telefono, textoAceptacion, web,
     verifactuCert, verifactuCertPassword, verifactuEnv,
     smtpEmail, smtpPassword, smtpHost, smtpPort,
     contadorVentas, contadorCostes, contadorProyectos,
@@ -152,7 +153,7 @@ export default function AjustesClient() {
   }, [
     nombre, nif, cuentaBancaria, direccion, cp, poblacion, provincia, 
     email, geminiKey, logoUrl, imagenCorporativaUrl, formaPago, tieneRetencion, irpfDefault,
-    condicionesLegales, lopdText, telefono, textoAceptacion,
+    condicionesLegales, lopdText, telefono, textoAceptacion, web,
     verifactuCert, verifactuCertPassword, verifactuEnv,
     contadorVentas, contadorCostes, contadorProyectos,
     serieVentas, serieCostes, serieProyectos,
@@ -218,6 +219,7 @@ export default function AjustesClient() {
         setTelefono(data.telefono || '');
         setImagenCorporativaUrl(data.imagen_corporativa_url || '');
         setTextoAceptacion(data.texto_aceptacion || '');
+        setWeb(data.web || '');
         const rawSmtpPass = data.smtp_app_password || '';
         setSmtpEmail(data.smtp_email || '');
         setSmtpPassword(rawSmtpPass.includes(':') ? decrypt(rawSmtpPass) : rawSmtpPass);
@@ -249,7 +251,7 @@ export default function AjustesClient() {
           cuentaBancaria: decryptedIBAN_init ? formatIBAN(decryptedIBAN_init) : '', 
           email: data.email || '', geminiKey: data.gemini_key || '', logoUrl: data.logo_url || '', imagenCorporativaUrl: data.imagen_corporativa_url || '', 
           formaPago: data.forma_pago_default || 'Transferencia Bancaria', tieneRetencion: data.tiene_retencion || false, irpfDefault: Number(data.irpf_default) || 0,
-          condicionesLegales: data.condiciones_legales || '', lopdText: data.lopd_text || '', telefono: data.telefono || '', textoAceptacion: data.texto_aceptacion || '',
+          condicionesLegales: data.condiciones_legales || '', lopdText: data.lopd_text || '', telefono: data.telefono || '', textoAceptacion: data.texto_aceptacion || '', web: data.web || '',
           verifactuCert: data.verifactu_certificado || '', verifactuCertPassword: decVfPass_init, verifactuEnv: data.verifactu_env || 'pruebas',
           smtpEmail: data.smtp_email || '', smtpPassword: decSmtpPass_init, smtpHost: data.smtp_host || 'smtp.gmail.com', smtpPort: data.smtp_port || '587',
           contadorVentas: data.contador_ventas || 1, contadorCostes: data.contador_costes || 1, contadorProyectos: data.contador_proyectos || 1,
@@ -279,7 +281,7 @@ export default function AjustesClient() {
     const vals = latestValuesRef.current || { 
       nombre, nif, direccion, cp, poblacion, provincia, cuentaBancaria, 
       email, geminiKey, logoUrl, imagenCorporativaUrl, formaPago, tieneRetencion, irpfDefault,
-      condicionesLegales, lopdText, telefono, textoAceptacion,
+      condicionesLegales, lopdText, telefono, textoAceptacion, web,
       verifactuCert, verifactuCertPassword, verifactuEnv,
       smtpEmail, smtpPassword, smtpHost, smtpPort,
       contadorVentas, contadorCostes, contadorProyectos,
@@ -309,6 +311,7 @@ export default function AjustesClient() {
         condiciones_legales: vals.condicionesLegales,
         lopd_text: vals.lopdText,
         texto_aceptacion: vals.textoAceptacion,
+        web: vals.web,
         verifactu_certificado: vals.verifactuCert,
         verifactu_pass: encrypt(vals.verifactuCertPassword),
         verifactu_env: vals.verifactuEnv,
@@ -364,7 +367,8 @@ export default function AjustesClient() {
     try {
       await supabase.from('perfil_negocio').update({
         condiciones_legales: condicionesLegales,
-        lopd_text: lopdText
+        lopd_text: lopdText,
+        forma_pago_default: formaPago
       }).eq('user_id', user.id);
       setAutoStatus('saved');
       setTimeout(() => setAutoStatus('idle'), 2000);
@@ -780,6 +784,11 @@ export default function AjustesClient() {
                   <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full px-6 py-5 rounded-[1.5rem] border bg-gray-50 outline-none font-sans focus:bg-white transition-all" />
                 </div>
 
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1 font-sans">Sitio Web</label>
+                  <input type="text" value={web} onChange={e => setWeb(e.target.value)} placeholder="www.tuweb.com" className="w-full px-6 py-5 rounded-[1.5rem] border bg-gray-50 outline-none font-sans focus:bg-white transition-all" />
+                </div>
+
                 <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t border-dashed">
                   <div className="md:col-span-3 space-y-1">
                     <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1 font-sans">Dirección</label>
@@ -979,6 +988,15 @@ export default function AjustesClient() {
                       value={lopdText} onChange={e => setLopdText(e.target.value)} rows={4}
                       className="w-full px-6 py-5 rounded-[1.5rem] border bg-gray-50 outline-none font-sans text-sm resize-none focus:bg-white transition-all ring-0"
                       placeholder="Texto legal para dar cumplimiento a la normativa de protección de datos..."
+                    />
+                 </div>
+
+                 <div className="space-y-3">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1 font-sans flex items-center gap-2"><DownloadCloud size={16} /> Forma de Pago Predeterminada</label>
+                    <textarea 
+                      value={formaPago} onChange={e => setFormaPago(e.target.value)} rows={2}
+                      className="w-full px-6 py-5 rounded-[1.5rem] border bg-gray-50 outline-none font-sans text-sm resize-none focus:bg-white transition-all ring-0"
+                      placeholder="Ej: Transferencia bancaria a la cuenta indicada arriba..."
                     />
                  </div>
 

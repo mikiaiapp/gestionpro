@@ -103,11 +103,9 @@ function VentasContent() {
       const projNombreLimpio = (proj as any).originalNombre || proj.nombre;
       const descripcionManual = `${pctRequested}% de avance del proyecto con descripción "${projNombreLimpio}"`;
       
-      setLineas([{ 
-        unidades: 1, 
-        descripcion: descripcionManual, 
         precio_unitario: (proj.base_imponible || 0) * factor 
       }]);
+      setFormaPago(proj.forma_pago || perfil?.forma_pago_default || "");
       
       setIsWizardOpen(false);
       setIsEditorOpen(true);
@@ -174,6 +172,7 @@ function VentasContent() {
   const [formaCobroId, setFormaCobroId] = useState("");
   const [retencionPct, setRetencionPct] = useState(0);
   const [lineas, setLineas] = useState<LineaFactura[]>([{ unidades: 1, descripcion: "", precio_unitario: 0 }]);
+  const [formaPago, setFormaPago] = useState("");
 
   useEffect(() => {
     fetchData();
@@ -205,6 +204,7 @@ function VentasContent() {
       setSerie(defaultSerie);
       const next = getNextNumber(ventas);
       setNumFactura(next);
+      setFormaPago(perfil?.forma_pago_default || "");
     }
   }, [isEditorOpen, editingId, ventas, perfil]);
 
@@ -294,6 +294,7 @@ function VentasContent() {
     setProyectoId(v.proyecto_id || "");
     setFormaCobroId(v.forma_cobro_id || "");
     setRetencionPct(v.retencion_pct || 0);
+    setFormaPago(v.forma_pago || perfil?.forma_pago_default || "");
     
     if (v.venta_lineas && v.venta_lineas.length > 0) {
       setLineas(v.venta_lineas.map((l: any) => ({
@@ -346,6 +347,7 @@ function VentasContent() {
       setIfFound(['proyecto_id', 'id_proyecto'], proyectoId || null);
       setIfFound(['retencion_pct', 'irpf_pct'], retencionPct);
       setIfFound(['iva_pct'], 21); // Para compatibilidad con columnas simples si existen
+      setIfFound(['forma_pago'], formaPago);
 
       // Casos críticos de campos obligatorios si realKeys está vacío (primer insert)
       if (availableCols.length === 0) {
@@ -396,6 +398,7 @@ function VentasContent() {
             telefono: vFull.clientes?.telefono || '',
           },
           perfil: perfil,
+          forma_pago: vFull.forma_pago || '',
           lineas: lineas,
           totales: {
             base: baseImponible,
@@ -578,6 +581,7 @@ function VentasContent() {
           telefono: venta.clientes?.telefono || ''
         },
         perfil: perfil,
+        forma_pago: venta.forma_pago || '',
         lineas: (venta.venta_lineas || []).map((l: any) => ({
           unidades: l.unidades,
           descripcion: l.descripcion,
@@ -643,6 +647,7 @@ function VentasContent() {
           telefono: venta.clientes?.telefono || ''
         },
         perfil: perfil,
+        forma_pago: venta.forma_pago || '',
         lineas: (venta.venta_lineas || []).map((l: any) => ({
           unidades: l.unidades,
           descripcion: l.descripcion,
@@ -1014,7 +1019,24 @@ function VentasContent() {
                   <div className="flex justify-between text-sm"><span>Base Imponible:</span><span className="font-mono font-bold text-gray-700">{formatCurrency(baseImponible)}</span></div>
                   <div className="flex justify-between text-sm"><span>IVA ({serie === "A" ? '21%' : '0%'}):</span><span className="font-mono font-bold text-gray-700">{formatCurrency(cuotaIva)}</span></div>
                   {perfil?.tiene_retencion && retencionPct > 0 && <div className="flex justify-between text-sm text-red-600"><span className="font-medium">Retención ({retencionPct}%):</span><span className="font-mono font-bold">-{formatCurrency(retencionImporte)}</span></div>}
-                  <div className="flex justify-between text-xl font-bold pt-3 border-t-2 border-gray-200"><span>TOTAL:</span><span className="text-[var(--accent)]">{formatCurrency(totalFactura)}</span></div>
+                </div>
+              </div>
+
+              {/* Forma de Pago Personalizada */}
+              <div className="mt-8 pt-8 border-t border-dashed border-gray-200">
+                <div className="space-y-2 max-w-2xl">
+                  <div className="flex items-center gap-2">
+                    <div className="h-2 w-2 rounded-full bg-blue-400" />
+                    <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest">Forma de Pago</label>
+                    <span className="text-[9px] text-gray-400 italic">(personalizada para esta factura)</span>
+                  </div>
+                  <textarea 
+                    value={formaPago} 
+                    onChange={e => setFormaPago(e.target.value)} 
+                    rows={2} 
+                    className="w-full p-4 rounded-xl border border-blue-100 bg-blue-50/30 text-xs focus:bg-white focus:border-blue-200 transition-all outline-none" 
+                    placeholder="Ej: Transferencia bancaria a la cuenta indicada en la cabecera..."
+                  />
                 </div>
               </div>
             </div>

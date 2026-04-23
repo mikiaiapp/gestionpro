@@ -56,6 +56,7 @@ export default function ProyectosPage() {
   const [retencionPct, setRetencionPct] = useState(0);
   const [lineas, setLineas] = useState<LineaProyecto[]>([{ unidades: 1, descripcion: "", precio_unitario: 0, coste: 0 }]);
   const [condiciones, setCondiciones] = useState("");
+  const [formaPago, setFormaPago] = useState("");
 
   useEffect(() => {
     fetchData();
@@ -88,6 +89,7 @@ export default function ProyectosPage() {
       const next = getNextNumber(proyectos);
       setNumReferencia(next);
       setCondiciones("");
+      setFormaPago(perfil?.forma_pago_default || "");
     }
   }, [isEditorOpen, editingId, proyectos, perfil]);
 
@@ -176,6 +178,7 @@ export default function ProyectosPage() {
     setEstado(p.estado || "Abierto");
     setRetencionPct(p.retencion_pct || 0);
     setCondiciones(p.condiciones_particulares || p.condiciones || "");
+    setFormaPago(p.forma_pago || perfil?.forma_pago_default || "");
 
     // proyecto_lineas no tiene columna user_id — filtrar solo por proyecto_id
     const { data: lineasData } = await supabase.from("proyecto_lineas").select("*").eq("proyecto_id", p.id);
@@ -222,7 +225,8 @@ export default function ProyectosPage() {
         retencion_importe: retencionImporte,
         total: totalProyecto,
         estado: estado,
-        condiciones_particulares: condiciones
+        condiciones_particulares: condiciones,
+        forma_pago: formaPago
       };
 
       // Sincronización multi-columna (Soberanía de Datos)
@@ -285,6 +289,7 @@ export default function ProyectosPage() {
           },
           perfil: perfil,
           condiciones_particulares: pFull.condiciones_particulares || '',
+          forma_pago: pFull.forma_pago || '',
           lineas: lineas,
           totales: {
             base: baseImponible,
@@ -363,6 +368,7 @@ export default function ProyectosPage() {
         },
         perfil: perfil,
         condiciones_particulares: p.condiciones_particulares || p.condiciones || '',
+        forma_pago: p.forma_pago || '',
         lopd_text: p.lopd_text || p.lopd || '',
         lineas: (lineasData || []).map((l: any) => ({
           unidades: l.unidades,
@@ -799,6 +805,22 @@ export default function ProyectosPage() {
                       rows={4} 
                       className="w-full p-4 rounded-xl border border-orange-100 bg-orange-50/30 text-xs focus:bg-white focus:border-orange-200 transition-all outline-none" 
                       placeholder="Ej: Precio válido por 30 días. Incluye materiales de primera calidad. Plazo de ejecución estimado: 2 semanas..."
+                    />
+                  </div>
+
+                  {/* Forma de Pago Personalizada */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <div className="h-2 w-2 rounded-full bg-blue-400" />
+                      <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest">Forma de Pago</label>
+                      <span className="text-[9px] text-gray-400 italic">(personalizada para este presupuesto)</span>
+                    </div>
+                    <textarea 
+                      value={formaPago} 
+                      onChange={e => setFormaPago(e.target.value)} 
+                      rows={2} 
+                      className="w-full p-4 rounded-xl border border-blue-100 bg-blue-50/30 text-xs focus:bg-white focus:border-blue-200 transition-all outline-none" 
+                      placeholder="Ej: Transferencia bancaria a la cuenta indicada en la cabecera..."
                     />
                   </div>
 
