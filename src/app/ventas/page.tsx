@@ -103,6 +103,9 @@ function VentasContent() {
       const projNombreLimpio = (proj as any).originalNombre || proj.nombre;
       const descripcionManual = `${pctRequested}% de avance del proyecto con descripción "${projNombreLimpio}"`;
       
+      setLineas([{ 
+        unidades: 1, 
+        descripcion: descripcionManual, 
         precio_unitario: (proj.base_imponible || 0) * factor 
       }]);
       setFormaPago(proj.forma_pago || perfil?.forma_pago_default || "");
