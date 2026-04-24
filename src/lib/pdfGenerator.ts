@@ -291,10 +291,17 @@ export const generatePDF = async (data: PDFData) => {
         doc.setFont(FONT_FAMILY, 'normal');
         
         const content = processText(sec.content);
-        const paragraphs = content.split('\n');
+        const paragraphs = content.split(/\r?\n/);
 
         for (const p of paragraphs) {
-            const pLines = doc.splitTextToSize(p.trim(), PAGE_WIDTH - (MARGIN * 2));
+            const trimmedP = p.trim();
+            if (!trimmedP) {
+                currentY += 4;
+                continue;
+            }
+
+            // Usar un pequeño buffer (2mm) para evitar que doc.text fuerce un salto de línea extra por errores de redondeo
+            const pLines = doc.splitTextToSize(trimmedP, PAGE_WIDTH - (MARGIN * 2) - 2);
             
             if (currentY + (pLines.length * 4) > PAGE_HEIGHT - MARGIN) {
                 doc.addPage();
@@ -303,10 +310,15 @@ export const generatePDF = async (data: PDFData) => {
 
             pLines.forEach((line: string, index: number) => {
                 const isLastLine = index === pLines.length - 1;
-                doc.text(line, MARGIN, currentY, { 
-                    align: isLastLine ? 'left' : 'justify', 
-                    maxWidth: isLastLine ? undefined : PAGE_WIDTH - (MARGIN * 2) 
-                });
+                if (isLastLine) {
+                    // La última línea del párrafo no se justifica
+                    doc.text(line, MARGIN, currentY);
+                } else {
+                    doc.text(line, MARGIN, currentY, { 
+                        align: 'justify', 
+                        maxWidth: PAGE_WIDTH - (MARGIN * 2) 
+                    });
+                }
                 currentY += 4;
             });
             currentY += 2; // Espacio entre párrafos
@@ -346,16 +358,25 @@ export const generatePDF = async (data: PDFData) => {
     doc.setFontSize(8.5);
     doc.setTextColor(0, 0, 0);
     const aceptacionText = data.perfil.texto_aceptacion || "Acepto el presente documento y todas las condiciones descritas.";
-    const paragraphsAccept = processText(aceptacionText).split('\n');
+    const paragraphsAccept = processText(aceptacionText).split(/\r?\n/);
 
     for (const p of paragraphsAccept) {
-        const pLines = doc.splitTextToSize(p.trim(), PAGE_WIDTH - (MARGIN * 2));
+        const trimmedP = p.trim();
+        if (!trimmedP) {
+            aceptacionY += 4;
+            continue;
+        }
+        const pLines = doc.splitTextToSize(trimmedP, PAGE_WIDTH - (MARGIN * 2) - 2);
         pLines.forEach((line: string, index: number) => {
             const isLastLine = index === pLines.length - 1;
-            doc.text(line, MARGIN, aceptacionY, { 
-                align: isLastLine ? 'left' : 'justify', 
-                maxWidth: isLastLine ? undefined : PAGE_WIDTH - (MARGIN * 2) 
-            });
+            if (isLastLine) {
+                doc.text(line, MARGIN, aceptacionY);
+            } else {
+                doc.text(line, MARGIN, aceptacionY, { 
+                    align: 'justify', 
+                    maxWidth: PAGE_WIDTH - (MARGIN * 2) 
+                });
+            }
             aceptacionY += 4;
         });
         aceptacionY += 2;
