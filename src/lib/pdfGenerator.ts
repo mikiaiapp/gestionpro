@@ -258,86 +258,104 @@ export const generatePDF = async (data: PDFData) => {
     doc.text(data.perfil.web.toLowerCase(), PAGE_WIDTH / 2, PAGE_HEIGHT - 10, { align: 'center' });
   }
 
-  // --- PÁGINA 2: ANEXO LEGAL Y FIRMA ---
-  doc.addPage();
-  
-  let footerY_P2 = 10;
-
+  // --- HOJAS ADICIONALES ---
   if (data.tipo === 'PRESUPUESTO') {
-    if (data.perfil.imagen_corporativa_url) {
-      const b64corp = await getBase64FromUrl(data.perfil.imagen_corporativa_url);
-      if (b64corp) {
-          doc.addImage(b64corp, 'PNG', MARGIN, footerY_P2, PAGE_WIDTH - (MARGIN * 2), 55, undefined, 'FAST');
-          footerY_P2 += 65;
-      }
-    } else if (data.perfil.logo_url) {
-      const b64 = await getBase64FromUrl(data.perfil.logo_url);
-      if (b64) doc.addImage(b64, 'PNG', MARGIN, footerY_P2, 50, 0);
-      footerY_P2 += 35;
-    }
+    // --- PÁGINA 2: CONDICIONES ---
+    doc.addPage();
+    let currentY = 20;
 
     doc.setFont(FONT_FAMILY, 'bold');
-    doc.setFontSize(10);
+    doc.setFontSize(11);
     doc.setTextColor(121, 85, 72);
-    doc.text("ANEXO LEGAL Y ACEPTACIÓN", MARGIN, footerY_P2);
-    
-    let currentY_legal = footerY_P2 + 8;
-    doc.setFontSize(7);
+    doc.text("CONDICIONES DEL PRESUPUESTO", MARGIN, currentY);
+    currentY += 10;
+
+    doc.setFontSize(8.5);
     doc.setTextColor(0, 0, 0);
 
     const userEmail = data.perfil.email || "";
     const processText = (t: string) => (t || "").replace(/EMAIL_PLACEHOLDER/g, userEmail);
 
     const sections = [
+      { title: "CONDICIONES DE PAGO", content: data.forma_pago || data.perfil.forma_pago_default },
       { title: "CONDICIONES PARTICULARES", content: data.condiciones_particulares },
-      { title: "FORMA DE PAGO", content: data.forma_pago || data.perfil.forma_pago_default },
       { title: "CONDICIONES GENERALES", content: data.perfil.condiciones_legales },
       { title: "PROTECCIÓN DE DATOS (LOPD)", content: data.perfil.lopd_text }
     ];
 
-    sections.forEach(sec => {
+    for (const sec of sections) {
       if (sec.content && sec.content.trim()) {
-        doc.setFont(FONT_FAMILY, 'bold');
-        doc.text(sec.title + ":", MARGIN, currentY_legal);
-        currentY_legal += 4;
-        doc.setFont(FONT_FAMILY, 'normal');
-        const lines = doc.splitTextToSize(processText(sec.content), PAGE_WIDTH - (MARGIN * 2));
-        doc.text(lines, MARGIN, currentY_legal);
-        currentY_legal += (lines.length * 3.2) + 5;
-      }
-    });
+        const content = processText(sec.content);
+        const lines = doc.splitTextToSize(content, PAGE_WIDTH - (MARGIN * 2));
+        
+        // Verificar si cabe en la página actual
+        if (currentY + (lines.length * 4) + 10 > PAGE_HEIGHT - MARGIN) {
+          doc.addPage();
+          currentY = 20;
+        }
 
-    if (currentY_legal > PAGE_HEIGHT - 60) {
-      doc.addPage();
-      currentY_legal = 20;
+        doc.setFont(FONT_FAMILY, 'bold');
+        doc.text(sec.title + ":", MARGIN, currentY);
+        currentY += 5;
+        doc.setFont(FONT_FAMILY, 'normal');
+        
+        doc.text(content, MARGIN, currentY, { 
+          align: 'justify', 
+          maxWidth: PAGE_WIDTH - (MARGIN * 2) 
+        });
+        
+        currentY += (lines.length * 4) + 8;
+      }
     }
 
-    currentY_legal += 6;
+    // --- PÁGINA 3: LOGO Y ACEPTACIÓN ---
+    doc.addPage();
+    
+    // Logo Corporativo (Ocupando aprox 3/4 de la página)
+    const logoAreaHeight = PAGE_HEIGHT * 0.70;
+    if (data.perfil.imagen_corporativa_url || data.perfil.logo_url) {
+      const logoUrl = data.perfil.imagen_corporativa_url || data.perfil.logo_url;
+      const b64 = await getBase64FromUrl(logoUrl!);
+      if (b64) {
+        // Intentar que el logo sea grande, centrado en el área superior
+        doc.addImage(b64, 'PNG', MARGIN, 20, PAGE_WIDTH - (MARGIN * 2), 0, undefined, 'MEDIUM');
+      }
+    }
+    
+    // Bloque de Aceptación (En la última parte de la página)
+    let aceptacionY = (PAGE_HEIGHT * 0.75);
+    
     doc.setDrawColor(121, 85, 72);
     doc.setLineWidth(0.5);
-    doc.line(MARGIN, currentY_legal, PAGE_WIDTH - MARGIN, currentY_legal);
+    doc.line(MARGIN, aceptacionY - 5, PAGE_WIDTH - MARGIN, aceptacionY - 5);
     
-    currentY_legal += 8;
     doc.setFont(FONT_FAMILY, 'bold');
-    doc.setFontSize(9);
-    doc.setTextColor(0, 0, 0);
-    doc.text("ACEPTACIÓN DEL CLIENTE:", MARGIN, currentY_legal);
+    doc.setFontSize(10);
+    doc.setTextColor(121, 85, 72);
+    doc.text("ACEPTACIÓN DEL CLIENTE", MARGIN, aceptacionY);
     
-    currentY_legal += 6;
+    aceptacionY += 7;
     doc.setFont(FONT_FAMILY, 'normal');
-    doc.setFontSize(7.5);
+    doc.setFontSize(8.5);
+    doc.setTextColor(0, 0, 0);
     const aceptacionText = data.perfil.texto_aceptacion || "Acepto el presente documento y todas las condiciones descritas.";
     const aceptacionLines = doc.splitTextToSize(processText(aceptacionText), PAGE_WIDTH - (MARGIN * 2));
-    doc.text(aceptacionLines, MARGIN, currentY_legal);
+    doc.text(aceptacionLines, MARGIN, aceptacionY, { align: 'justify', maxWidth: PAGE_WIDTH - (MARGIN * 2) });
 
-    currentY_legal += (aceptacionLines.length * 4) + 15;
+    aceptacionY += (aceptacionLines.length * 4) + 20;
     
-    doc.line(MARGIN + 10, currentY_legal, MARGIN + 80, currentY_legal);
+    // Líneas de firma
+    doc.setDrawColor(121, 85, 72);
+    doc.line(MARGIN + 10, aceptacionY, MARGIN + 80, aceptacionY);
     doc.setFontSize(8);
-    doc.text("Firma o Sello del Cliente", MARGIN + 45, currentY_legal + 5, { align: 'center' });
-    doc.text(`Fecha de aceptación: ___ / ___ / 202_`, PAGE_WIDTH - MARGIN - 60, currentY_legal);
+    doc.text("Firma o Sello del Cliente", MARGIN + 45, aceptacionY + 5, { align: 'center' });
+    doc.text(`Fecha de aceptación: ___ / ___ / 202_`, PAGE_WIDTH - MARGIN - 60, aceptacionY);
 
   } else {
+    // --- PÁGINA 2: FACTURA (Información Legal y QR) ---
+    doc.addPage();
+    let footerY_P2 = 10;
+
     doc.setFont(FONT_FAMILY, 'bold');
     doc.setFontSize(10);
     doc.setTextColor(121, 85, 72);
@@ -377,10 +395,10 @@ export const generatePDF = async (data: PDFData) => {
     if (qrBase64) doc.addImage(qrBase64, 'PNG', qrX, qrY, qrSize, qrSize);
   }
 
-  // Pie P2
+  // Pie de página (Web) - Se añade a la página actual (la última)
   if (data.perfil.web) {
     doc.setFontSize(9);
-    doc.setTextColor(121, 85, 72); // Marrón oscuro
+    doc.setTextColor(121, 85, 72);
     doc.setFont(FONT_FAMILY, 'bold');
     doc.text(data.perfil.web.toLowerCase(), PAGE_WIDTH / 2, PAGE_HEIGHT - 10, { align: 'center' });
   }
