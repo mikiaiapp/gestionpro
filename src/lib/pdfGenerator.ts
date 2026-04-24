@@ -158,7 +158,7 @@ export const generatePDF = async (data: PDFData) => {
   // Título y Detalles (Derecha)
   doc.setFontSize(22);
   doc.setFont(FONT_FAMILY, 'bold');
-  doc.setTextColor(121, 85, 72); 
+  doc.setTextColor(0, 0, 0); 
   doc.text(data.tipo, PAGE_WIDTH - MARGIN, 20, { align: 'right' });
   
   doc.setFontSize(10.5); // Antes 10
@@ -246,14 +246,14 @@ export const generatePDF = async (data: PDFData) => {
   const grandTotalY = currentY + 12;
   doc.setFontSize(13); // Antes 12
   doc.setFont(FONT_FAMILY, 'bold');
-  doc.setTextColor(121, 85, 72);
+  doc.setTextColor(0, 0, 0);
   doc.text('TOTAL:', totalsX, grandTotalY);
   doc.text(formatCurrency(data.totales.total), PAGE_WIDTH - MARGIN, grandTotalY, { align: 'right' });
 
   // Pie P1
   if (data.perfil.web) {
     doc.setFontSize(9);
-    doc.setTextColor(121, 85, 72); // Marrón oscuro
+    doc.setTextColor(0, 0, 0); 
     doc.setFont(FONT_FAMILY, 'bold');
     doc.text(data.perfil.web.toLowerCase(), PAGE_WIDTH / 2, PAGE_HEIGHT - 10, { align: 'center' });
   }
@@ -266,7 +266,7 @@ export const generatePDF = async (data: PDFData) => {
 
     doc.setFont(FONT_FAMILY, 'bold');
     doc.setFontSize(11);
-    doc.setTextColor(121, 85, 72);
+    doc.setTextColor(0, 0, 0);
     doc.text("CONDICIONES DEL PRESUPUESTO", MARGIN, currentY);
     currentY += 10;
 
@@ -285,26 +285,33 @@ export const generatePDF = async (data: PDFData) => {
 
     for (const sec of sections) {
       if (sec.content && sec.content.trim()) {
-        const content = processText(sec.content);
-        const lines = doc.splitTextToSize(content, PAGE_WIDTH - (MARGIN * 2));
-        
-        // Verificar si cabe en la página actual
-        if (currentY + (lines.length * 4) + 10 > PAGE_HEIGHT - MARGIN) {
-          doc.addPage();
-          currentY = 20;
-        }
-
         doc.setFont(FONT_FAMILY, 'bold');
         doc.text(sec.title + ":", MARGIN, currentY);
         currentY += 5;
         doc.setFont(FONT_FAMILY, 'normal');
         
-        doc.text(content, MARGIN, currentY, { 
-          align: 'justify', 
-          maxWidth: PAGE_WIDTH - (MARGIN * 2) 
-        });
-        
-        currentY += (lines.length * 4) + 8;
+        const content = processText(sec.content);
+        const paragraphs = content.split('\n');
+
+        for (const p of paragraphs) {
+            const pLines = doc.splitTextToSize(p.trim(), PAGE_WIDTH - (MARGIN * 2));
+            
+            if (currentY + (pLines.length * 4) > PAGE_HEIGHT - MARGIN) {
+                doc.addPage();
+                currentY = 20;
+            }
+
+            pLines.forEach((line: string, index: number) => {
+                const isLastLine = index === pLines.length - 1;
+                doc.text(line, MARGIN, currentY, { 
+                    align: isLastLine ? 'left' : 'justify', 
+                    maxWidth: isLastLine ? undefined : PAGE_WIDTH - (MARGIN * 2) 
+                });
+                currentY += 4;
+            });
+            currentY += 2; // Espacio entre párrafos
+        }
+        currentY += 4; // Espacio entre secciones
       }
     }
 
@@ -325,13 +332,13 @@ export const generatePDF = async (data: PDFData) => {
     // Bloque de Aceptación (En la última parte de la página)
     let aceptacionY = (PAGE_HEIGHT * 0.75);
     
-    doc.setDrawColor(121, 85, 72);
+    doc.setDrawColor(0, 0, 0);
     doc.setLineWidth(0.5);
     doc.line(MARGIN, aceptacionY - 5, PAGE_WIDTH - MARGIN, aceptacionY - 5);
     
     doc.setFont(FONT_FAMILY, 'bold');
     doc.setFontSize(10);
-    doc.setTextColor(121, 85, 72);
+    doc.setTextColor(0, 0, 0);
     doc.text("ACEPTACIÓN DEL CLIENTE", MARGIN, aceptacionY);
     
     aceptacionY += 7;
@@ -339,13 +346,25 @@ export const generatePDF = async (data: PDFData) => {
     doc.setFontSize(8.5);
     doc.setTextColor(0, 0, 0);
     const aceptacionText = data.perfil.texto_aceptacion || "Acepto el presente documento y todas las condiciones descritas.";
-    const aceptacionLines = doc.splitTextToSize(processText(aceptacionText), PAGE_WIDTH - (MARGIN * 2));
-    doc.text(aceptacionLines, MARGIN, aceptacionY, { align: 'justify', maxWidth: PAGE_WIDTH - (MARGIN * 2) });
+    const paragraphsAccept = processText(aceptacionText).split('\n');
 
-    aceptacionY += (aceptacionLines.length * 4) + 20;
+    for (const p of paragraphsAccept) {
+        const pLines = doc.splitTextToSize(p.trim(), PAGE_WIDTH - (MARGIN * 2));
+        pLines.forEach((line: string, index: number) => {
+            const isLastLine = index === pLines.length - 1;
+            doc.text(line, MARGIN, aceptacionY, { 
+                align: isLastLine ? 'left' : 'justify', 
+                maxWidth: isLastLine ? undefined : PAGE_WIDTH - (MARGIN * 2) 
+            });
+            aceptacionY += 4;
+        });
+        aceptacionY += 2;
+    }
+
+    aceptacionY += 15;
     
     // Líneas de firma
-    doc.setDrawColor(121, 85, 72);
+    doc.setDrawColor(0, 0, 0);
     doc.line(MARGIN + 10, aceptacionY, MARGIN + 80, aceptacionY);
     doc.setFontSize(8);
     doc.text("Firma o Sello del Cliente", MARGIN + 45, aceptacionY + 5, { align: 'center' });
