@@ -258,28 +258,28 @@ export const generatePDF = async (data: PDFData) => {
     doc.text(data.perfil.web.toLowerCase(), PAGE_WIDTH / 2, PAGE_HEIGHT - 10, { align: 'center' });
   }
 
-  // --- HOJAS ADICIONALES ---
+  // --- AYUDANTES COMPARTIDOS ---
+  const userEmail = data.perfil.email || "";
+  const processText = (t: string) => (t || "").replace(/EMAIL_PLACEHOLDER/g, userEmail);
+
+  const renderJustifiedLine = (line: string, x: number, y: number, width: number) => {
+    const words = line.trim().split(/\s+/);
+    if (words.length <= 1) {
+      doc.text(line.trim(), x, y);
+      return;
+    }
+    const totalWordsWidth = words.reduce((acc, w) => acc + doc.getTextWidth(w), 0);
+    const totalSpaceWidth = width - totalWordsWidth;
+    const individualSpaceWidth = totalSpaceWidth / (words.length - 1);
+    let currentX = x;
+    words.forEach((word) => {
+      doc.text(word, currentX, y);
+      currentX += doc.getTextWidth(word) + individualSpaceWidth;
+    });
+  };
+
+  // --- CONTENIDO ESPECÍFICO ---
   if (data.tipo === 'PRESUPUESTO') {
-    // Definir helper de justificación manual una sola vez
-    const renderJustifiedLine = (line: string, x: number, y: number, width: number) => {
-      const words = line.trim().split(/\s+/);
-      if (words.length <= 1) {
-        doc.text(line.trim(), x, y);
-        return;
-      }
-      const totalWordsWidth = words.reduce((acc, w) => acc + doc.getTextWidth(w), 0);
-      const totalSpaceWidth = width - totalWordsWidth;
-      const individualSpaceWidth = totalSpaceWidth / (words.length - 1);
-      let currentX = x;
-      words.forEach((word) => {
-        doc.text(word, currentX, y);
-        currentX += doc.getTextWidth(word) + individualSpaceWidth;
-      });
-    };
-
-    const userEmail = data.perfil.email || "";
-    const processText = (t: string) => (t || "").replace(/EMAIL_PLACEHOLDER/g, userEmail);
-
     // --- PÁGINA 2: CONDICIONES ---
     doc.addPage();
     let currentY = 20;
@@ -400,53 +400,94 @@ export const generatePDF = async (data: PDFData) => {
     doc.text(`Fecha de aceptación: ___ / ___ / 202_`, PAGE_WIDTH - MARGIN - 60, aceptacionY + 15);
 
   } else {
-    // --- PÁGINA 2: FACTURA (Información Legal y QR) ---
-    doc.addPage();
-    let footerY_P2 = 10;
+    // --- FACTURA: QR EN PÁGINA 1 ---
+    let qrY = grandTotalY + 10;
+    const qrSize = 30;
+    
+    // Si no cabe el QR en la página 1, forzamos salto
+    if (qrY + qrSize > PAGE_HEIGHT - MARGIN - 10) {
+      doc.addPage();
+      qrY = 20;
+    }
 
-    doc.setFont(FONT_FAMILY, 'bold');
-    doc.setFontSize(10);
-    doc.setTextColor(121, 85, 72);
-    doc.text("INFORMACIÓN LEGAL Y VERIFICACIÓN", MARGIN, footerY_P2);
-    
-    let currentY_fact = footerY_P2 + 10;
-    doc.setFontSize(7);
-    doc.setTextColor(0, 0, 0);
-    
-    doc.setFont(FONT_FAMILY, 'bold');
-    doc.text("FORMA DE PAGO:", MARGIN, currentY_fact);
-    currentY_fact += 4;
-    doc.setFont(FONT_FAMILY, 'normal');
-    const fpLines = doc.splitTextToSize(data.forma_pago || data.perfil.forma_pago_default || "", PAGE_WIDTH - MARGIN * 2 - 40);
-    doc.text(fpLines, MARGIN, currentY_fact);
-    currentY_fact += (fpLines.length * 3.5) + 6;
-
-    doc.setFont(FONT_FAMILY, 'bold');
-    doc.text("PROTECCIÓN DE DATOS (LOPD):", MARGIN, currentY_fact);
-    currentY_fact += 4;
-    doc.setFont(FONT_FAMILY, 'normal');
-    const lopdLines = doc.splitTextToSize(data.perfil.lopd_text || "", PAGE_WIDTH - MARGIN * 2 - 40);
-    doc.text(lopdLines, MARGIN, currentY_fact);
-
-    const qrSize = 35;
-    const qrX = PAGE_WIDTH - MARGIN - qrSize;
-    const qrY = footerY_P2 + 5;
-    
-    doc.setFontSize(6);
-    doc.setTextColor(0, 0, 0);
-    doc.setFont(FONT_FAMILY, 'bold');
-    doc.text("SISTEMA VERI*FACTU", qrX + qrSize/2, qrY + qrSize + 4, { align: 'center' });
-    
     const qrData = `https://www2.agenciatributaria.gob.es/wlpl/zsce-itst/verifactu/verificar-factura?nif=${data.perfil.nif}&numero=${data.numero}&fecha=${data.fecha}&importe=${data.totales.total}`;
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrData)}`;
     const qrBase64 = await getBase64FromUrl(qrUrl);
-    if (qrBase64) doc.addImage(qrBase64, 'PNG', qrX, qrY, qrSize, qrSize);
+    
+    if (qrBase64) {
+      doc.addImage(qrBase64, 'PNG', PAGE_WIDTH - MARGIN - qrSize, qrY, qrSize, qrSize);
+      doc.setFontSize(6.5);
+      doc.setFont(FONT_FAMILY, 'bold');
+      doc.setTextColor(0, 0, 0);
+      doc.text("SISTEMA VERI*FACTU", PAGE_WIDTH - MARGIN - (qrSize/2), qrY + qrSize + 4, { align: 'center' });
+      
+      doc.setFontSize(6);
+      doc.setFont(FONT_FAMILY, 'normal');
+      const verifactuInfo = [
+        "Factura generada por un sistema informático que cumple con los requisitos del Reglamento",
+        "que establece las especificaciones técnicas y funcionales de los sistemas de facturación."
+      ];
+      doc.text(verifactuInfo, PAGE_WIDTH - MARGIN - qrSize - 5, qrY + 10, { align: 'right' });
+    }
+
+    // --- PÁGINA 2: CONDICIONES LEGALES FACTURA ---
+    doc.addPage();
+    let currentY = 20;
+
+    doc.setFont(FONT_FAMILY, 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(0, 0, 0);
+    doc.text("INFORMACIÓN LEGAL", MARGIN, currentY);
+    currentY += 10;
+
+    const sectionsFact = [
+      { title: "FORMA DE PAGO", content: data.forma_pago || data.perfil.forma_pago_default },
+      { title: "PROTECCIÓN DE DATOS (LOPD)", content: data.perfil.lopd_text }
+    ];
+
+    for (const sec of sectionsFact) {
+      if (sec.content && sec.content.trim()) {
+        doc.setFont(FONT_FAMILY, 'bold');
+        doc.setFontSize(10);
+        doc.text(sec.title + ":", MARGIN, currentY);
+        currentY += 5;
+        doc.setFont(FONT_FAMILY, 'normal');
+        doc.setFontSize(8.5);
+        
+        const paragraphs = processText(sec.content).split(/\r?\n/);
+        for (const p of paragraphs) {
+          const cleanP = p.replace(/\s+/g, ' ').trim();
+          if (!cleanP) {
+            currentY += 4.5;
+            continue;
+          }
+          const pLines = doc.splitTextToSize(cleanP, PAGE_WIDTH - (MARGIN * 2));
+          pLines.forEach((line: string, index: number) => {
+            if (currentY > PAGE_HEIGHT - MARGIN - 10) {
+              doc.addPage();
+              doc.setFont(FONT_FAMILY, 'normal');
+              doc.setFontSize(8.5);
+              currentY = 20;
+            }
+            const isLastLine = index === pLines.length - 1;
+            if (isLastLine) {
+              doc.text(line.trim(), MARGIN, currentY);
+            } else {
+              renderJustifiedLine(line, MARGIN, currentY, PAGE_WIDTH - (MARGIN * 2));
+            }
+            currentY += 4.8;
+          });
+          currentY += 2;
+        }
+        currentY += 5;
+      }
+    }
   }
 
-  // Pie de página (Web) - Se añade a la página actual (la última)
+  // Pie de página global
   if (data.perfil.web) {
     doc.setFontSize(9);
-    doc.setTextColor(121, 85, 72);
+    doc.setTextColor(0, 0, 0);
     doc.setFont(FONT_FAMILY, 'bold');
     doc.text(data.perfil.web.toLowerCase(), PAGE_WIDTH / 2, PAGE_HEIGHT - 10, { align: 'center' });
   }
