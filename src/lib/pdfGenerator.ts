@@ -291,45 +291,64 @@ export const generatePDF = async (data: PDFData) => {
         doc.setFont(FONT_FAMILY, 'normal');
         
         const content = processText(sec.content);
+        const renderJustifiedLine = (line: string, x: number, y: number, width: number) => {
+      const words = line.trim().split(/\s+/);
+      if (words.length <= 1) {
+        doc.text(line.trim(), x, y);
+        return;
+      }
+
+      const totalWordsWidth = words.reduce((acc, w) => acc + doc.getTextWidth(w), 0);
+      const totalSpaceWidth = width - totalWordsWidth;
+      const individualSpaceWidth = totalSpaceWidth / (words.length - 1);
+
+      let currentX = x;
+      words.forEach((word) => {
+        doc.text(word, currentX, y);
+        currentX += doc.getTextWidth(word) + individualSpaceWidth;
+      });
+    };
+
+    for (const sec of sections) {
+      if (sec.content && sec.content.trim()) {
+        doc.setFont(FONT_FAMILY, 'bold');
+        doc.setFontSize(10);
+        doc.text(sec.title + ":", MARGIN, currentY);
+        currentY += 5;
+        doc.setFont(FONT_FAMILY, 'normal');
+        doc.setFontSize(8.5);
+        
+        const content = processText(sec.content);
         const paragraphs = content.split(/\r?\n/);
 
         for (const p of paragraphs) {
-            const trimmedP = p.trim();
-            if (!trimmedP) {
-                currentY += 4;
+            const cleanP = p.replace(/\s+/g, ' ').trim();
+            if (!cleanP) {
+                currentY += 4.5;
                 continue;
             }
 
-            // Calculamos las líneas con un margen de seguridad (2mm) para evitar el re-envolvimiento
-            const pLines = doc.splitTextToSize(trimmedP, PAGE_WIDTH - (MARGIN * 2) - 2);
+            const pLines = doc.splitTextToSize(cleanP, PAGE_WIDTH - (MARGIN * 2));
             
             pLines.forEach((line: string, index: number) => {
-                // Verificar salto de página línea a línea
-                if (currentY > PAGE_HEIGHT - MARGIN - 5) {
+                if (currentY > PAGE_HEIGHT - MARGIN - 10) {
                     doc.addPage();
+                    doc.setFont(FONT_FAMILY, 'normal');
+                    doc.setFontSize(8.5);
                     currentY = 20;
                 }
 
                 const isLastLine = index === pLines.length - 1;
-                const cleanLine = line.trim();
-                
                 if (isLastLine) {
-                    // Última línea: alineación izquierda pura sin maxWidth
-                    doc.text(cleanLine, MARGIN, currentY);
+                    doc.text(line.trim(), MARGIN, currentY);
                 } else {
-                    // Línea intermedia: justificar al ancho total
-                    // Al usar cleanLine (sin espacios extra) y habiendo calculado pLines con -2mm,
-                    // garantizamos que doc.text NO hará un wrap interno.
-                    doc.text(cleanLine, MARGIN, currentY, { 
-                        align: 'justify', 
-                        maxWidth: PAGE_WIDTH - (MARGIN * 2) 
-                    });
+                    renderJustifiedLine(line, MARGIN, currentY, PAGE_WIDTH - (MARGIN * 2));
                 }
-                currentY += 4.5; // Un poco más de interlineado para legibilidad
+                currentY += 4.8;
             });
-            currentY += 2; // Espacio entre párrafos
+            currentY += 2;
         }
-        currentY += 4; // Espacio entre secciones
+        currentY += 4;
       }
     }
 
@@ -337,17 +356,15 @@ export const generatePDF = async (data: PDFData) => {
     doc.addPage();
     
     // Logo Corporativo (Ocupando aprox 3/4 de la página)
-    const logoAreaHeight = PAGE_HEIGHT * 0.70;
     if (data.perfil.imagen_corporativa_url || data.perfil.logo_url) {
       const logoUrl = data.perfil.imagen_corporativa_url || data.perfil.logo_url;
       const b64 = await getBase64FromUrl(logoUrl!);
       if (b64) {
-        // Intentar que el logo sea grande, centrado en el área superior
         doc.addImage(b64, 'PNG', MARGIN, 20, PAGE_WIDTH - (MARGIN * 2), 0, undefined, 'MEDIUM');
       }
     }
     
-    // Bloque de Aceptación (En la última parte de la página)
+    // Bloque de Aceptación
     let aceptacionY = (PAGE_HEIGHT * 0.75);
     
     doc.setDrawColor(0, 0, 0);
@@ -362,30 +379,24 @@ export const generatePDF = async (data: PDFData) => {
     aceptacionY += 7;
     doc.setFont(FONT_FAMILY, 'normal');
     doc.setFontSize(8.5);
-    doc.setTextColor(0, 0, 0);
     const aceptacionText = data.perfil.texto_aceptacion || "Acepto el presente documento y todas las condiciones descritas.";
     const paragraphsAccept = processText(aceptacionText).split(/\r?\n/);
 
     for (const p of paragraphsAccept) {
-        const trimmedP = p.trim();
-        if (!trimmedP) {
+        const cleanP = p.replace(/\s+/g, ' ').trim();
+        if (!cleanP) {
             aceptacionY += 4.5;
             continue;
         }
-        const pLines = doc.splitTextToSize(trimmedP, PAGE_WIDTH - (MARGIN * 2) - 2);
+        const pLines = doc.splitTextToSize(cleanP, PAGE_WIDTH - (MARGIN * 2));
         pLines.forEach((line: string, index: number) => {
             const isLastLine = index === pLines.length - 1;
-            const cleanLine = line.trim();
-            
             if (isLastLine) {
-                doc.text(cleanLine, MARGIN, aceptacionY);
+                doc.text(line.trim(), MARGIN, aceptacionY);
             } else {
-                doc.text(cleanLine, MARGIN, aceptacionY, { 
-                    align: 'justify', 
-                    maxWidth: PAGE_WIDTH - (MARGIN * 2) 
-                });
+                renderJustifiedLine(line, MARGIN, aceptacionY, PAGE_WIDTH - (MARGIN * 2));
             }
-            aceptacionY += 4.5;
+            aceptacionY += 4.8;
         });
         aceptacionY += 2;
     }
