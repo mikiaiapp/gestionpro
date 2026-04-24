@@ -260,6 +260,26 @@ export const generatePDF = async (data: PDFData) => {
 
   // --- HOJAS ADICIONALES ---
   if (data.tipo === 'PRESUPUESTO') {
+    // Definir helper de justificación manual una sola vez
+    const renderJustifiedLine = (line: string, x: number, y: number, width: number) => {
+      const words = line.trim().split(/\s+/);
+      if (words.length <= 1) {
+        doc.text(line.trim(), x, y);
+        return;
+      }
+      const totalWordsWidth = words.reduce((acc, w) => acc + doc.getTextWidth(w), 0);
+      const totalSpaceWidth = width - totalWordsWidth;
+      const individualSpaceWidth = totalSpaceWidth / (words.length - 1);
+      let currentX = x;
+      words.forEach((word) => {
+        doc.text(word, currentX, y);
+        currentX += doc.getTextWidth(word) + individualSpaceWidth;
+      });
+    };
+
+    const userEmail = data.perfil.email || "";
+    const processText = (t: string) => (t || "").replace(/EMAIL_PLACEHOLDER/g, userEmail);
+
     // --- PÁGINA 2: CONDICIONES ---
     doc.addPage();
     let currentY = 20;
@@ -270,44 +290,12 @@ export const generatePDF = async (data: PDFData) => {
     doc.text("CONDICIONES DEL PRESUPUESTO", MARGIN, currentY);
     currentY += 10;
 
-    doc.setFontSize(8.5);
-    doc.setTextColor(0, 0, 0);
-
-    const userEmail = data.perfil.email || "";
-    const processText = (t: string) => (t || "").replace(/EMAIL_PLACEHOLDER/g, userEmail);
-
     const sections = [
       { title: "CONDICIONES DE PAGO", content: data.forma_pago || data.perfil.forma_pago_default },
       { title: "CONDICIONES PARTICULARES", content: data.condiciones_particulares },
       { title: "CONDICIONES GENERALES", content: data.perfil.condiciones_legales },
       { title: "PROTECCIÓN DE DATOS (LOPD)", content: data.perfil.lopd_text }
     ];
-
-    for (const sec of sections) {
-      if (sec.content && sec.content.trim()) {
-        doc.setFont(FONT_FAMILY, 'bold');
-        doc.text(sec.title + ":", MARGIN, currentY);
-        currentY += 5;
-        doc.setFont(FONT_FAMILY, 'normal');
-        
-        const content = processText(sec.content);
-        const renderJustifiedLine = (line: string, x: number, y: number, width: number) => {
-      const words = line.trim().split(/\s+/);
-      if (words.length <= 1) {
-        doc.text(line.trim(), x, y);
-        return;
-      }
-
-      const totalWordsWidth = words.reduce((acc, w) => acc + doc.getTextWidth(w), 0);
-      const totalSpaceWidth = width - totalWordsWidth;
-      const individualSpaceWidth = totalSpaceWidth / (words.length - 1);
-
-      let currentX = x;
-      words.forEach((word) => {
-        doc.text(word, currentX, y);
-        currentX += doc.getTextWidth(word) + individualSpaceWidth;
-      });
-    };
 
     for (const sec of sections) {
       if (sec.content && sec.content.trim()) {
@@ -322,31 +310,31 @@ export const generatePDF = async (data: PDFData) => {
         const paragraphs = content.split(/\r?\n/);
 
         for (const p of paragraphs) {
-            const cleanP = p.replace(/\s+/g, ' ').trim();
-            if (!cleanP) {
-                currentY += 4.5;
-                continue;
+          const cleanP = p.replace(/\s+/g, ' ').trim();
+          if (!cleanP) {
+            currentY += 4.5;
+            continue;
+          }
+
+          const pLines = doc.splitTextToSize(cleanP, PAGE_WIDTH - (MARGIN * 2));
+          
+          pLines.forEach((line: string, index: number) => {
+            if (currentY > PAGE_HEIGHT - MARGIN - 10) {
+              doc.addPage();
+              doc.setFont(FONT_FAMILY, 'normal');
+              doc.setFontSize(8.5);
+              currentY = 20;
             }
 
-            const pLines = doc.splitTextToSize(cleanP, PAGE_WIDTH - (MARGIN * 2));
-            
-            pLines.forEach((line: string, index: number) => {
-                if (currentY > PAGE_HEIGHT - MARGIN - 10) {
-                    doc.addPage();
-                    doc.setFont(FONT_FAMILY, 'normal');
-                    doc.setFontSize(8.5);
-                    currentY = 20;
-                }
-
-                const isLastLine = index === pLines.length - 1;
-                if (isLastLine) {
-                    doc.text(line.trim(), MARGIN, currentY);
-                } else {
-                    renderJustifiedLine(line, MARGIN, currentY, PAGE_WIDTH - (MARGIN * 2));
-                }
-                currentY += 4.8;
-            });
-            currentY += 2;
+            const isLastLine = index === pLines.length - 1;
+            if (isLastLine) {
+              doc.text(line.trim(), MARGIN, currentY);
+            } else {
+              renderJustifiedLine(line, MARGIN, currentY, PAGE_WIDTH - (MARGIN * 2));
+            }
+            currentY += 4.8;
+          });
+          currentY += 2;
         }
         currentY += 4;
       }
@@ -355,7 +343,6 @@ export const generatePDF = async (data: PDFData) => {
     // --- PÁGINA 3: LOGO Y ACEPTACIÓN ---
     doc.addPage();
     
-    // Logo Corporativo (Ocupando aprox 3/4 de la página)
     if (data.perfil.imagen_corporativa_url || data.perfil.logo_url) {
       const logoUrl = data.perfil.imagen_corporativa_url || data.perfil.logo_url;
       const b64 = await getBase64FromUrl(logoUrl!);
@@ -364,9 +351,7 @@ export const generatePDF = async (data: PDFData) => {
       }
     }
     
-    // Bloque de Aceptación
     let aceptacionY = (PAGE_HEIGHT * 0.75);
-    
     doc.setDrawColor(0, 0, 0);
     doc.setLineWidth(0.5);
     doc.line(MARGIN, aceptacionY - 5, PAGE_WIDTH - MARGIN, aceptacionY - 5);
@@ -383,32 +368,36 @@ export const generatePDF = async (data: PDFData) => {
     const paragraphsAccept = processText(aceptacionText).split(/\r?\n/);
 
     for (const p of paragraphsAccept) {
-        const cleanP = p.replace(/\s+/g, ' ').trim();
-        if (!cleanP) {
-            aceptacionY += 4.5;
-            continue;
+      const cleanP = p.replace(/\s+/g, ' ').trim();
+      if (!cleanP) {
+        aceptacionY += 4.5;
+        continue;
+      }
+      const pLines = doc.splitTextToSize(cleanP, PAGE_WIDTH - (MARGIN * 2));
+      pLines.forEach((line: string, index: number) => {
+        if (aceptacionY > PAGE_HEIGHT - MARGIN - 10) {
+          doc.addPage();
+          doc.setFont(FONT_FAMILY, 'normal');
+          doc.setFontSize(8.5);
+          aceptacionY = 20;
         }
-        const pLines = doc.splitTextToSize(cleanP, PAGE_WIDTH - (MARGIN * 2));
-        pLines.forEach((line: string, index: number) => {
-            const isLastLine = index === pLines.length - 1;
-            if (isLastLine) {
-                doc.text(line.trim(), MARGIN, aceptacionY);
-            } else {
-                renderJustifiedLine(line, MARGIN, aceptacionY, PAGE_WIDTH - (MARGIN * 2));
-            }
-            aceptacionY += 4.8;
-        });
-        aceptacionY += 2;
+        const isLastLine = index === pLines.length - 1;
+        if (isLastLine) {
+          doc.text(line.trim(), MARGIN, aceptacionY);
+        } else {
+          renderJustifiedLine(line, MARGIN, aceptacionY, PAGE_WIDTH - (MARGIN * 2));
+        }
+        aceptacionY += 4.8;
+      });
+      aceptacionY += 2;
     }
 
-    aceptacionY += 15;
-    
-    // Líneas de firma
+    aceptacionY += 10;
     doc.setDrawColor(0, 0, 0);
-    doc.line(MARGIN + 10, aceptacionY, MARGIN + 80, aceptacionY);
+    doc.line(MARGIN + 10, aceptacionY + 15, MARGIN + 80, aceptacionY + 15);
     doc.setFontSize(8);
-    doc.text("Firma o Sello del Cliente", MARGIN + 45, aceptacionY + 5, { align: 'center' });
-    doc.text(`Fecha de aceptación: ___ / ___ / 202_`, PAGE_WIDTH - MARGIN - 60, aceptacionY);
+    doc.text("Firma o Sello del Cliente", MARGIN + 45, aceptacionY + 20, { align: 'center' });
+    doc.text(`Fecha de aceptación: ___ / ___ / 202_`, PAGE_WIDTH - MARGIN - 60, aceptacionY + 15);
 
   } else {
     // --- PÁGINA 2: FACTURA (Información Legal y QR) ---
