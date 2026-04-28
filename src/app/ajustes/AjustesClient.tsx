@@ -22,6 +22,7 @@ import {
   FileText
 } from 'lucide-react';
 import { Sidebar } from '@/components/Sidebar';
+import RichTextEditor from '@/components/RichTextEditor';
 import { getFullLocationByCP } from '@/lib/geoData';
 import { formatIBAN } from '@/lib/validations';
 import { encrypt, decrypt } from '@/lib/encryption';
@@ -975,27 +976,27 @@ export default function AjustesClient() {
                <div className="space-y-8">
                  <div className="space-y-3">
                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1 font-sans flex items-center gap-2"><FileText size={16} /> Condiciones Generales</label>
-                    <textarea 
-                      value={condicionesLegales} onChange={e => setCondicionesLegales(e.target.value)} rows={6}
-                      className="w-full px-6 py-5 rounded-[1.5rem] border bg-gray-50 outline-none font-sans text-sm resize-none focus:bg-white transition-all ring-0"
+                    <RichTextEditor 
+                      value={condicionesLegales} 
+                      onChange={setCondicionesLegales}
                       placeholder="Estas condiciones aparecerán en el pie de los presupuestos..."
                     />
                  </div>
 
                  <div className="space-y-3">
                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1 font-sans flex items-center gap-2"><ShieldCheck size={16} /> Cláusula LOPD</label>
-                    <textarea 
-                      value={lopdText} onChange={e => setLopdText(e.target.value)} rows={4}
-                      className="w-full px-6 py-5 rounded-[1.5rem] border bg-gray-50 outline-none font-sans text-sm resize-none focus:bg-white transition-all ring-0"
+                    <RichTextEditor 
+                      value={lopdText} 
+                      onChange={setLopdText}
                       placeholder="Texto legal para dar cumplimiento a la normativa de protección de datos..."
                     />
                  </div>
 
                  <div className="space-y-3">
                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1 font-sans flex items-center gap-2"><DownloadCloud size={16} /> Forma de Pago Predeterminada</label>
-                    <textarea 
-                      value={formaPago} onChange={e => setFormaPago(e.target.value)} rows={2}
-                      className="w-full px-6 py-5 rounded-[1.5rem] border bg-gray-50 outline-none font-sans text-sm resize-none focus:bg-white transition-all ring-0"
+                    <RichTextEditor 
+                      value={formaPago} 
+                      onChange={setFormaPago}
                       placeholder="Ej: Transferencia bancaria a la cuenta indicada arriba..."
                     />
                  </div>

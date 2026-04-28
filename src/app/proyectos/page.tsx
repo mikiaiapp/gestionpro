@@ -7,6 +7,7 @@ import { FolderKanban, Plus, Search, MoreHorizontal, Loader2, Save, Pencil, Tras
 import { supabase } from "@/lib/supabase";
 import { decrypt } from "@/lib/encryption";
 import { Sidebar } from "@/components/Sidebar";
+import RichTextEditor from "@/components/RichTextEditor";
 import { DataTableHeader } from "@/components/DataTableHeader";
 import { generatePDF } from "@/lib/pdfGenerator";
 import { formatCurrency } from "@/lib/format";
@@ -715,7 +716,13 @@ export default function ProyectosPage() {
                    <tbody>
                      {lineas.map((linea, idx) => (
                        <tr key={idx}>
-                         <td className="py-2 pr-4"><textarea rows={1} value={linea.descripcion} onChange={(e) => updateLinea(idx, { descripcion: e.target.value })} className="w-full p-2 rounded-lg border border-gray-100 text-sm" /></td>
+                         <td className="py-2 pr-4">
+                            <RichTextEditor 
+                              value={linea.descripcion} 
+                              onChange={(val) => updateLinea(idx, { descripcion: val })} 
+                              placeholder="Descripción..."
+                            />
+                          </td>
                          <td className="py-2 pr-4">
                            <input
                              type="text"
@@ -799,11 +806,9 @@ export default function ProyectosPage() {
                       <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest">Condiciones Particulares</label>
                       <span className="text-[9px] text-gray-400 italic">(específicas de este presupuesto — se imprimirán primero)</span>
                     </div>
-                    <textarea 
+                    <RichTextEditor 
                       value={condiciones} 
-                      onChange={e => setCondiciones(e.target.value)} 
-                      rows={4} 
-                      className="w-full p-4 rounded-xl border border-orange-100 bg-orange-50/30 text-xs focus:bg-white focus:border-orange-200 transition-all outline-none" 
+                      onChange={setCondiciones} 
                       placeholder="Ej: Precio válido por 30 días. Incluye materiales de primera calidad. Plazo de ejecución estimado: 2 semanas..."
                     />
                   </div>
@@ -815,11 +820,9 @@ export default function ProyectosPage() {
                       <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest">Forma de Pago</label>
                       <span className="text-[9px] text-gray-400 italic">(personalizada para este presupuesto)</span>
                     </div>
-                    <textarea 
+                    <RichTextEditor 
                       value={formaPago} 
-                      onChange={e => setFormaPago(e.target.value)} 
-                      rows={2} 
-                      className="w-full p-4 rounded-xl border border-blue-100 bg-blue-50/30 text-xs focus:bg-white focus:border-blue-200 transition-all outline-none" 
+                      onChange={setFormaPago} 
                       placeholder="Ej: Transferencia bancaria a la cuenta indicada en la cabecera..."
                     />
                   </div>
@@ -845,3 +848,4 @@ export default function ProyectosPage() {
     </div>
   );
 }
+

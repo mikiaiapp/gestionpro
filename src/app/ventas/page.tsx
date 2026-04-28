@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Receipt, Plus, Search, MoreHorizontal, Loader2, Trash2, Save, Pencil, FileText, Download, Printer, FolderKanban, ChevronUp, ChevronDown, Filter, HandCoins, Mail } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Sidebar } from "@/components/Sidebar";
+import RichTextEditor from "@/components/RichTextEditor";
 import { DataTableHeader } from "@/components/DataTableHeader";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { generatePDF } from "@/lib/pdfGenerator";
@@ -961,11 +962,9 @@ function VentasContent() {
                     {lineas.map((linea, idx) => (
                       <tr key={idx} className="border-b border-gray-50">
                         <td className="py-3 pr-4">
-                          <textarea 
-                            rows={1} 
+                          <RichTextEditor 
                             value={linea.descripcion} 
-                            onChange={(e) => updateLinea(idx, { descripcion: e.target.value })} 
-                            className="w-full p-2 rounded-lg border border-gray-100 text-sm min-h-[40px] resize-y" 
+                            onChange={(val) => updateLinea(idx, { descripcion: val })} 
                             placeholder="Descripción de la partida..."
                           />
                         </td>
@@ -1033,11 +1032,9 @@ function VentasContent() {
                     <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest">Forma de Pago</label>
                     <span className="text-[9px] text-gray-400 italic">(personalizada para esta factura)</span>
                   </div>
-                  <textarea 
+                  <RichTextEditor 
                     value={formaPago} 
-                    onChange={e => setFormaPago(e.target.value)} 
-                    rows={2} 
-                    className="w-full p-4 rounded-xl border border-blue-100 bg-blue-50/30 text-xs focus:bg-white focus:border-blue-200 transition-all outline-none" 
+                    onChange={setFormaPago} 
                     placeholder="Ej: Transferencia bancaria a la cuenta indicada en la cabecera..."
                   />
                 </div>

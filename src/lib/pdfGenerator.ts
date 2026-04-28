@@ -217,7 +217,30 @@ export const generatePDF = async (data: PDFData) => {
       textColor: [0, 0, 0] 
     },
     columnStyles: {
+      0: { cellWidth: 'auto' },
       1: { halign: 'right', cellWidth: 40, fontStyle: 'bold' }
+    },
+    didDrawCell: (data: any) => {
+      // Si es la columna de descripción y tiene HTML
+      if (data.section === 'body' && data.column.index === 0 && data.cell.raw.includes('<')) {
+        // Limpiamos el texto que puso autotable por defecto
+        doc.setFillColor(BG_COLOR[0], BG_COLOR[1], BG_COLOR[2]);
+        doc.rect(data.cell.x + 0.5, data.cell.y + 0.5, data.cell.width - 1, data.cell.height - 1, 'F');
+        
+        // Renderizamos con formato
+        renderRichText(
+          doc, 
+          data.cell.raw, 
+          data.cell.x + 4, 
+          data.cell.y + 7, 
+          data.cell.width - 8, 
+          9.5, 
+          FONT_FAMILY, 
+          4.5, 
+          false, 
+          MARGIN
+        );
+      }
     }
   });
 
@@ -250,13 +273,7 @@ export const generatePDF = async (data: PDFData) => {
   doc.text('TOTAL:', totalsX, grandTotalY);
   doc.text(formatCurrency(data.totales.total), PAGE_WIDTH - MARGIN, grandTotalY, { align: 'right' });
 
-  // Pie P1
-  if (data.perfil.web) {
-    doc.setFontSize(9);
-    doc.setTextColor(0, 0, 0); 
-    doc.setFont(FONT_FAMILY, 'bold');
-    doc.text(data.perfil.web.toLowerCase(), PAGE_WIDTH / 2, PAGE_HEIGHT - 10, { align: 'center' });
-  }
+  // El pie de página se genera al final del documento para todas las páginas
 
   // --- AYUDANTES COMPARTIDOS ---
   const userEmail = data.perfil.email || "";
@@ -303,39 +320,20 @@ export const generatePDF = async (data: PDFData) => {
         doc.setFontSize(10);
         doc.text(sec.title + ":", MARGIN, currentY);
         currentY += 5;
-        doc.setFont(FONT_FAMILY, 'normal');
-        doc.setFontSize(8.5);
         
-        const content = processText(sec.content);
-        const paragraphs = content.split(/\r?\n/);
-
-        for (const p of paragraphs) {
-          const cleanP = p.replace(/\s+/g, ' ').trim();
-          if (!cleanP) {
-            currentY += 4.5;
-            continue;
-          }
-
-          const pLines = doc.splitTextToSize(cleanP, PAGE_WIDTH - (MARGIN * 2));
-          
-          pLines.forEach((line: string, index: number) => {
-            if (currentY > PAGE_HEIGHT - MARGIN - 10) {
-              doc.addPage();
-              doc.setFont(FONT_FAMILY, 'normal');
-              doc.setFontSize(8.5);
-              currentY = 20;
-            }
-
-            const isLastLine = index === pLines.length - 1;
-            if (isLastLine) {
-              doc.text(line.trim(), MARGIN, currentY);
-            } else {
-              renderJustifiedLine(line, MARGIN, currentY, PAGE_WIDTH - (MARGIN * 2));
-            }
-            currentY += 4.8;
-          });
-          currentY += 2;
-        }
+        // Usar el renderizador de texto enriquecido
+        currentY = renderRichText(
+          doc, 
+          processText(sec.content), 
+          MARGIN, 
+          currentY, 
+          PAGE_WIDTH - (MARGIN * 2), 
+          8.5, 
+          FONT_FAMILY, 
+          4.8, 
+          true, 
+          MARGIN
+        );
         currentY += 4;
       }
     }
@@ -362,35 +360,18 @@ export const generatePDF = async (data: PDFData) => {
     doc.text("ACEPTACIÓN DEL CLIENTE", MARGIN, aceptacionY);
     
     aceptacionY += 7;
-    doc.setFont(FONT_FAMILY, 'normal');
-    doc.setFontSize(8.5);
-    const aceptacionText = data.perfil.texto_aceptacion || "Acepto el presente documento y todas las condiciones descritas.";
-    const paragraphsAccept = processText(aceptacionText).split(/\r?\n/);
-
-    for (const p of paragraphsAccept) {
-      const cleanP = p.replace(/\s+/g, ' ').trim();
-      if (!cleanP) {
-        aceptacionY += 4.5;
-        continue;
-      }
-      const pLines = doc.splitTextToSize(cleanP, PAGE_WIDTH - (MARGIN * 2));
-      pLines.forEach((line: string, index: number) => {
-        if (aceptacionY > PAGE_HEIGHT - MARGIN - 10) {
-          doc.addPage();
-          doc.setFont(FONT_FAMILY, 'normal');
-          doc.setFontSize(8.5);
-          aceptacionY = 20;
-        }
-        const isLastLine = index === pLines.length - 1;
-        if (isLastLine) {
-          doc.text(line.trim(), MARGIN, aceptacionY);
-        } else {
-          renderJustifiedLine(line, MARGIN, aceptacionY, PAGE_WIDTH - (MARGIN * 2));
-        }
-        aceptacionY += 4.8;
-      });
-      aceptacionY += 2;
-    }
+    aceptacionY = renderRichText(
+      doc, 
+      processText(data.perfil.texto_aceptacion || "Acepto el presente documento y todas las condiciones descritas."), 
+      MARGIN, 
+      aceptacionY, 
+      PAGE_WIDTH - (MARGIN * 2), 
+      8.5, 
+      FONT_FAMILY, 
+      4.8, 
+      true, 
+      MARGIN
+    );
 
     aceptacionY += 10;
     doc.setDrawColor(0, 0, 0);
@@ -451,48 +432,148 @@ export const generatePDF = async (data: PDFData) => {
         doc.setFontSize(10);
         doc.text(sec.title + ":", MARGIN, currentY);
         currentY += 5;
-        doc.setFont(FONT_FAMILY, 'normal');
-        doc.setFontSize(8.5);
         
-        const paragraphs = processText(sec.content).split(/\r?\n/);
-        for (const p of paragraphs) {
-          const cleanP = p.replace(/\s+/g, ' ').trim();
-          if (!cleanP) {
-            currentY += 4.5;
-            continue;
-          }
-          const pLines = doc.splitTextToSize(cleanP, PAGE_WIDTH - (MARGIN * 2));
-          pLines.forEach((line: string, index: number) => {
-            if (currentY > PAGE_HEIGHT - MARGIN - 10) {
-              doc.addPage();
-              doc.setFont(FONT_FAMILY, 'normal');
-              doc.setFontSize(8.5);
-              currentY = 20;
-            }
-            const isLastLine = index === pLines.length - 1;
-            if (isLastLine) {
-              doc.text(line.trim(), MARGIN, currentY);
-            } else {
-              renderJustifiedLine(line, MARGIN, currentY, PAGE_WIDTH - (MARGIN * 2));
-            }
-            currentY += 4.8;
-          });
-          currentY += 2;
-        }
+        currentY = renderRichText(
+          doc, 
+          processText(sec.content), 
+          MARGIN, 
+          currentY, 
+          PAGE_WIDTH - (MARGIN * 2), 
+          8.5, 
+          FONT_FAMILY, 
+          4.8, 
+          true, 
+          MARGIN
+        );
         currentY += 5;
       }
     }
   }
 
-  // Pie de página global
-  if (data.perfil.web) {
+  // --- FINALIZACIÓN Y PIE DE PÁGINA GLOBAL ---
+  const totalPages = (doc as any).internal.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    
+    // Pie de página: Web (Centro) y Numeración (Derecha)
     doc.setFontSize(9);
-    doc.setTextColor(0, 0, 0);
-    doc.setFont(FONT_FAMILY, 'bold');
-    doc.text(data.perfil.web.toLowerCase(), PAGE_WIDTH / 2, PAGE_HEIGHT - 10, { align: 'center' });
+    doc.setTextColor(150, 150, 150); // Gris suave para la numeración
+    doc.setFont(FONT_FAMILY, 'normal');
+    doc.text(`Pág: ${i}/${totalPages}`, PAGE_WIDTH - MARGIN, PAGE_HEIGHT - 10, { align: 'right' });
+    
+    if (data.perfil.web) {
+      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
+      doc.setFont(FONT_FAMILY, 'bold');
+      doc.text(data.perfil.web.toLowerCase(), PAGE_WIDTH / 2, PAGE_HEIGHT - 10, { align: 'center' });
+    }
   }
 
-  doc.save(`${data.tipo.toLowerCase()}_${data.numero}.pdf`);
+  const filename = `${data.tipo.toLowerCase()}_${data.numero.replace(/\//g, '_')}.pdf`;
+  doc.save(filename);
   return doc;
+};
+
+/**
+ * Renderiza texto que puede contener etiquetas HTML básicas (<b>, <strong>, <i>, <em>, <u>)
+ * Soporta saltos de línea y justificación simple.
+ */
+const renderRichText = (
+  doc: jsPDF, 
+  html: string, 
+  x: number, 
+  y: number, 
+  width: number, 
+  fontSize: number, 
+  fontFamily: string,
+  lineHeight: number = 4.8,
+  justify: boolean = true,
+  pageMargin: number = 14
+): number => {
+  doc.setFontSize(fontSize);
+  const PAGE_HEIGHT = doc.internal.pageSize.getHeight();
+  
+  // Procesar marcadores y limpiar HTML
+  let cleanHtml = html || "";
+  
+  // Separar en párrafos (por etiquetas p o saltos de línea)
+  const paragraphs = cleanHtml.split(/<p>|<\/p>|\r?\n|<br\s*\/?>/).filter(p => p.trim().length > 0);
+  
+  let currentY = y;
+
+  for (const p of paragraphs) {
+    // Detectar etiquetas de negrita
+    const parts = p.split(/(<b>|<strong>|<\/b>|<\/strong>)/gi);
+    let isBold = false;
+    
+    let wordsInLine: Array<{ text: string, bold: boolean }> = [];
+    let currentLineWidth = 0;
+    
+    const renderLine = (lineWords: typeof wordsInLine, isLast: boolean) => {
+      if (lineWords.length === 0) return;
+      
+      // Verificar salto de página
+      if (currentY > PAGE_HEIGHT - pageMargin - 15) {
+        doc.addPage();
+        currentY = 20;
+      }
+
+      let cursorX = x;
+      const totalWordsWidth = lineWords.reduce((acc, w) => {
+        doc.setFont(fontFamily, w.bold ? 'bold' : 'normal');
+        return acc + doc.getTextWidth(w.text);
+      }, 0);
+
+      const spaceLeft = width - totalWordsWidth;
+      const spaceWidth = (justify && !isLast && lineWords.length > 1) 
+        ? spaceLeft / (lineWords.length - 1) 
+        : doc.getTextWidth(' ');
+
+      lineWords.forEach((w, idx) => {
+        doc.setFont(fontFamily, w.bold ? 'bold' : 'normal');
+        doc.text(w.text, cursorX, currentY);
+        cursorX += doc.getTextWidth(w.text) + (idx < lineWords.length - 1 ? spaceWidth : 0);
+      });
+      currentY += lineHeight;
+    };
+
+    for (const part of parts) {
+      const lower = part.toLowerCase();
+      if (lower === '<b>' || lower === '<strong>') {
+        isBold = true;
+        continue;
+      }
+      if (lower === '</b>' || lower === '</strong>') {
+        isBold = false;
+        continue;
+      }
+      
+      // Dividir por espacios manteniendo los espacios
+      const words = part.split(/(\s+)/);
+      for (const word of words) {
+        if (!word) continue;
+        
+        doc.setFont(fontFamily, isBold ? 'bold' : 'normal');
+        const wordWidth = doc.getTextWidth(word);
+        
+        if (currentLineWidth + wordWidth > width && currentLineWidth > 0) {
+          renderLine(wordsInLine, false);
+          wordsInLine = [];
+          currentLineWidth = 0;
+          if (word.trim() === '') continue;
+        }
+        
+        wordsInLine.push({ text: word, bold: isBold });
+        currentLineWidth += wordWidth;
+      }
+    }
+    
+    renderLine(wordsInLine, true);
+    wordsInLine = [];
+    currentLineWidth = 0;
+    currentY += 1.5; // Espacio entre párrafos
+  }
+  
+  return currentY;
 };
 
