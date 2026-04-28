@@ -18,10 +18,8 @@ import { getFullLocationByCP } from "@/lib/geoData";
 import { uploadLogo, uploadCorpImage } from "@/lib/storageService";
 import { cleanNIF } from "@/lib/format";
 
-type SortConfig = { key: string; direction: 'asc' | 'desc' };
 type ImportResult = { total: number; success: number; errors: number };
-type ColumnFilters = { [key: string]: string };
-type TabType = 'perfil' | 'ai' | 'legales' | 'seguridad' | 'fiscalidad' | 'backup' | 'email' | 'import' | 'mantenimiento' | 'negocio' | 'facturacion' | 'integraciones' | 'legal';
+type TabType = 'negocio' | 'facturacion' | 'import' | 'email' | 'integraciones' | 'legal' | 'seguridad' | 'mantenimiento';
 
 export default function AjustesClient() {
   const [user, setUser] = useState<any>(null);
@@ -32,8 +30,6 @@ export default function AjustesClient() {
   const [condicionesLegales, setCondicionesLegales] = useState("");
   const [lopdText, setLopdText] = useState("");
   const [textoAceptacion, setTextoAceptacion] = useState("");
-  const [verifactuCert, setVerifactuCert] = useState("");
-  const [verifactuCertPassword, setVerifactuCertPassword] = useState("");
   const [verifactuEnv, setVerifactuEnv] = useState("test");
   const [smtpEmail, setSmtpEmail] = useState("");
   const [smtpAppPassword, setSmtpAppPassword] = useState("");
@@ -68,7 +64,7 @@ export default function AjustesClient() {
   const [tieneRetencion, setTieneRetencion] = useState(false);
   const [irpfDefault, setIrpfDefault] = useState(0);
 
-  // Mantenimiento
+  // Mantenimiento & Importación
   const [isResetting, setIsResetting] = useState(false);
   const [importResults, setImportResults] = useState<ImportResult | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('negocio');
@@ -171,14 +167,13 @@ export default function AjustesClient() {
     nombre, nif, cuentaBancaria, direccion, cp, poblacion, provincia, 
     email, geminiKey, logoUrl, imagenCorporativaUrl, formaPago, tieneRetencion, irpfDefault,
     condicionesLegales, lopdText, telefono, textoAceptacion, web,
-    verifactuCert, verifactuCertPassword, verifactuEnv,
-    contadorVentas, contadorCostes, contadorProyectos,
+    verifactuEnv, contadorVentas, contadorCostes, contadorProyectos,
     prefijoVentas, prefijoCostes, prefijoProyectos,
     serieVentas, serieCostes, smtpEmail, smtpAppPassword
   ]);
 
   const fetchPerfil = async (userId: string) => {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("perfil_negocio")
       .select("*")
       .eq("user_id", userId)
@@ -234,7 +229,7 @@ export default function AjustesClient() {
     const num = parseFloat(valor);
     if (isNaN(num)) return;
     
-    const { data, error } = await supabase.from("tipos_irpf").insert([{ user_id: user.id, valor: num }]).select();
+    const { data } = await supabase.from("tipos_irpf").insert([{ user_id: user.id, valor: num }]).select();
     if (data) setTiposIRPF([...tiposIRPF, data[0]]);
   };
 
@@ -282,38 +277,22 @@ export default function AjustesClient() {
     }
   };
 
-  const handleBackupNow = async () => {
-    setSaving(true);
-    try {
-      const [ventas, costes, clientes, proveedores, proyectos] = await Promise.all([
-        supabase.from('ventas').select('*').eq('user_id', user.id),
-        supabase.from('costes').select('*').eq('user_id', user.id),
-        supabase.from('clientes').select('*').eq('user_id', user.id),
-        supabase.from('proveedores').select('*').eq('user_id', user.id),
-        supabase.from('proyectos').select('*').eq('user_id', user.id),
-      ]);
-
-      const fullData = {
-        ventas: ventas.data,
-        costes: costes.data,
-        clientes: clientes.data,
-        proveedores: proveedores.data,
-        proyectos: proyectos.data,
-        timestamp: new Date().toISOString()
-      };
-
-      const { error } = await supabase.from('backups').insert([
-        { user_id: user.id, data: fullData, type: 'manual' }
-      ]);
-      
-      if (error) throw error;
-      fetchAutoBackups(user.id);
-      alert("✅ Backup completado y guardado en la nube.");
-    } catch (err: any) {
-      alert("Error al realizar backup: " + err.message);
-    } finally {
-      setSaving(false);
-    }
+  const handleDownloadTemplate = () => {
+    const data = [
+      {
+        "Fecha": "2024-01-01",
+        "NIF": "B12345678",
+        "Proveedor": "Proveedor Ejemplo S.L.",
+        "Num Factura": "FACT-001",
+        "Base Imponible": 1000,
+        "IVA": 210,
+        "Total": 1210
+      }
+    ];
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Plantilla_Costes");
+    XLSX.writeFile(wb, "plantilla_importacion_gastos.xlsx");
   };
 
   const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -466,6 +445,40 @@ export default function AjustesClient() {
     reader.readAsBinaryString(file);
   };
 
+  const handleBackupNow = async () => {
+    setSaving(true);
+    try {
+      const [ventas, costes, clientes, proveedores, proyectos] = await Promise.all([
+        supabase.from('ventas').select('*').eq('user_id', user.id),
+        supabase.from('costes').select('*').eq('user_id', user.id),
+        supabase.from('clientes').select('*').eq('user_id', user.id),
+        supabase.from('proveedores').select('*').eq('user_id', user.id),
+        supabase.from('proyectos').select('*').eq('user_id', user.id),
+      ]);
+
+      const fullData = {
+        ventas: ventas.data,
+        costes: costes.data,
+        clientes: clientes.data,
+        proveedores: proveedores.data,
+        proyectos: proyectos.data,
+        timestamp: new Date().toISOString()
+      };
+
+      const { error } = await supabase.from('backups').insert([
+        { user_id: user.id, data: fullData, type: 'manual' }
+      ]);
+      
+      if (error) throw error;
+      fetchAutoBackups(user.id);
+      alert("✅ Backup completado y guardado en la nube.");
+    } catch (err: any) {
+      alert("Error al realizar backup: " + err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleResetEmitidas = async () => {
     if (!user) return;
     const confirm1 = confirm("⚠️ ATENCIÓN: Vas a borrar TODAS las facturas EMITIDAS (Ventas), sus líneas y registros de COBROS. Esta acción es IRREVERSIBLE.");
@@ -545,15 +558,15 @@ export default function AjustesClient() {
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          <div className="lg:col-span-1 space-y-2">
+          <div className="lg:col-span-1 space-y-2 bg-gray-100/50 p-4 rounded-[2rem] border border-gray-100 h-fit">
             {[
               { id: 'negocio', icon: Building2, label: 'Empresa' },
               { id: 'facturacion', icon: FileText, label: 'Facturación' },
+              { id: 'import', icon: Table, label: 'Importador' },
               { id: 'email', icon: Mail, label: 'Email & SMTP' },
               { id: 'integraciones', icon: Share2, label: 'IA & Verifactu' },
               { id: 'legal', icon: BookOpen, label: 'Textos Legales' },
-              { id: 'seguridad', icon: ShieldCheck, label: 'Seguridad' },
-              { id: 'backup', icon: Database, label: 'Copias de Seguridad' },
+              { id: 'seguridad', icon: ShieldCheck, label: 'Backup & Nube' },
               { id: 'mantenimiento', icon: RotateCcw, label: 'Mantenimiento' }
             ].map(tab => (
               <button 
@@ -746,67 +759,139 @@ export default function AjustesClient() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="glass-card p-10 space-y-8">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center text-orange-600">
-                        <Fingerprint size={20} />
-                      </div>
-                      <h3 className="text-xl font-black tracking-tight">Configuración IRPF</h3>
+                <div className="glass-card p-10 space-y-8 mt-8">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center text-orange-600">
+                      <Fingerprint size={20} />
                     </div>
-                    
-                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border">
-                      <div className="space-y-1">
-                        <span className="text-sm font-black text-gray-700">Emitir facturas con retención</span>
-                      </div>
-                      <button onClick={() => setTieneRetencion(!tieneRetencion)} className={`w-14 h-7 rounded-full p-1 transition-all ${tieneRetencion ? "bg-orange-500" : "bg-gray-300"}`}>
-                        <div className={`w-5 h-5 bg-white rounded-full shadow-md transition-all ${tieneRetencion ? "translate-x-7" : "translate-x-0"}`} />
-                      </button>
+                    <h3 className="text-xl font-black tracking-tight">Configuración IRPF</h3>
+                  </div>
+                  
+                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border">
+                    <div className="space-y-1">
+                      <span className="text-sm font-black text-gray-700">Emitir facturas con retención</span>
                     </div>
-
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-center px-1">
-                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Tipos de IRPF disponibles</label>
-                        <button onClick={addTipoIRPF} className="text-[10px] font-black text-[var(--accent)] hover:underline flex items-center gap-1"><Plus size={14} /> Añadir</button>
-                      </div>
-                      <div className="flex flex-wrap gap-3">
-                        {tiposIRPF.map(t => (
-                          <div key={t.id} className="flex items-center gap-2 px-4 py-2 bg-white border rounded-xl shadow-sm">
-                            <span className="font-bold text-sm">{t.valor}%</span>
-                            <button onClick={() => removeTipoIRPF(t.id)} className="text-gray-300 hover:text-red-500 transition-colors"><Trash2 size={14} /></button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+                    <button onClick={() => setTieneRetencion(!tieneRetencion)} className={`w-14 h-7 rounded-full p-1 transition-all ${tieneRetencion ? "bg-orange-500" : "bg-gray-300"}`}>
+                      <div className={`w-5 h-5 bg-white rounded-full shadow-md transition-all ${tieneRetencion ? "translate-x-7" : "translate-x-0"}`} />
+                    </button>
                   </div>
 
-                  <div className="glass-card p-10 space-y-8">
-                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600">
-                          <Database size={20} />
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center px-1">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Tipos de IRPF disponibles</label>
+                      <button onClick={addTipoIRPF} className="text-[10px] font-black text-[var(--accent)] hover:underline flex items-center gap-1"><Plus size={14} /> Añadir</button>
+                    </div>
+                    <div className="flex flex-wrap gap-3">
+                      {tiposIRPF.map(t => (
+                        <div key={t.id} className="flex items-center gap-2 px-4 py-2 bg-white border rounded-xl shadow-sm">
+                          <span className="font-bold text-sm">{t.valor}%</span>
+                          <button onClick={() => removeTipoIRPF(t.id)} className="text-gray-300 hover:text-red-500 transition-colors"><Trash2 size={14} /></button>
                         </div>
-                        <h3 className="text-xl font-black tracking-tight">Importación Masiva</h3>
-                     </div>
-                     <div className="space-y-6">
-                        <div className="p-6 bg-blue-50 rounded-2xl border border-blue-100/50">
-                           <h4 className="text-sm font-black text-blue-900 mb-2 flex items-center gap-2">
-                             <Table size={16} /> Importar desde Excel
-                           </h4>
-                           <label className="block w-full py-4 px-6 bg-white rounded-xl border-2 border-dashed border-blue-200 hover:border-blue-500 text-center cursor-pointer group transition-all">
-                              <input type="file" className="hidden" accept=".xlsx, .xls" onChange={handleImportExcel} />
-                              <div className="flex items-center justify-center gap-3 text-blue-600 font-black uppercase text-[10px] tracking-widest group-hover:scale-105 transition-all">
-                                <Upload size={18} /> Seleccionar Archivo Excel
-                              </div>
-                           </label>
-                        </div>
-                     </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
             )}
 
+            {activeTab === "import" && (
+              <div className="space-y-8 animate-in fade-in duration-500">
+                <div className="glass-card p-10 space-y-8">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600">
+                        <Table size={24} />
+                      </div>
+                      <div>
+                        <h2 className="text-xl font-black tracking-tight">Importador de Gastos</h2>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Carga masiva de facturas recibidas desde Excel</p>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={handleDownloadTemplate}
+                      className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-gray-100 text-gray-600 font-black hover:bg-gray-200 transition-all text-xs uppercase tracking-widest"
+                    >
+                      <Download size={18} /> Plantilla Excel
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-6">
+                      <div className="p-8 bg-blue-50 rounded-[2rem] border border-blue-100/50 space-y-6">
+                        <div className="space-y-2">
+                          <h3 className="font-black text-blue-900 flex items-center gap-2">
+                            <Upload size={20} /> Subir Archivo
+                          </h3>
+                          <p className="text-xs text-blue-700/60 font-medium">Sube tu archivo .xlsx o .xls con el formato de la plantilla.</p>
+                        </div>
+
+                        <label className="block w-full py-10 px-6 bg-white rounded-[2rem] border-2 border-dashed border-blue-200 hover:border-blue-500 text-center cursor-pointer group transition-all">
+                          <input type="file" className="hidden" accept=".xlsx, .xls" onChange={handleImportExcel} />
+                          <div className="flex flex-col items-center gap-4 group-hover:scale-105 transition-all">
+                            <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 mb-2">
+                              <DownloadCloud size={32} />
+                            </div>
+                            <span className="text-blue-600 font-black uppercase text-xs tracking-widest">Seleccionar Excel</span>
+                            <span className="text-[10px] text-gray-400 font-bold uppercase">o arrastra el archivo aquí</span>
+                          </div>
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="space-y-6">
+                      <div className="p-8 bg-gray-50 rounded-[2rem] border border-gray-100 space-y-6">
+                        <h3 className="font-black text-gray-900 flex items-center gap-2">
+                          <AlertCircle size={20} className="text-orange-500" /> Instrucciones
+                        </h3>
+                        <ul className="space-y-4">
+                          {[
+                            "Descarga la plantilla para ver el formato correcto.",
+                            "Asegúrate de que los NIFs son correctos.",
+                            "Si el proveedor no existe, se creará automáticamente.",
+                            "Las facturas con el mismo NIF y Número se agruparán.",
+                            "Se asignará automáticamente un número interno secuencial."
+                          ].map((inst, i) => (
+                            <li key={i} className="flex gap-3 text-xs font-medium text-gray-600">
+                              <div className="w-5 h-5 rounded-full bg-white border flex items-center justify-center text-[10px] font-black shrink-0">{i+1}</div>
+                              {inst}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+
+                  {importResults && (
+                    <div className="p-8 bg-green-50 rounded-[2rem] border border-green-100 animate-in zoom-in duration-300">
+                      <div className="flex items-center gap-4 mb-4">
+                        <CheckCircle2 className="text-green-600" size={32} />
+                        <div>
+                          <h3 className="font-black text-green-900">Importación Finalizada</h3>
+                          <p className="text-xs text-green-700 font-medium">Resumen del proceso realizado</p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-4">
+                        <div className="bg-white p-4 rounded-2xl shadow-sm border border-green-100">
+                          <span className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Procesadas</span>
+                          <span className="text-2xl font-black text-green-600">{importResults.total}</span>
+                        </div>
+                        <div className="bg-white p-4 rounded-2xl shadow-sm border border-green-100">
+                          <span className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Éxito</span>
+                          <span className="text-2xl font-black text-green-600">{importResults.success}</span>
+                        </div>
+                        <div className="bg-white p-4 rounded-2xl shadow-sm border border-green-100">
+                          <span className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Errores</span>
+                          <span className="text-2xl font-black text-red-600">{importResults.errors}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {activeTab === "integraciones" && (
-              <div className="space-y-8">
+              <div className="space-y-8 animate-in fade-in duration-500">
                 <div className="glass-card p-10 space-y-8">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-purple-50 rounded-2xl flex items-center justify-center text-purple-600">
@@ -928,33 +1013,23 @@ export default function AjustesClient() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600">
-                        <Database size={24} />
+                        <ShieldCheck size={24} />
                       </div>
-                      <h2 className="text-xl font-black tracking-tight">Cifrado de Datos</h2>
-                    </div>
-                  </div>
-                  <p className="text-sm text-gray-500">Tus datos sensibles (cuentas bancarias, API keys, contraseñas SMTP) se almacenan cifrados con AES-256.</p>
-                </div>
-              </div>
-            )}
-
-            {activeTab === "backup" && (
-              <div className="space-y-8 animate-in fade-in duration-500">
-                <div className="glass-card p-10 space-y-8">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600">
-                        <Database size={24} />
-                      </div>
-                      <h2 className="text-xl font-black tracking-tight">Backups en la Nube</h2>
+                      <h2 className="text-xl font-black tracking-tight">Seguridad y Backups</h2>
                     </div>
                     <button onClick={handleBackupNow} disabled={saving} className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-blue-600 text-white font-black hover:bg-blue-700 transition-all active:scale-[0.98] shadow-lg shadow-blue-500/20">
                       <Database size={18} /> Backup Manual
                     </button>
                   </div>
+                  
+                  <div className="p-6 bg-blue-50 rounded-2xl border border-blue-100 mb-6">
+                    <p className="text-xs text-blue-800 font-medium">
+                      Tus datos sensibles (cuentas bancarias, API keys, contraseñas SMTP) se almacenan cifrados con AES-256 para garantizar tu privacidad.
+                    </p>
+                  </div>
 
                   <div className="space-y-4">
-                    <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-1">Últimas copias</h3>
+                    <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-1">Últimas copias en la nube</h3>
                     <div className="divide-y border rounded-[2rem] overflow-hidden bg-gray-50/50">
                       {autoBackups.length === 0 ? (
                         <div className="p-10 text-center text-gray-400 font-medium italic">No hay backups realizados aún.</div>
