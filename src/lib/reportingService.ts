@@ -126,9 +126,9 @@ export const getVATBookPDF = (type: 'ventas' | 'costes', data: any[], perfil: an
   });
 
   reportRows.sort((a, b) => {
-    const dateComp = new Date(a.fecha).getTime() - new Date(b.fecha).getTime();
-    if (dateComp !== 0) return dateComp;
-    return a.registro.toString().localeCompare(b.registro.toString(), undefined, { numeric: true });
+    const regComp = a.registro.toString().localeCompare(b.registro.toString(), undefined, { numeric: true });
+    if (regComp !== 0) return regComp;
+    return new Date(a.fecha).getTime() - new Date(b.fecha).getTime();
   });
 
   const tableData = reportRows.map(row => [
