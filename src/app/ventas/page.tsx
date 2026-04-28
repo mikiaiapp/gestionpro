@@ -783,15 +783,27 @@ function VentasContent() {
     return 0;
   });
 
+  const totalCount = filteredVentas.length;
+  const totalPages = Math.ceil(totalCount / (pageSize || 1));
+
   const paginatedVentas = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
     return filteredVentas.slice(start, start + pageSize);
   }, [filteredVentas, currentPage, pageSize]);
 
-  const totalCount = filteredVentas.length;
-  const totalPages = Math.ceil(totalCount / pageSize);
+  if (loading) {
+    return (
+      <div className="flex bg-[var(--background)] min-h-screen">
+        <Sidebar />
+        <div className="flex-1 p-8 flex flex-col items-center justify-center text-[var(--muted)] gap-3">
+          <Loader2 className="animate-spin" size={32} />
+          <p className="text-sm font-medium">Cargando facturación...</p>
+        </div>
+      </div>
+    );
+  }
 
-  return (
+  const content = (
     <div className="flex bg-[var(--background)] min-h-screen">
       <Sidebar />
       <div className="flex-1 p-8 overflow-y-auto">
@@ -1194,4 +1206,5 @@ function VentasContent() {
       </div>
     </div>
   );
+  return content;
 }

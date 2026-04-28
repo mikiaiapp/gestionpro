@@ -579,9 +579,21 @@ export default function ProyectosPage() {
   }, [filtered, currentPage, pageSize]);
 
   const totalCount = filtered.length;
-  const totalPages = Math.ceil(totalCount / pageSize);
+  const totalPages = Math.ceil(totalCount / (pageSize || 1));
 
-  return (
+  if (loading) {
+    return (
+      <div className="flex bg-[var(--background)] min-h-screen">
+        <Sidebar />
+        <div className="flex-1 p-8 flex flex-col items-center justify-center text-[var(--muted)] gap-3">
+          <Loader2 className="animate-spin" size={32} />
+          <p className="text-sm font-medium">Cargando presupuestos...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const content = (
     <div className="flex bg-[var(--background)] min-h-screen text-left">
       <Sidebar />
       <div className="flex-1 p-8 overflow-y-auto">
@@ -879,5 +891,6 @@ export default function ProyectosPage() {
       </div>
     </div>
   );
+  return content;
 }
 

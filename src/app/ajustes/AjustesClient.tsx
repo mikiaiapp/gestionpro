@@ -564,22 +564,24 @@ export default function AjustesClient() {
   };
 
 
-  if (loading) return null;
+  if (loading) {
+    return null;
+  }
 
-  if (!user) return (
-    <div className="flex h-screen items-center justify-center bg-gray-100 p-4 font-sans">
-      <div className="bg-white p-12 rounded-3xl shadow-2xl border max-w-sm w-full text-center space-y-6">
-        <Lock className="text-blue-600 mx-auto" size={48} />
-        <h2 className="text-2xl font-black text-gray-800 tracking-tight text-balance">Acceso Restringido</h2>
-        <a href="/login" className="block w-full py-4 bg-blue-600 text-white font-bold rounded-2xl shadow-lg transition-all font-sans">Identificarse</a>
+  if (!user) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-100 p-4 font-sans">
+        <div className="bg-white p-12 rounded-3xl shadow-2xl border max-w-sm w-full text-center space-y-6">
+          <Lock className="text-blue-600 mx-auto" size={48} />
+          <h2 className="text-2xl font-black text-gray-800 tracking-tight text-balance">Acceso Restringido</h2>
+          <a href="/login" className="block w-full py-4 bg-blue-600 text-white font-bold rounded-2xl shadow-lg transition-all font-sans">Identificarse</a>
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
 
-
-  const lastBackup = autoBackups[0];
-  const lastBackupStr = lastBackup 
-    ? new Date(lastBackup.created_at).toLocaleString('es-ES', { 
+  const lastBackupStr = autoBackups[0] 
+    ? new Date(autoBackups[0].created_at).toLocaleString('es-ES', { 
         day: '2-digit', 
         month: '2-digit', 
         year: 'numeric', 
@@ -588,7 +590,7 @@ export default function AjustesClient() {
       })
     : 'No disponible';
 
-  return (
+  const content = (
     <div className="flex bg-[var(--background)] min-h-screen text-left">
       <Sidebar />
       <div className="flex-1 p-8 overflow-y-auto">
@@ -1177,4 +1179,5 @@ export default function AjustesClient() {
       </div>
     </div>
   );
+  return content;
 }
