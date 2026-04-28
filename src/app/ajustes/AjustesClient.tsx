@@ -576,16 +576,20 @@ export default function AjustesClient() {
 
   if (loading) return null;
 
-  return !user ? (
-    <div className="flex h-screen items-center justify-center bg-gray-100 p-4 font-sans">
-      <div className="bg-white p-12 rounded-3xl shadow-2xl border max-w-sm w-full text-center space-y-6">
-        <Lock className="text-blue-600 mx-auto" size={48} />
-        <h2 className="text-2xl font-black text-gray-800 tracking-tight text-balance">Acceso Restringido</h2>
-        <a href="/login" className="block w-full py-4 bg-blue-600 text-white font-bold rounded-2xl shadow-lg transition-all font-sans">Identificarse</a>
+  if (!user) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-100 p-4 font-sans">
+        <div className="bg-white p-12 rounded-3xl shadow-2xl border max-w-sm w-full text-center space-y-6">
+          <Lock className="text-blue-600 mx-auto" size={48} />
+          <h2 className="text-2xl font-black text-gray-800 tracking-tight text-balance">Acceso Restringido</h2>
+          <a href="/login" className="block w-full py-4 bg-blue-600 text-white font-bold rounded-2xl shadow-lg transition-all font-sans">Identificarse</a>
+        </div>
       </div>
-    </div>
-  ) : (
-    <div className="flex bg-[var(--background)] min-h-screen text-left">
+    );
+  }
+
+  return (
+    <div className="flex min-h-screen text-left" style={{ backgroundColor: 'var(--background)' }}>
       <Sidebar />
       <div className="flex-1 p-8 overflow-y-auto">
         <header className="flex justify-between items-end mb-10">

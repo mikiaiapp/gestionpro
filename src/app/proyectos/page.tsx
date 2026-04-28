@@ -581,16 +581,20 @@ export default function ProyectosPage() {
     return filtered.slice(start, start + pageSize);
   }, [filtered, currentPage, pageSize]);
 
-  return loading ? (
-    <div className="flex bg-[var(--background)] min-h-screen">
-      <Sidebar />
-      <div className="flex-1 p-8 flex flex-col items-center justify-center text-[var(--muted)] gap-3">
-        <Loader2 className="animate-spin" size={32} />
-        <p className="text-sm font-medium">Cargando presupuestos...</p>
+  if (loading) {
+    return (
+      <div className="flex min-h-screen" style={{ backgroundColor: 'var(--background)' }}>
+        <Sidebar />
+        <div className="flex-1 p-8 flex flex-col items-center justify-center text-[var(--muted)] gap-3">
+          <Loader2 className="animate-spin" size={32} />
+          <p className="text-sm font-medium">Cargando presupuestos...</p>
+        </div>
       </div>
-    </div>
-  ) : (
-    <div className="flex bg-[var(--background)] min-h-screen text-left">
+    );
+  }
+
+  return (
+    <div className="flex min-h-screen text-left" style={{ backgroundColor: 'var(--background)' }}>
       <Sidebar />
       <div className="flex-1 p-8 overflow-y-auto">
         {!isEditorOpen ? (
