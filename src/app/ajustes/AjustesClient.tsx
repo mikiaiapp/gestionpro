@@ -658,6 +658,11 @@ export default function AjustesClient() {
         groupedData[key].push(row);
       }
 
+      // 0. Probar columnas reales para evitar errores de esquema (Smart Mapping)
+      const { data: probe } = await supabase.from('costes').select('*').limit(1);
+      const cols = (probe && probe.length > 0) ? Object.keys(probe[0]) : [];
+      const findKey = (options: string[]) => options.find(o => cols.includes(o));
+
       const entries = Object.entries(groupedData);
       for (let i = 0; i < entries.length; i++) {
         const [key, rows] = entries[i];
@@ -690,7 +695,8 @@ export default function AjustesClient() {
           }
 
           // 2. Comprobar duplicado
-          const { data: exist } = await supabase.from('costes').select('id').eq('user_id', user.id).eq('proveedor_id', prov.id).eq('num_factura_proveedor', num_factura.toString()).maybeSingle();
+          const colNum = findKey(['num_factura_proveedor', 'numero_factura', 'num_factura', 'factura_prov', 'referencia']) || 'num_factura_proveedor';
+          const { data: exist } = await supabase.from('costes').select('id').eq('user_id', user.id).eq('proveedor_id', prov.id).eq(colNum, num_factura.toString()).maybeSingle();
           if (exist) {
             errors.push(`Factura ${num_factura} de ${proveedor_nombre} ya existe.`);
             continue;
@@ -718,20 +724,28 @@ export default function AjustesClient() {
             finalFecha = `${a}-${m}-${d}`;
           }
 
-          // 4. Cabecera
-          const { data: newCoste, error: cErr } = await supabase.from('costes').insert({
+          // 4. Cabecera con Smart Mapping
+          const payload: any = {
             user_id: user.id,
             fecha: finalFecha,
-            num_factura_proveedor: num_factura.toString(),
-            proveedor_id: prov.id,
-            base_imponible: totalBI,
-            iva_importe: totalIVA,
-            retencion_pct: parseFloat(firstRow.retencion_pct) || 0,
-            retencion_importe: totalRet,
             total: totalBI + totalIVA - totalRet,
             estado_pago: firstRow.estado_pago || 'Pendiente',
             tipo_gasto: 'general'
-          }).select('id').single();
+          };
+
+          const setIfFound = (options: string[], value: any) => {
+            const k = findKey(options);
+            if (k) payload[k] = value;
+          };
+
+          setIfFound(['num_factura_proveedor', 'numero_factura', 'num_factura', 'factura_prov', 'referencia'], num_factura.toString());
+          setIfFound(['proveedor_id', 'id_proveedor'], prov.id);
+          setIfFound(['base_imponible', 'base', 'subtotal'], totalBI);
+          setIfFound(['iva_importe', 'cuota_iva', 'iva_total', 'iva'], totalIVA);
+          setIfFound(['retencion_pct', 'irpf_pct'], parseFloat(firstRow.retencion_pct) || 0);
+          setIfFound(['retencion_importe', 'irpf_importe', 'retencion', 'irpf'], totalRet);
+
+          const { data: newCoste, error: cErr } = await supabase.from('costes').insert(payload).select('id').single();
 
           if (cErr) throw new Error(cErr.message);
 
