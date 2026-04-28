@@ -919,8 +919,6 @@ function VentasContent() {
                             </button>
                           </div>
                         )}
-                      </td>          </div>
-                        )}
                       </td>
                     </tr>
                   ))}

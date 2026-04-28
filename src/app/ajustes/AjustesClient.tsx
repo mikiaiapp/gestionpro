@@ -22,7 +22,16 @@ export default function AjustesClient() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState("negocio");
+  const [autoBackups, setAutoBackups] = useState<any[]>([]);
+  const [formaPago, setFormaPago] = useState("");
+  const [condicionesLegales, setCondicionesLegales] = useState("");
+  const [lopdText, setLopdText] = useState("");
+  const [textoAceptacion, setTextoAceptacion] = useState("");
+  const [verifactuCert, setVerifactuCert] = useState("");
+  const [verifactuCertPassword, setVerifactuCertPassword] = useState("");
+  const [verifactuEnv, setVerifactuEnv] = useState("test");
+  const [smtpEmail, setSmtpEmail] = useState("");
+  const [smtpAppPassword, setSmtpAppPassword] = useState("");
 
   // Perfil de Negocio
   const [nombre, setNombre] = useState("");
@@ -1103,9 +1112,9 @@ export default function AjustesClient() {
                 <div className="glass-card p-10 bg-red-50/50 border-red-100 border-2 space-y-6">
                    <div className="flex items-center gap-4">
                       <div className="w-12 h-12 bg-red-100 rounded-2xl flex items-center justify-center text-red-600">
-                        <Shield size={24} />
+                        <ShieldCheck size={24} />
                       </div>
-                    )}
+                    </div>
 
                     {!importResults && (
                       <div className="flex flex-col items-center justify-center h-full text-center p-10 opacity-20 group-hover:opacity-40 transition-opacity">
