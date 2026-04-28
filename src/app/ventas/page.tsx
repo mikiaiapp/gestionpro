@@ -940,7 +940,6 @@ function VentasContent() {
                   ))}
                 </tbody>
               </table>
-            </div>
 
             <Pagination 
               currentPage={currentPage}
