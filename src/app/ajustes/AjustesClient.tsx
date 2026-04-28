@@ -227,7 +227,6 @@ export default function AjustesClient() {
         const rawVfPass = data.verifactu_pass || '';
         const decVfPass = rawVfPass.includes(':') ? decrypt(rawVfPass) : rawVfPass;
         setVerifactuCertPassword(decVfPass);
-        setVerifactuCertPassword(decVfPass);
         setVerifactuEnv(data.verifactu_env || 'pruebas');
         setTelefono(data.telefono || '');
         setImagenCorporativaUrl(data.imagen_corporativa_url || '');
@@ -936,7 +935,7 @@ export default function AjustesClient() {
     { id: 'fiscalidad', label: 'Fiscalidad', icon: Percent, color: 'text-emerald-600' },
     { id: 'backup', label: 'Backup', icon: Database, color: 'text-indigo-600' },
     { id: 'import', label: 'Importar', icon: Table, color: 'text-pink-600' },
-    { id: 'mantenimiento', label: 'Mantenimiento', icon: AlertOctagon, color: 'text-red-600' },
+    { id: 'mantenimiento', label: 'Mantenimiento', icon: AlertTriangle, color: 'text-red-600' },
   ];
 
   const lastBackup = autoBackups[0];
