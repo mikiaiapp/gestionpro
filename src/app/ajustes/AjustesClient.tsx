@@ -589,7 +589,7 @@ export default function AjustesClient() {
   }
 
   return (
-    <div className="flex min-h-screen text-left" style={{ backgroundColor: 'var(--background)' }}>
+    <main className="flex bg-gray-50 min-h-screen text-left">
       <Sidebar />
       <div className="flex-1 p-8 overflow-y-auto">
         <header className="flex justify-between items-end mb-10">
