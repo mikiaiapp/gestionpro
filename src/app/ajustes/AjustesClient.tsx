@@ -758,20 +758,15 @@ export default function AjustesClient() {
           };
 
           if (exist) {
-            // Si ya existe, solo actualizamos campos que podrían faltar (NIF/Proveedor y Contador)
+            // Durante la re-importación total, actualizamos el número de registro y el proveedor/NIF para asegurar coherencia
             const updatePayload: any = {};
             setIfFound(['proveedor_id', 'id_proveedor'], prov.id, updatePayload);
-            
-            // Solo asignar número interno si no tiene uno ya
-            const hasInternal = exist.num_interno || exist.registro_interno || exist.numero;
-            if (!hasInternal) {
-               setIfFound(['num_interno', 'registro_interno', 'numero'], internalNum, updatePayload);
-               nextSequential++;
-            }
+            setIfFound(['num_interno', 'registro_interno', 'numero'], internalNum, updatePayload);
             
             const { error: uErr } = await supabase.from('costes').update(updatePayload).eq('id', exist.id);
             if (uErr) throw new Error(`Error actualizando: ${uErr.message}`);
             
+            nextSequential++;
             successCount += rows.length;
             continue;
           }
@@ -803,11 +798,16 @@ export default function AjustesClient() {
                 iva_pct: parseFloat(r.iva_pct) || 0
              });
           }
+
           successCount += rows.length;
         } catch (err: any) {
           errors.push(`Error en ${key}: ${err.message}`);
         }
       }
+
+      // 6. Sincronizar el contador oficial en Ajustes
+      await supabase.from('perfil_negocio').update({ contador_costes: nextSequential }).eq('user_id', user.id);
+
 
       setImportResults({ total: jsonData.length, success: successCount, errors });
     } catch (err: any) {
