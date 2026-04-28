@@ -9,7 +9,7 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  swcMinify: true,
+  swcMinify: false,
 };
 
 export default nextConfig;

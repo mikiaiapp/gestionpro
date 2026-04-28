@@ -804,7 +804,7 @@ function VentasContent() {
   }
 
   return (
-    <div className="flex min-h-screen" style={{ backgroundColor: 'var(--background)' }}>
+    <main className="flex min-h-screen" style={{ backgroundColor: 'var(--background)' }}>
       <Sidebar />
       <div className="flex-1 p-8 overflow-y-auto">
         {!isEditorOpen ? (
