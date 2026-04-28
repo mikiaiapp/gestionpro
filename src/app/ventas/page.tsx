@@ -1,298 +1,717 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
-import { 
-  FileText, 
-  Plus, 
-  Trash2, 
-  Search, 
-  Download, 
-  Loader2, 
-  Pencil, 
-  ChevronRight, 
-  CheckCircle2, 
-  AlertCircle,
-  Clock,
-  Euro,
-  Building2,
-  Calendar,
-  MoreHorizontal,
-  Printer,
-  Mail,
-  UploadCloud,
-  X,
-  PlusCircle,
-  Receipt,
-  FileSpreadsheet,
-  Zap,
-  ShieldCheck,
-  Save,
-  ArrowUpDown,
-  HandCoins
-} from 'lucide-react';
-import { Sidebar } from '@/components/Sidebar';
-import { formatCurrency } from '@/lib/format';
-import { generateInvoicePDF } from '@/lib/pdfService';
-import { exportVATBookPDF, exportVATBookExcel } from '@/lib/reportingService';
-import SearchableSelect from '@/components/SearchableSelect';
-import RichTextEditor from '@/components/RichTextEditor';
+import { useEffect, useState, useMemo, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
+import { Receipt, Plus, Search, MoreHorizontal, Loader2, Trash2, Save, Pencil, FileText, Download, Printer, FolderKanban, ChevronUp, ChevronDown, Filter, HandCoins, Mail } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { Sidebar } from "@/components/Sidebar";
+import RichTextEditor from "@/components/RichTextEditor";
+import { DataTableHeader } from "@/components/DataTableHeader";
+import { SearchableSelect } from "@/components/SearchableSelect";
+import { generatePDF } from "@/lib/pdfGenerator";
+import { formatCurrency } from "@/lib/format";
+import { sendInvoiceToAeat } from "@/lib/aeatService";
+import { encrypt } from "@/lib/encryption";
+import { UploadCloud, ShieldCheck, OctagonAlert } from "lucide-react";
+import { exportVATBookPDF, exportVATBookExcel } from "@/lib/reportingService";
+import { uploadInvoiceFile, deleteInvoiceFile } from "@/lib/storageService";
 
-interface Linea {
-  descripcion: string;
+interface LineaFactura {
   unidades: number;
+  descripcion: string;
   precio_unitario: number;
-  iva_pct: number;
+  iva_pct?: number; // Opcional para retrocompatibilidad
 }
 
 export default function VentasPage() {
+  return (
+    <Suspense fallback={<div className="flex h-screen items-center justify-center bg-[var(--background)]"><Loader2 className="animate-spin text-[var(--accent)]" size={40} /></div>}>
+      <VentasContent />
+    </Suspense>
+  );
+}
+
+function VentasContent() {
+  const searchParams = useSearchParams();
   const [ventas, setVentas] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [isEditorOpen, setIsEditorOpen] = useState(false);
-  const [isWizardOpen, setIsWizardOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [user, setUser] = useState<any>(null);
-  const [perfil, setPerfil] = useState<any>(null);
-
-  // Estados para el editor
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
-  const [clienteId, setClienteId] = useState('');
-  const [numFactura, setNumFactura] = useState('');
-  const [serie, setSerie] = useState('A');
-  const [lineas, setLineas] = useState<Linea[]>([{ descripcion: '', unidades: 1, precio_unitario: 0, iva_pct: 21 }]);
-  const [retencionPct, setRetencionPct] = useState(0);
-  const [formaPago, setFormaPago] = useState('');
-  const [proyectoId, setProyectoId] = useState('');
-
   const [clientes, setClientes] = useState<any[]>([]);
   const [proyectos, setProyectos] = useState<any[]>([]);
   const [formasCobro, setFormasCobro] = useState<any[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [sortConfig, setSortConfig] = useState({ field: 'fecha', direction: 'desc' as 'asc' | 'desc' });
-  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
-  
+  const [perfil, setPerfil] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
+  const [invoicingMode, setInvoicingMode] = useState<"manual" | "avance" | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
-  // Wizard States
-  const [selectedProjId, setSelectedProjId] = useState('');
-  const [pct, setPct] = useState('100');
+  // Sorting and Filtering State
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>({ key: 'fecha', direction: 'desc' });
+  const [columnFilters, setColumnFilters] = useState<{ [key: string]: string }>({});
 
-  // Cobro States
-  const [isCobroModalOpen, setIsCobroModalOpen] = useState(false);
+  // Estados temporales del Wizard
+  const [selectedProjId, setSelectedProjId] = useState("");
+  const [pct, setPct] = useState("10");
   const [selectedVenta, setSelectedVenta] = useState<any>(null);
-  const [cobroImporte, setCobroImporte] = useState('');
+  const [isCobroModalOpen, setIsCobroModalOpen] = useState(false);
   const [cobroFecha, setCobroFecha] = useState(new Date().toISOString().split('T')[0]);
-  const [cobroForma, setCobroForma] = useState('Transferencia');
+  const [cobroImporte, setCobroImporte] = useState("");
+  const [cobroForma, setCobroForma] = useState("Transferencia");
+
+  const [hasAutoInvoiced, setHasAutoInvoiced] = useState(false);
 
   useEffect(() => {
-    checkUser();
-  }, []);
-
-  const checkUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      setUser(user);
-      await Promise.all([
-        fetchData(),
-        fetchClientes(),
-        fetchProyectos(),
-        fetchFormasCobro(),
-        fetchPerfil()
-      ]);
+    const pId = searchParams.get("proyectoId");
+    const mode = searchParams.get("mode");
+    if (pId && mode === "avance" && !hasAutoInvoiced) {
+      setSelectedProjId(pId);
+      setIsWizardOpen(true);
+      setHasAutoInvoiced(true);
     }
-    setLoading(false);
+  }, [searchParams, hasAutoInvoiced]);
+
+  const handleProjectToInvoice = async (projId: string, pctRequested: number = 100) => {
+    const proj = proyectos.find(p => p.id === projId);
+    if (!proj) return;
+
+    setLoading(true);
+    try {
+      // 1. Calcular lo facturado anteriormente
+      const { data: vtsAnteriores } = await supabase.from("ventas").select("base_imponible").eq("proyecto_id", projId);
+      const totalFacturadoAnterior = (vtsAnteriores || []).reduce((acc, v) => acc + (v.base_imponible || 0), 0);
+      const baseProy = proj.base_imponible || 0;
+      const pctAnterior = baseProy > 0 ? (totalFacturadoAnterior / baseProy) * 100 : 0;
+
+      if (pctAnterior + pctRequested > 100.01) { // Pequeño margen para redondeo
+        alert(`Error: No puedes facturar un ${pctRequested}%. Ya se ha facturado un ${pctAnterior.toFixed(2)}% de este proyecto. El total no puede exceder el 100%.`);
+        setLoading(false);
+        return;
+      }
+
+      const { data: pLineas } = await supabase.from("proyecto_lineas").select("*").eq("proyecto_id", projId);
+      
+      setEditingId(null);
+      setClienteId(proj.cliente_id);
+      setProyectoId(proj.id);
+      setRetencionPct(proj.retencion_pct || 0);
+      setSerie("A");
+      setFecha(new Date().toISOString().split('T')[0]);
+      
+      const factor = pctRequested / 100;
+      const numProyStr = (proj as any).num_proyecto ? ` nº ${(proj as any).num_proyecto}` : "";
+      const projNombreLimpio = (proj as any).originalNombre || proj.nombre;
+      const descripcionManual = `${pctRequested}% de avance del proyecto con descripción "${projNombreLimpio}"`;
+      
+      setLineas([{ 
+        unidades: 1, 
+        descripcion: descripcionManual, 
+        precio_unitario: (proj.base_imponible || 0) * factor 
+      }]);
+      setFormaPago(proj.forma_pago || perfil?.forma_pago_default || "");
+      
+      setIsWizardOpen(false);
+      setIsEditorOpen(true);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const fetchData = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+  const handleRegisterCobro = async () => {
+    if (!selectedVenta) return;
     
-    const { data, error } = await supabase
-      .from('ventas')
-      .select(`
-        *,
-        clientes (
-          nombre,
-          nif,
-          email
-        ),
-        venta_lineas (*)
-      `)
-      .eq('user_id', user.id)
-      .order('fecha', { ascending: false });
-
-    if (!error && data) {
-      // Calcular pendientes
-      const processed = data.map(v => {
-        const totalCobrado = v.total_cobrado || 0;
-        const pendiente = v.total - totalCobrado;
-        let estadoPago = 'PENDIENTE';
-        if (pendiente <= 0) estadoPago = 'COBRADA';
-        else if (totalCobrado > 0) estadoPago = 'PARCIALMENTE COBRADA';
-        return { ...v, totalCobrado, pendiente, estadoPago };
-      });
-      setVentas(processed);
-    }
-  };
-
-  const fetchClientes = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data } = await supabase.from('clientes').select('id, nombre, nif').eq('user_id', user.id);
-    if (data) setClientes(data.map(c => ({ id: c.id, nombre: `${c.nombre} (${c.nif})` })));
-  };
-
-  const fetchProyectos = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data } = await supabase
-      .from('proyectos')
-      .select('id, nombre, clientes(nombre)')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
-    if (data) setProyectos(data.map(p => ({ id: p.id, nombre: `${p.nombre} - ${(p.clientes as any)?.nombre || 'Sin Cliente'}` })));
-  };
-
-  const fetchFormasCobro = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data } = await supabase.from('metodos_pago').select('*').eq('user_id', user.id);
-    if (data) setFormasCobro(data);
-  };
-
-  const fetchPerfil = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data } = await supabase.from('perfil_negocio').select('*').eq('user_id', user.id).maybeSingle();
-    if (data) {
-      setPerfil(data);
-      if (data.tiene_retencion) setRetencionPct(data.irpf_default || 0);
-      setFormaPago(data.forma_pago_default || '');
-    }
-  };
-
-  const addLinea = () => {
-    setLineas([...lineas, { descripcion: '', unidades: 1, precio_unitario: 0, iva_pct: 21 }]);
-  };
-
-  const removeLinea = (idx: number) => {
-    setLineas(lineas.filter((_, i) => i !== idx));
-  };
-
-  const updateLinea = (idx: number, updates: Partial<Linea>) => {
-    const nl = [...lineas];
-    nl[idx] = { ...nl[idx], ...updates };
-    setLineas(nl);
-  };
-
-  const baseImponible = lineas.reduce((acc, l) => acc + (l.unidades * l.precio_unitario), 0);
-  const cuotaIva = baseImponible * (serie === 'A' ? 0.21 : 0);
-  const retencionImporte = baseImponible * (retencionPct / 100);
-  const totalFactura = baseImponible + cuotaIva - retencionImporte;
-
-  const handleSaveInvoice = async () => {
-    if (!clienteId || !numFactura) {
-      alert('⚠️ Cliente y Nº Factura son obligatorios.');
+    const nuevoImporte = parseFloat(cobroImporte) || 0;
+    const yaCobrado = selectedVenta.totalCobrado || 0;
+    
+    // Bloqueo si el importe supera el total de la factura
+    if (yaCobrado + nuevoImporte > selectedVenta.total + 0.01) {
+      alert(`⚠️ El importe total cobrado (${(yaCobrado + nuevoImporte).toFixed(2)}€) no puede superar el total de la factura (${selectedVenta.total.toFixed(2)}€). Pendiente: ${(selectedVenta.total - yaCobrado).toFixed(2)}€`);
       return;
     }
 
     setSaving(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const payload = {
-        user_id: user.id,
-        fecha,
-        cliente_id: clienteId,
-        num_factura: numFactura,
-        serie,
-        proyecto_id: proyectoId || null,
-        base_imponible: baseImponible,
-        iva_pct: serie === 'A' ? 21 : 0,
-        iva_importe: cuotaIva,
-        retencion_pct: retencionPct,
-        retencion_importe: retencionImporte,
-        total: totalFactura,
-        forma_pago: formaPago,
-        num_interno: numFactura // Usamos el número de factura como registro para coherencia en ventas
+      const { data: userData } = await supabase.auth.getUser();
+      const user = userData?.user;
+      
+      const payload: any = {
+        venta_id: selectedVenta.id,
+        fecha: cobroFecha,
+        importe: nuevoImporte,
+        entidad: selectedVenta.clientes?.nombre || "Cliente",
+        categoria: "Ventas",
+        forma_pago: cobroForma,
+        user_id: user?.id
       };
 
-      let currentId = editingId;
-      if (editingId) {
-        const { error } = await supabase.from('ventas').update(payload).eq('id', editingId);
-        if (error) throw error;
-        await supabase.from('venta_lineas').delete().eq('venta_id', editingId);
-      } else {
-        const { data, error } = await supabase.from('ventas').insert([payload]).select('id').single();
-        if (error) throw error;
-        currentId = data.id;
+      const { error } = await supabase.from("cobros").insert([payload]);
+      if (error) throw error;
 
-        // Actualizar el contador oficial en el perfil tras el éxito del registro
-        const nextCount = (perfil?.contador_ventas || 1) + 1;
-        await supabase.from("perfil_negocio").update({ contador_ventas: nextCount }).eq("user_id", user.id);
-        fetchPerfil(); // Recargar perfil localmente
-      }
-
-      const lineasConId = lineas.map(l => ({
-        venta_id: currentId,
-        user_id: user.id,
-        descripcion: l.descripcion,
-        unidades: Number(l.unidades),
-        precio_unitario: Number(l.precio_unitario),
-        iva_pct: Number(l.iva_pct)
-      }));
-
-      const { error: lErr } = await supabase.from('venta_lineas').insert(lineasConId);
-      if (lErr) throw lErr;
-
-      setIsEditorOpen(false);
-      fetchData();
-      alert('✅ Factura guardada correctamente.');
+      setIsCobroModalOpen(false);
+      setCobroImporte("");
+      await fetchData();
+      alert("✅ Cobro registrado correctamente");
     } catch (err: any) {
-      alert('Error: ' + err.message);
+      alert("Error al registrar cobro: " + err.message);
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDeleteVenta = async (v: any) => {
-    if (!confirm('¿Seguro que quieres eliminar esta factura?')) return;
-    try {
-      await supabase.from('venta_lineas').delete().eq('venta_id', v.id);
-      await supabase.from('ventas').delete().eq('id', v.id);
-      fetchData();
-    } catch (err: any) {
-      alert(err.message);
+  useEffect(() => {
+    const handleClickOutside = () => setOpenMenuId(null);
+    window.addEventListener("click", handleClickOutside);
+    return () => window.removeEventListener("click", handleClickOutside);
+  }, []);
+
+  // Estados del Editor
+  const [serie, setSerie] = useState("A");
+  const [numFactura, setNumFactura] = useState("");
+  const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
+  const [clienteId, setClienteId] = useState("");
+  const [proyectoId, setProyectoId] = useState("");
+  const [formaCobroId, setFormaCobroId] = useState("");
+  const [retencionPct, setRetencionPct] = useState(0);
+  const [lineas, setLineas] = useState<LineaFactura[]>([{ unidades: 1, descripcion: "", precio_unitario: 0 }]);
+  const [formaPago, setFormaPago] = useState("");
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const getNextNumber = (allVentas: any[]) => {
+    const finalPrefix = perfil?.prefijo_ventas || `${new Date().getFullYear()}-`;
+
+    // Extraer todos los números existentes con este prefijo
+    const numbers = allVentas
+      .filter(v => v.num_factura && v.num_factura.startsWith(finalPrefix))
+      .map(v => {
+        const after = v.num_factura.slice(finalPrefix.length);
+        return parseInt(after, 10);
+      })
+      .filter(n => !isNaN(n) && n > 0);
+
+    let nextNum = (perfil?.contador_ventas || 1);
+    while (numbers.includes(nextNum)) {
+      nextNum++;
     }
+
+    return `${finalPrefix}${nextNum}`;
   };
+
+  useEffect(() => {
+    if (isEditorOpen && !editingId) {
+      const defaultSerie = perfil?.serie_ventas || "A";
+      setSerie(defaultSerie);
+      const next = getNextNumber(ventas);
+      setNumFactura(next);
+      setFormaPago(perfil?.forma_pago_default || "");
+    }
+  }, [isEditorOpen, editingId, ventas, perfil]);
+
+  const fetchData = async () => {
+    setLoading(true);
+    const { data: userData } = await supabase.auth.getUser();
+    const user = userData?.user;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    const { data: vts } = await supabase.from("ventas").select("*, clientes(*), proyectos(nombre), venta_lineas(*)").eq("user_id", user.id).order("fecha", { ascending: false });
+    const { data: cbrs } = await supabase.from("cobros").select("*").eq("user_id", user.id);
+    const { data: clis } = await supabase.from("clientes").select("*").eq("user_id", user.id).order("nombre");
+    const { data: projs } = await supabase.from("proyectos").select("id, nombre, estado, cliente_id, base_imponible, clientes(*)").eq("user_id", user.id).order("nombre");
+    const { data: fbc } = await supabase.from("formas_cobro").select("*").order("nombre"); // Esto suele ser global, pero si es por usuario, añadir eq
+    const { data: perf } = await supabase.from("perfil_negocio").select("*").eq("user_id", user.id).maybeSingle();
+
+    const preparedVentas = (vts || []).map(v => {
+      const misCobros = (cbrs || []).filter((c: any) => c.venta_id === v.id);
+      const totalCobrado = misCobros.reduce((acc: number, c: any) => acc + (c.importe || 0), 0);
+      const pendiente = Math.max(0, (v.total || 0) - totalCobrado);
+      let estadoPago = 'PENDIENTE';
+      if (v.total > 0) {
+        if (pendiente <= 0.01) estadoPago = 'COBRADA';
+        else if (totalCobrado > 0) estadoPago = 'PARCIALMENTE COBRADA';
+      }
+      
+      return { ...v, totalCobrado, estadoPago, pendiente };
+    });
+
+    // Calcular facturación acumulada por proyecto
+    const facturacionPorProyecto = (vts || []).reduce((acc: any, v: any) => {
+      if (!v.proyecto_id) return acc;
+      acc[v.proyecto_id] = (acc[v.proyecto_id] || 0) + (v.base_imponible || 0);
+      return acc;
+    }, {});
+
+    setVentas(preparedVentas);
+    setClientes(clis || []);
+    
+    // Preparar proyectos con nombre de cliente para el selector
+    const preparedProjs = (projs || [])
+      .filter(p => {
+        const pEstado = (p.estado || "").toLowerCase();
+        const estadoOk = pEstado === 'abierto' || pEstado === 'pendiente' || !pEstado;
+        if (!estadoOk) return false;
+        
+        const yaFacturado = facturacionPorProyecto[p.id] || 0;
+        const totalProy = p.base_imponible || 0;
+        if (totalProy <= 0) return false;
+
+        return yaFacturado < (totalProy - 0.01);
+      })
+      .map(p => ({
+        ...p,
+        originalNombre: p.nombre,
+        nombre: `[${p.clientes?.nombre || 'S/C'}] ${p.nombre}`
+      }));
+    setProyectos(preparedProjs);
+    setFormasCobro(fbc || []);
+    setPerfil(perf);
+    setLoading(false);
+  };
+
+  const addLinea = () => setLineas([...lineas, { unidades: 1, descripcion: "", precio_unitario: 0 }]);
+  const removeLinea = (index: number) => setLineas(lineas.filter((_, i) => i !== index));
+  
+  const updateLinea = (index: number, updates: Partial<LineaFactura>) => {
+    const newLineas = [...lineas];
+    newLineas[index] = { ...newLineas[index], ...updates };
+    setLineas(newLineas);
+  };
+
+  const baseImponible = lineas.reduce((acc, l) => acc + (l.unidades * l.precio_unitario), 0);
+  const cuotaIva = lineas.reduce((acc, l) => acc + (l.unidades * l.precio_unitario * (serie === "A" ? (l.iva_pct ?? 21) / 100 : 0)), 0);
+  const retencionImporte = (baseImponible * (retencionPct || 0)) / 100;
+  const totalFactura = baseImponible + cuotaIva - retencionImporte;
 
   const openEditVenta = (v: any) => {
     setEditingId(v.id);
+    setSerie(v.serie);
+    setNumFactura(v.num_factura);
     setFecha(v.fecha);
     setClienteId(v.cliente_id);
-    setNumFactura(v.num_factura);
-    setSerie(v.serie);
-    setProyectoId(v.proyecto_id || '');
-    setLineas(v.venta_lineas || []);
+    setProyectoId(v.proyecto_id || "");
+    setFormaCobroId(v.forma_cobro_id || "");
     setRetencionPct(v.retencion_pct || 0);
-    setFormaPago(v.forma_pago || '');
+    setFormaPago(v.forma_pago || perfil?.forma_pago_default || "");
+    
+    if (v.venta_lineas && v.venta_lineas.length > 0) {
+      setLineas(v.venta_lineas.map((l: any) => ({
+        unidades: l.unidades,
+        descripcion: l.descripcion,
+        precio_unitario: l.precio_unitario,
+        iva_pct: l.iva_pct
+      })));
+    } else {
+      setLineas([{ unidades: 1, descripcion: "", precio_unitario: 0 }]);
+    }
     setIsEditorOpen(true);
   };
 
-  const downloadInvoice = async (v: any) => {
-    if (!perfil) return;
-    const doc = await generateInvoicePDF(v, perfil);
-    doc.save(`Factura_${v.num_factura}.pdf`);
+  const handleSaveInvoice = async () => {
+    if (!clienteId || !numFactura) {
+      alert("Faltan datos obligatorios (Cliente, Nº Factura)");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const user = userData?.user;
+      if (!user) throw new Error("No hay sesión activa");
+
+      // 1. DETECTAR COLUMNAS REALES ANTES DE PROCEDER
+      const { data: colProbe } = await supabase.from("ventas").select("*").limit(1);
+      // Si no hay datos, usamos un set de columnas por defecto basado en el error reportado
+      const availableCols = (colProbe && colProbe.length > 0) ? Object.keys(colProbe[0]) : [];
+      const foundKey = (options: string[]) => options.find(o => availableCols.includes(o));
+
+      // 2. CONSTRUIR PAYLOAD QUIRÚRGICO
+      const payload: any = {
+        serie,
+        fecha,
+        cliente_id: clienteId,
+        user_id: user.id
+      };
+      
+      const setIfFound = (options: string[], value: any) => {
+        const key = foundKey(options);
+        if (key) payload[key] = value;
+      };
+
+      setIfFound(['num_factura', 'numero', 'referencia'], numFactura);
+      setIfFound(['base_imponible', 'base', 'importe'], baseImponible);
+      setIfFound(['iva_importe', 'cuota_iva', 'iva'], cuotaIva);
+      setIfFound(['retencion_importe', 'irpf_importe', 'retencion'], retencionImporte);
+      setIfFound(['total', 'importe_total'], totalFactura);
+      setIfFound(['proyecto_id', 'id_proyecto'], proyectoId || null);
+      setIfFound(['retencion_pct', 'irpf_pct'], retencionPct);
+      setIfFound(['iva_pct'], 21); // Para compatibilidad con columnas simples si existen
+      setIfFound(['forma_pago'], formaPago);
+
+      // Casos críticos de campos obligatorios si realKeys está vacío (primer insert)
+      if (availableCols.length === 0) {
+        payload.num_factura = numFactura;
+        payload.base_imponible = baseImponible;
+        payload.total = totalFactura;
+        payload.iva_importe = cuotaIva;
+        // NO incluimos retencion_importe si no estamos seguros (por eso fallaba)
+      }
+
+      let currentVentaId = editingId;
+
+      if (editingId) {
+        const { error: uErr } = await supabase.from("ventas").update(payload).eq("id", editingId);
+        if (uErr) throw uErr;
+      } else {
+        const { data: venta, error: vError } = await supabase.from("ventas").insert([payload]).select().single();
+        if (vError) throw vError;
+        currentVentaId = venta.id;
+        
+        // Actualizar el contador oficial en el perfil tras el éxito del registro
+        const nextCount = (perfil?.contador_ventas || 1) + 1;
+        await supabase.from("perfil_negocio").update({ contador_ventas: nextCount }).eq("user_id", user.id);
+        fetchData(); // Recargar datos localmente
+      }
+
+      const lineasToInsert = lineas.map(l => ({
+        venta_id: currentVentaId,
+        user_id: user.id,
+        unidades: l.unidades,
+        descripcion: l.descripcion,
+        precio_unitario: l.precio_unitario,
+        iva_pct: l.iva_pct ?? 21
+      }));
+
+      await supabase.from("venta_lineas").insert(lineasToInsert);
+
+      // --- AUTO ARCHIVADO PDF ---
+      try {
+        const { data: vFull } = await supabase.from('ventas').select('*, clientes(*)').eq('id', currentVentaId).single();
+        const pdfDoc = await generatePDF({
+          tipo: 'FACTURA',
+          numero: vFull.num_factura || `${vFull.serie}-${vFull.id.substring(0, 5)}`,
+          fecha: vFull.fecha,
+          cliente: {
+            nombre: vFull.clientes?.nombre || 'Particular',
+            nif: vFull.clientes?.nif || '',
+            direccion: vFull.clientes?.direccion || '',
+            poblacion: vFull.clientes?.poblacion || '',
+            cp: vFull.clientes?.codigo_postal || '',
+            provincia: vFull.clientes?.provincia || '',
+            email: vFull.clientes?.email || '',
+            telefono: vFull.clientes?.telefono || '',
+          },
+          perfil: perfil,
+          forma_pago: vFull.forma_pago || '',
+          lineas: lineas,
+          totales: {
+            base: baseImponible,
+            iva_pct: serie === "A" ? 21 : 0,
+            iva_importe: cuotaIva,
+            retencion_pct: retencionPct,
+            retencion_importe: retencionImporte,
+            total: totalFactura
+          }
+        });
+
+        const blob = pdfDoc.output('blob');
+        const publicUrl = await uploadInvoiceFile(blob, 'ventas', { 
+          number: vFull.num_factura, 
+          entity: vFull.clientes?.nombre || 'Cliente' 
+        });
+
+        await supabase.from('ventas').update({ archivo_url: publicUrl } as any).eq('id', currentVentaId);
+      } catch (pdfErr) {
+        console.error("Error auto-archivando PDF:", pdfErr);
+      }
+      // --------------------------
+
+      setIsEditorOpen(false);
+      setEditingId(null);
+      fetchData();
+    } catch (err: any) {
+      alert("Error al guardar: " + err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleVerifactuSubmit = async (v: any) => {
+    if (!perfil || !perfil.nif) {
+      alert("Configura tu NIF en Ajustes para enviar a Verifactu.");
+      return;
+    }
+
+    let currentPass = perfil.verifactu_pass;
+    
+    // Si no hay contraseña, la pedimos "la primera vez"
+    if (!currentPass) {
+      const p = prompt("Introduce la contraseña de tu certificado digital para este envío (se guardará cifrada para futuros envíos):");
+      if (!p) return;
+      
+      const encrypted = encrypt(p);
+      const { error } = await supabase.from('perfil_negocio').update({ verifactu_pass: encrypted }).eq('user_id', perfil.user_id);
+      if (error) {
+        alert("Error al guardar la contraseña cifrada: " + error.message);
+        return;
+      }
+      currentPass = encrypted;
+      // Actualizamos perfil local para no volver a pedirlo en esta sesión
+      setPerfil({ ...perfil, verifactu_pass: encrypted });
+    }
+
+    if (!confirm(`¿Transmitir la factura ${v.num_factura} a la AEAT (Verifactu)?`)) return;
+
+    setSaving(true);
+    try {
+      // 1. Obtener última factura enviada para el encadenamiento
+      const { data: lastVenta } = await supabase
+        .from("ventas")
+        .select("verifactu_hash")
+        .not("verifactu_hash", "is", null)
+        .order("fecha", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const record: any = {
+        nifExpedidor: perfil.nif,
+        numFactura: v.num_factura,
+        fechaExpedicion: v.fecha,
+        tipoFactura: 'F1', // Factura ordinaria
+        importeTotal: v.total,
+        hashAnterior: lastVenta?.verifactu_hash || ''
+      };
+
+      const result = await sendInvoiceToAeat(record, perfil);
+
+      if (result.success) {
+        // 2. Actualizar registro en DB
+        const { error } = await supabase.from("ventas").update({
+          verifactu_status: 'enviado',
+          verifactu_ref_aeat: result.refAeat,
+          verifactu_fecha_envio: new Date().toISOString(),
+          verifactu_hash: (record.hashAnterior || '') + 'MOCKED_HASH_CHAIN' // En prod esto lo devolvería el service
+        }).eq("id", v.id);
+
+        if (error) throw error;
+        alert("✅ Factura transmitida y aceptada por la AEAT.");
+        fetchData();
+      } else {
+        alert("❌ Error AEAT: " + result.errorMsg);
+      }
+    } catch (err: any) {
+      alert("Error en el proceso Verifactu: " + err.message);
+    } finally {
+      setSaving(false);
+      setOpenMenuId(null);
+    }
+  };
+
+  const handleDeleteVenta = async (v: any) => {
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const user = userData?.user;
+      if (!user) return;
+
+      // 1. Comprobar si tiene cobros (Filtrado por usuario)
+      const { data: cobros } = await supabase
+        .from("cobros")
+        .select("id")
+        .eq("venta_id", v.id)
+        .eq("user_id", user.id);
+      
+      if (cobros && cobros.length > 0) {
+        alert("No se puede eliminar la factura, tendrás que emitir una rectificativa (Motivo: Tiene cobros asociados)");
+        return;
+      }
+
+      // 2. Comprobar si es la última emitida (Filtrado por usuario)
+      const { data: posteriores } = await supabase
+        .from("ventas")
+        .select("id")
+        .eq("serie", v.serie)
+        .eq("user_id", user.id)
+        .gt("num_factura", v.num_factura)
+        .limit(1);
+
+      if (posteriores && posteriores.length > 0) {
+        alert("No se puede eliminar la factura, tendrás que emitir una rectificativa (Motivo: No es la última factura emitida)");
+        return;
+      }
+
+      // 3. Comprobar Verifactu
+      if (v.verifactu_status === 'enviado') {
+        alert("No se puede eliminar la factura, tendrás que emitir una rectificativa (Motivo: Ya enviada a Verifactu)");
+        return;
+      }
+
+      if (!confirm(`¿Seguro que quieres eliminar la factura ${v.num_factura}?`)) return;
+
+      const { error } = await supabase.from("ventas").delete().eq("id", v.id).eq("user_id", user.id);
+      if (error) throw error;
+
+      // Eliminar el PDF del Storage para no dejar archivos huérfanos en la gestión documental
+      if (v.archivo_url) await deleteInvoiceFile(v.archivo_url);
+
+      alert("✅ Factura eliminada correctamente");
+      fetchData();
+    } catch (err: any) {
+      alert("Error al eliminar: " + err.message);
+    } finally {
+      setOpenMenuId(null);
+    }
+  };
+
+  const downloadInvoice = async (venta: any) => {
+    if (!perfil) {
+      alert("Configura primero tus datos de empresa en Ajustes.");
+      return;
+    }
+
+    try {
+      // Mapear los datos de la factura al formato esperado por el generador
+      const pdfData: any = {
+        tipo: 'FACTURA',
+        numero: venta.num_factura,
+        fecha: venta.fecha,
+        cliente: {
+          nombre: venta.clientes?.nombre || 'Consumidor Final',
+          nif: venta.clientes?.nif || '',
+          direccion: venta.clientes?.direccion || '',
+          poblacion: venta.clientes?.poblacion || '',
+          cp: venta.clientes?.codigo_postal || '',
+          provincia: venta.clientes?.provincia || '',
+          email: venta.clientes?.email || '',
+          telefono: venta.clientes?.telefono || ''
+        },
+        perfil: perfil,
+        forma_pago: venta.forma_pago || '',
+        lineas: (venta.venta_lineas || []).map((l: any) => ({
+          unidades: l.unidades,
+          descripcion: l.descripcion,
+          precio_unitario: l.precio_unitario
+        })),
+        totales: {
+          base: venta.base_imponible,
+          iva_pct: venta.iva_pct || 21,
+          iva_importe: venta.iva_importe,
+          retencion_pct: venta.retencion_pct || 0,
+          retencion_importe: venta.retencion_importe || 0,
+          total: venta.total
+        }
+      };
+
+      const doc = await generatePDF(pdfData);
+      const pdfBlob = doc.output('blob');
+
+      // Subir a Storage si no tiene pdf_url o si queremos actualizarla
+      const publicUrl = await uploadInvoiceFile(pdfBlob, 'ventas', {
+        number: venta.num_factura,
+        entity: venta.clientes?.nombre || 'cliente'
+      });
+
+      if (publicUrl && !venta.pdf_url) {
+        await supabase.from("ventas").update({ pdf_url: publicUrl }).eq("id", venta.id);
+        await fetchData();
+      }
+    } catch (err: any) {
+      console.error("Error al generar/guardar PDF:", err);
+    }
+  };
+
+  const handleSendByEmail = async (venta: any) => {
+    if (!perfil || !perfil.smtp_email || !perfil.smtp_app_password) {
+      const missing = !perfil ? 'Perfil' : (!perfil.smtp_email ? 'Email' : 'Contraseña de Aplicación');
+      alert(`⚠️ Configuración incompleta (${missing}). Revisa Ajustes > Email.`);
+      return;
+    }
+
+    const recipientEmail = venta.clientes?.email;
+    if (!recipientEmail) {
+      alert("⚠️ El cliente no tiene un email configurado.");
+      return;
+    }
+
+    if (!confirm(`¿Enviar esta factura por email a ${recipientEmail}?`)) return;
+
+    setSaving(true);
+    try {
+      const pdfData: any = {
+        tipo: 'FACTURA',
+        numero: venta.num_factura,
+        fecha: venta.fecha,
+        cliente: {
+          nombre: venta.clientes?.nombre || 'Consumidor Final',
+          nif: venta.clientes?.nif || '',
+          direccion: venta.clientes?.direccion || '',
+          poblacion: venta.clientes?.poblacion || '',
+          cp: venta.clientes?.codigo_postal || '',
+          provincia: venta.clientes?.provincia || '',
+          email: venta.clientes?.email || '',
+          telefono: venta.clientes?.telefono || ''
+        },
+        perfil: perfil,
+        forma_pago: venta.forma_pago || '',
+        lineas: (venta.venta_lineas || []).map((l: any) => ({
+          unidades: l.unidades,
+          descripcion: l.descripcion,
+          precio_unitario: l.precio_unitario
+        })),
+        totales: {
+          base: venta.base_imponible,
+          iva_pct: venta.iva_pct || 21,
+          iva_importe: venta.iva_importe,
+          retencion_pct: venta.retencion_pct || 0,
+          retencion_importe: venta.retencion_importe || 0,
+          total: venta.total
+        }
+      };
+
+      const doc = await generatePDF(pdfData);
+      const pdfBase64 = doc.output('datauristring').split(',')[1];
+
+      const res = await fetch('/api/email/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: recipientEmail,
+          subject: `Factura ${venta.num_factura} — ${perfil.nombre}`,
+          body: `Hola ${venta.clientes?.nombre || ''},\n\nAdjuntamos la factura ${venta.num_factura} correspondiente a nuestros servicios.\n\nSaludos cordiales,\n${perfil.nombre}`,
+          pdfBase64,
+          fileName: `Factura_${venta.num_factura}.pdf`,
+          smtpEmail: perfil.smtp_email,
+          smtpPassword: decrypt(perfil.smtp_app_password),
+          senderName: perfil.nombre
+        }),
+      });
+
+      const result = await res.json();
+      if (result.success) {
+        alert("✅ Factura enviada correctamente.");
+      } else {
+        alert("❌ Error al enviar: " + result.error);
+      }
+    } catch (err: any) {
+      console.error("Error sending email:", err);
+      alert("❌ Error inesperado al enviar el email.");
+    } finally {
+      setSaving(false);
+      setOpenMenuId(null);
+    }
   };
 
   const handleSort = (field: string) => {
-    setSortConfig(prev => ({
-      field,
-      direction: prev.field === field && prev.direction === 'desc' ? 'asc' : 'desc'
-    }));
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === field && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key: field, direction });
   };
 
   const handleFilter = (field: string, value: string) => {
@@ -300,209 +719,86 @@ export default function VentasPage() {
   };
 
   const filteredVentas = ventas.filter(v => {
-    const searchString = `${v.num_factura} ${v.clientes?.nombre} ${v.total}`.toLowerCase();
-    const matchesSearch = searchString.includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || v.estadoPago === statusFilter;
+    // Global search
+    const matchesGlobal = searchTerm === '' || 
+      v.num_factura.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (v.clientes?.nombre && v.clientes.nombre.toLowerCase().includes(searchTerm.toLowerCase()));
     
-    const matchesColumns = Object.entries(columnFilters).every(([field, val]) => {
-      if (!val) return true;
-      let targetValue = "";
-      if (field === 'cliente') targetValue = v.clientes?.nombre || "";
-      else if (field === 'fecha') targetValue = new Date(v.fecha).toLocaleDateString();
-      else targetValue = String(v[field] || "");
-      return targetValue.toLowerCase().includes(val.toLowerCase());
+    // Column filters
+    const matchesColumns = Object.keys(columnFilters).every(key => {
+      if (!columnFilters[key]) return true;
+      let val = '';
+      if (key === 'cliente') val = v.clientes?.nombre || '';
+      else if (key === 'num_factura') val = v.num_factura || '';
+      else if (key === 'total') val = v.total.toString() || '';
+      else if (key === 'estadoPago') val = v.estadoPago || '';
+      else val = v[key] || '';
+      return val.toString().toLowerCase().includes(columnFilters[key].toLowerCase());
     });
 
-    return matchesSearch && matchesStatus && matchesColumns;
+    return matchesGlobal && matchesColumns;
   }).sort((a, b) => {
-    const { field, direction } = sortConfig;
-    let valA = a[field];
-    let valB = b[field];
-
-    if (field === 'cliente') {
-      valA = a.clientes?.nombre;
-      valB = b.clientes?.nombre;
+    if (!sortConfig) return 0;
+    let aVal, bVal;
+    
+    if (sortConfig.key === 'cliente') {
+      aVal = a.clientes?.nombre || '';
+      bVal = b.clientes?.nombre || '';
+    } else if (sortConfig.key === 'num_factura') {
+      aVal = a.num_factura || '';
+      bVal = b.num_factura || '';
+    } else if (sortConfig.key === 'total') {
+      aVal = a.total || 0;
+      bVal = b.total || 0;
+    } else if (sortConfig.key === 'estadoPago') {
+      aVal = a.estadoPago || '';
+      bVal = b.estadoPago || '';
+    } else {
+      aVal = a[sortConfig.key] || '';
+      bVal = b[sortConfig.key] || '';
     }
     
-    if (valA < valB) return direction === 'asc' ? -1 : 1;
-    if (valA > valB) return direction === 'asc' ? 1 : -1;
+    if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+    if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
     return 0;
   });
-
-  const handleProjectToInvoice = async (projId: string, percentage: number) => {
-     try {
-        setSaving(true);
-        const { data: proj, error: pErr } = await supabase
-          .from('proyectos')
-          .select('*, presupuesto_lineas(*)')
-          .eq('id', projId)
-          .single();
-        
-        if (pErr) throw pErr;
-
-        // Autogenerar Número
-        const nextNum = (perfil?.contador_ventas || 1);
-        const prefix = perfil?.prefijo_ventas || "";
-        const finalNum = `${prefix}${nextNum}`;
-
-        setEditingId(null);
-        setFecha(new Date().toISOString().split('T')[0]);
-        setClienteId(proj.cliente_id);
-        setNumFactura(finalNum);
-        setProyectoId(projId);
-        
-        // Mapear líneas con el porcentaje aplicado
-        const newLines = proj.presupuesto_lineas.map((l: any) => ({
-           descripcion: `${l.descripcion} (${percentage}% s/presupuesto)`,
-           unidades: l.unidades,
-           precio_unitario: l.precio_unitario * (percentage / 100),
-           iva_pct: l.iva_pct
-        }));
-        
-        setLineas(newLines);
-        setIsWizardOpen(false);
-        setIsEditorOpen(true);
-     } catch (err: any) {
-        alert(err.message);
-     } finally {
-        setSaving(false);
-     }
-  };
-
-  const handleRegisterCobro = async () => {
-     if (!selectedVenta || !cobroImporte) return;
-     setSaving(true);
-     try {
-        const { error } = await supabase.from('pagos').insert({
-           venta_id: selectedVenta.id,
-           user_id: user.id,
-           importe: parseFloat(cobroImporte),
-           fecha: cobroFecha,
-           metodo: cobroForma
-        });
-        if (error) throw error;
-        
-        setIsCobroModalOpen(false);
-        fetchData();
-        alert('✅ Cobro registrado correctamente.');
-     } catch (err: any) {
-        alert(err.message);
-     } finally {
-        setSaving(false);
-     }
-  };
-
-  const handleVerifactuSubmit = async (v: any) => {
-    alert("🚀 Transmisión VeriFactu (AEAT) en desarrollo. Se utilizará el certificado subido en Ajustes.");
-  };
-
-  const handleSendByEmail = async (v: any) => {
-    alert(`📧 Enviando factura ${v.num_factura} a ${v.clientes?.email || 'email no disponible'}`);
-  };
-
-  const DataTableHeader = ({ label, field, sortConfig, onSort, filterValue, onFilter }: any) => (
-    <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest text-left">
-      <div className="flex items-center gap-2 cursor-pointer hover:text-[var(--accent)] transition-colors mb-2" onClick={() => onSort(field)}>
-        {label} {sortConfig.field === field && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-      </div>
-      <div className="relative">
-        <input 
-          type="text" 
-          value={filterValue}
-          onChange={(e) => onFilter(field, e.target.value)}
-          placeholder="filtrar..." 
-          className="w-full px-3 py-1.5 bg-gray-50 border border-gray-100 rounded-lg text-[10px] font-bold outline-none focus:bg-white focus:ring-4 focus:ring-orange-500/5 transition-all lowercase"
-        />
-      </div>
-    </th>
-  );
-
-  if (loading) return (
-    <div className="flex h-screen items-center justify-center bg-gray-50">
-      <Loader2 className="animate-spin text-[var(--accent)]" size={48} />
-    </div>
-  );
 
   return (
     <div className="flex bg-[var(--background)] min-h-screen">
       <Sidebar />
-      <div className="flex-1 p-8 space-y-8 overflow-y-auto">
+      <div className="flex-1 p-8 overflow-y-auto">
         {!isEditorOpen ? (
           <>
-            <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
-              <div className="space-y-1">
-                <h1 className="text-4xl font-black font-head tracking-tighter text-[var(--foreground)]">Ventas y Facturación</h1>
-                <p className="text-[var(--muted)] font-medium">Gestiona tus ingresos y emite facturas profesionales.</p>
+            <header className="flex justify-between items-center mb-10">
+              <div>
+                <h1 className="text-3xl font-bold font-head tracking-tight mb-1 text-[var(--foreground)]">Facturas Emitidas</h1>
+                <p className="text-[var(--muted)] font-medium">Gestión y emisión de facturas profesionales.</p>
               </div>
               <div className="flex gap-3">
-                 <button 
-                  onClick={() => { exportVATBookPDF('ventas', ventas, perfil); }} 
-                  className="flex items-center gap-2 px-5 py-3 bg-white border border-gray-200 text-gray-700 rounded-2xl font-bold hover:bg-gray-50 transition-all shadow-sm"
+                <button 
+                  onClick={() => exportVATBookPDF('ventas', filteredVentas, perfil)} 
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white text-gray-700 border border-gray-200 font-bold hover:bg-gray-50 transition-all active:scale-95 shadow-sm"
                 >
-                  <FileSpreadsheet size={18} className="text-blue-500" /> Libro IVA (PDF)
+                  <Download size={18} /> Libro IVA (PDF)
                 </button>
                 <button 
-                  onClick={() => { exportVATBookExcel('ventas', ventas); }} 
-                  className="flex items-center gap-2 px-5 py-3 bg-white border border-gray-200 text-gray-700 rounded-2xl font-bold hover:bg-gray-50 transition-all shadow-sm"
+                  onClick={() => exportVATBookExcel('ventas', filteredVentas)} 
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white text-green-700 border border-gray-200 font-bold hover:bg-gray-50 transition-all active:scale-95 shadow-sm"
                 >
-                  <Zap size={18} className="text-orange-500" /> Libro IVA (Excel)
+                  <Download size={18} /> Libro IVA (Excel)
                 </button>
-                <button 
-                  onClick={() => setIsWizardOpen(true)}
-                  className="flex items-center gap-2 px-6 py-3 bg-[var(--accent)] text-white rounded-2xl font-black shadow-lg shadow-orange-100 hover:shadow-orange-200 hover:-translate-y-0.5 transition-all"
-                >
-                  <PlusCircle size={20} /> Emitir Factura
+                <button onClick={() => setIsWizardOpen(true)} className="flex items-center gap-2 px-6 py-3 rounded-xl bg-[var(--accent)] text-white font-bold hover:shadow-lg transition-all active:scale-[0.98]">
+                  <Plus size={18} /> Crear Factura
                 </button>
               </div>
             </header>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              <div className="bg-white p-6 rounded-3xl border shadow-sm space-y-1">
-                <div className="flex justify-between items-center"><span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Facturación Total</span><Building2 className="text-blue-200" size={16}/></div>
-                <p className="text-2xl font-black font-head">{formatCurrency(ventas.reduce((acc, v) => acc + v.total, 0))}</p>
-              </div>
-              <div className="bg-white p-6 rounded-3xl border shadow-sm space-y-1">
-                 <div className="flex justify-between items-center"><span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Cobrado</span><CheckCircle2 className="text-green-200" size={16}/></div>
-                 <p className="text-2xl font-black font-head text-green-600">{formatCurrency(ventas.reduce((acc, v) => acc + (v.totalCobrado || 0), 0))}</p>
-              </div>
-              <div className="bg-white p-6 rounded-3xl border shadow-sm space-y-1">
-                 <div className="flex justify-between items-center"><span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Pendiente de Cobro</span><Clock className="text-red-200" size={16}/></div>
-                 <p className="text-2xl font-black font-head text-red-600">{formatCurrency(ventas.reduce((acc, v) => acc + (v.pendiente || 0), 0))}</p>
-              </div>
-              <div className="bg-white p-6 rounded-3xl border shadow-sm space-y-1">
-                 <div className="flex justify-between items-center"><span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Último Nº</span><Receipt className="text-emerald-200" size={16}/></div>
-                 <p className="text-2xl font-black font-head text-emerald-600">{perfil?.serie_ventas}{perfil?.contador_ventas - 1}</p>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-[2.5rem] border shadow-sm overflow-hidden">
-               <div className="p-6 border-b bg-gray-50/50 flex flex-col md:flex-row justify-between gap-4">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-                    <input 
-                      type="text" 
-                      placeholder="Buscar por cliente, factura o importe..." 
-                      className="w-full pl-12 pr-6 py-3.5 bg-white border border-gray-200 rounded-2xl outline-none focus:ring-4 focus:ring-orange-500/5 transition-all font-medium shadow-sm"
-                      value={searchTerm}
-                      onChange={e => setSearchTerm(e.target.value)}
-                    />
-                  </div>
-                  <select 
-                    value={statusFilter}
-                    onChange={e => setStatusFilter(e.target.value)}
-                    className="px-6 py-3.5 bg-white border border-gray-200 rounded-2xl outline-none font-bold text-gray-600 shadow-sm"
-                  >
-                    <option value="all">Todos los estados</option>
-                    <option value="COBRADA">Cobrada</option>
-                    <option value="PENDIENTE">Pendiente</option>
-                    <option value="PARCIALMENTE COBRADA">Parcial</option>
-                  </select>
-               </div>
+            <div className="glass-card bg-white shadow-sm border-[var(--border)] overflow-visible text-left min-h-[400px]">
 
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="bg-gray-50/30">
-                      <DataTableHeader label="Nº Factura" field="num_factura" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.num_factura || ''} onFilter={handleFilter} />
+                    <tr className="bg-gray-50/50 border-b border-[var(--border)]">
+                      <DataTableHeader label="Factura" field="num_factura" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.num_factura || ''} onFilter={handleFilter} />
                       <DataTableHeader label="Fecha" field="fecha" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.fecha || ''} onFilter={handleFilter} />
                       <DataTableHeader label="Cliente" field="cliente" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.cliente || ''} onFilter={handleFilter} />
                       <DataTableHeader label="Total" field="total" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.total || ''} onFilter={handleFilter} />
@@ -634,8 +930,8 @@ export default function VentasPage() {
                 <div><label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Nº Factura</label><input type="text" value={numFactura} onChange={(e) => setNumFactura(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200 bg-gray-50 font-mono" /></div>
                 <div><label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Fecha</label><input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200 bg-gray-50" /></div>
                 <div className="hidden">
-                  <select value={clienteId} onChange={(e) => setClienteId(e.target.value)}>
-                    {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                  <select value={formaCobroId} onChange={(e) => setFormaCobroId(e.target.value)}>
+                    {formasCobro.map(f => <option key={f.id} value={f.id}>{f.nombre}</option>)}
                   </select>
                 </div>
                 <div className="md:col-span-2">
@@ -766,7 +1062,7 @@ export default function VentasPage() {
                   {!selectedProjId && (
                     <>
                       <button 
-                        onClick={() => { setEditingId(null); setClienteId(""); setProyectoId(""); setLineas([{ unidades: 1, descripcion: "", precio_unitario: 0, iva_pct: 21 }]); setIsWizardOpen(false); setIsEditorOpen(true); }}
+                        onClick={() => { setEditingId(null); setClienteId(""); setProyectoId(""); setLineas([{ unidades: 1, descripcion: "", precio_unitario: 0 }]); setIsWizardOpen(false); setIsEditorOpen(true); }}
                         className="flex items-center gap-4 p-4 rounded-xl border-2 border-dashed border-gray-200 hover:border-[var(--accent)] hover:bg-orange-50 transition-all text-left group"
                       >
                         <div className="p-3 rounded-lg bg-gray-100 group-hover:bg-orange-100 text-gray-500 group-hover:text-[var(--accent)]"><Plus size={24}/></div>
