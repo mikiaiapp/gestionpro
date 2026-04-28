@@ -852,54 +852,52 @@ function VentasContent() {
                           <div className="font-black text-gray-800 text-lg tracking-tight mb-1 group-hover:text-orange-600 transition-colors">
                             {formatCurrency(v.total || 0)}
                           </div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500 font-medium">
-                        {new Date(venta.fecha).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 text-sm font-mono font-bold text-gray-900">
-                        {formatCurrency(venta.total || 0)}
+                        </td>
+                        <td className="px-6 py-4 text-sm font-mono font-bold text-right text-red-600">
+                        <div className={`text-[10px] font-bold ${v.pendiente > 0 ? 'text-red-500 bg-red-50' : 'text-green-600 bg-green-50'} px-2 py-0.5 rounded-full inline-flex items-center gap-1 border border-current/10`}>
+                          {v.pendiente > 0 ? formatCurrency(v.pendiente) : '-'}
+                        </div>
                       </td>
                       <td className="px-6 py-4">
                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                          venta.estadoPago === 'COBRADA' ? 'bg-green-50 text-green-600' : 
-                          venta.estadoPago === 'PARCIALMENTE COBRADA' ? 'bg-orange-50 text-orange-600' : 
+                          v.estadoPago === 'COBRADA' ? 'bg-green-50 text-green-600' : 
+                          v.estadoPago === 'PARCIALMENTE COBRADA' ? 'bg-orange-50 text-orange-600' : 
                           'bg-gray-50 text-gray-500'
                         }`}>
-                          {venta.estadoPago}
+                          {v.estadoPago}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right relative">
                         <button 
                           onClick={(e) => {
                             e.stopPropagation();
-                            setOpenMenuId(openMenuId === venta.id ? null : venta.id);
+                            setOpenMenuId(openMenuId === v.id ? null : v.id);
                           }}
                           className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-gray-600 transition-colors"
                         >
                           <MoreHorizontal size={20} />
                         </button>
 
-                        {openMenuId === venta.id && (
+                        {openMenuId === v.id && (
                           <div className="absolute right-6 top-12 w-52 bg-white rounded-xl shadow-xl border z-50 py-2 animate-in fade-in slide-in-from-top-2 duration-200 text-left">
-                            <button onClick={() => downloadInvoice(venta)} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+                            <button onClick={() => downloadInvoice(v)} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
                               <Download size={16} className="text-blue-500" /> Descargar PDF
                             </button>
-                            <button onClick={() => handleSendByEmail(venta)} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+                            <button onClick={() => handleSendByEmail(v)} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
                               <Mail size={16} className="text-purple-500" /> Enviar por Email
                             </button>
                             
                             <div className="h-px bg-gray-100 my-1 mx-2"></div>
 
-                            <button onClick={() => openEditVenta(venta)} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+                            <button onClick={() => openEditVenta(v)} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
                               <Pencil size={16} className="text-blue-500" /> Editar Factura
                             </button>
                             
-                            {venta.estadoPago !== 'COBRADA' && (
+                            {v.estadoPago !== 'COBRADA' && (
                               <button 
                                 onClick={() => {
-                                  setSelectedVenta(venta);
-                                  const balance = Math.max(0, venta.total - (venta.totalCobrado || 0));
+                                  setSelectedVenta(v);
+                                  const balance = Math.max(0, v.total - (v.totalCobrado || 0));
                                   setCobroImporte(balance.toFixed(2));
                                   setIsCobroModalOpen(true);
                                   setOpenMenuId(null);
@@ -910,16 +908,18 @@ function VentasContent() {
                               </button>
                             )}
                             
-                            <button onClick={() => handleVerifactuSubmit(venta)} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-blue-600 hover:bg-blue-50 transition-colors">
+                            <button onClick={() => handleVerifactuSubmit(v)} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-blue-600 hover:bg-gray-50 transition-colors">
                               <ShieldCheck size={16} className="text-blue-500" /> Enviar a Verifactu
                             </button>
 
                             <div className="h-px bg-gray-100 my-1 mx-2"></div>
                             
-                            <button onClick={() => handleDeleteVenta(venta)} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors">
+                            <button onClick={() => handleDeleteVenta(v)} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors">
                               <Trash2 size={16} /> Eliminar
                             </button>
                           </div>
+                        )}
+                      </td>          </div>
                         )}
                       </td>
                     </tr>

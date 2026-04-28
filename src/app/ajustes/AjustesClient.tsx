@@ -2,28 +2,21 @@
 
 import { useState, useEffect, useRef } from "react";
 import { 
-  Building2, 
-  Percent,
-  RefreshCcw,
-  CheckCircle2,
-  Loader2,
-  Lock,
-  ImageIcon,
-  Upload,
-  Trash2,
-  ShieldCheck,
-  CloudCheck,
-  Database,
-  DownloadCloud,
-  RotateCcw,
-  Smartphone,
-  Scale,
-  FileText,
-  Table,
-  LayoutGrid,
-  AlertTriangle,
+  Building2, Percent, RefreshCcw, CheckCircle2, Loader2, Lock, ImageIcon, 
+  Upload, Trash2, ShieldCheck, CloudCheck, Database, DownloadCloud, 
+  RotateCcw, Smartphone, Scale, FileText, Table, LayoutGrid, AlertTriangle,
+  Settings2, Save, Plus, X, Pencil, Globe, Mail, Phone, Palette, Briefcase, 
+  ChevronRight, Download, BookOpen, UserPlus, Sparkles, Share2, Fingerprint,
+  ChevronUp, ChevronDown
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { supabase } from "@/lib/supabase";
+import { Sidebar } from "@/components/Sidebar";
+import { SidebarItem } from "@/components/SidebarItem";
+import { encrypt, decrypt } from "@/lib/encryption";
+import { getFullLocationByCP } from "@/lib/geoData";
+import { uploadLogo, uploadCorpImage } from "@/lib/storageService";
+import { cleanNIF } from "@/lib/format";
 
 export default function AjustesClient() {
   const [user, setUser] = useState<any>(null);
