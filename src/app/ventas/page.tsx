@@ -608,6 +608,10 @@ function VentasContent() {
       };
 
       const doc = await generatePDF(pdfData);
+      
+      // DISPARAR DESCARGA REAL
+      doc.save(`Factura_${venta.num_factura}.pdf`);
+
       const pdfBlob = doc.output('blob');
 
       // Subir a Storage si no tiene pdf_url o si queremos actualizarla
