@@ -24,6 +24,9 @@ interface LineaFactura {
   iva_pct?: number; // Opcional para retrocompatibilidad
 }
 
+type SortConfig = { key: string; direction: 'asc' | 'desc' };
+type ColumnFilters = { [key: string]: string };
+
 export default function VentasPage() {
   return (
     <Suspense fallback={<div className="flex h-screen items-center justify-center bg-[var(--background)]"><Loader2 className="animate-spin text-[var(--accent)]" size={40} /></div>}>
@@ -49,8 +52,8 @@ function VentasContent() {
 
   // Sorting and Filtering State
   const [searchTerm, setSearchTerm] = useState("");
-  const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>({ key: 'fecha', direction: 'desc' });
-  const [columnFilters, setColumnFilters] = useState<{ [key: string]: string }>({});
+  const [sortConfig, setSortConfig] = useState<SortConfig | null>({ key: 'fecha', direction: 'desc' });
+  const [columnFilters, setColumnFilters] = useState<ColumnFilters>({});
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
 
@@ -785,7 +788,8 @@ function VentasContent() {
     return filteredVentas.slice(start, start + pageSize);
   }, [filteredVentas, currentPage, pageSize]);
 
-  const totalPages = Math.ceil(filteredVentas.length / pageSize);
+  const totalCount = filteredVentas.length;
+  const totalPages = Math.ceil(totalCount / pageSize);
 
   return (
     <div className="flex bg-[var(--background)] min-h-screen">

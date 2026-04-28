@@ -13,8 +13,8 @@ export default function PagosPage() {
   const [searchTerm, setSearchTerm] = useState("");
   
   // Sorting and Filtering State
-  const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>({ key: 'fecha', direction: 'desc' });
-  const [columnFilters, setColumnFilters] = useState<{ [key: string]: string }>({});
+  const [sortConfig, setSortConfig] = useState<SortConfig | null>({ key: 'fecha', direction: 'desc' });
+  const [columnFilters, setColumnFilters] = useState<ColumnFilters>({});
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
 
@@ -164,7 +164,8 @@ export default function PagosPage() {
     return filteredPagos.slice(start, start + pageSize);
   }, [filteredPagos, currentPage, pageSize]);
 
-  const totalPages = Math.ceil(filteredPagos.length / pageSize);
+  const totalCount = filteredPagos.length;
+  const totalPages = Math.ceil(totalCount / pageSize);
 
   return (
     <div className="flex bg-[var(--background)] min-h-screen">

@@ -60,8 +60,8 @@ export default function CostesPage() {
   const [pagoForma, setPagoForma] = useState("Transferencia");
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>({ key: 'fecha', direction: 'desc' });
-  const [columnFilters, setColumnFilters] = useState<{ [key: string]: string }>({});
+  const [sortConfig, setSortConfig] = useState<SortConfig | null>({ key: 'fecha', direction: 'desc' });
+  const [columnFilters, setColumnFilters] = useState<ColumnFilters>({});
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
 
@@ -697,7 +697,8 @@ export default function CostesPage() {
     return filteredCostes.slice(start, start + pageSize);
   }, [filteredCostes, currentPage, pageSize]);
 
-  const totalPages = Math.ceil(filteredCostes.length / pageSize);
+  const totalCount = filteredCostes.length;
+  const totalPages = Math.ceil(totalCount / pageSize);
 
   return (
     <div className="flex bg-[var(--background)] min-h-screen text-left">

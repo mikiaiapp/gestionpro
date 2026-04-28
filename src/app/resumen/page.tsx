@@ -177,6 +177,7 @@ export default function ResumenPage() {
 
   const margenRealTotal = totals.realVenta - totals.realCoste;
   const margenPrevTotal = totals.previstoVenta - totals.previstoCoste;
+  const globalMargenMedio = (proyectos.reduce((acc, p) => acc + (p.margenPct || 0), 0) / (proyectos.length || 1)).toFixed(1);
 
   return (
     <div className="flex bg-[var(--background)] min-h-screen text-left">
@@ -196,7 +197,7 @@ export default function ResumenPage() {
              <div className="text-right">
                 <div className="text-[10px] font-bold text-[var(--muted)] uppercase">Global Margen Medio</div>
                 <div className="text-xl font-bold text-[var(--foreground)]">
-                   {(proyectos.reduce((acc, p) => acc + (p.margenPct || 0), 0) / (proyectos.length || 1)).toFixed(1)}%
+                   {globalMargenMedio}%
                 </div>
              </div>
           </div>

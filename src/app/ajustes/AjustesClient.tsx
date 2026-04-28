@@ -18,6 +18,11 @@ import { getFullLocationByCP } from "@/lib/geoData";
 import { uploadLogo, uploadCorpImage } from "@/lib/storageService";
 import { cleanNIF } from "@/lib/format";
 
+type SortConfig = { key: string; direction: 'asc' | 'desc' };
+type ImportResult = { total: number; success: number; errors: number };
+type ColumnFilters = { [key: string]: string };
+type TabType = 'perfil' | 'ai' | 'legales' | 'seguridad' | 'fiscalidad' | 'backup' | 'email' | 'import' | 'mantenimiento' | 'negocio' | 'facturacion' | 'integraciones' | 'legal';
+
 export default function AjustesClient() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -65,8 +70,8 @@ export default function AjustesClient() {
 
   // Mantenimiento
   const [isResetting, setIsResetting] = useState(false);
-  const [importResults, setImportResults] = useState<{ total: number; success: number; errors: number } | null>(null);
-  const [activeTab, setActiveTab] = useState<'perfil' | 'ai' | 'legales' | 'seguridad' | 'fiscalidad' | 'backup' | 'email' | 'import' | 'mantenimiento'>('perfil');
+  const [importResults, setImportResults] = useState<ImportResult | null>(null);
+  const [activeTab, setActiveTab] = useState<TabType>('perfil');
 
   const initialLoadDone = useRef(false);
 
@@ -571,21 +576,16 @@ export default function AjustesClient() {
     </div>
   );
 
-  const navItems = [
-    { id: 'perfil', label: 'Identidad', icon: Building2, color: 'text-blue-600' },
-    { id: 'ai', label: 'IA & Bot', icon: RefreshCcw, color: 'text-purple-600' },
-    { id: 'legales', label: 'Legal & LOPD', icon: Scale, color: 'text-orange-600' },
-    { id: 'seguridad', label: 'Seguridad', icon: ShieldCheck, color: 'text-green-600' },
-    { id: 'email', label: 'Email', icon: FileText, color: 'text-blue-500' },
-    { id: 'fiscalidad', label: 'Fiscalidad', icon: Percent, color: 'text-emerald-600' },
-    { id: 'backup', label: 'Backup', icon: Database, color: 'text-indigo-600' },
-    { id: 'import', label: 'Importar', icon: Table, color: 'text-pink-600' },
-    { id: 'mantenimiento', label: 'Mantenimiento', icon: AlertTriangle, color: 'text-red-600' },
-  ];
 
   const lastBackup = autoBackups[0];
   const lastBackupStr = lastBackup 
-    ? new Date(lastBackup.created_at).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    ? new Date(lastBackup.created_at).toLocaleString('es-ES', { 
+        day: '2-digit', 
+        month: '2-digit', 
+        year: 'numeric', 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      })
     : 'No disponible';
 
   return (
@@ -628,7 +628,7 @@ export default function AjustesClient() {
               <BookOpen size={20} /> Textos Legales
             </button>
             <button onClick={() => setActiveTab("seguridad")} className={`w-full flex items-center gap-3 px-6 py-4 rounded-2xl font-black transition-all ${activeTab === "seguridad" ? "bg-white text-[var(--accent)] shadow-md border-l-4 border-[var(--accent)]" : "text-gray-400 hover:text-gray-600 hover:bg-white/50"}`}>
-              <Shield size={20} /> Backup & Nube
+              <ShieldCheck size={20} /> Backup & Nube
             </button>
           </div>
 

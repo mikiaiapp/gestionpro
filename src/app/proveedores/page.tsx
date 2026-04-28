@@ -34,8 +34,8 @@ export default function ProveedoresPage() {
   const [saving, setSaving] = useState(false);
 
   // Sorting and Filtering State
-  const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>({ key: 'nombre', direction: 'asc' });
-  const [columnFilters, setColumnFilters] = useState<{ [key: string]: string }>({});
+  const [sortConfig, setSortConfig] = useState<SortConfig | null>({ key: 'nombre', direction: 'asc' });
+  const [columnFilters, setColumnFilters] = useState<ColumnFilters>({});
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
 
@@ -286,7 +286,8 @@ export default function ProveedoresPage() {
     return filteredProveedores.slice(start, start + pageSize);
   }, [filteredProveedores, currentPage, pageSize]);
 
-  const totalPages = Math.ceil(filteredProveedores.length / pageSize);
+  const totalCount = filteredProveedores.length;
+  const totalPages = Math.ceil(totalCount / pageSize);
 
   return (
     <div className="flex bg-[var(--background)] min-h-screen text-left">

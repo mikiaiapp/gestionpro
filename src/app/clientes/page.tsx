@@ -32,8 +32,8 @@ export default function ClientesPage() {
   const [saving, setSaving] = useState(false);
 
   // Sorting and Filtering State
-  const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>({ key: 'nombre', direction: 'asc' });
-  const [columnFilters, setColumnFilters] = useState<{ [key: string]: string }>({});
+  const [sortConfig, setSortConfig] = useState<SortConfig | null>({ key: 'nombre', direction: 'asc' });
+  const [columnFilters, setColumnFilters] = useState<ColumnFilters>({});
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
 
@@ -280,7 +280,8 @@ export default function ClientesPage() {
     return filteredClientes.slice(start, start + pageSize);
   }, [filteredClientes, currentPage, pageSize]);
 
-  const totalPages = Math.ceil(filteredClientes.length / pageSize);
+  const totalCount = filteredClientes.length;
+  const totalPages = Math.ceil(totalCount / pageSize);
 
   return (
     <div className="flex bg-[var(--background)] min-h-screen text-left">

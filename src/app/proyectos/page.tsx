@@ -22,6 +22,9 @@ interface LineaProyecto {
   coste: number;           // coste previsto por línea
 }
 
+type SortConfig = { key: string; direction: 'asc' | 'desc' };
+type ColumnFilters = { [key: string]: string };
+
 export default function ProyectosPage() {
   const router = useRouter();
   const [proyectos, setProyectos] = useState<any[]>([]);
@@ -38,8 +41,8 @@ export default function ProyectosPage() {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   // Sorting and Filtering State
-  const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>({ key: 'created_at', direction: 'desc' });
-  const [columnFilters, setColumnFilters] = useState<{ [key: string]: string }>({});
+  const [sortConfig, setSortConfig] = useState<SortConfig | null>({ key: 'created_at', direction: 'desc' });
+  const [columnFilters, setColumnFilters] = useState<ColumnFilters>({});
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
 
@@ -575,7 +578,8 @@ export default function ProyectosPage() {
     return filtered.slice(start, start + pageSize);
   }, [filtered, currentPage, pageSize]);
 
-  const totalPages = Math.ceil(filtered.length / pageSize);
+  const totalCount = filtered.length;
+  const totalPages = Math.ceil(totalCount / pageSize);
 
   return (
     <div className="flex bg-[var(--background)] min-h-screen text-left">
