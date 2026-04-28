@@ -12,9 +12,10 @@ import { generatePDF } from "@/lib/pdfGenerator";
 import { formatCurrency } from "@/lib/format";
 import { sendInvoiceToAeat } from "@/lib/aeatService";
 import { encrypt } from "@/lib/encryption";
-import { UploadCloud, ShieldCheck, OctagonAlert } from "lucide-react";
+import { UploadCloud, ShieldCheck, AlertTriangle } from "lucide-react";
 import { exportVATBookPDF, exportVATBookExcel } from "@/lib/reportingService";
 import { uploadInvoiceFile, deleteInvoiceFile } from "@/lib/storageService";
+import { Pagination } from "@/components/Pagination";
 
 interface LineaFactura {
   unidades: number;
@@ -50,6 +51,8 @@ function VentasContent() {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>({ key: 'fecha', direction: 'desc' });
   const [columnFilters, setColumnFilters] = useState<{ [key: string]: string }>({});
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
 
   // Estados temporales del Wizard
   const [selectedProjId, setSelectedProjId] = useState("");
@@ -199,7 +202,7 @@ function VentasContent() {
       nextNum++;
     }
 
-    return `${finalPrefix}${nextNum}`;
+    return `${finalPrefix}${nextNum.toString().padStart(4, '0')}`;
   };
 
   useEffect(() => {
@@ -371,7 +374,11 @@ function VentasContent() {
         const { data: venta, error: vError } = await supabase.from("ventas").insert([payload]).select().single();
         if (vError) throw vError;
         currentVentaId = venta.id;
-        // No incrementamos el contador del perfil: getNextNumber lo calcula dinámicamente desde la BD
+        
+        // Actualizar el contador oficial en el perfil tras el éxito del registro
+        const nextCount = (perfil?.contador_ventas || 1) + 1;
+        await supabase.from("perfil_negocio").update({ contador_ventas: nextCount }).eq("user_id", user.id);
+        fetchData(); // Recargar datos localmente
       }
 
       const lineasToInsert = lineas.map(l => ({
@@ -415,6 +422,10 @@ function VentasContent() {
         });
 
         const blob = pdfDoc.output('blob');
+        
+        // Descargar localmente para el usuario (si lo desea, aunque aquí es auto-archivado)
+        // pdfDoc.save(`Factura_${vFull.num_factura}.pdf`); 
+
         const publicUrl = await uploadInvoiceFile(blob, 'ventas', { 
           number: vFull.num_factura, 
           entity: vFull.clientes?.nombre || 'Cliente' 
@@ -602,6 +613,10 @@ function VentasContent() {
       };
 
       const doc = await generatePDF(pdfData);
+      
+      // DISPARAR DESCARGA REAL
+      doc.save(`Factura_${venta.num_factura}.pdf`);
+
       const pdfBlob = doc.output('blob');
 
       // Subir a Storage si no tiene pdf_url o si queremos actualizarla
@@ -710,7 +725,12 @@ function VentasContent() {
 
   const handleFilter = (field: string, value: string) => {
     setColumnFilters(prev => ({ ...prev, [field]: value }));
+    setCurrentPage(1);
   };
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   const filteredVentas = ventas.filter(v => {
     // Global search
@@ -733,14 +753,17 @@ function VentasContent() {
     return matchesGlobal && matchesColumns;
   }).sort((a, b) => {
     if (!sortConfig) return 0;
+    if (sortConfig.key === 'num_factura') {
+      const aVal = a.num_factura || '';
+      const bVal = b.num_factura || '';
+      return aVal.localeCompare(bVal, undefined, { numeric: true, sensitivity: 'base' }) * (sortConfig.direction === 'asc' ? 1 : -1);
+    }
+
     let aVal, bVal;
     
     if (sortConfig.key === 'cliente') {
       aVal = a.clientes?.nombre || '';
       bVal = b.clientes?.nombre || '';
-    } else if (sortConfig.key === 'num_factura') {
-      aVal = a.num_factura || '';
-      bVal = b.num_factura || '';
     } else if (sortConfig.key === 'total') {
       aVal = a.total || 0;
       bVal = b.total || 0;
@@ -756,6 +779,13 @@ function VentasContent() {
     if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
     return 0;
   });
+
+  const paginatedVentas = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredVentas.slice(start, start + pageSize);
+  }, [filteredVentas, currentPage, pageSize]);
+
+  const totalPages = Math.ceil(filteredVentas.length / pageSize);
 
   return (
     <div className="flex bg-[var(--background)] min-h-screen">
@@ -802,8 +832,8 @@ function VentasContent() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[var(--border)]">
-                    {filteredVentas.map(v => (
-                      <tr key={v.id} className="hover:bg-gray-50 group transition-colors">
+                    {paginatedVentas.map((v) => (
+                      <tr key={v.id} className="hover:bg-[#fcfaf7] transition-colors group">
                         <td className="px-6 py-4 text-sm font-bold">{v.num_factura}</td>
                         <td className="px-6 py-4 text-sm text-[var(--muted)]">{new Date(v.fecha).toLocaleDateString()}</td>
                         <td className="px-6 py-4 text-sm">{v.clientes?.nombre || 'Consumidor Final'}</td>
@@ -896,6 +926,18 @@ function VentasContent() {
                   </tbody>
                 </table>
             </div>
+
+            <Pagination 
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              totalResults={filteredVentas.length}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setCurrentPage(1);
+              }}
+            />
           </>
         ) : (
           <div className="max-w-5xl mx-auto animate-in slide-in-from-bottom-4 duration-300 pb-20 text-left">

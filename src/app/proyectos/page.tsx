@@ -13,6 +13,7 @@ import { generatePDF } from "@/lib/pdfGenerator";
 import { formatCurrency } from "@/lib/format";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { uploadInvoiceFile, deleteInvoiceFile } from "@/lib/storageService";
+import { Pagination } from "@/components/Pagination";
 
 interface LineaProyecto {
   unidades: number;
@@ -39,6 +40,8 @@ export default function ProyectosPage() {
   // Sorting and Filtering State
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>({ key: 'created_at', direction: 'desc' });
   const [columnFilters, setColumnFilters] = useState<{ [key: string]: string }>({});
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
 
   useEffect(() => {
     const handleClickOutside = () => setOpenMenuId(null);
@@ -516,7 +519,12 @@ export default function ProyectosPage() {
 
   const handleFilter = (field: string, value: string) => {
     setColumnFilters(prev => ({ ...prev, [field]: value }));
+    setCurrentPage(1);
   };
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   const filtered = proyectos.filter(p => {
     // Global search
@@ -562,6 +570,13 @@ export default function ProyectosPage() {
     return 0;
   });
 
+  const paginatedProyectos = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, currentPage, pageSize]);
+
+  const totalPages = Math.ceil(filtered.length / pageSize);
+
   return (
     <div className="flex bg-[var(--background)] min-h-screen text-left">
       <Sidebar />
@@ -606,9 +621,9 @@ export default function ProyectosPage() {
                      <th className="px-6 py-4 text-[12px] font-black text-gray-500 uppercase tracking-wider text-right">Acciones</th>
                    </tr>
                  </thead>
-                 <tbody className="divide-y divide-[var(--border)]">
-                   {filtered.map(p => (
-                     <tr key={p.id} className="hover:bg-gray-50 transition-colors">
+                  <tbody className="divide-y divide-[var(--border)]">
+                    {paginatedProyectos.map(p => (
+                      <tr key={p.id} className="hover:bg-gray-50 transition-colors">
                        <td className="px-6 py-4">
                          <div className="text-[10px] font-bold text-orange-600 uppercase mb-0.5">{p.serie}-{p[columnKey]}</div>
                          <div className="font-bold">{p.nombre}</div>
@@ -655,9 +670,22 @@ export default function ProyectosPage() {
                        </td>
                      </tr>
                    ))}
-                 </tbody>
-               </table>
-            </div>
+                  </tbody>
+                </table>
+              </div>
+
+              <Pagination 
+                currentPage={currentPage}
+                totalPages={totalPages}
+                pageSize={pageSize}
+                totalResults={filtered.length}
+                onPageChange={setCurrentPage}
+                onPageSizeChange={(size) => {
+                  setPageSize(size);
+                  setCurrentPage(1);
+                }}
+              />
+             </div>
           </>
         ) : (
           <div className="max-w-5xl mx-auto pb-20 animate-in slide-in-from-bottom-4 duration-300 text-left">

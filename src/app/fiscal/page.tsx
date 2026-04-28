@@ -43,7 +43,15 @@ export default function FiscalPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const { data: perf } = await supabase.from("perfil_negocio").select("*").maybeSingle();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: perf } = await supabase
+        .from("perfil_negocio")
+        .select("*")
+        .eq("user_id", user.id)
+        .maybeSingle();
+        
       setPerfil(perf);
 
       // Calcular fechas del trimestre
@@ -52,8 +60,8 @@ export default function FiscalPage() {
       const endDate = new Date(year, startMonth + 3, 0, 23, 59, 59).toISOString();
 
       const [ventasRes, costesRes] = await Promise.all([
-        supabase.from("ventas").select("*").gte("fecha", startDate).lte("fecha", endDate),
-        supabase.from("costes").select("*").gte("fecha", startDate).lte("fecha", endDate)
+        supabase.from("ventas").select("*").eq("user_id", user.id).gte("fecha", startDate).lte("fecha", endDate),
+        supabase.from("costes").select("*").eq("user_id", user.id).gte("fecha", startDate).lte("fecha", endDate)
       ]);
 
       const vts = ventasRes.data || [];
@@ -80,8 +88,11 @@ export default function FiscalPage() {
   const handleGeneratePack = async () => {
     setGenerating(true);
     try {
-      if (!perfil) {
-        alert("Configura tus datos en Ajustes primero.");
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("No hay sesión activa");
+
+      if (!perfil || !perfil.nombre || !perfil.nif) {
+        alert("⚠️ Faltan datos de tu empresa.\n\nPor favor, ve a la sección de 'Ajustes' y asegúrate de completar y guardar tu Nombre/Razón Social y NIF para poder generar el Pack Fiscal.");
         return;
       }
 
@@ -90,15 +101,16 @@ export default function FiscalPage() {
       const endDate = new Date(year, startMonth + 3, 0, 23, 59, 59).toISOString();
 
       const [ventasRes, costesRes] = await Promise.all([
-        supabase.from("ventas").select("*, clientes(nombre, nif)").gte("fecha", startDate).lte("fecha", endDate),
-        supabase.from("costes").select("*, proveedores(nombre, nif)").gte("fecha", startDate).lte("fecha", endDate)
+        supabase.from("ventas").select("*, clientes(nombre, nif)").eq("user_id", user.id).gte("fecha", startDate).lte("fecha", endDate),
+        supabase.from("costes").select("*, proveedores(nombre, nif)").eq("user_id", user.id).gte("fecha", startDate).lte("fecha", endDate)
       ]);
 
       await generateFiscalPack(
         `${year}_T${quarter}`,
         ventasRes.data || [],
         costesRes.data || [],
-        perfil
+        perfil,
+        { startDate, endDate }
       );
     } catch (err: any) {
       alert("Error al generar el pack: " + err.message);

@@ -5,6 +5,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { HandCoins, Plus, Search, MoreHorizontal, Loader2, Receipt, Save, Trash2, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { DataTableHeader } from "@/components/DataTableHeader";
+import { Pagination } from "@/components/Pagination";
 
 export default function CobrosPage() {
   const [cobros, setCobros] = useState<any[]>([]);
@@ -15,6 +16,8 @@ export default function CobrosPage() {
   // Sorting and Filtering State
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>({ key: 'fecha', direction: 'desc' });
   const [columnFilters, setColumnFilters] = useState<{ [key: string]: string }>({});
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -131,7 +134,12 @@ export default function CobrosPage() {
 
   const handleFilter = (field: string, value: string) => {
     setColumnFilters(prev => ({ ...prev, [field]: value }));
+    setCurrentPage(1);
   };
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   const filteredCobros = useMemo(() => {
     return cobros.filter(cb => {
@@ -167,11 +175,18 @@ export default function CobrosPage() {
         bVal = b[sortConfig.key] || '';
       }
       
-      if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
       if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
       return 0;
     });
   }, [cobros, searchTerm, sortConfig, columnFilters]);
+
+  const paginatedCobros = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredCobros.slice(start, start + pageSize);
+  }, [filteredCobros, currentPage, pageSize]);
+
+  const totalPages = Math.ceil(filteredCobros.length / pageSize);
 
   return (
     <div className="flex bg-[var(--background)] min-h-screen">
@@ -283,7 +298,7 @@ export default function CobrosPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--border)]">
-                  {filteredCobros.map((cb) => (
+                  {paginatedCobros.map((cb) => (
                     <tr key={cb.id} className="hover:bg-[#fcfaf7] transition-colors group">
                       <td className="px-6 py-4 text-sm font-medium text-[var(--muted)]">
                         {new Date(cb.fecha).toLocaleDateString()}
@@ -317,6 +332,18 @@ export default function CobrosPage() {
               </table>
             )}
           </div>
+
+          <Pagination 
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalResults={filteredCobros.length}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setCurrentPage(1);
+            }}
+          />
         </div>
       </div>
     </div>

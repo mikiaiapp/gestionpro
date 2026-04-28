@@ -21,7 +21,8 @@ import {
   Scale,
   FileText,
   Table,
-  LayoutGrid
+  LayoutGrid,
+  AlertTriangle,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Sidebar } from '@/components/Sidebar';
@@ -110,6 +111,9 @@ export default function AjustesClient() {
   // Excel Import State
   const [isImporting, setIsImporting] = useState(false);
   const [importResults, setImportResults] = useState<{ total: number, success: number, errors: string[] } | null>(null);
+
+  // Mantenimiento
+  const [isResetting, setIsResetting] = useState(false);
 
   const initialLoadDone = useRef(false);
   const latestValuesRef = useRef<any>(null);
@@ -661,7 +665,11 @@ export default function AjustesClient() {
       // 0. Probar columnas reales para evitar errores de esquema (Smart Mapping)
       const { data: probe } = await supabase.from('costes').select('*').limit(1);
       const cols = (probe && probe.length > 0) ? Object.keys(probe[0]) : [];
-      const findKey = (options: string[]) => options.find(o => cols.includes(o));
+      
+      // Columnas que sabemos que existen por el esquema base (mínimo común denominador)
+      const guaranteedCols = ['id', 'user_id', 'fecha', 'total', 'proveedor_id', 'num_interno'];
+      const allKnownCols = [...new Set([...cols, ...guaranteedCols])];
+      const findKey = (options: string[]) => options.find(o => allKnownCols.includes(o));
 
       // 0.1 Obtener Perfil y Numeración Secuencial para el Libro de IVA
       const { data: perf } = await supabase.from('perfil_negocio').select('*').eq('user_id', user.id).maybeSingle();
@@ -743,7 +751,7 @@ export default function AjustesClient() {
             finalFecha = `${a}-${m}-${d}`;
           }
 
-          const internalNum = `${prefix}${nextSequential}`;
+          const internalNum = `${prefix}${nextSequential.toString().padStart(4, '0')}`;
           const payload: any = {
             user_id: user.id,
             fecha: finalFecha,
@@ -758,26 +766,22 @@ export default function AjustesClient() {
           };
 
           if (exist) {
-            // Si ya existe, solo actualizamos campos que podrían faltar (NIF/Proveedor y Contador)
+            // Durante la re-importación total, actualizamos el número de registro y el proveedor/NIF para asegurar coherencia
             const updatePayload: any = {};
             setIfFound(['proveedor_id', 'id_proveedor'], prov.id, updatePayload);
-            
-            // Solo asignar número interno si no tiene uno ya
-            const hasInternal = exist.num_interno || exist.registro_interno || exist.numero;
-            if (!hasInternal) {
-               setIfFound(['num_interno', 'registro_interno', 'numero'], internalNum, updatePayload);
-               nextSequential++;
-            }
+            setIfFound(['num_interno', 'registro_interno', 'numero'], internalNum, updatePayload);
             
             const { error: uErr } = await supabase.from('costes').update(updatePayload).eq('id', exist.id);
             if (uErr) throw new Error(`Error actualizando: ${uErr.message}`);
             
+            nextSequential++;
             successCount += rows.length;
             continue;
           }
 
           // 4. Inserción Nueva
           setIfFound(['num_interno', 'registro_interno', 'numero'], internalNum);
+          setIfFound(['nif_proveedor', 'proveedor_nif', 'nif'], cleanNif); // Asegurar que el NIF se guarda directamente
           setIfFound(['serie_costes', 'serie'], perf?.serie_costes || 'A');
           setIfFound(['num_factura_proveedor', 'numero_factura', 'num_factura', 'factura_prov', 'referencia'], num_factura.toString());
           setIfFound(['proveedor_id', 'id_proveedor'], prov.id);
@@ -785,6 +789,16 @@ export default function AjustesClient() {
           setIfFound(['iva_importe', 'cuota_iva', 'iva_total', 'iva'], totalIVA);
           setIfFound(['retencion_pct', 'irpf_pct'], parseFloat(firstRow.retencion_pct) || 0);
           setIfFound(['retencion_importe', 'irpf_importe', 'retencion', 'irpf'], totalRet);
+
+          // 4.1 Fallback Crítico para bases de datos vacías (Solo campos esenciales garantizados)
+          if (cols.length === 0) {
+            payload.num_interno = internalNum;
+            payload.proveedor_id = prov.id;
+            // Intentar asignar el número de factura al campo más probable si no se detectó
+            if (!payload.num_factura_proveedor && !payload.numero_factura) {
+              payload.num_factura_proveedor = num_factura.toString();
+            }
+          }
 
           const { data: newCoste, error: cErr } = await supabase.from('costes').insert(payload).select('id').single();
 
@@ -809,11 +823,78 @@ export default function AjustesClient() {
         }
       }
 
+      // 6. Sincronizar el contador oficial en Ajustes
+      await supabase.from('perfil_negocio').update({ contador_costes: nextSequential }).eq('user_id', user.id);
+
+
       setImportResults({ total: jsonData.length, success: successCount, errors });
     } catch (err: any) {
       alert("Error crítico en importación: " + err.message);
     } finally {
       setIsImporting(false);
+    }
+  };
+
+  const handleResetEmitidas = async () => {
+    if (!user) return;
+    
+    const confirm1 = confirm("⚠️ ATENCIÓN: Vas a borrar TODAS las facturas EMITIDAS (Ventas), sus líneas y registros de COBROS. Esta acción es IRREVERSIBLE. ¿Estás seguro?");
+    if (!confirm1) return;
+
+    const confirmText = prompt("Para confirmar el borrado de VENTAS, escribe la palabra: BORRAR");
+    if (confirmText !== "BORRAR") {
+      alert("Operación cancelada. El texto de confirmación no coincide.");
+      return;
+    }
+
+    setIsResetting(true);
+    try {
+      await supabase.from('venta_lineas').delete().eq('user_id', user.id);
+      await supabase.from('cobros').delete().eq('user_id', user.id);
+      await supabase.from('ventas').delete().eq('user_id', user.id);
+      
+      await supabase.from('perfil_negocio').update({
+        contador_ventas: 1
+      }).eq('user_id', user.id);
+
+      alert("✅ Datos de VENTAS eliminados correctamente. El contador ha sido reseteado a 1.");
+      window.location.reload();
+    } catch (err: any) {
+      alert("Error al resetear ventas: " + err.message);
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
+  const handleResetRecibidas = async () => {
+    if (!user) return;
+    
+    const confirm1 = confirm("⚠️ ATENCIÓN: Vas a borrar TODAS las facturas RECIBIDAS (Costes), PROVEEDORES y registros de PAGOS. Esta acción es IRREVERSIBLE. ¿Estás seguro?");
+    if (!confirm1) return;
+
+    const confirmText = prompt("Para confirmar el borrado de COSTES y PROVEEDORES, escribe la palabra: BORRAR");
+    if (confirmText !== "BORRAR") {
+      alert("Operación cancelada. El texto de confirmación no coincide.");
+      return;
+    }
+
+    setIsResetting(true);
+    try {
+      await supabase.from('coste_lineas').delete().eq('user_id', user.id);
+      await supabase.from('pagos').delete().eq('user_id', user.id);
+      await supabase.from('costes').delete().eq('user_id', user.id);
+      await supabase.from('proveedores').delete().eq('user_id', user.id);
+
+      await supabase.from('perfil_negocio').update({
+        contador_costes: 1
+      }).eq('user_id', user.id);
+
+      alert("✅ Datos de COSTES y PROVEEDORES eliminados correctamente. El contador ha sido reseteado a 1.");
+      window.location.reload();
+    } catch (err: any) {
+      alert("Error al resetear costes: " + err.message);
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -841,7 +922,7 @@ export default function AjustesClient() {
     XLSX.writeFile(wb, "Plantilla_Importacion_Gastos.xlsx");
   };
 
-  const [activeTab, setActiveTab] = useState<'perfil' | 'ai' | 'legales' | 'seguridad' | 'fiscalidad' | 'backup' | 'email' | 'import'>('perfil');
+  const [activeTab, setActiveTab] = useState<'perfil' | 'ai' | 'legales' | 'seguridad' | 'fiscalidad' | 'backup' | 'email' | 'import' | 'mantenimiento'>('perfil');
 
   if (loading) return null;
 
@@ -864,6 +945,7 @@ export default function AjustesClient() {
     { id: 'fiscalidad', label: 'Fiscalidad', icon: Percent, color: 'text-emerald-600' },
     { id: 'backup', label: 'Backup', icon: Database, color: 'text-indigo-600' },
     { id: 'import', label: 'Importar', icon: Table, color: 'text-pink-600' },
+    { id: 'mantenimiento', label: 'Mantenimiento', icon: AlertTriangle, color: 'text-red-600' },
   ];
 
   const lastBackup = autoBackups[0];
@@ -1589,6 +1671,83 @@ export default function AjustesClient() {
                       </div>
                     )}
                   </div>
+               </div>
+            </div>
+          )}
+          {activeTab === 'mantenimiento' && (
+            <div className="bg-white rounded-[2rem] border border-red-100 p-10 shadow-sm space-y-10 animate-in slide-in-from-bottom-4 duration-500">
+               <div className="flex items-start justify-between border-b border-red-50 pb-8">
+                  <div className="space-y-1">
+                    <h2 className="text-2xl font-black font-head text-red-900 tracking-tighter">Mantenimiento de Datos</h2>
+                    <p className="text-sm text-gray-400 font-sans">Herramientas de limpieza y reset para fase de pruebas.</p>
+                  </div>
+                  <AlertTriangle className="text-red-100" size={48} />
+               </div>
+
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {/* Bloque Emitidas */}
+                  <div className="p-8 bg-blue-50 rounded-[2rem] border border-blue-100 space-y-6">
+                    <div className="space-y-2">
+                       <h3 className="font-black text-blue-900 flex items-center gap-2">
+                         <FileText size={20} /> Borrado de Ventas (Emitidas)
+                       </h3>
+                       <p className="text-xs text-blue-800/70 font-medium leading-relaxed">
+                         Elimina todas las facturas emitidas, sus líneas y registros de cobros.
+                       </p>
+                    </div>
+
+                    <div className="bg-white/50 p-4 rounded-xl border border-blue-200">
+                       <ul className="text-[10px] text-blue-900 space-y-1 list-disc list-inside font-bold">
+                          <li>Elimina todas las VENTAS.</li>
+                          <li>Elimina todos los COBROS vinculados.</li>
+                          <li>Reset contador VENTAS a 1.</li>
+                       </ul>
+                    </div>
+
+                    <button 
+                      onClick={handleResetEmitidas}
+                      disabled={isResetting}
+                      className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-xl shadow-blue-200 hover:bg-blue-700 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                    >
+                      {isResetting ? <Loader2 className="animate-spin" size={16} /> : <Trash2 size={16} />}
+                      Limpiar Emitidas
+                    </button>
+                  </div>
+
+                  {/* Bloque Recibidas */}
+                  <div className="p-8 bg-red-50 rounded-[2rem] border border-red-100 space-y-6">
+                    <div className="space-y-2">
+                       <h3 className="font-black text-red-900 flex items-center gap-2">
+                         <ShieldCheck size={20} /> Borrado de Gastos (Recibidas)
+                       </h3>
+                       <p className="text-xs text-red-800/70 font-medium leading-relaxed">
+                         Elimina facturas recibidas (costes), proveedores y registros de pagos.
+                       </p>
+                    </div>
+
+                    <div className="bg-white/50 p-4 rounded-xl border border-red-200">
+                       <ul className="text-[10px] text-red-900 space-y-1 list-disc list-inside font-bold">
+                          <li>Elimina todos los PROVEEDORES.</li>
+                          <li>Elimina todos los COSTES y PAGOS.</li>
+                          <li>Reset contador COSTES a 1.</li>
+                       </ul>
+                    </div>
+
+                    <button 
+                      onClick={handleResetRecibidas}
+                      disabled={isResetting}
+                      className="w-full py-4 bg-red-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-xl shadow-red-200 hover:bg-red-700 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                    >
+                      {isResetting ? <Loader2 className="animate-spin" size={16} /> : <Trash2 size={16} />}
+                      Limpiar Recibidas
+                    </button>
+                  </div>
+               </div>
+
+               <div className="p-6 bg-gray-50 rounded-2xl border border-gray-100">
+                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest text-center">
+                     ⚠️ Acciones irreversibles. Úsalas solo durante la puesta a punto de tu base de datos.
+                  </p>
                </div>
             </div>
           )}

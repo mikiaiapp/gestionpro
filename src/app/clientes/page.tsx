@@ -22,6 +22,7 @@ import { Sidebar } from '@/components/Sidebar';
 import { DataTableHeader } from '@/components/DataTableHeader';
 import { getFullLocationByCP } from '@/lib/geoData';
 import { cleanNIF } from '@/lib/format';
+import { Pagination } from "@/components/Pagination";
 
 export default function ClientesPage() {
   const [clientes, setClientes] = useState<any[]>([]);
@@ -33,6 +34,8 @@ export default function ClientesPage() {
   // Sorting and Filtering State
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>({ key: 'nombre', direction: 'asc' });
   const [columnFilters, setColumnFilters] = useState<{ [key: string]: string }>({});
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
 
   // Form State
   const [nombre, setNombre] = useState('');
@@ -241,7 +244,12 @@ export default function ClientesPage() {
 
   const handleFilter = (field: string, value: string) => {
     setColumnFilters(prev => ({ ...prev, [field]: value }));
+    setCurrentPage(1);
   };
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   const filteredClientes = clientes.filter(c => {
     // Global search
@@ -266,6 +274,13 @@ export default function ClientesPage() {
     if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
     return 0;
   });
+
+  const paginatedClientes = React.useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredClientes.slice(start, start + pageSize);
+  }, [filteredClientes, currentPage, pageSize]);
+
+  const totalPages = Math.ceil(filteredClientes.length / pageSize);
 
   return (
     <div className="flex bg-[var(--background)] min-h-screen text-left">
@@ -395,7 +410,7 @@ export default function ClientesPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {filteredClientes.map((c) => (
+                  {paginatedClientes.map((c) => (
                     <tr key={c.id} className="hover:bg-blue-50/5 transition-all group">
                       <td className="px-10 py-6">
                         <div className="font-black text-gray-800 text-lg tracking-tight mb-1 group-hover:text-blue-600 transition-colors">{c.nombre}</div>
@@ -439,6 +454,18 @@ export default function ClientesPage() {
               </table>
             )}
           </div>
+          
+          <Pagination 
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalResults={filteredClientes.length}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setCurrentPage(1);
+            }}
+          />
         </div>
       </div>
     </div>

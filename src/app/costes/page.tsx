@@ -11,6 +11,7 @@ import { SearchableSelect } from "@/components/SearchableSelect";
 import { uploadInvoiceFile, deleteInvoiceFile } from "@/lib/storageService";
 import { exportVATBookPDF, exportVATBookExcel } from "@/lib/reportingService";
 import { getFullLocationByCP } from '@/lib/geoData';
+import { Pagination } from "@/components/Pagination";
 
 interface LineaCoste {
   unidades: number;
@@ -61,6 +62,8 @@ export default function CostesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>({ key: 'fecha', direction: 'desc' });
   const [columnFilters, setColumnFilters] = useState<{ [key: string]: string }>({});
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
 
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -104,7 +107,7 @@ export default function CostesPage() {
         nextNum++;
       }
 
-      setNumInterno(`${finalPrefix}${nextNum}`);
+      setNumInterno(`${finalPrefix}${nextNum.toString().padStart(4, '0')}`);
       if (perfil?.serie_costes) setSerie(perfil.serie_costes);
     }
   }, [isModalOpen, editingId, costes, perfil]);
@@ -118,7 +121,7 @@ export default function CostesPage() {
       return;
     }
 
-    const { data: csts } = await supabase.from("costes").select("*, proveedores(nombre), proyectos(nombre), coste_lineas(*)").eq("user_id", user.id).order("fecha", { ascending: false });
+    const { data: csts } = await supabase.from("costes").select("*, proveedores(nombre, nif), proyectos(nombre), coste_lineas(*)").eq("user_id", user.id).order("fecha", { ascending: false });
     const { data: pgts } = await supabase.from("pagos").select("*").eq("user_id", user.id);
     const { data: provs } = await supabase.from("proveedores").select("id, nombre, nif").eq("user_id", user.id).order("nombre");
     const { data: projs } = await supabase.from("proyectos").select("id, nombre, estado, cliente_id, clientes(nombre)").eq("user_id", user.id).order("nombre");
@@ -127,8 +130,10 @@ export default function CostesPage() {
       const misPagos = (pgts || []).filter((p: any) => p.coste_id === c.id);
       const totalPagado = misPagos.reduce((acc: number, p: any) => acc + (p.importe || 0), 0);
       let estadoPagoRaw = 'Pendiente';
-      const pendiente = Math.max(0, (c.total || 0) - totalPagado);
-      if (c.total > 0) {
+      const total = Number(c.total) || 0;
+      const pendiente = Math.max(0, total - totalPagado);
+      
+      if (total > 0) {
         if (pendiente <= 0.01) estadoPagoRaw = 'Pagado';
         else if (totalPagado > 0) estadoPagoRaw = 'Pago Parcial';
       }
@@ -147,10 +152,13 @@ export default function CostesPage() {
       .order('valor');
     setTiposIRPF(irpfData || []);
 
-    const preparedProjs = (projs || []).map(p => ({
-      ...p,
-      nombre: `[${p.clientes?.nombre || 'S/C'}] ${p.nombre}`
-    }));
+    const preparedProjs = (projs || []).map(p => {
+      const clienteObj = Array.isArray(p.clientes) ? p.clientes[0] : p.clientes;
+      return {
+        ...p,
+        nombre: `[${clienteObj?.nombre || 'S/C'}] ${p.nombre}`
+      };
+    });
     setProyectos(preparedProjs);
     setLoading(false);
   };
@@ -537,7 +545,11 @@ export default function CostesPage() {
         }
         
         currentId = newCosteRows[0].id;
-        // No incrementamos el contador del perfil: se calcula dinámicamente desde la BD
+        
+        // Actualizar el contador oficial en el perfil tras el éxito del registro
+        const nextCount = (perfil?.contador_costes || 1) + 1;
+        await supabase.from("perfil_negocio").update({ contador_costes: nextCount }).eq("user_id", user.id);
+        fetchPerfil(); // Recargar perfil localmente
       }
 
       const lineasConId = lineas.map(l => ({
@@ -624,7 +636,12 @@ export default function CostesPage() {
 
   const handleFilter = (field: string, value: string) => {
     setColumnFilters(prev => ({ ...prev, [field]: value }));
+    setCurrentPage(1);
   };
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   const filteredCostes = useMemo(() => {
     return (costes || []).filter(c => {
@@ -646,6 +663,13 @@ export default function CostesPage() {
       return matchesGlobal && matchesColumns;
     }).sort((a, b) => {
       if (!sortConfig) return 0;
+      
+      if (sortConfig.key === 'num_interno') {
+        const aVal = a.num_interno || a.registro_interno || a.numero || '';
+        const bVal = b.num_interno || b.registro_interno || b.numero || '';
+        return aVal.localeCompare(bVal, undefined, { numeric: true, sensitivity: 'base' }) * (sortConfig.direction === 'asc' ? 1 : -1);
+      }
+
       let aVal, bVal;
       
       if (sortConfig.key === 'proveedor') {
@@ -667,6 +691,13 @@ export default function CostesPage() {
       return 0;
     });
   }, [costes, searchTerm, sortConfig, columnFilters]);
+
+  const paginatedCostes = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredCostes.slice(start, start + pageSize);
+  }, [filteredCostes, currentPage, pageSize]);
+
+  const totalPages = Math.ceil(filteredCostes.length / pageSize);
 
   return (
     <div className="flex bg-[var(--background)] min-h-screen text-left">
@@ -1026,8 +1057,8 @@ export default function CostesPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--border)]">
-              {filteredCostes.map(c => (
-                <tr key={c.id} className="hover:bg-gray-50 transition-colors group">
+              {paginatedCostes.map(c => (
+                <tr key={c.id} className="hover:bg-[#fcfaf7] transition-colors group">
                   <td className="px-6 py-4">
                      <div className="text-[11px] font-black text-blue-600 bg-blue-50/50 px-2 py-1 rounded inline-block">
                         {c.num_interno || c.registro_interno || c.numero}
@@ -1035,7 +1066,7 @@ export default function CostesPage() {
                   </td>
                   <td className="px-6 py-4">
                      <div className="flex items-center gap-2">
-                        <div className="font-bold text-gray-800">{c.proveedores?.nombre}</div>
+                        <div className="font-bold text-gray-800">{c.proveedores?.nombre || '—'}</div>
                         {(c.pdf_url || c.archivo_url) && (
                            <a 
                              href={c.pdf_url || c.archivo_url} 
@@ -1049,9 +1080,14 @@ export default function CostesPage() {
                            </a>
                         )}
                      </div>
-                     <div className="text-[10px] text-gray-400 font-mono uppercase">{c.num_factura_proveedor}</div>
+                     <div className="flex flex-col">
+                        <div className="text-[10px] text-gray-400 font-mono uppercase leading-tight">{c.num_factura_proveedor}</div>
+                        {c.proveedores?.nif && <div className="text-[9px] text-gray-300 font-mono italic">{c.proveedores.nif}</div>}
+                     </div>
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-500 font-medium">{new Date(c.fecha).toLocaleDateString()}</td>
+                  <td className="px-6 py-4 text-sm text-gray-500 font-medium">
+                    {c.fecha ? new Date(c.fecha).toLocaleDateString() : '—'}
+                  </td>
                   <td className="px-6 py-4">
                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${c.tipo_gasto === 'proyecto' ? 'bg-orange-50 text-orange-600' : 'bg-gray-50 text-gray-500'}`}>
                         {c.tipo_gasto === 'proyecto' ? c.proyectos?.nombre : 'Gasto General'}
@@ -1121,6 +1157,18 @@ export default function CostesPage() {
             </tbody>
           </table>
         </div>
+
+        <Pagination 
+          currentPage={currentPage}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          totalResults={filteredCostes.length}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setCurrentPage(1);
+          }}
+        />
 
         {/* Modal Pago */}
         {isPayModalOpen && (
