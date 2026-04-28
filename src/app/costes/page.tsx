@@ -104,7 +104,7 @@ export default function CostesPage() {
         nextNum++;
       }
 
-      setNumInterno(`${finalPrefix}${nextNum}`);
+      setNumInterno(`${finalPrefix}${nextNum.toString().padStart(4, '0')}`);
       if (perfil?.serie_costes) setSerie(perfil.serie_costes);
     }
   }, [isModalOpen, editingId, costes, perfil]);
@@ -497,7 +497,7 @@ export default function CostesPage() {
           });
           uploadedPath = finalPdfUrl; // Guardamos para borrar si falla el insert
         } catch (uploadErr: any) {
-          alert("Error al subir el PDF: " + uploadErr.message);
+          alert("Error al subir the PDF: " + uploadErr.message);
           setSaving(false);
           return;
         }
@@ -529,7 +529,7 @@ export default function CostesPage() {
         const { data: newCosteRows, error: iErr } = await supabase.from("costes").insert([payload]).select('id');
         
         if (iErr) {
-          console.error("❌ Error CRÍTICO EN TABLA 'COSTES':", iErr);
+          console.error("❌ Error CRÍTIC EN TABLA 'COSTES':", iErr);
           // Borrar archivo si falló la inserción (Requisito Integridad)
           if (uploadedPath) {
              await deleteInvoiceFile(uploadedPath);
@@ -545,7 +545,7 @@ export default function CostesPage() {
         
         // Actualizar el contador oficial en el perfil tras el éxito del registro
         const nextCount = (perfil?.contador_costes || 1) + 1;
-        await supabase.from("perfil_negocio").update({ contador_costes: nextCount }).eq("user_id", user.id);
+        await supabase.from("perfil_negocio").update({ contador_ventas: nextCount }).eq("user_id", user.id);
         fetchPerfil(); // Recargar perfil localmente
       }
 
@@ -655,6 +655,13 @@ export default function CostesPage() {
       return matchesGlobal && matchesColumns;
     }).sort((a, b) => {
       if (!sortConfig) return 0;
+      
+      if (sortConfig.key === 'num_interno') {
+        const aVal = a.num_interno || a.registro_interno || a.numero || '';
+        const bVal = b.num_interno || b.registro_interno || b.numero || '';
+        return aVal.localeCompare(bVal, undefined, { numeric: true, sensitivity: 'base' }) * (sortConfig.direction === 'asc' ? 1 : -1);
+      }
+
       let aVal, bVal;
       
       if (sortConfig.key === 'proveedor') {
@@ -802,210 +809,6 @@ export default function CostesPage() {
           </div>
         )}
 
-        {isModalOpen && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4 overflow-y-auto">
-             <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-4xl border border-[var(--border)] my-auto">
-                <div className="flex justify-between items-center mb-6 pb-4 border-b">
-                   <div className="flex items-center gap-4">
-                     <h2 className="text-2xl font-bold font-head flex items-center gap-2 tracking-tight text-gray-800">
-                       <Receipt className="text-purple-600" /> 
-                       {editingId ? "Editar Factura" : "Factura Registrada"}
-                     </h2>
-                     {editingId && (
-                       <div className="flex bg-gray-100 rounded-xl p-1 gap-1">
-                         <button 
-                           type="button"
-                           onClick={handlePrev}
-                           disabled={costes.findIndex(c => c.id === editingId) === 0}
-                           title="Anterior"
-                           className="p-1.5 hover:bg-white rounded-lg disabled:opacity-20 transition-all text-gray-600 shadow-sm disabled:shadow-none"
-                         >
-                           <ChevronUp size={18} />
-                         </button>
-                         <button 
-                           type="button"
-                           onClick={handleNext}
-                           disabled={costes.findIndex(c => c.id === editingId) === costes.length - 1}
-                           title="Siguiente"
-                           className="p-1.5 hover:bg-white rounded-lg disabled:opacity-20 transition-all text-gray-600 shadow-sm disabled:shadow-none"
-                         >
-                           <ChevronDown size={18} />
-                         </button>
-                       </div>
-                     )}
-                   </div>
-                   <button onClick={() => setIsModalOpen(false)} className="hover:rotate-90 transition-transform"><X size={24} className="text-gray-400"/></button>
-                </div>
-
-                {detectedProvider && (
-                  <div className="mb-6 p-4 bg-orange-50 rounded-xl border border-orange-200 flex items-center justify-between text-left animate-in slide-in-from-top-4">
-                    <div className="flex items-center gap-3">
-                       <AlertCircle className="text-orange-600" size={24} />
-                       <div>
-                          <p className="text-sm font-bold text-orange-900">Nuevo proveedor detectado por IA</p>
-                          <p className="text-xs text-orange-700">{detectedProvider.nombre} ({detectedProvider.nif})</p>
-                       </div>
-                    </div>
-                    <button type="button" onClick={() => setIsProviderReviewModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg font-bold text-xs hover:bg-orange-700 transition-all">
-                       <UserPlus size={14} /> Revisar y Validar
-                    </button>
-                  </div>
-                )}
-                
-                <form onSubmit={handleSave} className="space-y-6">
-                   <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                      <div><label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Serie</label>
-                        <select value={serie} onChange={(e) => setSerie(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200 bg-gray-50 font-bold">
-                          <option value="A">Serie A (IVA Soportado)</option>
-                          <option value="B">Serie B (sin IVA)</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1 whitespace-nowrap">Nº Registro</label>
-                        <input 
-                          type="text" 
-                          value={numInterno} 
-                          onChange={(e) => setNumInterno(e.target.value)}
-                          className="w-full p-2.5 rounded-lg border border-gray-100 bg-gray-50 font-bold text-gray-500 focus:outline-none focus:border-purple-200 transition-colors" 
-                          placeholder="Auto..."
-                        />
-                      </div>
-                      <div><label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Factura Prov.</label><input type="text" value={numFactProv} onChange={(e) => setNumFactProv(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200 font-bold text-blue-600" /></div>
-                      <div><label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Fecha</label><input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200" /></div>
-                      <div className="md:col-span-2">
-                         <SearchableSelect label="Proveedor" options={proveedores} value={proveedorId} onChange={(id) => setProveedorId(id)} placeholder="Buscar proveedor..." />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Tipo de Gasto</label>
-                        <select value={tipoGasto} onChange={(e) => setTipoGasto(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200 bg-gray-50">
-                           <option value="general">Gasto General</option>
-                           <option value="proyecto">Vincular a Proyecto</option>
-                        </select>
-                      </div>
-                      {tipoGasto === "proyecto" && (
-                        <div className="md:col-span-1">
-                           <SearchableSelect 
-                             label="Vincular Proyecto" 
-                             options={proyectos} 
-                             value={proyectoId} 
-                             onChange={(id) => setProyectoId(id)} 
-                             placeholder="Seleccionar..." 
-                           />
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="p-6 bg-purple-50/50 rounded-2xl border border-purple-100/50 space-y-4">
-                       <div className="flex items-center justify-between">
-                          <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
-                             <Upload size={14} className="text-purple-500" /> Adjuntar Factura Original (PDF obligatorio)
-                          </label>
-                          {pdfUrl && (
-                             <a href={pdfUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] font-bold text-purple-600 hover:underline flex items-center gap-1">
-                                <FileText size={12} /> Ver PDF actual
-                             </a>
-                          )}
-                       </div>
-                       <div className="relative group">
-                          <input 
-                             type="file" 
-                             accept=".pdf" 
-                             onChange={(e) => setPdfFile(e.target.files?.[0] || null)}
-                             className="w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-6 file:rounded-xl file:border-0 file:text-xs file:font-black file:bg-purple-600 file:text-white hover:file:bg-purple-700 cursor-pointer p-4 bg-white rounded-xl border-2 border-dashed border-purple-200 group-hover:border-purple-300 transition-all"
-                          />
-                          {pdfFile && (
-                             <div className="mt-2 text-xs font-bold text-green-600 flex items-center gap-1 animate-in fade-in">
-                                ✓ Archivo seleccionado: {pdfFile.name}
-                             </div>
-                          )}
-                       </div>
-                    </div>
-
-                    <div className="pt-4">
-                      <table className="w-full text-left">
-                        <thead>
-                          <tr className="border-b text-gray-400">
-                            <th className="pb-3 text-[10px] font-bold uppercase">Ud.</th>
-                            <th className="pb-3 text-[10px] font-bold uppercase">Concepto</th>
-                            <th className="pb-3 text-[10px] font-bold uppercase text-right w-32">Precio Ud.</th>
-                            <th className="pb-3 text-[10px] font-bold uppercase w-24 text-center">IVA %</th>
-                            <th className="pb-3 text-[10px] font-bold uppercase text-right w-32">Total</th>
-                            <th className="w-10"></th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {lineas.map((linea, idx) => (
-                            <tr key={idx} className="border-b border-gray-50">
-                               <td className="py-3 pr-4 text-center w-20"><input type="number" step="any" value={linea.unidades} onChange={(e) => updateLinea(idx, "unidades", parseFloat(e.target.value))} className="w-full p-2 rounded-lg border border-gray-100 font-bold text-center" /></td>
-                              <td className="py-3 pr-4">
-                                <textarea 
-                                  rows={1} 
-                                  value={linea.descripcion} 
-                                  onChange={(e) => updateLinea(idx, "descripcion", e.target.value)} 
-                                  className="w-full p-2 rounded-lg border border-gray-100 text-sm min-h-[40px] resize-y" 
-                                />
-                              </td>
-                              <td className="py-3 pr-4">
-                                <input 
-                                  type="number" 
-                                  step="any" 
-                                  inputMode="decimal"
-                                  value={linea.precio_unitario} 
-                                  onChange={(e) => updateLinea(idx, "precio_unitario", parseFloat(e.target.value))} 
-                                  className="w-full p-2 rounded-lg border border-gray-100 text-right font-mono" 
-                                />
-                              </td>
-                              <td className="py-3 pr-4">
-                                <select value={linea.iva_pct} onChange={(e) => updateLinea(idx, "iva_pct", parseInt(e.target.value))} className="w-full p-2 rounded-lg border border-gray-100 text-xs font-bold text-center">
-                                   <option value="21">21%</option>
-                                   <option value="10">10%</option>
-                                   <option value="4">4%</option>
-                                   <option value="0">0%</option>
-                                </select>
-                              </td>
-                              <td className="py-3 text-right font-bold text-gray-700 font-mono">{formatCurrency(linea.unidades * linea.precio_unitario)}</td>
-                              <td className="py-3 text-center">{lineas.length > 1 && <button type="button" onClick={() => removeLinea(idx)} className="text-red-300 hover:text-red-500"><Trash2 size={16}/></button>}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                      <button type="button" onClick={addLinea} className="mt-4 flex items-center gap-2 text-sm font-bold text-purple-600 hover:bg-purple-50 px-3 py-2 rounded-lg transition-all"><Plus size={16}/> Añadir línea (Multi-IVA)</button>
-                   </div>
-
-                   <div className="flex flex-col md:flex-row justify-between pt-8 border-t bg-gray-50/50 p-6 rounded-2xl gap-8 font-mono">
-                      <div className="w-full md:w-64">
-                         <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1 font-sans">Retención IRPF (%)</label>
-                         <select 
-                            value={retencionPct} 
-                            onChange={(e) => setRetencionPct(parseFloat(e.target.value) || 0)} 
-                            className="w-full p-2.5 rounded-lg border border-gray-200 font-bold font-sans"
-                          >
-                             <option value="0">0% (Sin IRPF)</option>
-                             {tiposIRPF.map((t: any) => (
-                               <option key={t.id} value={t.valor}>{t.nombre} ({t.valor}%)</option>
-                             ))}
-                          </select>
-                      </div>
-                      <div className="w-full md:w-80 space-y-3">
-                         <div className="flex justify-between text-sm text-gray-500"><span>Base Imponible Tot.:</span><span className="font-bold text-gray-700">{formatCurrency(baseImponible)}</span></div>
-                         <div className="flex justify-between text-sm text-gray-500"><span>Cuota IVA Tot.:</span><span className="font-bold text-gray-700">{formatCurrency(totalIva)}</span></div>
-                         {retencionPct > 0 && <div className="flex justify-between text-sm text-red-600 font-bold"><span>Retención (-{retencionPct}%):</span><span>{formatCurrency(retencionImporte)}</span></div>}
-                         <div className="flex justify-between text-2xl font-bold pt-4 border-t border-gray-200 text-gray-900 font-sans"><span>TOTAL:</span><span className="text-red-600">{formatCurrency(totalFactura)}</span></div>
-                      </div>
-                   </div>
-
-                   <div className="flex gap-4">
-                      <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-4 font-bold text-gray-400 hover:bg-gray-100 rounded-2xl transition-all">Cancelar</button>
-                      <button type="submit" disabled={saving} className="flex-2 px-12 py-4 bg-gray-800 text-white font-bold rounded-2xl shadow-xl hover:bg-black disabled:opacity-50 transition-all flex items-center justify-center gap-3">
-                        {saving ? <Loader2 className="animate-spin" size={20}/> : <Save size={20} />}
-                        {saving ? "Registrando..." : "Confirmar y Registrar"}
-                      </button>
-                   </div>
-                </form>
-             </div>
-          </div>
-        )}
-
         <div className="glass-card bg-white shadow-sm border-[var(--border)] overflow-visible text-left min-h-[400px]">
 
           <table className="w-full text-left border-collapse">
@@ -1149,37 +952,230 @@ export default function CostesPage() {
                     <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Proveedor</label>
                     <div className="p-4 rounded-xl bg-gray-50 border font-bold text-gray-800">{selectedCoste?.proveedores?.nombre}</div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Fecha de Pago</label>
-                      <input type="date" value={pagoFecha} onChange={e => setPagoFecha(e.target.value)} className="w-full p-4 rounded-xl border bg-gray-50 focus:bg-white transition-all outline-none" />
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Importe (€)</label>
-                      <input type="number" step="0.01" value={pagoImporte} onChange={e => setPagoImporte(e.target.value)} className="w-full p-4 rounded-xl border bg-gray-50 focus:bg-white font-mono font-bold text-[var(--accent)] outline-none transition-all" />
-                    </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Importe Pagado</label>
+                    <input type="number" step="0.01" value={pagoImporte} onChange={(e) => setPagoImporte(e.target.value)} className="w-full p-4 rounded-xl border bg-gray-50 font-black text-xl text-gray-800" />
                   </div>
                   <div>
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Fecha</label>
+                    <input type="date" value={pagoFecha} onChange={(e) => setPagoFecha(e.target.value)} className="w-full p-4 rounded-xl border bg-gray-50 font-bold" />
+                  </div>
+                   <div>
                     <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Forma de Pago</label>
-                    <select value={pagoForma} onChange={e => setPagoForma(e.target.value)} className="w-full p-4 rounded-xl border bg-gray-50 focus:bg-white font-bold outline-none transition-all">
-                       <option value="Transferencia">Transferencia</option>
-                       <option value="Tarjeta">Tarjeta</option>
+                    <select value={pagoForma} onChange={(e) => setPagoForma(e.target.value)} className="w-full p-4 rounded-xl border bg-gray-50 font-bold">
+                       <option value="Transferencia">Transferencia Bancaria</option>
                        <option value="Efectivo">Efectivo</option>
-                       <option value="Giro Bancario">Giro Bancario</option>
+                       <option value="Tarjeta">Tarjeta de Crédito</option>
+                       <option value="Bizum">Bizum</option>
                     </select>
                   </div>
-                  <div className="pt-4">
-                     <button 
-                       disabled={saving}
-                       onClick={handleRegisterPayment}
-                       className="w-full py-4 bg-green-600 text-white font-black rounded-2xl shadow-xl hover:bg-green-700 transition-all flex items-center justify-center gap-2"
-                     >
-                       {saving ? <Loader2 className="animate-spin" size={20} /> : <HandCoins size={20} />}
-                       Confirmar Pago
-                     </button>
-                  </div>
+                  <button onClick={handleRegisterPayment} disabled={saving} className="w-full py-4 bg-[var(--accent)] text-white rounded-xl font-bold shadow-lg hover:bg-blue-600 transition-all flex items-center justify-center gap-2">
+                    {saving ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
+                    Guardar Pago
+                  </button>
                </div>
             </div>
+          </div>
+        )}
+
+        {/* Modal de Factura */}
+        {isModalOpen && (
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+             <div className="bg-white rounded-[2.5rem] shadow-2xl p-10 w-full max-w-5xl animate-in fade-in zoom-in duration-300 border overflow-y-auto max-h-[90vh] text-left">
+                <div className="flex justify-between items-center mb-8">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-purple-100 rounded-2xl flex items-center justify-center text-purple-600">
+                      <Receipt size={24} />
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-black font-head tracking-tighter">Registrar Factura Recibida</h2>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Introducción manual o vía IA</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                     {editingId && (
+                       <div className="flex gap-2 mr-4">
+                          <button onClick={handlePrev} className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 transition-colors"><ChevronUp size={20} /></button>
+                          <button onClick={handleNext} className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 transition-colors"><ChevronDown size={20} /></button>
+                       </div>
+                     )}
+                     <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                        <X size={24} className="text-gray-400" />
+                     </button>
+                  </div>
+                </div>
+                
+                <form onSubmit={handleSave} className="space-y-6">
+                   <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                      <div><label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Serie</label>
+                        <select value={serie} onChange={(e) => setSerie(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200 bg-gray-50 font-bold">
+                          <option value="A">Serie A (IVA Soportado)</option>
+                          <option value="B">Serie B (sin IVA)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1 whitespace-nowrap">Nº Registro</label>
+                        <input 
+                          type="text" 
+                          value={numInterno} 
+                          onChange={(e) => setNumInterno(e.target.value)}
+                          className="w-full p-2.5 rounded-lg border border-gray-100 bg-gray-50 font-bold text-gray-500 focus:outline-none focus:border-purple-200 transition-colors" 
+                          placeholder="Auto..."
+                        />
+                      </div>
+                      <div><label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Factura Prov.</label><input type="text" value={numFactProv} onChange={(e) => setNumFactProv(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200 font-bold text-blue-600" /></div>
+                      <div><label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Fecha</label><input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200" /></div>
+                      <div className="md:col-span-2">
+                         <SearchableSelect label="Proveedor" options={proveedores} value={proveedorId} onChange={(id) => setProveedorId(id)} placeholder="Buscar proveedor..." />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Tipo de Gasto</label>
+                        <select value={tipoGasto} onChange={(e) => setTipoGasto(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200 bg-gray-50">
+                           <option value="general">Gasto General</option>
+                           <option value="proyecto">Vincular a Proyecto</option>
+                        </select>
+                      </div>
+                      {tipoGasto === "proyecto" && (
+                        <div className="md:col-span-1">
+                           <SearchableSelect 
+                             label="Vincular Proyecto" 
+                             options={proyectos} 
+                             value={proyectoId} 
+                             onChange={(id) => setProyectoId(id)} 
+                             placeholder="Seleccionar..." 
+                           />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="p-6 bg-purple-50/50 rounded-2xl border border-purple-100/50 space-y-4">
+                       <div className="flex items-center justify-between">
+                          <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                             <Upload size={14} className="text-purple-500" /> Adjuntar Factura Original (PDF obligatorio)
+                          </label>
+                          {pdfUrl && (
+                             <a href={pdfUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] font-bold text-purple-600 hover:underline flex items-center gap-1">
+                                <FileText size={12} /> Ver PDF actual
+                             </a>
+                          )}
+                       </div>
+                       <div className="relative group">
+                          <input 
+                             type="file" 
+                             accept=".pdf" 
+                             onChange={(e) => setPdfFile(e.target.files?.[0] || null)}
+                             className="w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-6 file:rounded-xl file:border-0 file:text-xs file:font-black file:bg-purple-600 file:text-white hover:file:bg-purple-700 cursor-pointer p-4 bg-white rounded-xl border-2 border-dashed border-purple-200 group-hover:border-purple-300 transition-all"
+                          />
+                          {pdfFile && (
+                             <div className="mt-2 text-xs font-bold text-green-600 flex items-center gap-1 animate-in fade-in">
+                                ✓ Archivo seleccionado: {pdfFile.name}
+                             </div>
+                          )}
+                       </div>
+                    </div>
+
+                    <div className="pt-4">
+                      <table className="w-full text-left">
+                        <thead>
+                          <tr className="border-b text-gray-400">
+                            <th className="pb-3 text-[10px] font-bold uppercase">Ud.</th>
+                            <th className="pb-3 text-[10px] font-bold uppercase">Concepto</th>
+                            <th className="pb-3 text-[10px] font-bold uppercase text-right w-32">Precio Ud.</th>
+                            <th className="pb-3 text-[10px] font-bold uppercase w-24 text-center">IVA %</th>
+                            <th className="pb-3 text-[10px] font-bold uppercase text-right w-32">Total</th>
+                            <th className="w-10"></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {lineas.map((linea, idx) => (
+                            <tr key={idx} className="border-b border-gray-50">
+                               <td className="py-3 pr-4 text-center w-20"><input type="number" step="any" value={linea.unidades} onChange={(e) => updateLinea(idx, "unidades", parseFloat(e.target.value))} className="w-full p-2 rounded-lg border border-gray-100 font-bold text-center" /></td>
+                              <td className="py-3 pr-4">
+                                <textarea 
+                                  rows={1} 
+                                  value={linea.descripcion} 
+                                  onChange={(e) => updateLinea(idx, "descripcion", e.target.value)} 
+                                  className="w-full p-2 rounded-lg border border-gray-100 text-sm min-h-[40px] resize-y" 
+                                />
+                              </td>
+                              <td className="py-3 pr-4">
+                                <input 
+                                  type="number" 
+                                  step="any" 
+                                  value={linea.precio_unitario} 
+                                  onChange={(e) => updateLinea(idx, "precio_unitario", parseFloat(e.target.value))} 
+                                  className="w-full p-2 rounded-lg border border-gray-100 font-bold text-right" 
+                                />
+                              </td>
+                              <td className="py-3 pr-4"><input type="number" value={linea.iva_pct} onChange={(e) => updateLinea(idx, "iva_pct", parseFloat(e.target.value))} className="w-full p-2 rounded-lg border border-gray-100 font-bold text-center" /></td>
+                              <td className="py-3 text-right font-mono font-bold text-gray-400 text-sm">{formatCurrency(linea.unidades * linea.precio_unitario * (1 + (serie === "A" ? linea.iva_pct / 100 : 0)))}</td>
+                              <td className="py-3 text-right"><button type="button" onClick={() => removeLinea(idx)} className="text-red-300 hover:text-red-500 p-2 transition-colors"><Trash2 size={16}/></button></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      <button type="button" onClick={addLinea} className="mt-4 flex items-center gap-2 text-xs font-black text-purple-600 uppercase tracking-widest hover:underline transition-all">
+                        <Plus size={14}/> Añadir Línea
+                      </button>
+                    </div>
+
+                    <div className="flex justify-between items-start pt-8 border-t border-dashed">
+                       <div className="w-1/2 space-y-4">
+                          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Retención IRPF (Opcional)</label>
+                          <div className="flex gap-2">
+                             <button type="button" onClick={() => setRetencionPct(0)} className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${retencionPct === 0 ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-400 hover:bg-gray-100'}`}>0%</button>
+                             {tiposIRPF.map(t => (
+                               <button 
+                                 key={t.id}
+                                 type="button" 
+                                 onClick={() => setRetencionPct(t.valor)} 
+                                 className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${retencionPct === t.valor ? 'bg-orange-500 text-white border-orange-500' : 'bg-gray-50 text-gray-400 hover:bg-gray-100'}`}
+                               >
+                                 {t.valor}%
+                               </button>
+                             ))}
+                             <div className="relative">
+                               <input type="number" value={retencionPct} onChange={(e) => setRetencionPct(parseFloat(e.target.value) || 0)} className="w-20 p-2 rounded-xl border font-bold text-right pr-6" />
+                               <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-bold">%</span>
+                             </div>
+                          </div>
+                          <p className="text-[10px] text-gray-400 italic">Si la factura incluye retención, selecciónala para que cuadre el total.</p>
+                       </div>
+
+                       <div className="w-80 bg-gray-50 rounded-3xl p-8 space-y-3 shadow-inner">
+                          <div className="flex justify-between text-sm">
+                            <span className="font-bold text-gray-400 uppercase">Base Imponible</span>
+                            <span className="font-mono font-bold text-gray-900">{formatCurrency(baseImponible)}</span>
+                          </div>
+                          {serie === "A" && (
+                             <div className="flex justify-between text-sm">
+                               <span className="font-bold text-gray-400 uppercase">IVA Soportado</span>
+                               <span className="font-mono font-bold text-gray-900">{formatCurrency(totalIva)}</span>
+                             </div>
+                          )}
+                          {retencionPct > 0 && (
+                             <div className="flex justify-between text-sm text-orange-600">
+                               <span className="font-bold uppercase tracking-tight">Retención IRPF ({retencionPct}%)</span>
+                               <span className="font-mono font-bold">-{formatCurrency(retencionImporte)}</span>
+                             </div>
+                          )}
+                          <div className="h-px bg-gray-200 my-4"></div>
+                          <div className="flex justify-between items-end">
+                            <span className="font-black text-gray-800 uppercase tracking-tighter text-xl leading-none">Total</span>
+                            <span className="text-3xl font-black text-purple-600 tracking-tighter font-mono leading-none">{formatCurrency(totalFactura)}</span>
+                          </div>
+                       </div>
+                    </div>
+
+                    <div className="flex justify-end pt-8 gap-4 border-t border-gray-100 mt-10">
+                      <button type="button" onClick={() => setIsModalOpen(false)} className="px-8 py-4 text-gray-400 font-bold hover:bg-gray-100 rounded-2xl transition-all">Cancelar</button>
+                      <button type="submit" disabled={saving} className="px-10 py-4 bg-gray-900 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl hover:bg-black transition-all active:scale-[0.98] flex items-center gap-3 disabled:opacity-50">
+                        {saving ? <Loader2 className="animate-spin" size={20}/> : <Save size={20} />}
+                        {saving ? "Registrando..." : "Confirmar y Registrar"}
+                      </button>
+                   </div>
+                </form>
+             </div>
           </div>
         )}
       </div>

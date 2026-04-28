@@ -12,7 +12,7 @@ import { generatePDF } from "@/lib/pdfGenerator";
 import { formatCurrency } from "@/lib/format";
 import { sendInvoiceToAeat } from "@/lib/aeatService";
 import { encrypt, decrypt } from "@/lib/encryption";
-import { UploadCloud, ShieldCheck, OctagonAlert } from "lucide-react";
+import { UploadCloud, ShieldCheck, AlertTriangle } from "lucide-react";
 import { exportVATBookPDF, exportVATBookExcel } from "@/lib/reportingService";
 import { uploadInvoiceFile, deleteInvoiceFile } from "@/lib/storageService";
 
@@ -199,7 +199,7 @@ function VentasContent() {
       nextNum++;
     }
 
-    return `${finalPrefix}${nextNum}`;
+    return `${finalPrefix}${nextNum.toString().padStart(4, '0')}`;
   };
 
   useEffect(() => {
@@ -420,7 +420,7 @@ function VentasContent() {
 
         const blob = pdfDoc.output('blob');
         
-        // Descargar localmente para the user (si lo desea, aunque aquí es auto-archivado)
+        // Descargar localmente para el usuario (si lo desea, aunque aquí es auto-archivado)
         // pdfDoc.save(`Factura_${vFull.num_factura}.pdf`); 
 
         const publicUrl = await uploadInvoiceFile(blob, 'ventas', { 
@@ -745,14 +745,17 @@ function VentasContent() {
     return matchesGlobal && matchesColumns;
   }).sort((a, b) => {
     if (!sortConfig) return 0;
+    if (sortConfig.key === 'num_factura') {
+      const aVal = a.num_factura || '';
+      const bVal = b.num_factura || '';
+      return aVal.localeCompare(bVal, undefined, { numeric: true, sensitivity: 'base' }) * (sortConfig.direction === 'asc' ? 1 : -1);
+    }
+
     let aVal, bVal;
     
     if (sortConfig.key === 'cliente') {
       aVal = a.clientes?.nombre || '';
       bVal = b.clientes?.nombre || '';
-    } else if (sortConfig.key === 'num_factura') {
-      aVal = a.num_factura || '';
-      bVal = b.num_factura || '';
     } else if (sortConfig.key === 'total') {
       aVal = a.total || 0;
       bVal = b.total || 0;
@@ -799,384 +802,373 @@ function VentasContent() {
               </div>
             </header>
 
-            <div className="glass-card bg-white shadow-sm border-[var(--border)] overflow-visible text-left min-h-[400px]">
+            <div className="flex gap-4 mb-6">
+              <div className="flex-1 relative group">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[var(--accent)] transition-colors" size={20} />
+                <input 
+                  type="text" 
+                  placeholder="Buscar por cliente o número de factura..." 
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3 rounded-2xl border border-[var(--border)] bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-4 focus:ring-[var(--accent-alpha)] transition-all font-medium"
+                />
+              </div>
+            </div>
 
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-gray-50/50 border-b border-[var(--border)]">
-                      <DataTableHeader label="Factura" field="num_factura" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.num_factura || ''} onFilter={handleFilter} />
-                      <DataTableHeader label="Fecha" field="fecha" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.fecha || ''} onFilter={handleFilter} />
-                      <DataTableHeader label="Cliente" field="cliente" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.cliente || ''} onFilter={handleFilter} />
-                      <DataTableHeader label="Total" field="total" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.total || ''} onFilter={handleFilter} />
-                      <DataTableHeader label="Pendiente" field="pendiente" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.pendiente || ''} onFilter={handleFilter} />
-                      <DataTableHeader label="Cobro" field="estadoPago" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.estadoPago || ''} onFilter={handleFilter} />
-                      <th className="px-6 py-4 text-[12px] font-black text-gray-500 uppercase tracking-wider text-center">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[var(--border)]">
-                    {filteredVentas.map(v => (
-                      <tr key={v.id} className="hover:bg-gray-50 group transition-colors">
-                        <td className="px-6 py-4 text-sm font-bold">{v.num_factura}</td>
-                        <td className="px-6 py-4 text-sm text-[var(--muted)]">{new Date(v.fecha).toLocaleDateString()}</td>
-                        <td className="px-6 py-4 text-sm">{v.clientes?.nombre || 'Consumidor Final'}</td>
-                        <td className="px-6 py-4 text-sm font-mono font-bold text-right">
-                          <div className="font-black text-gray-800 text-lg tracking-tight mb-1 group-hover:text-orange-600 transition-colors">
-                            {formatCurrency(v.total || 0)}
+            <div className="glass-card overflow-hidden">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-gray-50/50 border-b border-[var(--border)]">
+                    <DataTableHeader label="Nº Factura" field="num_factura" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.num_factura || ''} onFilter={handleFilter} />
+                    <DataTableHeader label="Cliente" field="cliente" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.cliente || ''} onFilter={handleFilter} />
+                    <DataTableHeader label="Fecha" field="fecha" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.fecha || ''} onFilter={handleFilter} />
+                    <DataTableHeader label="Total" field="total" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.total || ''} onFilter={handleFilter} />
+                    <DataTableHeader label="Estado" field="estadoPago" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.estadoPago || ''} onFilter={handleFilter} 
+                      filterOptions={[
+                        { label: 'Todos', value: '' },
+                        { label: 'Cobrada', value: 'COBRADA' },
+                        { label: 'Pendiente', value: 'PENDIENTE' },
+                        { label: 'Parcial', value: 'PARCIALMENTE COBRADA' }
+                      ]}
+                    />
+                    <th className="px-6 py-4 text-[12px] font-black text-gray-400 uppercase tracking-wider text-right">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--border)]">
+                  {filteredVentas.map((venta) => (
+                    <tr key={venta.id} className="hover:bg-white/60 transition-colors group">
+                      <td className="px-6 py-4">
+                        <div className="text-[11px] font-black text-[var(--accent)] bg-[var(--accent-alpha)] px-2 py-1 rounded inline-block">
+                          {venta.num_factura}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="font-bold text-gray-800">{venta.clientes?.nombre || '—'}</div>
+                        {venta.proyectos?.nombre && (
+                          <div className="text-[10px] text-gray-400 font-medium flex items-center gap-1">
+                            <FolderKanban size={10} /> {venta.proyectos.nombre}
                           </div>
-                        </td>
-                        <td className="px-6 py-4 text-sm font-mono font-bold text-right text-red-600">
-                          <div className={`text-[10px] font-bold ${v.pendiente > 0 ? 'text-red-500 bg-red-50' : 'text-green-600 bg-green-50'} px-2 py-0.5 rounded-full inline-flex items-center gap-1 border border-current/10`}>
-                            {v.pendiente > 0 ? formatCurrency(v.pendiente) : '-'}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          <span className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${
-                            v.estadoPago === 'COBRADA' ? 'bg-green-100 text-green-700' : 
-                            v.estadoPago === 'PARCIALMENTE COBRADA' ? 'bg-orange-100 text-orange-700' : 
-                            'bg-gray-100 text-gray-500'
-                          }`}>
-                            {v.estadoPago}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-right relative">
-                          <div className="flex flex-col items-end gap-1">
-                            {/* Status VeriFactu Integrado */}
-                            {v.verifactu_status === 'enviado' ? (
-                              <div className="flex items-center gap-1 text-green-600 mb-1" title="Factura enviada a AEAT">
-                                <ShieldCheck size={14} />
-                                <span className="text-[9px] font-black uppercase tracking-tighter">Enviado</span>
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-1 text-gray-300 mb-1" title="Pendiente de enviar a AEAT">
-                                <UploadCloud size={14} />
-                                <span className="text-[9px] font-black uppercase tracking-tighter">Pendiente</span>
-                              </div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-500 font-medium">
+                        {new Date(venta.fecha).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 text-sm font-mono font-bold text-gray-900">
+                        {formatCurrency(venta.total || 0)}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                          venta.estadoPago === 'COBRADA' ? 'bg-green-50 text-green-600' : 
+                          venta.estadoPago === 'PARCIALMENTE COBRADA' ? 'bg-orange-50 text-orange-600' : 
+                          'bg-gray-50 text-gray-500'
+                        }`}>
+                          {venta.estadoPago}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right relative">
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenMenuId(openMenuId === venta.id ? null : venta.id);
+                          }}
+                          className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-gray-600 transition-colors"
+                        >
+                          <MoreHorizontal size={20} />
+                        </button>
+
+                        {openMenuId === venta.id && (
+                          <div className="absolute right-6 top-12 w-52 bg-white rounded-xl shadow-xl border z-50 py-2 animate-in fade-in slide-in-from-top-2 duration-200 text-left">
+                            <button onClick={() => downloadInvoice(venta)} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+                              <Download size={16} className="text-blue-500" /> Descargar PDF
+                            </button>
+                            <button onClick={() => handleSendByEmail(venta)} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+                              <Mail size={16} className="text-purple-500" /> Enviar por Email
+                            </button>
+                            
+                            <div className="h-px bg-gray-100 my-1 mx-2"></div>
+
+                            <button onClick={() => openEditVenta(venta)} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+                              <Pencil size={16} className="text-blue-500" /> Editar Factura
+                            </button>
+                            
+                            {venta.estadoPago !== 'COBRADA' && (
+                              <button 
+                                onClick={() => {
+                                  setSelectedVenta(venta);
+                                  const balance = Math.max(0, venta.total - (venta.totalCobrado || 0));
+                                  setCobroImporte(balance.toFixed(2));
+                                  setIsCobroModalOpen(true);
+                                  setOpenMenuId(null);
+                                }}
+                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-green-600 hover:bg-green-50 transition-colors"
+                              >
+                                <HandCoins size={16} /> Registrar Cobro
+                              </button>
                             )}
+                            
+                            <button onClick={() => handleVerifactuSubmit(venta)} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-blue-600 hover:bg-blue-50 transition-colors">
+                              <ShieldCheck size={16} className="text-blue-500" /> Enviar a Verifactu
+                            </button>
 
-                            <button onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === v.id ? null : v.id); }} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors text-gray-400 hover:text-gray-600">
-                              <MoreHorizontal size={20} />
+                            <div className="h-px bg-gray-100 my-1 mx-2"></div>
+                            
+                            <button onClick={() => handleDeleteVenta(venta)} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors">
+                              <Trash2 size={16} /> Eliminar
                             </button>
                           </div>
-
-                          {openMenuId === v.id && (
-                            <div className="absolute right-6 top-12 w-48 bg-white rounded-xl shadow-xl border border-[var(--border)] z-50 py-2 animate-in fade-in slide-in-from-top-2 duration-200 text-left">
-                              <button onClick={() => downloadInvoice(v)} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-700 transition-colors">
-                                <Printer size={16}/> Imprimir Factura
-                              </button>
-
-                              <button onClick={() => handleSendByEmail(v)} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-blue-600 hover:bg-blue-50 transition-colors">
-                                <Mail size={16}/> Enviar por Email
-                              </button>
-
-                              {v.pdf_url && (
-                                <a href={v.pdf_url} target="_blank" rel="noopener noreferrer" className="w-full flex items-center gap-3 px-4 py-2 text-sm text-purple-600 hover:bg-purple-50 transition-colors">
-                                  <FileText size={16} className="text-purple-500" /> Ver Factura PDF
-                                </a>
-                              )}
-
-                              {v.verifactu_status !== 'enviado' && (
-                                <button onClick={() => handleVerifactuSubmit(v)} disabled={saving} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-blue-600 hover:bg-blue-50 transition-colors">
-                                  <UploadCloud size={16}/> Transmitir AEAT
-                                </button>
-                              )}
-                               {v.estadoPago !== 'Cobrado' && (
-                                 <button onClick={() => {
-                                    setSelectedVenta(v);
-                                    const balance = Math.max(0, v.total - (v.totalCobrado || 0));
-                                    setCobroImporte(balance.toFixed(2));
-                                    setIsCobroModalOpen(true);
-                                    setOpenMenuId(null);
-                                  }} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-green-600 hover:bg-green-50 transition-colors">
-                                    <HandCoins size={16} className="text-green-500"/> Registrar Cobro
-                                  </button>
-                                )}
-                                <button onClick={() => openEditVenta(v)} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-700 transition-colors">
-                                  <Pencil size={16}/> Editar Factura
-                                </button>
-                              <div className="h-px bg-gray-100 my-1 mx-2"></div>
-                                <button 
-                                  onClick={() => handleDeleteVenta(v)} 
-                                  className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                                >
-                                  <Trash2 size={16}/> Eliminar
-                                </button>
-                            </div>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </>
         ) : (
-          <div className="max-w-5xl mx-auto animate-in slide-in-from-bottom-4 duration-300 pb-20 text-left">
-            <div className="flex items-center justify-between mb-8">
-              <h2 className="text-2xl font-bold font-head flex items-center gap-2">
-                <FileText className="text-[var(--accent)]" /> Editor de Factura
-              </h2>
-              <div className="flex gap-3">
-                <button onClick={() => setIsEditorOpen(false)} className="px-5 py-2.5 text-sm font-bold text-gray-500 hover:bg-gray-100 rounded-xl">Cancelar</button>
-                <button onClick={handleSaveInvoice} disabled={saving} className="flex items-center gap-2 px-6 py-2.5 bg-[var(--accent)] text-white rounded-xl font-bold shadow-md hover:shadow-lg disabled:opacity-50 transition-all">
-                  {saving ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
-                  Guardar y Emitir
-                </button>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-2xl shadow-xl border border-[var(--border)] p-8">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 pb-8 border-b border-dashed border-gray-200">
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Serie</label>
-                  <select value={serie} onChange={(e) => setSerie(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200 bg-gray-50 font-bold">
-                    <option value="A">Serie A (IVA)</option>
-                    <option value="B">Serie B (sin IVA)</option>
-                  </select>
-                </div>
-                <div><label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Nº Factura</label><input type="text" value={numFactura} onChange={(e) => setNumFactura(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200 bg-gray-50 font-mono" /></div>
-                <div><label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Fecha</label><input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200 bg-gray-50" /></div>
-                <div className="hidden">
-                  <select value={formaCobroId} onChange={(e) => setFormaCobroId(e.target.value)}>
-                    {formasCobro.map(f => <option key={f.id} value={f.id}>{f.nombre}</option>)}
-                  </select>
-                </div>
-                <div className="md:col-span-2">
-                  <SearchableSelect 
-                    label="Cliente"
-                    options={clientes}
-                    value={clienteId}
-                    onChange={(id) => setClienteId(id)}
-                    placeholder="Buscar cliente..."
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <SearchableSelect 
-                    label="Vincular a Proyecto (Opcional)"
-                    options={proyectos}
-                    value={proyectoId}
-                    onChange={(id) => setProyectoId(id)}
-                    placeholder="Seleccionar proyecto..."
-                  />
-                </div>
-              </div>
-
-              <div className="mb-8 overflow-x-auto">
-                <table className="w-full border-collapse min-w-[600px]">
-                  <thead>
-                    <tr className="text-left text-gray-400">
-                      <th className="pb-3 text-[10px] font-bold uppercase">Descripción / Concepto</th>
-                      <th className="w-32 pb-3 text-[10px] font-bold uppercase text-right">Importe</th>
-                      <th className="w-24 pb-3 text-[10px] font-bold uppercase text-center">IVA %</th>
-                      <th className="w-10"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {lineas.map((linea, idx) => (
-                      <tr key={idx} className="border-b border-gray-50">
-                        <td className="py-3 pr-4">
-                          <RichTextEditor 
-                            value={linea.descripcion} 
-                            onChange={(val) => updateLinea(idx, { descripcion: val })} 
-                            placeholder="Descripción de la partida..."
-                          />
-                        </td>
-                        <td className="py-3 pr-4">
-                          <input 
-                            type="number"
-                            step="any"
-                            inputMode="decimal"
-                            value={linea.precio_unitario}
-                            onChange={(e) => updateLinea(idx, { precio_unitario: parseFloat(e.target.value) || 0, unidades: 1 })}
-                            onFocus={(e) => e.target.select()}
-                            className="w-full p-2 rounded-lg border border-gray-100 text-right font-mono font-bold text-[var(--accent)] focus:ring-2 focus:ring-orange-100 outline-none"
-                            placeholder="0.00"
-                          />
-                        </td>
-                        <td className="py-3 pr-4">
-                          <select 
-                            value={linea.iva_pct ?? 21} 
-                            onChange={(e) => updateLinea(idx, { iva_pct: parseInt(e.target.value) })} 
-                            className="w-full p-2 rounded-lg border border-gray-100 text-xs font-bold text-center bg-gray-50"
-                          >
-                            <option value="21">21%</option>
-                            <option value="10">10%</option>
-                            <option value="4">4%</option>
-                            <option value="0">0%</option>
-                          </select>
-                        </td>
-                        <td className="py-3 text-center">
-                          {lineas.length > 1 && (
-                            <button type="button" onClick={() => removeLinea(idx)} className="text-red-300 hover:text-red-500 transition-colors">
-                              <Trash2 size={16}/>
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                <button type="button" onClick={addLinea} className="mt-4 flex items-center gap-2 text-sm font-bold text-[var(--accent)] hover:underline">
-                  <Plus size={16}/> Añadir partida
-                </button>
-              </div>
-
-              <div className="flex flex-col md:flex-row justify-between pt-8 border-t border-gray-100 gap-8">
-                <div className="w-full md:w-64">
-                   {perfil?.tiene_retencion && (
-                     <>
-                       <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Retención IRPF (%)</label>
-                       <input type="number" value={retencionPct} onChange={(e) => setRetencionPct(parseFloat(e.target.value) || 0)} className="w-full p-2 rounded-lg border border-gray-200 font-bold" />
-                     </>
-                   )}
-                </div>
-                <div className="w-full md:w-80 space-y-3">
-                  <div className="flex justify-between text-sm"><span>Base Imponible:</span><span className="font-mono font-bold text-gray-700">{formatCurrency(baseImponible)}</span></div>
-                  <div className="flex justify-between text-sm"><span>IVA ({serie === "A" ? '21%' : '0%'}):</span><span className="font-mono font-bold text-gray-700">{formatCurrency(cuotaIva)}</span></div>
-                  {perfil?.tiene_retencion && retencionPct > 0 && <div className="flex justify-between text-sm text-red-600"><span className="font-medium">Retención ({retencionPct}%):</span><span className="font-mono font-bold">-{formatCurrency(retencionImporte)}</span></div>}
-                </div>
-              </div>
-
-              {/* Forma de Pago Personalizada */}
-              <div className="mt-8 pt-8 border-t border-dashed border-gray-200">
-                <div className="space-y-2 max-w-2xl">
-                  <div className="flex items-center gap-2">
-                    <div className="h-2 w-2 rounded-full bg-blue-400" />
-                    <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest">Forma de Pago</label>
-                    <span className="text-[9px] text-gray-400 italic">(personalizada para esta factura)</span>
+          <div className="max-w-5xl mx-auto animate-in slide-in-from-bottom-4 duration-500">
+            <div className="bg-white rounded-[2.5rem] border border-[var(--border)] shadow-xl overflow-hidden mb-10">
+              <div className="p-8 border-b border-[var(--border)] flex justify-between items-center bg-gray-50/50">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-blue-100 rounded-2xl text-blue-600">
+                    <Receipt size={24} />
                   </div>
-                  <RichTextEditor 
-                    value={formaPago} 
-                    onChange={setFormaPago} 
-                    placeholder="Ej: Transferencia bancaria a la cuenta indicada en la cabecera..."
-                  />
+                  <div>
+                    <h2 className="text-2xl font-black font-head tracking-tight">{editingId ? 'Editar Factura' : 'Nueva Factura'}</h2>
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">{numFactura || 'Auto-Generado'}</p>
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <button onClick={() => setIsEditorOpen(false)} className="px-6 py-2.5 rounded-xl font-bold text-gray-400 hover:bg-gray-100 transition-all">Cancelar</button>
+                  <button onClick={handleSaveInvoice} disabled={saving} className="px-8 py-2.5 rounded-xl bg-[var(--accent)] text-white font-black shadow-lg shadow-[var(--accent-alpha)] hover:scale-[1.02] transition-all flex items-center gap-2">
+                    {saving ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
+                    {editingId ? 'Actualizar Factura' : 'Registrar y Emitir'}
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-10 space-y-10">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Serie</label>
+                    <select value={serie} onChange={(e) => setSerie(e.target.value)} className="w-full px-5 py-4 rounded-2xl border bg-gray-50 outline-none font-bold focus:ring-4 focus:ring-[var(--accent-alpha)] transition-all">
+                      <option value="A">Serie A (Factura Ordinaria)</option>
+                      <option value="B">Serie B (sin IVA)</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Nº Factura</label>
+                    <input type="text" value={numFactura} onChange={(e) => setNumFactura(e.target.value)} className="w-full px-5 py-4 rounded-2xl border bg-gray-50 outline-none font-black text-[var(--accent)] tracking-tight focus:bg-white transition-all" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Fecha Emisión</label>
+                    <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className="w-full px-5 py-4 rounded-2xl border bg-gray-50 outline-none font-bold focus:bg-white transition-all" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Retención (%)</label>
+                    <input type="number" value={retencionPct} onChange={(e) => setRetencionPct(parseFloat(e.target.value))} className="w-full px-5 py-4 rounded-2xl border bg-gray-50 outline-none font-bold text-orange-600 focus:bg-white transition-all text-right" />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <SearchableSelect label="Cliente" options={clientes} value={clienteId} onChange={setClienteId} placeholder="Seleccionar cliente..." />
+                  </div>
+                  <div className="md:col-span-2">
+                    <SearchableSelect label="Vincular Proyecto (Opcional)" options={proyectos} value={proyectoId} onChange={setProyectoId} placeholder="Vincular a un presupuesto..." />
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center px-1">
+                    <h3 className="text-xs font-black text-gray-400 uppercase tracking-[0.2em]">Conceptos Facturados</h3>
+                    <button onClick={addLinea} className="flex items-center gap-1 text-[10px] font-black text-[var(--accent)] uppercase hover:underline transition-all">
+                      <Plus size={14} /> Añadir Línea
+                    </button>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    {lineas.map((linea, idx) => (
+                      <div key={idx} className="flex gap-4 items-start animate-in slide-in-from-right-4 duration-300">
+                        <div className="w-16">
+                          <input type="number" value={linea.unidades} onChange={(e) => updateLinea(idx, { unidades: parseFloat(e.target.value) })} className="w-full px-4 py-3 rounded-xl border bg-gray-50 text-center font-bold" />
+                        </div>
+                        <div className="flex-1">
+                          <textarea rows={1} value={linea.descripcion} onChange={(e) => updateLinea(idx, { descripcion: e.target.value })} placeholder="Descripción del concepto..." className="w-full px-4 py-3 rounded-xl border bg-gray-50 text-sm min-h-[44px] resize-none" />
+                        </div>
+                        <div className="w-32">
+                          <input type="number" value={linea.precio_unitario} onChange={(e) => updateLinea(idx, { precio_unitario: parseFloat(e.target.value) })} placeholder="Precio" className="w-full px-4 py-3 rounded-xl border bg-gray-50 text-right font-bold" />
+                        </div>
+                        <div className="w-32 bg-gray-50 px-4 py-3 rounded-xl border text-right font-mono font-bold text-gray-400 text-sm">
+                          {formatCurrency(linea.unidades * linea.precio_unitario)}
+                        </div>
+                        <button onClick={() => removeLinea(idx)} className="p-3 text-red-300 hover:text-red-500 transition-colors"><Trash2 size={18} /></button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex justify-between pt-10 border-t border-dashed">
+                  <div className="w-1/2 space-y-4">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Forma de Pago (Pie de Factura)</label>
+                    <RichTextEditor value={formaPago} onChange={setFormaPago} placeholder="Ej: Transferencia bancaria a ES00 0000..." />
+                  </div>
+
+                  <div className="w-1/3 bg-gray-50 rounded-[2rem] p-8 space-y-4 shadow-inner">
+                    <div className="flex justify-between text-sm">
+                      <span className="font-bold text-gray-400 uppercase">Base Imponible</span>
+                      <span className="font-mono font-bold text-gray-900">{formatCurrency(baseImponible)}</span>
+                    </div>
+                    {serie === "A" && (
+                      <div className="flex justify-between text-sm">
+                        <span className="font-bold text-gray-400 uppercase">IVA (21%)</span>
+                        <span className="font-mono font-bold text-gray-900">{formatCurrency(cuotaIva)}</span>
+                      </div>
+                    )}
+                    {retencionPct > 0 && (
+                      <div className="flex justify-between text-sm text-orange-600">
+                        <span className="font-bold uppercase tracking-tight">Retención IRPF ({retencionPct}%)</span>
+                        <span className="font-mono font-bold">-{formatCurrency(retencionImporte)}</span>
+                      </div>
+                    )}
+                    <div className="h-px bg-gray-200 my-4"></div>
+                    <div className="flex justify-between items-end">
+                      <span className="font-black text-gray-800 uppercase tracking-tighter text-xl">Total Factura</span>
+                      <span className="text-3xl font-black text-[var(--accent)] tracking-tighter font-mono">{formatCurrency(totalFactura)}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* Wizard Modal */}
+        {/* Modal Wizard para Factura de Avance */}
         {isWizardOpen && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8 animate-in zoom-in-95 duration-200">
-               <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-xl font-bold font-head">{selectedProjId ? 'Facturar Grado de Avance' : 'Nueva Factura'}</h3>
-                  <button onClick={() => setIsWizardOpen(false)} className="text-gray-400 hover:text-gray-600">✕</button>
-               </div>
-               
-               <div className="grid gap-4">
-                  {!selectedProjId && (
-                    <>
-                      <button 
-                        onClick={() => { setEditingId(null); setClienteId(""); setProyectoId(""); setLineas([{ unidades: 1, descripcion: "", precio_unitario: 0 }]); setIsWizardOpen(false); setIsEditorOpen(true); }}
-                        className="flex items-center gap-4 p-4 rounded-xl border-2 border-dashed border-gray-200 hover:border-[var(--accent)] hover:bg-orange-50 transition-all text-left group"
-                      >
-                        <div className="p-3 rounded-lg bg-gray-100 group-hover:bg-orange-100 text-gray-500 group-hover:text-[var(--accent)]"><Plus size={24}/></div>
-                        <div>
-                          <div className="font-bold">Factura de Extras</div>
-                          <div className="text-xs text-gray-500">Crear una factura de servicios adicionales.</div>
-                        </div>
-                      </button>
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+            <div className="bg-white rounded-[2.5rem] p-10 w-full max-w-lg shadow-2xl animate-in zoom-in-95 duration-300 space-y-8">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-blue-100 rounded-2xl text-blue-600">
+                    <Receipt size={24} />
+                  </div>
+                  <h3 className="text-2xl font-black tracking-tight">Emitir Factura</h3>
+                </div>
+                <button onClick={() => setIsWizardOpen(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                  <Plus className="rotate-45 text-gray-400" size={24} />
+                </button>
+              </div>
 
-                      <div className="py-2 flex items-center gap-4"><div className="h-px bg-gray-200 flex-1"></div><span className="text-[10px] font-bold text-gray-400 uppercase">O facturar presupuesto</span><div className="h-px bg-gray-200 flex-1"></div></div>
-                    </>
-                  )}
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                   <button 
+                     onClick={() => { setInvoicingMode('manual'); setIsWizardOpen(false); setIsEditorOpen(true); }}
+                     className="flex flex-col items-center gap-4 p-8 rounded-[2rem] border-2 border-gray-100 hover:border-[var(--accent)] hover:bg-blue-50/30 transition-all group"
+                   >
+                     <div className="p-4 bg-gray-50 rounded-2xl text-gray-400 group-hover:bg-white group-hover:text-[var(--accent)] group-hover:shadow-md transition-all">
+                       <Plus size={32} />
+                     </div>
+                     <span className="font-black text-gray-800 uppercase text-[10px] tracking-widest">Manual</span>
+                   </button>
 
-                   <div className="space-y-4">
-                     {!selectedProjId ? (
-                       <SearchableSelect 
-                         label="Seleccionar Presupuesto para Facturar"
-                         options={proyectos}
-                         value={selectedProjId}
-                         onChange={(id) => setSelectedProjId(id)}
-                         placeholder="Buscar por nombre de cliente o presupuesto..."
-                       />
-                     ) : (
-                       <div className="p-4 bg-gray-50 rounded-xl border border-gray-200 mb-2">
-                         <div className="text-[10px] font-bold text-gray-400 uppercase mb-1">Presupuesto Seleccionado</div>
-                         <div className="font-bold text-gray-700">{proyectos.find(p => p.id === selectedProjId)?.nombre || 'Cargando...'}</div>
-                       </div>
-                     )}
-                    <div className="p-4 bg-orange-50 rounded-xl border border-orange-100 space-y-3">
-                      <label className="block text-[10px] font-bold text-orange-600 uppercase tracking-widest ml-1">Grado de Avance de Facturación (%)</label>
-                      <div className="flex items-center gap-4">
-                        <input 
-                          type="range" 
-                          min="1" 
-                          max="100" 
-                          value={pct} 
-                          onChange={(e) => setPct(e.target.value)} 
-                          className="flex-1 accent-orange-600"
-                        />
-                        <div className="w-16">
-                          <input 
-                            type="number" 
-                            min="1" 
-                            max="100" 
-                            value={pct} 
-                            onChange={(e) => setPct(e.target.value)} 
-                            className="w-full p-2 rounded-lg border border-orange-200 text-center font-bold text-orange-700 focus:outline-none"
-                          />
-                        </div>
+                   <button 
+                     onClick={() => setInvoicingMode('avance')}
+                     className={`flex flex-col items-center gap-4 p-8 rounded-[2rem] border-2 transition-all group ${invoicingMode === 'avance' ? 'border-[var(--accent)] bg-blue-50/30' : 'border-gray-100 hover:border-[var(--accent)] hover:bg-blue-50/30'}`}
+                   >
+                     <div className={`p-4 rounded-2xl transition-all ${invoicingMode === 'avance' ? 'bg-white text-[var(--accent)] shadow-md' : 'bg-gray-50 text-gray-400 group-hover:bg-white group-hover:text-[var(--accent)] group-hover:shadow-md'}`}>
+                       <FolderKanban size={32} />
+                     </div>
+                     <span className="font-black text-gray-800 uppercase text-[10px] tracking-widest">De Avance</span>
+                   </button>
+                </div>
+
+                {invoicingMode === 'avance' && (
+                  <div className="space-y-6 animate-in slide-in-from-top-4 duration-300">
+                    <SearchableSelect 
+                      label="Seleccionar Proyecto" 
+                      options={proyectos} 
+                      value={selectedProjId} 
+                      onChange={setSelectedProjId} 
+                      placeholder="Buscar presupuesto..." 
+                    />
+                    
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">% de Facturación (Avance)</label>
+                      <div className="flex gap-3">
+                         {['25', '50', '75', '100'].map(v => (
+                           <button 
+                             key={v} 
+                             onClick={() => setPct(v)}
+                             className={`flex-1 py-3 rounded-xl font-black text-sm border transition-all ${pct === v ? 'bg-[var(--accent)] text-white border-[var(--accent)] shadow-lg' : 'bg-gray-50 text-gray-400 border-gray-100 hover:bg-gray-100'}`}
+                           >
+                             {v}%
+                           </button>
+                         ))}
+                         <div className="flex-1 relative">
+                            <input type="number" value={pct} onChange={e => setPct(e.target.value)} className="w-full h-full px-4 rounded-xl border bg-gray-50 font-black text-sm text-right pr-8" />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-bold">%</span>
+                         </div>
                       </div>
-                      <p className="text-[10px] text-orange-500 font-medium italic">Se facturará un {pct}% del presupuesto total.</p>
                     </div>
 
                     <button 
-                      disabled={!selectedProjId}
-                      onClick={() => handleProjectToInvoice(selectedProjId, parseFloat(pct))}
-                      className="w-full py-4 bg-[var(--accent)] text-white rounded-xl font-bold disabled:opacity-50 transition-all flex items-center justify-center gap-2 shadow-lg shadow-orange-200 hover:shadow-orange-300 active:scale-[0.98]"
+                      onClick={() => handleProjectToInvoice(selectedProjId, parseFloat(pct) || 0)}
+                      disabled={!selectedProjId || !pct}
+                      className="w-full py-5 bg-gray-900 text-white rounded-2xl font-black uppercase tracking-[0.2em] shadow-xl hover:bg-black transition-all disabled:opacity-50"
                     >
-                      <Receipt size={18} /> Facturar {pct}% del Presupuesto
+                      Generar Borrador
                     </button>
                   </div>
-               </div>
+                )}
+              </div>
             </div>
           </div>
         )}
 
-        {/* Modal Cobro */}
+        {/* Modal Registrar Cobro */}
         {isCobroModalOpen && (
           <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-            <div className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl animate-in zoom-in duration-300">
-               <div className="flex justify-between items-center mb-6 text-left">
-                  <h3 className="text-xl font-black tracking-tight">Registrar Cobro</h3>
+            <div className="bg-white rounded-[2.5rem] p-10 w-full max-w-md shadow-2xl animate-in zoom-in duration-300 space-y-6 text-left">
+               <div className="flex justify-between items-center mb-2">
+                  <h3 className="text-2xl font-black tracking-tight">Registrar Cobro</h3>
                   <button onClick={() => setIsCobroModalOpen(false)} className="text-gray-400 hover:text-gray-600">✕</button>
                </div>
-               <div className="space-y-4 text-left">
-                  <div>
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Cliente</label>
-                    <div className="p-4 rounded-xl bg-gray-50 border font-bold text-gray-800">{selectedVenta?.clientes?.nombre}</div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Fecha de Cobro</label>
-                      <input type="date" value={cobroFecha} onChange={e => setCobroFecha(e.target.value)} className="w-full p-4 rounded-xl border bg-gray-50 focus:bg-white transition-all outline-none" />
+               
+               <div className="p-6 bg-blue-50 rounded-2xl border border-blue-100 space-y-1">
+                 <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Factura {selectedVenta?.num_factura}</p>
+                 <p className="text-lg font-black text-blue-900">{selectedVenta?.clientes?.nombre}</p>
+                 <p className="text-sm font-bold text-blue-700/60">Total: {formatCurrency(selectedVenta?.total)} • Pendiente: {formatCurrency(selectedVenta?.pendiente)}</p>
+               </div>
+
+               <div className="space-y-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Importe a Cobrar</label>
+                    <div className="relative">
+                      <input type="number" step="0.01" value={cobroImporte} onChange={e => setCobroImporte(e.target.value)} className="w-full p-4 rounded-xl border bg-gray-50 font-black text-xl text-gray-800 outline-none focus:bg-white focus:ring-4 focus:ring-blue-500/10 transition-all pr-12" />
+                      <span className="absolute right-5 top-1/2 -translate-y-1/2 font-black text-gray-300 text-xl">€</span>
                     </div>
-                    <div>
-                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Importe (€)</label>
-                      <input type="number" step="0.01" value={cobroImporte} onChange={e => setCobroImporte(e.target.value)} className="w-full p-4 rounded-xl border bg-gray-50 focus:bg-white font-mono font-bold text-[var(--accent)] outline-none transition-all" />
-                    </div>
                   </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Forma de Cobro</label>
-                    <select value={cobroForma} onChange={e => setCobroForma(e.target.value)} className="w-full p-4 rounded-xl border bg-gray-50 focus:bg-white font-bold outline-none transition-all">
-                       <option value="Transferencia">Transferencia</option>
-                       <option value="Tarjeta">Tarjeta</option>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Fecha del Cobro</label>
+                    <input type="date" value={cobroFecha} onChange={e => setCobroFecha(e.target.value)} className="w-full p-4 rounded-xl border bg-gray-50 font-bold outline-none focus:bg-white transition-all" />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Medio de Cobro</label>
+                    <select value={cobroForma} onChange={e => setCobroForma(e.target.value)} className="w-full p-4 rounded-xl border bg-gray-50 font-bold outline-none focus:bg-white transition-all">
+                       <option value="Transferencia">Transferencia Bancaria</option>
                        <option value="Efectivo">Efectivo</option>
-                       <option value="Giro Bancario">Giro Bancario</option>
+                       <option value="Tarjeta">Tarjeta de Crédito</option>
+                       <option value="Bizum">Bizum</option>
                     </select>
                   </div>
-                  <div className="pt-4">
-                     <button 
-                       disabled={saving}
-                       onClick={handleRegisterCobro}
-                       className="w-full py-4 bg-green-600 text-white font-black rounded-2xl shadow-xl hover:bg-green-700 transition-all flex items-center justify-center gap-2"
-                     >
-                       {saving ? <Loader2 className="animate-spin" size={20} /> : <HandCoins size={20} />}
-                       Confirmar Cobro
-                     </button>
-                  </div>
+
+                  <button 
+                    onClick={handleRegisterCobro} 
+                    disabled={saving || !cobroImporte}
+                    className="w-full py-5 bg-[var(--accent)] text-white rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-[var(--accent-alpha)] hover:bg-blue-700 transition-all disabled:opacity-50 mt-4 flex items-center justify-center gap-3"
+                  >
+                    {saving ? <Loader2 className="animate-spin" size={20} /> : <HandCoins size={20} />}
+                    Confirmar Cobro
+                  </button>
                </div>
             </div>
           </div>
