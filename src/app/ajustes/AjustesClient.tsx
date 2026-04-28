@@ -663,6 +663,23 @@ export default function AjustesClient() {
       const cols = (probe && probe.length > 0) ? Object.keys(probe[0]) : [];
       const findKey = (options: string[]) => options.find(o => cols.includes(o));
 
+      // 0.1 Obtener Perfil y Numeración Secuencial para el Libro de IVA
+      const { data: perf } = await supabase.from('perfil_negocio').select('*').eq('user_id', user.id).maybeSingle();
+      const prefix = perf?.prefijo_costes || "";
+      const { data: existingNums } = await supabase.from('costes').select('num_interno, registro_interno, numero').eq('user_id', user.id);
+      const usedNumbers = (existingNums || [])
+        .map(c => {
+          const val = c.num_interno || c.registro_interno || c.numero || "";
+          if (prefix && !val.startsWith(prefix)) return NaN;
+          return parseInt(prefix ? val.slice(prefix.length) : val, 10);
+        })
+        .filter(n => !isNaN(n));
+      
+      let nextSequential = perf?.contador_costes || 1;
+      while (usedNumbers.includes(nextSequential)) {
+        nextSequential++;
+      }
+
       const entries = Object.entries(groupedData);
       for (let i = 0; i < entries.length; i++) {
         const [key, rows] = entries[i];
@@ -725,6 +742,7 @@ export default function AjustesClient() {
           }
 
           // 4. Cabecera con Smart Mapping
+          const internalNum = `${prefix}${nextSequential}`;
           const payload: any = {
             user_id: user.id,
             fecha: finalFecha,
@@ -738,6 +756,8 @@ export default function AjustesClient() {
             if (k) payload[k] = value;
           };
 
+          setIfFound(['num_interno', 'registro_interno', 'numero'], internalNum);
+          setIfFound(['serie_costes', 'serie'], perf?.serie_costes || 'A');
           setIfFound(['num_factura_proveedor', 'numero_factura', 'num_factura', 'factura_prov', 'referencia'], num_factura.toString());
           setIfFound(['proveedor_id', 'id_proveedor'], prov.id);
           setIfFound(['base_imponible', 'base', 'subtotal'], totalBI);
@@ -748,6 +768,8 @@ export default function AjustesClient() {
           const { data: newCoste, error: cErr } = await supabase.from('costes').insert(payload).select('id').single();
 
           if (cErr) throw new Error(cErr.message);
+          
+          nextSequential++; // Incrementar para la siguiente factura
 
           // 5. Líneas
           for (const r of rows) {
