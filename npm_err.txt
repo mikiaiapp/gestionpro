@@ -1,0 +1,9 @@
+npm error code ENOENT
+npm error syscall rename
+npm error path V:\mikiaiapp\gestionpro\gestionpro\node_modules\which
+npm error dest V:\mikiaiapp\gestionpro\gestionpro\node_modules\.which-PNP1yCI8
+npm error errno -4058
+npm error enoent ENOENT: no such file or directory, rename 'V:\mikiaiapp\gestionpro\gestionpro\node_modules\which' -> 'V:\mikiaiapp\gestionpro\gestionpro\node_modules\.which-PNP1yCI8'
+npm error enoent This is related to npm not being able to find a file.
+npm error enoent
+npm error A complete log of this run can be found in: C:\Users\Miguel Angel\AppData\Local\npm-cache\_logs\2026-04-28T10_21_00_378Z-debug-0.log

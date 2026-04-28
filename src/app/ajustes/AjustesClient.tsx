@@ -19,8 +19,11 @@ import {
   RotateCcw,
   Smartphone,
   Scale,
-  FileText
+  FileText,
+  Table,
+  LayoutGrid
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { Sidebar } from '@/components/Sidebar';
 import RichTextEditor from '@/components/RichTextEditor';
 import { getFullLocationByCP } from '@/lib/geoData';
@@ -103,6 +106,10 @@ export default function AjustesClient() {
   const [isBackupLoading, setIsBackupLoading] = useState(false);
   const [isRestoreLoading, setIsRestoreLoading] = useState(false);
   const [autoBackups, setAutoBackups] = useState<any[]>([]);
+  
+  // Excel Import State
+  const [isImporting, setIsImporting] = useState(false);
+  const [importResults, setImportResults] = useState<{ total: number, success: number, errors: string[] } | null>(null);
 
   const initialLoadDone = useRef(false);
   const latestValuesRef = useRef<any>(null);
@@ -590,8 +597,6 @@ export default function AjustesClient() {
     }
   };
 
-  const [activeTab, setActiveTab] = useState<'perfil' | 'ai' | 'legales' | 'seguridad' | 'fiscalidad' | 'backup' | 'email'>('perfil');
-
   const handleTestEmail = async () => {
     setTestingEmail(true);
     setEmailTestResult(null);
@@ -628,6 +633,142 @@ export default function AjustesClient() {
     }
   };
 
+  const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const XLSX = await import('xlsx');
+
+    setIsImporting(true);
+    setImportResults(null);
+    const errors: string[] = [];
+    let successCount = 0;
+
+    try {
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data, { type: 'array' });
+      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet) as any[];
+
+      for (let i = 0; i < jsonData.length; i++) {
+        const row = jsonData[i];
+        try {
+          const { fecha, num_factura, proveedor_nombre, proveedor_nif } = row;
+          
+          if (!fecha || !num_factura || !proveedor_nombre || !proveedor_nif) {
+            errors.push(`Fila ${i + 2}: Faltan campos obligatorios (fecha, num_factura, proveedor_nombre, proveedor_nif).`);
+            continue;
+          }
+
+          // 1. Buscar o Crear Proveedor
+          const cleanNif = proveedor_nif.toString().replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+          let { data: prov } = await supabase.from('proveedores').select('id').eq('user_id', user.id).eq('nif', cleanNif).maybeSingle();
+
+          if (!prov) {
+            const { data: newProv, error: pErr } = await supabase.from('proveedores').insert({
+              user_id: user.id,
+              nombre: proveedor_nombre,
+              nif: cleanNif,
+              direccion: row.proveedor_direccion || '',
+              codigo_postal: row.proveedor_cp || '',
+              poblacion: row.proveedor_poblacion || '',
+              provincia: row.proveedor_provincia || ''
+            }).select('id').single();
+            
+            if (pErr) throw new Error(`Error creando proveedor: ${pErr.message}`);
+            prov = newProv;
+          }
+
+          // 2. Comprobar duplicado de factura
+          const { data: exist } = await supabase.from('costes').select('id').eq('user_id', user.id).eq('proveedor_id', prov.id).eq('num_factura_proveedor', num_factura.toString()).maybeSingle();
+          if (exist) {
+            errors.push(`Fila ${i + 2}: La factura ${num_factura} de ${proveedor_nombre} ya existe.`);
+            continue;
+          }
+
+          // 3. Insertar Coste
+          const bi = parseFloat(row.base_imponible) || 0;
+          const ipct = parseFloat(row.iva_pct) || 0;
+          const rpct = parseFloat(row.retencion_pct) || 0;
+          const ivaImporte = bi * (ipct / 100);
+          const retImporte = bi * (rpct / 100);
+          const total = bi + ivaImporte - retImporte;
+
+          // Convertir fecha de Excel a ISO
+          let finalFecha = fecha;
+          if (typeof fecha === 'number') {
+            const excelDate = new Date((fecha - (25567 + 1)) * 86400 * 1000);
+            finalFecha = excelDate.toISOString().split('T')[0];
+          } else if (fecha.includes('/')) {
+            const [d, m, a] = fecha.split('/');
+            finalFecha = `${a}-${m}-${d}`;
+          }
+
+          const { data: newCoste, error: cErr } = await supabase.from('costes').insert({
+            user_id: user.id,
+            fecha: finalFecha,
+            num_factura_proveedor: num_factura.toString(),
+            proveedor_id: prov.id,
+            base_imponible: bi,
+            iva_importe: ivaImporte,
+            retencion_pct: rpct,
+            retencion_importe: retImporte,
+            total: total,
+            estado_pago: row.estado_pago || 'Pendiente',
+            tipo_gasto: 'general'
+          }).select('id').single();
+
+          if (cErr) throw new Error(`Error creando factura: ${cErr.message}`);
+
+          // 4. Insertar Línea
+          await supabase.from('coste_lineas').insert({
+            coste_id: newCoste.id,
+            user_id: user.id,
+            descripcion: row.concepto || 'Importación Excel',
+            unidades: 1,
+            precio_unitario: bi,
+            iva_pct: ipct
+          });
+
+          successCount++;
+        } catch (err: any) {
+          errors.push(`Fila ${i + 2}: ${err.message}`);
+        }
+      }
+
+      setImportResults({ total: jsonData.length, success: successCount, errors });
+    } catch (err: any) {
+      alert("Error crítico en importación: " + err.message);
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  const downloadExcelTemplate = async () => {
+    const XLSX = await import('xlsx');
+    const ws = XLSX.utils.json_to_sheet([
+      {
+        fecha: '2024-05-01',
+        num_factura: 'INV-001',
+        proveedor_nombre: 'Proveedor Ejemplo S.L.',
+        proveedor_nif: 'B12345678',
+        proveedor_direccion: 'Calle Falsa 123',
+        proveedor_cp: '28001',
+        proveedor_poblacion: 'Madrid',
+        proveedor_provincia: 'Madrid',
+        concepto: 'Compra de materiales oficina',
+        base_imponible: 100.50,
+        iva_pct: 21,
+        retencion_pct: 0,
+        estado_pago: 'Pagado'
+      }
+    ]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Plantilla");
+    XLSX.writeFile(wb, "Plantilla_Importacion_Gastos.xlsx");
+  };
+
+  const [activeTab, setActiveTab] = useState<'perfil' | 'ai' | 'legales' | 'seguridad' | 'fiscalidad' | 'backup' | 'email' | 'import'>('perfil');
+
   if (loading) return null;
 
   if (!user) return (
@@ -648,6 +789,7 @@ export default function AjustesClient() {
     { id: 'email', label: 'Email', icon: FileText, color: 'text-blue-500' },
     { id: 'fiscalidad', label: 'Fiscalidad', icon: Percent, color: 'text-emerald-600' },
     { id: 'backup', label: 'Backup', icon: Database, color: 'text-indigo-600' },
+    { id: 'import', label: 'Importar', icon: Table, color: 'text-pink-600' },
   ];
 
   const lastBackup = autoBackups[0];
@@ -1286,6 +1428,94 @@ export default function AjustesClient() {
                   </div>
                 )}
               </div>
+            </div>
+          )}
+
+          {activeTab === 'import' && (
+            <div className="bg-white rounded-[2rem] border p-10 shadow-sm space-y-10 animate-in slide-in-from-bottom-4 duration-500 border-pink-50">
+               <div className="flex items-start justify-between border-b pb-8">
+                  <div className="space-y-1">
+                    <h2 className="text-2xl font-black font-head text-pink-900 tracking-tighter">Importación de Gastos</h2>
+                    <p className="text-sm text-gray-400 font-sans">Sube tus facturas recibidas masivamente desde Excel.</p>
+                  </div>
+                  <Table className="text-pink-100" size={48} />
+               </div>
+
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-6">
+                    <div className="p-6 bg-blue-50 rounded-2xl border border-blue-100">
+                      <h3 className="font-bold text-blue-900 mb-2 flex items-center gap-2">
+                        <Scale size={18} /> Instrucciones de Preparación
+                      </h3>
+                      <ul className="text-xs text-blue-800 space-y-2 list-disc list-inside font-medium">
+                        <li>Columnas obligatorias: <b>fecha, num_factura, proveedor_nombre, proveedor_nif</b>.</li>
+                        <li>El sistema detecta automáticamente si el proveedor existe por su NIF.</li>
+                        <li><b>Alta Automática:</b> Si el proveedor es nuevo, se registrará con los datos del Excel.</li>
+                        <li>Formatos aceptados: .xlsx, .xls</li>
+                      </ul>
+                      <button 
+                        onClick={downloadExcelTemplate}
+                        className="mt-6 flex items-center gap-2 px-5 py-3 bg-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
+                      >
+                        <DownloadCloud size={14} /> Descargar Plantilla Oficial
+                      </button>
+                    </div>
+
+                    <div className="p-10 border-2 border-dashed border-gray-100 rounded-[2.5rem] text-center space-y-4 hover:border-pink-300 transition-colors group bg-gray-50/30">
+                      {isImporting ? (
+                        <div className="space-y-4 py-6">
+                          <Loader2 className="animate-spin mx-auto text-pink-500" size={40} />
+                          <p className="font-black text-gray-600 uppercase text-[10px] tracking-widest">Procesando Filas...</p>
+                        </div>
+                      ) : (
+                        <label className="cursor-pointer block py-6">
+                          <Upload className="mx-auto text-gray-200 group-hover:text-pink-400 transition-colors mb-4" size={48} />
+                          <p className="text-lg font-black text-gray-800 tracking-tight">Cargar Archivo Excel</p>
+                          <p className="text-xs text-gray-400 mt-1 font-medium">Arrastra o haz clic para seleccionar</p>
+                          <input type="file" accept=".xlsx, .xls" onChange={handleImportExcel} className="hidden" />
+                        </label>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-6">
+                    {importResults && (
+                      <div className={`p-8 rounded-[2rem] border animate-in zoom-in-95 duration-500 ${importResults.errors.length > 0 ? 'bg-orange-50 border-orange-100' : 'bg-green-50 border-green-100'}`}>
+                        <h3 className={`font-black text-sm uppercase tracking-widest mb-6 flex items-center gap-2 ${importResults.errors.length > 0 ? 'text-orange-900' : 'text-green-900'}`}>
+                          <CheckCircle2 size={18} /> Resumen del Proceso
+                        </h3>
+                        <div className="grid grid-cols-2 gap-4 mb-6">
+                          <div className="bg-white p-5 rounded-2xl shadow-sm border border-black/5 text-center">
+                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Leídos</p>
+                            <p className="text-3xl font-black text-gray-800 tracking-tighter">{importResults.total}</p>
+                          </div>
+                          <div className="bg-white p-5 rounded-2xl shadow-sm border border-black/5 text-center">
+                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Éxito</p>
+                            <p className="text-3xl font-black text-green-600 tracking-tighter">{importResults.success}</p>
+                          </div>
+                        </div>
+
+                        {importResults.errors.length > 0 && (
+                          <div className="space-y-2 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
+                            <p className="text-[10px] font-black text-orange-700 uppercase tracking-widest mb-2 ml-1">Incidencias Detectadas:</p>
+                            {importResults.errors.map((err, idx) => (
+                              <div key={idx} className="p-4 bg-white rounded-2xl border border-orange-200 text-[10px] text-orange-800 font-bold leading-relaxed shadow-sm">
+                                {err}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {!importResults && (
+                      <div className="flex flex-col items-center justify-center h-full text-center p-10 opacity-20 group-hover:opacity-40 transition-opacity">
+                        <LayoutGrid size={80} className="text-gray-300 mb-4" />
+                        <p className="text-gray-400 font-black uppercase text-[10px] tracking-widest">Resultados</p>
+                      </div>
+                    )}
+                  </div>
+               </div>
             </div>
           )}
         </main>
