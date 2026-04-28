@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, Suspense } from "react";
+import React, { useEffect, useState, useMemo, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Receipt, Plus, Search, MoreHorizontal, Loader2, Trash2, Save, Pencil, FileText, Download, Printer, FolderKanban, ChevronUp, ChevronDown, Filter, HandCoins, Mail } from "lucide-react";
 import { supabase } from "@/lib/supabase";
@@ -791,19 +791,15 @@ function VentasContent() {
     return filteredVentas.slice(start, start + pageSize);
   }, [filteredVentas, currentPage, pageSize]);
 
-  if (loading) {
-    return (
-      <div className="flex bg-[var(--background)] min-h-screen">
-        <Sidebar />
-        <div className="flex-1 p-8 flex flex-col items-center justify-center text-[var(--muted)] gap-3">
-          <Loader2 className="animate-spin" size={32} />
-          <p className="text-sm font-medium">Cargando facturación...</p>
-        </div>
+  return loading ? (
+    <div className="flex bg-[var(--background)] min-h-screen">
+      <Sidebar />
+      <div className="flex-1 p-8 flex flex-col items-center justify-center text-[var(--muted)] gap-3">
+        <Loader2 className="animate-spin" size={32} />
+        <p className="text-sm font-medium">Cargando facturación...</p>
       </div>
-    );
-  }
-
-  const content = (
+    </div>
+  ) : (
     <div className="flex bg-[var(--background)] min-h-screen">
       <Sidebar />
       <div className="flex-1 p-8 overflow-y-auto">
@@ -1206,5 +1202,4 @@ function VentasContent() {
       </div>
     </div>
   );
-  return content;
 }
