@@ -23,8 +23,8 @@ const applyCorporateStyle = (doc: jsPDF) => {
   const height = doc.internal.pageSize.getHeight();
   
   const drawBackground = () => {
-    // Fondo muy sutil para acabado premium
-    doc.setFillColor(252, 251, 249); 
+    // Fondo crema corporativo (#ede8e0)
+    doc.setFillColor(237, 232, 224); 
     doc.rect(0, 0, width, height, 'F');
   };
 
