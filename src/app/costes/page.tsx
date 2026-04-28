@@ -1,205 +1,513 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useState, useMemo } from "react";
+import { Plus, MoreHorizontal, Loader2, Receipt, Upload, Save, Pencil, Trash2, X, Sparkles, AlertCircle, UserPlus, ChevronUp, ChevronDown, Filter, Search, HandCoins, Download, FileText, Paperclip } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { 
-  FileText, 
-  Plus, 
-  Trash2, 
-  Search, 
-  Download, 
-  Loader2, 
-  Pencil, 
-  ChevronRight, 
-  CheckCircle2, 
-  AlertCircle,
-  Clock,
-  Euro,
-  Building2,
-  Calendar,
-  MoreHorizontal,
-  Printer,
-  Mail,
-  UploadCloud,
-  X,
-  PlusCircle,
-  Receipt,
-  FileSpreadsheet,
-  Zap,
-  ShieldCheck,
-  Save,
-  ArrowUpDown
-} from "lucide-react";
 import { Sidebar } from "@/components/Sidebar";
-import { formatCurrency } from "@/lib/format";
+import { DataTableHeader } from "@/components/DataTableHeader";
+import { formatCurrency, cleanNIF } from "@/lib/format";
+import { extractDataFromInvoice } from "@/lib/aiService";
+import { SearchableSelect } from "@/components/SearchableSelect";
+import { uploadInvoiceFile, deleteInvoiceFile } from "@/lib/storageService";
 import { exportVATBookPDF, exportVATBookExcel } from "@/lib/reportingService";
-import SearchableSelect from "@/components/SearchableSelect";
+import { getFullLocationByCP } from '@/lib/geoData';
 
-interface Linea {
-  descripcion: string;
+interface LineaCoste {
   unidades: number;
+  descripcion: string;
   precio_unitario: number;
   iva_pct: number;
 }
 
 export default function CostesPage() {
   const [costes, setCostes] = useState<any[]>([]);
+  const [proveedores, setProveedores] = useState<any[]>([]);
+  const [proyectos, setProyectos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [user, setUser] = useState<any>(null);
-  const [perfil, setPerfil] = useState<any>(null);
-
-  // Estados para el editor
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [fecha, setFecha] = useState(new Date().toISOString().split("T")[0]);
-  const [proveedorId, setProveedorId] = useState("");
-  const [numFactProv, setNumFactProv] = useState("");
-  const [lineas, setLineas] = useState<Linea[]>([{ descripcion: "", unidades: 1, precio_unitario: 0, iva_pct: 21 }]);
-  const [file, setFile] = useState<File | null>(null);
-  const [existingPdfUrl, setExistingPdfUrl] = useState("");
-
-  const [proveedores, setProveedores] = useState<any[]>([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [sortConfig, setSortConfig] = useState({ field: 'fecha', direction: 'desc' as 'asc' | 'desc' });
-  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
-  
-  const [availableCols, setAvailableCols] = useState<string[]>([]);
-  
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+  const [isPayModalOpen, setIsPayModalOpen] = useState(false);
+  const [selectedCoste, setSelectedCoste] = useState<any>(null);
+  const [isExtracting, setIsExtracting] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   useEffect(() => {
-    checkUser();
+    const handleClickOutside = () => setOpenMenuId(null);
+    window.addEventListener("click", handleClickOutside);
+    return () => window.removeEventListener("click", handleClickOutside);
   }, []);
 
-  const checkUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      setUser(user);
-      await Promise.all([
-        fetchData(),
-        fetchProveedores(),
-        fetchPerfil(),
-        checkTableSchema()
-      ]);
-    }
-    setLoading(false);
-  };
+  // Formulario
+  const [serie, setSerie] = useState("A");
+  const [numInterno, setNumInterno] = useState("");
+  const [numFactProv, setNumFactProv] = useState("");
+  const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
+  const [proveedorId, setProveedorId] = useState("");
+  const [tipoGasto, setTipoGasto] = useState("general");
+  const [proyectoId, setProyectoId] = useState("");
+  const [retencionPct, setRetencionPct] = useState(0);
+  const [estadoPago, setEstadoPago] = useState("Pendiente");
+  const [lineas, setLineas] = useState<LineaCoste[]>([{ unidades: 1, descripcion: "", precio_unitario: 0, iva_pct: 21 }]);
 
-  const checkTableSchema = async () => {
-     const { data } = await supabase.from('costes').select('*').limit(1);
-     if (data && data.length > 0) {
-        setAvailableCols(Object.keys(data[0]));
-     }
-  };
+  // Nuevo Proveedor Detectado (IA)
+  const [detectedProvider, setDetectedProvider] = useState<any>(null);
+  const [isProviderReviewModalOpen, setIsProviderReviewModalOpen] = useState(false);
 
-  const fetchData = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    
-    const { data, error } = await supabase
-      .from("costes")
-      .select(`
-        *,
-        proveedores (
-          nombre,
-          nif
-        ),
-        coste_lineas (*)
-      `)
-      .eq('user_id', user.id)
-      .order("fecha", { ascending: false });
+  // Estados Pago Modal
+  const [pagoImporte, setPagoImporte] = useState("");
+  const [pagoFecha, setPagoFecha] = useState(new Date().toISOString().split('T')[0]);
+  const [pagoForma, setPagoForma] = useState("Transferencia");
 
-    if (!error && data) setCostes(data);
-  };
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>({ key: 'fecha', direction: 'desc' });
+  const [columnFilters, setColumnFilters] = useState<{ [key: string]: string }>({});
 
-  const fetchProveedores = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data } = await supabase.from("proveedores").select("id, nombre, nif").eq('user_id', user.id);
-    if (data) setProveedores(data.map(p => ({ id: p.id, nombre: `${p.nombre} (${p.nif})` })));
-  };
+  const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [pdfUrl, setPdfUrl] = useState<string>("");
+  const [perfil, setPerfil] = useState<any>(null);
+  const [tiposIRPF, setTiposIRPF] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetchData();
+    fetchPerfil();
+  }, []);
 
   const fetchPerfil = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: userData } = await supabase.auth.getUser();
+    const user = userData?.user;
     if (!user) return;
-    const { data } = await supabase.from("perfil_negocio").select("*").eq('user_id', user.id).maybeSingle();
+    const { data } = await supabase.from("perfil_negocio").select("*").eq("user_id", user.id).maybeSingle();
     if (data) setPerfil(data);
   };
 
-  const addLinea = () => {
-    setLineas([...lineas, { descripcion: "", unidades: 1, precio_unitario: 0, iva_pct: 21 }]);
-  };
+  // Numeración correlativa automática (Libro de IVA Soportado)
+  useEffect(() => {
+    if (!editingId && isModalOpen) {
+      const finalPrefix = perfil?.prefijo_costes || "";
 
-  const removeLinea = (idx: number) => {
-    setLineas(lineas.filter((_, i) => i !== idx));
-  };
+      // Extraer todos los números existentes con este prefijo
+      const numbers = (costes || [])
+        .map(c => {
+          const val = c.num_interno || c.numero || "";
+          if (!val.startsWith(finalPrefix)) return NaN;
+          const numStr = val.slice(finalPrefix.length);
+          return parseInt(numStr, 10);
+        })
+        .filter(n => !isNaN(n) && n > 0);
 
-  const updateLinea = (idx: number, updates: Partial<Linea>) => {
-    const nl = [...lineas];
-    nl[idx] = { ...nl[idx], ...updates };
-    setLineas(nl);
-  };
+      // Si hay registros: siguiente = máximo + 1
+      // Si no hay ninguno: usar el número de inicio configurado en Ajustes
+      let nextNum = (perfil?.contador_costes || 1);
+      while (numbers.includes(nextNum)) {
+        nextNum++;
+      }
 
-  const deleteInvoiceFile = async (path: string) => {
-     await supabase.storage.from("facturas").remove([path]);
-  };
+      setNumInterno(`${finalPrefix}${nextNum}`);
+      if (perfil?.serie_costes) setSerie(perfil.serie_costes);
+    }
+  }, [isModalOpen, editingId, costes, perfil]);
 
-  const handleSave = async () => {
-    if (!proveedorId || !numFactProv) {
-      alert("⚠️ Razón Social y Nº Factura son obligatorios.");
+  const fetchData = async () => {
+    setLoading(true);
+    const { data: userData } = await supabase.auth.getUser();
+    const user = userData?.user;
+    if (!user) {
+      setLoading(false);
       return;
     }
 
-    setSaving(false);
+    const { data: csts } = await supabase.from("costes").select("*, proveedores(nombre, nif), proyectos(nombre), coste_lineas(*)").eq("user_id", user.id).order("fecha", { ascending: false });
+    const { data: pgts } = await supabase.from("pagos").select("*").eq("user_id", user.id);
+    const { data: provs } = await supabase.from("proveedores").select("id, nombre, nif").eq("user_id", user.id).order("nombre");
+    const { data: projs } = await supabase.from("proyectos").select("id, nombre, estado, cliente_id, clientes(nombre)").eq("user_id", user.id).order("nombre");
+
+    const preparedCostes = (csts || []).map(c => {
+      const misPagos = (pgts || []).filter((p: any) => p.coste_id === c.id);
+      const totalPagado = misPagos.reduce((acc: number, p: any) => acc + (p.importe || 0), 0);
+      let estadoPagoRaw = 'Pendiente';
+      const total = Number(c.total) || 0;
+      const pendiente = Math.max(0, total - totalPagado);
+      
+      if (total > 0) {
+        if (pendiente <= 0.01) estadoPagoRaw = 'Pagado';
+        else if (totalPagado > 0) estadoPagoRaw = 'Pago Parcial';
+      }
+      
+      return { ...c, totalPagado, estadoPago: estadoPagoRaw, pendiente };
+    });
+
+    setCostes(preparedCostes);
+    setProveedores(provs || []);
+
+    // Fetch Tipos IRPF
+    const { data: irpfData } = await supabase
+      .from('tipos_irpf')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('valor');
+    setTiposIRPF(irpfData || []);
+
+    const preparedProjs = (projs || []).map(p => {
+      const clienteObj = Array.isArray(p.clientes) ? p.clientes[0] : p.clientes;
+      return {
+        ...p,
+        nombre: `[${clienteObj?.nombre || 'S/C'}] ${p.nombre}`
+      };
+    });
+    setProyectos(preparedProjs);
+    setLoading(false);
+  };
+
+  const addLinea = () => setLineas([...lineas, { unidades: 1, descripcion: "", precio_unitario: 0, iva_pct: 21 }]);
+  const removeLinea = (index: number) => setLineas(lineas.filter((_, i) => i !== index));
+  const updateLinea = (index: number, field: keyof LineaCoste, value: any) => {
+    const newLineas = [...lineas];
+    newLineas[index] = { ...newLineas[index], [field]: value };
+    setLineas(newLineas);
+  };
+
+  const baseImponible = lineas.reduce((acc, l) => acc + (l.unidades * l.precio_unitario), 0);
+  const totalIva = lineas.reduce((acc, l) => acc + (l.unidades * l.precio_unitario * (serie === "A" ? l.iva_pct / 100 : 0)), 0);
+  const retencionImporte = (baseImponible * (retencionPct || 0)) / 100;
+  const totalFactura = baseImponible + totalIva - retencionImporte;
+
+
+  const openAddModal = () => {
+    setEditingId(null);
+    setSerie("A");
+    setNumInterno("");
+    setNumFactProv("");
+    setFecha(new Date().toISOString().split('T')[0]);
+    setProveedorId("");
+    setTipoGasto("general");
+    setProyectoId("");
+    setRetencionPct(0);
+    setEstadoPago("Pendiente");
+    setLineas([{ unidades: 1, descripcion: "", precio_unitario: 0, iva_pct: 21 }]);
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (c: any) => {
+    setEditingId(c.id);
+    setSerie(c.serie || "A");
+    setNumInterno(c.num_interno || c.registro_interno || c.numero || "");
+    setNumFactProv(c.num_factura_proveedor || "");
+    setFecha(c.fecha);
+    setProveedorId(c.proveedor_id || "");
+    setTipoGasto(c.tipo_gasto || "general");
+    setProyectoId(c.proyecto_id || "");
+    setRetencionPct(c.retencion_pct || 0);
+    setEstadoPago(c.estado_pago || "Pendiente");
+    setPdfUrl(c.pdf_url || "");
+    setPdfFile(null);
+    
+    if (c.coste_lineas && c.coste_lineas.length > 0) {
+      setLineas(c.coste_lineas.map((l: any) => ({
+        unidades: l.unidades,
+        descripcion: l.descripcion,
+        precio_unitario: l.precio_unitario,
+        iva_pct: l.iva_pct
+      })));
+    } else {
+      setLineas([{ unidades: 1, descripcion: "", precio_unitario: 0, iva_pct: 21 }]);
+    }
+    setIsModalOpen(true);
+  };
+
+  const handleRegisterPayment = async () => {
+    if (!selectedCoste || !pagoImporte) return;
+    
+    setSaving(true);
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const user = userData?.user;
+      
+      const nuevoImporte = parseFloat(pagoImporte) || 0;
+      const yaPagado = selectedCoste.totalPagado || 0;
+      
+      // Bloqueo si el importe supera el total de la factura
+      if (yaPagado + nuevoImporte > selectedCoste.total + 0.01) {
+        alert(`⚠️ El importe total pagado (${(yaPagado + nuevoImporte).toFixed(2)}€) no puede superar el total de la factura (${selectedCoste.total.toFixed(2)}€). Pendiente: ${(selectedCoste.total - yaPagado).toFixed(2)}€`);
+        setSaving(false);
+        return;
+      }
+      
+      const payload: any = {
+        coste_id: selectedCoste.id,
+        entidad: selectedCoste.proveedores?.nombre || "Proveedor",
+        fecha: pagoFecha,
+        importe: nuevoImporte,
+        categoria: "Proveedores",
+        forma_pago: pagoForma,
+        user_id: user?.id
+      };
+
+      const { error } = await supabase.from("pagos").insert([payload]);
+      if (error) throw error;
+
+      setIsPayModalOpen(false);
+      setPagoImporte("");
+      fetchData();
+      alert("✅ Pago registrado correctamente");
+    } catch (err: any) {
+      alert("Error al registrar pago: " + err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleImportWithAI = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsExtracting(true);
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const user = userData?.user;
+      if (!user) throw new Error("No hay sesión activa");
+
+      // 1. Obtener la API Key de Ajustes (Filtrado por usuario)
+      const { data: perf } = await supabase.from('perfil_negocio').select('gemini_key').eq('user_id', user.id).maybeSingle();
+      if (!perf?.gemini_key) {
+        alert("Configura primero tu Gemini API Key en Ajustes.");
+        setIsExtracting(false);
+        return;
+      }
+
+      // 2. Convertir a Base64
+      const reader = new FileReader();
+      reader.onload = async () => {
+        try {
+          const base64 = reader.result as string;
+          
+          // 3. Extraer con IA
+          const result = await extractDataFromInvoice(base64, perf.gemini_key);
+          
+          if (!result) throw new Error("La IA no devolvió datos válidos.");
+
+          
+          // 3.5 Limpiar NIF detectado
+          const cleanedNIF = cleanNIF(result.proveedor_nif);
+          
+          // 4. Buscar Proveedor por NIF limpio
+          const provExistente = proveedores.find(p => {
+            const cleanP = cleanNIF(p.nif);
+            return cleanP && cleanP === cleanedNIF;
+          });
+
+          setIsAiModalOpen(false);
+          
+          if (provExistente && cleanedNIF !== "") {
+            console.log("Proveedor existente encontrado:", provExistente.nombre);
+            setProveedorId(provExistente.id);
+            setDetectedProvider(null);
+            setIsModalOpen(true);
+            setIsProviderReviewModalOpen(false);
+          } else {
+            console.log("Proveedor no detectado o NIF nuevo. Abriendo validador...");
+            const cpDetected = result.proveedor_cp || "";
+            let geoData = { poblacion: "", provincia: "" };
+            if (cpDetected.length === 5) {
+              const geo = await getFullLocationByCP(cpDetected);
+              if (geo) geoData = { poblacion: geo.poblacion, provincia: geo.provincia };
+            }
+
+            setDetectedProvider({ 
+              nombre: result.proveedor_nombre || "Nuevo Proveedor", 
+              nif: cleanedNIF || "S/N",
+              direccion: result.proveedor_direccion || "",
+              cp: cpDetected,
+              poblacion: geoData.poblacion,
+              provincia: geoData.provincia
+            });
+            
+            setIsModalOpen(false); // Asegurar que el principal está cerrado
+            setIsProviderReviewModalOpen(true);
+          }
+
+          // Rellenar formulario (se mostrará tras validar proveedor)
+          setNumFactProv(result.num_factura || "");
+          setFecha(result.fecha || new Date().toISOString().split('T')[0]);
+          setRetencionPct(result.retencion_pct || 0);
+          
+          if (result.lineas && result.lineas.length > 0) {
+            setLineas(result.lineas.map((l: any) => ({
+              unidades: l.unidades || 1,
+              descripcion: l.descripcion || "Concepto extraído por IA",
+              precio_unitario: l.precio_unitario || 0,
+              iva_pct: l.iva_pct || 21
+            })));
+          }
+
+          // IMPORTANTE: Guardar el archivo para que se suba al confirmar
+          setPdfFile(file);
+        } catch (innerErr: any) {
+          alert("Error al procesar el contenido del PDF: " + innerErr.message);
+        } finally {
+          setIsExtracting(false);
+        }
+      };
+      
+      reader.onerror = () => {
+        alert("Error al leer el archivo físico.");
+        setIsExtracting(false);
+      };
+
+      reader.readAsDataURL(file);
+    } catch (err: any) {
+      alert("Error de inicialización: " + err.message);
+      setIsExtracting(false);
+    }
+  };
+
+  const handleCreateDetectedProvider = async () => {
+    if (!detectedProvider) return;
+    try {
+      setSaving(true);
+      const { data: userData } = await supabase.auth.getUser();
+      const user = userData?.user;
+      if (!user) throw new Error("No hay sesión activa");
+
+      const { data, error } = await supabase.from('proveedores')
+        .insert([{ 
+          nombre: detectedProvider.nombre, 
+          nif: cleanNIF(detectedProvider.nif),
+          direccion: detectedProvider.direccion,
+          codigo_postal: detectedProvider.cp,
+          poblacion: detectedProvider.poblacion,
+          provincia: detectedProvider.provincia,
+          user_id: user.id
+        }])
+        .select().single();
+      
+      if (error) throw error;
+      
+      alert("✅ Proveedor creado: " + data.nombre);
+      const newProv = { id: data.id, nombre: data.nombre, nif: data.nif };
+      setProveedores([...proveedores, newProv]);
+      setProveedorId(data.id);
+      setDetectedProvider(null);
+      setIsProviderReviewModalOpen(false);
+      // Abrir el modal de factura ahora que el proveedor existe
+      setIsModalOpen(true);
+    } catch (err: any) {
+      alert("Error al crear proveedor: " + err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleNext = () => {
+    if (!editingId) return;
+    const currentIndex = costes.findIndex(c => c.id === editingId);
+    if (currentIndex < costes.length - 1) {
+      openEditModal(costes[currentIndex + 1]);
+    }
+  };
+
+  const handlePrev = () => {
+    if (!editingId) return;
+    const currentIndex = costes.findIndex(c => c.id === editingId);
+    if (currentIndex > 0) {
+      openEditModal(costes[currentIndex - 1]);
+    }
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!numFactProv || !proveedorId) {
+      alert("Proveedor y Nº de Factura son obligatorios.");
+      return;
+    }
     try {
       setSaving(true);
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) throw new Error("Usuario no autenticado");
 
-      const baseImponible = lineas.reduce((acc, l) => acc + (l.unidades * l.precio_unitario), 0);
-      const cuotaIva = lineas.reduce((acc, l) => acc + (l.unidades * l.precio_unitario * (l.iva_pct / 100)), 0);
-      const totalFactura = baseImponible + cuotaIva;
+      // DETECCIÓN DE COLUMNAS REALES (PRE-FLIGHT)
+      const { data: colProbe } = await supabase.from("costes").select("*").limit(1);
+      const availableCols = (colProbe && colProbe.length > 0) ? Object.keys(colProbe[0]) : [];
+      const foundKey = (options: string[]) => options.find(o => availableCols.includes(o));
 
-      let finalPdfUrl = existingPdfUrl;
-      let uploadedPath = "";
+      // CONTROL DE DUPLICADOS (Solo en creación - Filtrado por usuario)
+      if (!editingId && numFactProv && proveedorId) {
+        const colNum = foundKey(['num_factura_proveedor', 'numero_factura', 'num_factura', 'factura_prov', 'referencia']) || 'num_factura_proveedor';
+        const { data: dupe } = await supabase
+          .from('costes')
+          .select('id, fecha')
+          .eq('proveedor_id', proveedorId)
+          .eq('user_id', user.id)
+          .eq(colNum, numFactProv)
+          .maybeSingle();
 
-      if (file) {
-        const fileExt = file.name.split(".").pop();
-        const fileName = `${user.id}/${Date.now()}.${fileExt}`;
-        uploadedPath = fileName;
-        
-        const { error: upErr } = await supabase.storage.from("facturas").upload(fileName, file);
-        if (upErr) throw upErr;
-
-        const { data: { publicUrl } } = supabase.storage.from("facturas").getPublicUrl(fileName);
-        finalPdfUrl = publicUrl;
+        if (dupe) {
+          const confirmDupe = confirm(`⚠️ POSIBLE DUPLICADO: Ya existe una factura de este proveedor con el número "${numFactProv}" (registrada el ${new Date(dupe.fecha).toLocaleDateString()}).\n\n¿Deseas registrarla de nuevo como una entrada diferente?`);
+          if (!confirmDupe) {
+            setSaving(false);
+            return;
+          }
+        }
       }
 
-      // Sincronización de Numeración Persistente
-      const nextIdFromProfile = perfil?.contador_costes || 1;
-      const prefijo = perfil?.prefijo_costes || "";
-      const numInterno = `${prefijo}${nextIdFromProfile}`;
-
       const payload: any = {
-        user_id: user.id,
         fecha,
-        proveedor_id: proveedorId,
-        num_factura_proveedor: numFactProv,
-        base_imponible: baseImponible,
-        iva_importe: cuotaIva,
         total: totalFactura,
-        estado_pago: "Pendiente",
-        num_interno: numInterno,
-        tipo_gasto: 'general'
+        user_id: user.id
       };
 
       const setIfFound = (options: string[], value: any) => {
-         const k = options.find(o => availableCols.includes(o));
-         if (k) payload[k] = value;
+        const key = foundKey(options);
+        if (key) payload[key] = value;
       };
 
+      // Mapeo inteligente basado en lo que realmente existe en tu BD
+      setIfFound(['proveedor_id', 'id_proveedor'], proveedorId || null);
+      setIfFound(['proyecto_id', 'id_proyecto'], tipoGasto === "proyecto" ? proyectoId : null);
+      setIfFound(['base_imponible', 'base', 'subtotal'], baseImponible);
+      setIfFound(['retencion_pct', 'irpf_pct'], retencionPct);
+      setIfFound(['retencion_importe', 'irpf_importe', 'retencion', 'irpf'], retencionImporte);
+      setIfFound(['iva_importe', 'cuota_iva', 'iva_total', 'iva'], totalIva);
+      setIfFound(['tipo_gasto', 'categoria'], tipoGasto);
+      setIfFound(['metodo_pago', 'forma_pago'], pagoForma);
+      setIfFound(['estado_pago', 'pagado', 'status_pago'], estadoPago);
+
+      setIfFound(['num_interno', 'numero'], numInterno);
+      setIfFound(['num_factura_proveedor', 'numero_factura', 'num_factura', 'factura_prov', 'referencia'], numFactProv);
+      setIfFound(['base_imponible', 'base', 'subtotal'], baseImponible);
+      setIfFound(['iva_importe', 'cuota_iva', 'iva_total', 'iva'], totalIva);
+      setIfFound(['retencion_importe', 'irpf_importe', 'retencion', 'irpf'], retencionImporte);
+      setIfFound(['serie', 'serie_id'], serie);
+      setIfFound(['estado_pago', 'pagado', 'status_pago'], estadoPago);
+      setIfFound(['proyecto_id', 'id_proyecto'], tipoGasto === "proyecto" ? proyectoId : null);
+      if (availableCols.includes('iva_pct')) payload.iva_pct = 21;
+      if (availableCols.includes('retencion_pct')) payload.retencion_pct = retencionPct;
+
+      // Subida de PDF (Atomicidad: Si falla la BD, borraremos el archivo)
+      let finalPdfUrl = pdfUrl;
+      const prov = proveedores.find(p => p.id === proveedorId);
+      let uploadedPath: string | null = null;
+
+      if (pdfFile) {
+        try {
+          finalPdfUrl = await uploadInvoiceFile(pdfFile, 'costes', {
+            number: numInterno,
+            entity: prov?.nombre || 'proveedor'
+          });
+          uploadedPath = finalPdfUrl; // Guardamos para borrar si falla el insert
+        } catch (uploadErr: any) {
+          alert("Error al subir el PDF: " + uploadErr.message);
+          setSaving(false);
+          return;
+        }
+      }
+
+      if (!finalPdfUrl) {
+         alert("⚠️ Es obligatorio subir el PDF de la factura recibida.");
+         setSaving(false);
+         return;
+      }
       setIfFound(['pdf_url', 'archivo_url', 'url_archivo'], finalPdfUrl);
 
 
@@ -221,7 +529,7 @@ export default function CostesPage() {
         const { data: newCosteRows, error: iErr } = await supabase.from("costes").insert([payload]).select('id');
         
         if (iErr) {
-          console.error("❌ Error CRÍTIC EN TABLA 'COSTES':", iErr);
+          console.error("❌ Error CRÍTICO EN TABLA 'COSTES':", iErr);
           // Borrar archivo si falló la inserción (Requisito Integridad)
           if (uploadedPath) {
              await deleteInvoiceFile(uploadedPath);
@@ -297,360 +605,577 @@ export default function CostesPage() {
         return;
       }
 
-      if (!confirm("¿Seguro que quieres eliminar este gasto?")) return;
+      if (!confirm(`¿Seguro que quieres eliminar este gasto de ${c.proveedores?.nombre}?`)) return;
 
-      await supabase.from("coste_lineas").delete().eq("coste_id", c.id);
-      await supabase.from("costes").delete().eq("id", c.id);
-      
-      const parts = (c.pdf_url || "").split("/");
-      const path = parts.slice(parts.indexOf("facturas") + 1).join("/");
-      if (path) await deleteInvoiceFile(path);
+      const { error } = await supabase.from("costes").delete().eq("id", c.id).eq("user_id", user.id);
+      if (error) throw error;
 
+      // Eliminar el PDF del Storage para no dejar archivos huérfanos en la gestión documental
+      const pdfUrl = c.archivo_url || c.pdf_url;
+      if (pdfUrl) await deleteInvoiceFile(pdfUrl);
+
+      alert("✅ Gasto eliminado correctamente");
       fetchData();
     } catch (err: any) {
-      alert(err.message);
+      alert("Error al eliminar: " + err.message);
+    } finally {
+      setOpenMenuId(null);
     }
   };
 
-  const openEdit = (c: any) => {
-    setEditingId(c.id);
-    setFecha(c.fecha);
-    setProveedorId(c.proveedor_id);
-    setNumFactProv(c.num_factura_proveedor || c.numero_factura || c.num_factura || "");
-    setLineas(c.coste_lineas || []);
-    setExistingPdfUrl(c.pdf_url || c.archivo_url || c.url_archivo || "");
-    setFile(null);
-    setIsModalOpen(true);
-  };
-
   const handleSort = (field: string) => {
-    setSortConfig(prev => ({
-      field,
-      direction: prev.field === field && prev.direction === 'desc' ? 'asc' : 'desc'
-    }));
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === field && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key: field, direction });
   };
 
   const handleFilter = (field: string, value: string) => {
     setColumnFilters(prev => ({ ...prev, [field]: value }));
   };
 
-  const filteredCostes = costes.filter(c => {
-    const searchString = `${c.proveedores?.nombre} ${c.num_factura_proveedor || c.numero_factura || c.num_factura || ''} ${c.total}`.toLowerCase();
-    const matchesSearch = searchString.includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || c.estado_pago === statusFilter;
-    
-    const matchesColumns = Object.entries(columnFilters).every(([field, val]) => {
-      if (!val) return true;
-      let targetValue = "";
-      if (field === 'proveedor') targetValue = c.proveedores?.nombre || "";
-      else if (field === 'fecha') targetValue = new Date(c.fecha).toLocaleDateString();
-      else if (field === 'factura') targetValue = c.num_factura_proveedor || c.numero_factura || c.num_factura || "";
-      else targetValue = String(c[field] || "");
-      return targetValue.toLowerCase().includes(val.toLowerCase());
+  const filteredCostes = useMemo(() => {
+    return (costes || []).filter(c => {
+      const matchesGlobal = searchTerm === '' || 
+        (c.proveedores?.nombre && c.proveedores.nombre.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (c.proyectos?.nombre && c.proyectos.nombre.toLowerCase().includes(searchTerm.toLowerCase()));
+      
+      const matchesColumns = Object.keys(columnFilters).every(key => {
+        if (!columnFilters[key]) return true;
+        let val = '';
+        if (key === 'proveedor') val = c.proveedores?.nombre || '';
+        else if (key === 'proyecto') val = c.proyectos?.nombre || '';
+        else if (key === 'num_factura') val = c.num_factura_proveedor || '';
+        else if (key === 'estado_pago') val = c.estado_pago || 'Pendiente';
+        else val = c[key] || '';
+        return val.toString().toLowerCase().includes(columnFilters[key].toLowerCase());
+      });
+
+      return matchesGlobal && matchesColumns;
+    }).sort((a, b) => {
+      if (!sortConfig) return 0;
+      let aVal, bVal;
+      
+      if (sortConfig.key === 'proveedor') {
+        aVal = a.proveedores?.nombre || '';
+        bVal = b.proveedores?.nombre || '';
+      } else if (sortConfig.key === 'proyecto') {
+        aVal = a.proyectos?.nombre || '';
+        bVal = b.proyectos?.nombre || '';
+      } else if (sortConfig.key === 'estado_pago') {
+        aVal = a.estado_pago || 'Pendiente';
+        bVal = b.estado_pago || 'Pendiente';
+      } else {
+        aVal = a[sortConfig.key] || '';
+        bVal = b[sortConfig.key] || '';
+      }
+      
+      if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+      return 0;
     });
-
-    return matchesSearch && matchesStatus && matchesColumns;
-  }).sort((a, b) => {
-    const { field, direction } = sortConfig;
-    let valA = a[field];
-    let valB = b[field];
-
-    if (field === 'proveedor') {
-      valA = a.proveedores?.nombre;
-      valB = b.proveedores?.nombre;
-    }
-    
-    if (valA < valB) return direction === 'asc' ? -1 : 1;
-    if (valA > valB) return direction === 'asc' ? 1 : -1;
-    return 0;
-  });
-
-  if (loading) return (
-    <div className="flex h-screen items-center justify-center bg-gray-50">
-      <Loader2 className="animate-spin text-[var(--accent)]" size={48} />
-    </div>
-  );
+  }, [costes, searchTerm, sortConfig, columnFilters]);
 
   return (
-    <div className="flex bg-[var(--background)] min-h-screen">
+    <div className="flex bg-[var(--background)] min-h-screen text-left">
       <Sidebar />
-      <div className="flex-1 p-8 space-y-8 overflow-y-auto">
-        <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
-          <div className="space-y-1">
-            <h1 className="text-4xl font-black font-head tracking-tighter text-[var(--foreground)]">Facturas Recibidas</h1>
-            <p className="text-[var(--muted)] font-medium">Control total de gastos, proveedores y libros de IVA.</p>
+      <div className="flex-1 p-8 overflow-y-auto">
+        <header className="flex justify-between items-center mb-10">
+          <div>
+            <h1 className="text-3xl font-bold font-head tracking-tight mb-1">Facturas Recibidas</h1>
+            <p className="text-[var(--muted)] font-medium">Gestión de facturas recibidas y multi-IVA.</p>
           </div>
-          <div className="flex gap-3">
-             <button 
-              onClick={() => { exportVATBookPDF('costes', costes, perfil); }} 
-              className="flex items-center gap-2 px-5 py-3 bg-white border border-gray-200 text-gray-700 rounded-2xl font-bold hover:bg-gray-50 transition-all shadow-sm"
-            >
-              <FileSpreadsheet size={18} className="text-red-500" /> Libro IVA (PDF)
-            </button>
-            <button 
-              onClick={() => { exportVATBookExcel('costes', costes); }} 
-              className="flex items-center gap-2 px-5 py-3 bg-white border border-gray-200 text-gray-700 rounded-2xl font-bold hover:bg-gray-50 transition-all shadow-sm"
-            >
-              <Zap size={18} className="text-green-500" /> Libro IVA (Excel)
-            </button>
-            <button 
-              onClick={() => {
-                setEditingId(null); setFecha(new Date().toISOString().split("T")[0]); setProveedorId(""); setNumFactProv(""); 
-                setLineas([{ descripcion: "", unidades: 1, precio_unitario: 0, iva_pct: 21 }]); setFile(null); setExistingPdfUrl("");
-                setIsModalOpen(true);
-              }}
-              className="flex items-center gap-2 px-6 py-3 bg-[var(--accent)] text-white rounded-2xl font-black shadow-lg shadow-orange-100 hover:shadow-orange-200 hover:-translate-y-0.5 transition-all"
-            >
-              <PlusCircle size={20} /> Nuevo Gasto
-            </button>
+          <div className="flex items-center gap-3">
+              <button 
+                onClick={() => exportVATBookPDF('costes', filteredCostes, perfil)} 
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white text-gray-700 border border-gray-200 font-bold hover:bg-gray-50 transition-all active:scale-95 shadow-sm"
+              >
+                <Download size={18} /> Libro IVA (PDF)
+              </button>
+              <button 
+                onClick={() => exportVATBookExcel('costes', filteredCostes)} 
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white text-green-700 border border-gray-200 font-bold hover:bg-gray-50 transition-all active:scale-95 shadow-sm"
+              >
+                <Download size={18} /> Libro IVA (Excel)
+              </button>
+              <button onClick={() => setIsAiModalOpen(true)} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-purple-50 text-purple-700 border border-purple-100 font-bold hover:shadow-md transition-all active:scale-95">
+                <Sparkles size={18} /> Importar PDF con IA
+              </button>
+             <button onClick={openAddModal} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--accent)] text-white font-bold hover:shadow-lg transition-all active:scale-95">
+               <Plus size={18}/> Nueva Factura Recibida
+             </button>
           </div>
         </header>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="bg-white p-6 rounded-3xl border shadow-sm space-y-1">
-            <div className="flex justify-between items-center"><span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Gastos (Mes)</span><Calendar className="text-blue-200" size={16}/></div>
-            <p className="text-2xl font-black font-head">{formatCurrency(costes.reduce((acc, c) => acc + c.total, 0))}</p>
-          </div>
-          <div className="bg-white p-6 rounded-3xl border shadow-sm space-y-1">
-             <div className="flex justify-between items-center"><span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">IVA Soportado</span><Percent className="text-red-200" size={16}/></div>
-             <p className="text-2xl font-black font-head text-red-600">{formatCurrency(costes.reduce((acc, c) => acc + (c.iva_importe || 0), 0))}</p>
-          </div>
-          <div className="bg-white p-6 rounded-3xl border shadow-sm space-y-1">
-             <div className="flex justify-between items-center"><span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Facturas Pendientes</span><Clock className="text-orange-200" size={16}/></div>
-             <p className="text-2xl font-black font-head text-orange-600">{costes.filter(c => c.estado_pago !== 'Pagado').length}</p>
-          </div>
-          <div className="bg-white p-6 rounded-3xl border shadow-sm space-y-1">
-             <div className="flex justify-between items-center"><span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Siguiente Registro</span><ShieldCheck className="text-emerald-200" size={16}/></div>
-             <p className="text-2xl font-black font-head text-emerald-600">{perfil?.prefijo_costes || ''}{perfil?.contador_costes || 1}</p>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-[2.5rem] border shadow-sm overflow-hidden">
-          <div className="p-6 border-b bg-gray-50/50 flex flex-col md:flex-row justify-between gap-4">
-             <div className="relative flex-1">
-               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-               <input 
-                type="text" 
-                placeholder="Buscar por proveedor, factura o importe..." 
-                className="w-full pl-12 pr-6 py-3.5 bg-white border border-gray-200 rounded-2xl outline-none focus:ring-4 focus:ring-orange-500/5 transition-all font-medium"
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-               />
+        {isAiModalOpen && (
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+             <div className="bg-white rounded-3xl p-10 w-full max-w-md text-center shadow-2xl animate-in zoom-in duration-300">
+                {isExtracting ? (
+                   <div className="space-y-6">
+                     <Loader2 className="animate-spin mx-auto text-purple-600" size={60} />
+                     <p className="font-bold text-gray-700">Gemini IA analizando tu factura...</p>
+                   </div>
+                ) : (
+                   <div className="space-y-6">
+                     <div className="w-20 h-20 bg-purple-50 rounded-full flex items-center justify-center mx-auto">
+                        <Upload className="text-purple-600" size={32} />
+                     </div>
+                     <div>
+                        <h2 className="text-2xl font-black mb-2 tracking-tight">Importar Factura</h2>
+                        <p className="text-sm text-gray-500">Sube el PDF y extraeremos el proveedor, fecha, bases de IVA y retenciones.</p>
+                     </div>
+                     <input type="file" accept="application/pdf" onChange={handleImportWithAI} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-purple-100 file:text-purple-700 hover:file:bg-purple-200 cursor-pointer" />
+                     <button onClick={() => setIsAiModalOpen(false)} className="text-gray-400 font-bold hover:text-gray-600 transition-colors">Cerrar</button>
+                   </div>
+                )}
              </div>
-             <select 
-               value={statusFilter}
-               onChange={e => setStatusFilter(e.target.value)}
-               className="px-6 py-3.5 bg-white border border-gray-200 rounded-2xl outline-none font-bold text-gray-600"
-             >
-               <option value="all">Todos los estados</option>
-               <option value="Pagado">Pagado</option>
-               <option value="Pendiente">Pendiente</option>
-             </select>
           </div>
+        )}
+        {isProviderReviewModalOpen && detectedProvider && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[300] flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl shadow-2xl p-10 w-full max-w-lg animate-in fade-in zoom-in duration-300 border overflow-y-auto max-h-[90vh]">
+              <div className="flex justify-between items-center mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-orange-100 rounded-2xl flex items-center justify-center text-orange-600">
+                    <UserPlus size={24} />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-black tracking-tight">Validar Nuevo Proveedor</h2>
+                    <p className="text-xs text-gray-500 font-medium">Revisa los datos extraídos por la IA</p>
+                  </div>
+                </div>
+                <button onClick={() => setIsProviderReviewModalOpen(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                  <X size={20} className="text-gray-400" />
+                </button>
+              </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-gray-50/30 text-[11px] font-black text-gray-400 uppercase tracking-widest">
-                  <th className="px-8 py-5 border-b cursor-pointer hover:text-[var(--accent)] transition-colors" onClick={() => handleSort('num_interno')}>
-                    <div className="flex items-center gap-2">Reg. {sortConfig.field === 'num_interno' && <ArrowUpDown size={12} />}</div>
-                    <input className="mt-2 w-full p-1 font-normal lowercase border-none bg-transparent outline-none" placeholder="filtrar..." value={columnFilters.num_interno || ''} onClick={e => e.stopPropagation()} onChange={e => handleFilter('num_interno', e.target.value)} />
-                  </th>
-                  <th className="px-8 py-5 border-b cursor-pointer hover:text-[var(--accent)] transition-colors" onClick={() => handleSort('fecha')}>
-                    <div className="flex items-center gap-2">Fecha {sortConfig.field === 'fecha' && <ArrowUpDown size={12} />}</div>
-                    <input className="mt-2 w-full p-1 font-normal lowercase border-none bg-transparent outline-none" placeholder="filtrar..." value={columnFilters.fecha || ''} onClick={e => e.stopPropagation()} onChange={e => handleFilter('fecha', e.target.value)} />
-                  </th>
-                  <th className="px-8 py-5 border-b cursor-pointer hover:text-[var(--accent)] transition-colors" onClick={() => handleSort('proveedor')}>
-                    <div className="flex items-center gap-2">Proveedor {sortConfig.field === 'proveedor' && <ArrowUpDown size={12} />}</div>
-                    <input className="mt-2 w-full p-1 font-normal lowercase border-none bg-transparent outline-none" placeholder="filtrar..." value={columnFilters.proveedor || ''} onClick={e => e.stopPropagation()} onChange={e => handleFilter('proveedor', e.target.value)} />
-                  </th>
-                  <th className="px-8 py-5 border-b">Factura</th>
-                  <th className="px-8 py-5 border-b text-right cursor-pointer hover:text-[var(--accent)] transition-colors" onClick={() => handleSort('total')}>
-                    <div className="flex items-center justify-end gap-2">Total {sortConfig.field === 'total' && <ArrowUpDown size={12} />}</div>
-                  </th>
-                  <th className="px-8 py-5 border-b text-center">Estado</th>
-                  <th className="px-8 py-5 border-b text-right">Acciones</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {filteredCostes.map(c => (
-                  <tr key={c.id} className="group hover:bg-orange-50/30 transition-all duration-300">
-                    <td className="px-8 py-5 font-mono text-xs font-bold text-gray-500">{c.num_interno || c.registro_interno || c.numero || '-'}</td>
-                    <td className="px-8 py-5 font-bold text-gray-700">{new Date(c.fecha).toLocaleDateString()}</td>
-                    <td className="px-8 py-5">
-                      <div className="flex items-center gap-3">
-                        <div className="h-9 w-9 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-black text-xs">{c.proveedores?.nombre?.charAt(0)}</div>
-                        <div className="flex flex-col">
-                          <span className="font-black text-gray-900 leading-tight">{c.proveedores?.nombre}</span>
-                          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{c.proveedores?.nif}</span>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-8 py-5 font-mono text-sm text-gray-500">{c.num_factura_proveedor || c.numero_factura || c.num_factura || '-'}</td>
-                    <td className="px-8 py-5 text-right font-black text-gray-900">{formatCurrency(c.total)}</td>
-                    <td className="px-8 py-5 text-center">
-                       <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${c.estado_pago === 'Pagado' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
-                         {c.estado_pago}
-                       </span>
-                    </td>
-                    <td className="px-8 py-5 text-right relative">
-                        <div className="flex items-center justify-end gap-2">
-                           {c.pdf_url && (
-                             <a href={c.pdf_url} target="_blank" rel="noopener noreferrer" className="p-2 text-blue-400 hover:bg-blue-50 rounded-xl transition-all" title="Ver PDF">
-                               <FileText size={18} />
-                             </a>
-                           )}
-                           <button onClick={() => setOpenMenuId(openMenuId === c.id ? null : c.id)} className="p-2 text-gray-400 hover:bg-gray-100 rounded-xl transition-all">
-                              <MoreHorizontal size={20} />
-                           </button>
-                        </div>
-                        
-                        {openMenuId === c.id && (
-                          <div className="absolute right-8 top-14 w-48 bg-white rounded-2xl shadow-2xl border z-50 py-3 animate-in fade-in slide-in-from-top-2">
-                             <button onClick={() => { openEdit(c); setOpenMenuId(null); }} className="w-full flex items-center gap-3 px-5 py-2.5 text-sm font-bold text-gray-600 hover:bg-orange-50 hover:text-[var(--accent)] transition-all">
-                               <Pencil size={16} /> Editar
-                             </button>
-                             <div className="h-px bg-gray-100 my-2 mx-4"></div>
-                             <button onClick={() => { handleDeleteCoste(c); setOpenMenuId(null); }} className="w-full flex items-center gap-3 px-5 py-2.5 text-sm font-bold text-red-500 hover:bg-red-50 transition-all">
-                               <Trash2 size={16} /> Eliminar
-                             </button>
-                          </div>
-                        )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Razón Social</label>
+                  <input type="text" value={detectedProvider.nombre} onChange={(e) => setDetectedProvider({...detectedProvider, nombre: e.target.value})} className="w-full p-4 rounded-xl border bg-gray-50 font-bold focus:ring-4 focus:ring-orange-500/10 outline-none transition-all" />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">NIF/CIF</label>
+                    <input type="text" value={detectedProvider.nif} onChange={(e) => setDetectedProvider({...detectedProvider, nif: e.target.value})} className="w-full p-4 rounded-xl border bg-gray-50 font-mono focus:ring-4 focus:ring-orange-500/10 outline-none transition-all" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Código Postal</label>
+                    <input type="text" value={detectedProvider.cp} maxLength={5} onChange={(e) => {
+                      const newCp = e.target.value;
+                      setDetectedProvider({...detectedProvider, cp: newCp});
+                      if (newCp.length === 5) {
+                        getFullLocationByCP(newCp).then(geo => {
+                          if (geo) setDetectedProvider(prev => ({...prev, poblacion: geo.poblacion, provincia: geo.provincia}));
+                        });
+                      }
+                    }} className="w-full p-4 rounded-xl border bg-gray-50 font-mono font-bold focus:ring-4 focus:ring-orange-500/10 outline-none transition-all" />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Dirección Postal</label>
+                  <input type="text" value={detectedProvider.direccion} onChange={(e) => setDetectedProvider({...detectedProvider, direccion: e.target.value})} className="w-full p-4 rounded-xl border bg-gray-50 focus:ring-4 focus:ring-orange-500/10 outline-none transition-all" />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Población</label>
+                    <input type="text" value={detectedProvider.poblacion} onChange={(e) => setDetectedProvider({...detectedProvider, poblacion: e.target.value})} className="w-full p-4 rounded-xl border bg-gray-50 focus:ring-4 focus:ring-orange-500/10 outline-none transition-all" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Provincia</label>
+                    <input type="text" value={detectedProvider.provincia} onChange={(e) => setDetectedProvider({...detectedProvider, provincia: e.target.value})} className="w-full p-4 rounded-xl border bg-gray-50 focus:ring-4 focus:ring-orange-500/10 outline-none transition-all" />
+                  </div>
+                </div>
+
+                <div className="pt-6">
+                  <button onClick={handleCreateDetectedProvider} className="w-full py-4 bg-orange-600 text-white font-black rounded-2xl shadow-xl hover:bg-orange-700 transition-all active:scale-[0.98] flex items-center justify-center gap-3">
+                    <UserPlus size={20} />
+                    Confirmar Alta Proveedor
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Modal Editor */}
         {isModalOpen && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-[3rem] shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-300">
-               <div className="p-10 space-y-10">
-                  <header className="flex justify-between items-start">
-                    <div className="space-y-1">
-                      <h2 className="text-3xl font-black font-head tracking-tighter text-gray-900">{editingId ? 'Editar Factura Recibida' : 'Registrar Nuevo Gasto'}</h2>
-                      <p className="text-gray-400 font-medium">Completa los datos fiscales del documento.</p>
-                    </div>
-                    <button onClick={() => setIsModalOpen(false)} className="p-3 hover:bg-gray-100 rounded-2xl text-gray-400 transition-all"><X size={24}/></button>
-                  </header>
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4 overflow-y-auto">
+             <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-4xl border border-[var(--border)] my-auto">
+                <div className="flex justify-between items-center mb-6 pb-4 border-b">
+                   <div className="flex items-center gap-4">
+                     <h2 className="text-2xl font-bold font-head flex items-center gap-2 tracking-tight text-gray-800">
+                       <Receipt className="text-purple-600" /> 
+                       {editingId ? "Editar Factura" : "Factura Registrada"}
+                     </h2>
+                     {editingId && (
+                       <div className="flex bg-gray-100 rounded-xl p-1 gap-1">
+                         <button 
+                           type="button"
+                           onClick={handlePrev}
+                           disabled={costes.findIndex(c => c.id === editingId) === 0}
+                           title="Anterior"
+                           className="p-1.5 hover:bg-white rounded-lg disabled:opacity-20 transition-all text-gray-600 shadow-sm disabled:shadow-none"
+                         >
+                           <ChevronUp size={18} />
+                         </button>
+                         <button 
+                           type="button"
+                           onClick={handleNext}
+                           disabled={costes.findIndex(c => c.id === editingId) === costes.length - 1}
+                           title="Siguiente"
+                           className="p-1.5 hover:bg-white rounded-lg disabled:opacity-20 transition-all text-gray-600 shadow-sm disabled:shadow-none"
+                         >
+                           <ChevronDown size={18} />
+                         </button>
+                       </div>
+                     )}
+                   </div>
+                   <button onClick={() => setIsModalOpen(false)} className="hover:rotate-90 transition-transform"><X size={24} className="text-gray-400"/></button>
+                </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="space-y-6">
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Proveedor (Razón Social)</label>
-                        <SearchableSelect 
-                          options={proveedores}
-                          value={proveedorId}
-                          onChange={setProveedorId}
-                          placeholder="Buscar o seleccionar proveedor..."
+                {detectedProvider && (
+                  <div className="mb-6 p-4 bg-orange-50 rounded-xl border border-orange-200 flex items-center justify-between text-left animate-in slide-in-from-top-4">
+                    <div className="flex items-center gap-3">
+                       <AlertCircle className="text-orange-600" size={24} />
+                       <div>
+                          <p className="text-sm font-bold text-orange-900">Nuevo proveedor detectado por IA</p>
+                          <p className="text-xs text-orange-700">{detectedProvider.nombre} ({detectedProvider.nif})</p>
+                       </div>
+                    </div>
+                    <button type="button" onClick={() => setIsProviderReviewModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg font-bold text-xs hover:bg-orange-700 transition-all">
+                       <UserPlus size={14} /> Revisar y Validar
+                    </button>
+                  </div>
+                )}
+                
+                <form onSubmit={handleSave} className="space-y-6">
+                   <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                      <div><label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Serie</label>
+                        <select value={serie} onChange={(e) => setSerie(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200 bg-gray-50 font-bold">
+                          <option value="A">Serie A (IVA Soportado)</option>
+                          <option value="B">Serie B (sin IVA)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1 whitespace-nowrap">Nº Registro</label>
+                        <input 
+                          type="text" 
+                          value={numInterno} 
+                          onChange={(e) => setNumInterno(e.target.value)}
+                          className="w-full p-2.5 rounded-lg border border-gray-100 bg-gray-50 font-bold text-gray-500 focus:outline-none focus:border-purple-200 transition-colors" 
+                          placeholder="Auto..."
                         />
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                           <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Fecha Factura</label>
-                           <div className="relative">
-                             <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                             <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border rounded-2xl outline-none font-bold" />
-                           </div>
-                        </div>
-                        <div className="space-y-2">
-                           <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Nº Factura Recibida</label>
-                           <div className="relative">
-                             <Receipt className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                             <input type="text" placeholder="Ej: 2024/045" value={numFactProv} onChange={e => setNumFactProv(e.target.value)} className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border rounded-2xl outline-none font-mono font-bold" />
-                           </div>
-                        </div>
+                      <div><label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Factura Prov.</label><input type="text" value={numFactProv} onChange={(e) => setNumFactProv(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200 font-bold text-blue-600" /></div>
+                      <div><label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Fecha</label><input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200" /></div>
+                      <div className="md:col-span-2">
+                         <SearchableSelect label="Proveedor" options={proveedores} value={proveedorId} onChange={(id) => setProveedorId(id)} placeholder="Buscar proveedor..." />
                       </div>
-                    </div>
-
-                    <div className="space-y-4">
-                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Documento PDF (Factura Digitalizada)</label>
-                      <div className="group relative h-full min-h-[140px] border-2 border-dashed border-gray-100 rounded-[2rem] bg-gray-50/50 flex flex-col items-center justify-center p-6 transition-all hover:border-[var(--accent)] hover:bg-white">
-                        {file || existingPdfUrl ? (
-                          <div className="text-center space-y-3">
-                             <div className="p-4 bg-orange-100 text-[var(--accent)] rounded-2xl inline-block shadow-sm animate-bounce"><FileText size={32} /></div>
-                             <p className="text-xs font-black text-gray-700 tracking-tight">{file?.name || 'Factura Guardada'}</p>
-                             <button onClick={() => { setFile(null); setExistingPdfUrl(""); }} className="text-[10px] font-black text-red-500 uppercase tracking-widest hover:underline">Eliminar Archivo</button>
-                          </div>
-                        ) : (
-                          <>
-                            <UploadCloud className="text-gray-300 mb-2 group-hover:text-[var(--accent)] transition-colors" size={40} />
-                            <p className="text-sm font-bold text-gray-500">Arrastra el PDF aquí</p>
-                            <p className="text-[10px] text-gray-400 uppercase tracking-widest">o haz clic para buscar</p>
-                            <input type="file" accept=".pdf" onChange={e => setFile(e.target.files?.[0] || null)} className="absolute inset-0 opacity-0 cursor-pointer" />
-                          </>
-                        )}
+                      <div>
+                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Tipo de Gasto</label>
+                        <select value={tipoGasto} onChange={(e) => setTipoGasto(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200 bg-gray-50">
+                           <option value="general">Gasto General</option>
+                           <option value="proyecto">Vincular a Proyecto</option>
+                        </select>
                       </div>
+                      {tipoGasto === "proyecto" && (
+                        <div className="md:col-span-1">
+                           <SearchableSelect 
+                             label="Vincular Proyecto" 
+                             options={proyectos} 
+                             value={proyectoId} 
+                             onChange={(id) => setProyectoId(id)} 
+                             placeholder="Seleccionar..." 
+                           />
+                        </div>
+                      )}
                     </div>
-                  </div>
 
-                  <div className="space-y-6">
-                    <div className="flex justify-between items-center">
-                       <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest">Líneas de Factura (Desglose)</h3>
-                       <button onClick={addLinea} className="flex items-center gap-2 text-xs font-black text-[var(--accent)] hover:underline"><Plus size={14} /> Añadir Línea</button>
+                    <div className="p-6 bg-purple-50/50 rounded-2xl border border-purple-100/50 space-y-4">
+                       <div className="flex items-center justify-between">
+                          <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                             <Upload size={14} className="text-purple-500" /> Adjuntar Factura Original (PDF obligatorio)
+                          </label>
+                          {pdfUrl && (
+                             <a href={pdfUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] font-bold text-purple-600 hover:underline flex items-center gap-1">
+                                <FileText size={12} /> Ver PDF actual
+                             </a>
+                          )}
+                       </div>
+                       <div className="relative group">
+                          <input 
+                             type="file" 
+                             accept=".pdf" 
+                             onChange={(e) => setPdfFile(e.target.files?.[0] || null)}
+                             className="w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-6 file:rounded-xl file:border-0 file:text-xs file:font-black file:bg-purple-600 file:text-white hover:file:bg-purple-700 cursor-pointer p-4 bg-white rounded-xl border-2 border-dashed border-purple-200 group-hover:border-purple-300 transition-all"
+                          />
+                          {pdfFile && (
+                             <div className="mt-2 text-xs font-bold text-green-600 flex items-center gap-1 animate-in fade-in">
+                                ✓ Archivo seleccionado: {pdfFile.name}
+                             </div>
+                          )}
+                       </div>
                     </div>
-                    
-                    <div className="space-y-3">
-                      {lineas.map((l, idx) => (
-                        <div key={idx} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end p-6 bg-gray-50/50 rounded-3xl border border-gray-100 group">
-                           <div className="md:col-span-6 space-y-2">
-                              <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest pl-1">Concepto</label>
-                              <input type="text" value={l.descripcion} onChange={e => updateLinea(idx, { descripcion: e.target.value })} className="w-full p-3.5 bg-white border rounded-xl outline-none font-medium text-sm focus:ring-4 focus:ring-orange-500/5 transition-all" />
-                           </div>
-                           <div className="md:col-span-2 space-y-2">
-                              <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest pl-1">Precio Un.</label>
-                              <input type="number" step="any" value={l.precio_unitario} onChange={e => updateLinea(idx, { precio_unitario: parseFloat(e.target.value) || 0 })} className="w-full p-3.5 bg-white border rounded-xl outline-none font-mono font-bold text-right" />
-                           </div>
-                           <div className="md:col-span-1 space-y-2">
-                              <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest pl-1">Uds.</label>
-                              <input type="number" value={l.unidades} onChange={e => updateLinea(idx, { unidades: parseInt(e.target.value) || 1 })} className="w-full p-3.5 bg-white border rounded-xl outline-none font-bold text-center" />
-                           </div>
-                           <div className="md:col-span-2 space-y-2">
-                              <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest pl-1">IVA %</label>
-                              <select value={l.iva_pct} onChange={e => updateLinea(idx, { iva_pct: parseInt(e.target.value) })} className="w-full p-3.5 bg-white border rounded-xl outline-none font-bold text-center appearance-none cursor-pointer">
-                                 <option value="21">21%</option>
-                                 <option value="10">10%</option>
-                                 <option value="4">4%</option>
-                                 <option value="0">0%</option>
-                              </select>
-                           </div>
-                           <div className="md:col-span-1 flex justify-center pb-3">
-                              {lineas.length > 1 && (
-                                <button onClick={() => removeLinea(idx)} className="p-2 text-gray-300 hover:text-red-500 transition-colors"><Trash2 size={18}/></button>
-                              )}
-                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
 
-                  <div className="flex flex-col md:flex-row justify-between items-center pt-10 border-t border-dashed gap-8">
-                     <div className="flex gap-10">
-                        <div className="space-y-1">
-                           <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Base Imponible</p>
-                           <p className="text-2xl font-black text-gray-700">{formatCurrency(lineas.reduce((acc, l) => acc + (l.unidades * l.precio_unitario), 0))}</p>
-                        </div>
-                        <div className="space-y-1">
-                           <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Cuota IVA</p>
-                           <p className="text-2xl font-black text-red-500">{formatCurrency(lineas.reduce((acc, l) => acc + (l.unidades * l.precio_unitario * (l.iva_pct / 100)), 0))}</p>
-                        </div>
-                        <div className="space-y-1">
-                           <p className="text-[10px] font-black text-[var(--accent)] uppercase tracking-widest">Total Factura</p>
-                           <p className="text-4xl font-black text-gray-900 tracking-tighter">
-                             {formatCurrency(lineas.reduce((acc, l) => acc + (l.unidades * l.precio_unitario * (1 + l.iva_pct / 100)), 0))}
-                           </p>
-                        </div>
+                    <div className="pt-4">
+                      <table className="w-full text-left">
+                        <thead>
+                          <tr className="border-b text-gray-400">
+                            <th className="pb-3 text-[10px] font-bold uppercase">Ud.</th>
+                            <th className="pb-3 text-[10px] font-bold uppercase">Concepto</th>
+                            <th className="pb-3 text-[10px] font-bold uppercase text-right w-32">Precio Ud.</th>
+                            <th className="pb-3 text-[10px] font-bold uppercase w-24 text-center">IVA %</th>
+                            <th className="pb-3 text-[10px] font-bold uppercase text-right w-32">Total</th>
+                            <th className="w-10"></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {lineas.map((linea, idx) => (
+                            <tr key={idx} className="border-b border-gray-50">
+                               <td className="py-3 pr-4 text-center w-20"><input type="number" step="any" value={linea.unidades} onChange={(e) => updateLinea(idx, "unidades", parseFloat(e.target.value))} className="w-full p-2 rounded-lg border border-gray-100 font-bold text-center" /></td>
+                              <td className="py-3 pr-4">
+                                <textarea 
+                                  rows={1} 
+                                  value={linea.descripcion} 
+                                  onChange={(e) => updateLinea(idx, "descripcion", e.target.value)} 
+                                  className="w-full p-2 rounded-lg border border-gray-100 text-sm min-h-[40px] resize-y" 
+                                />
+                              </td>
+                              <td className="py-3 pr-4">
+                                <input 
+                                  type="number" 
+                                  step="any" 
+                                  inputMode="decimal"
+                                  value={linea.precio_unitario} 
+                                  onChange={(e) => updateLinea(idx, "precio_unitario", parseFloat(e.target.value))} 
+                                  className="w-full p-2 rounded-lg border border-gray-100 text-right font-mono" 
+                                />
+                              </td>
+                              <td className="py-3 pr-4">
+                                <select value={linea.iva_pct} onChange={(e) => updateLinea(idx, "iva_pct", parseInt(e.target.value))} className="w-full p-2 rounded-lg border border-gray-100 text-xs font-bold text-center">
+                                   <option value="21">21%</option>
+                                   <option value="10">10%</option>
+                                   <option value="4">4%</option>
+                                   <option value="0">0%</option>
+                                </select>
+                              </td>
+                              <td className="py-3 text-right font-bold text-gray-700 font-mono">{formatCurrency(linea.unidades * linea.precio_unitario)}</td>
+                              <td className="py-3 text-center">{lineas.length > 1 && <button type="button" onClick={() => removeLinea(idx)} className="text-red-300 hover:text-red-500"><Trash2 size={16}/></button>}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      <button type="button" onClick={addLinea} className="mt-4 flex items-center gap-2 text-sm font-bold text-purple-600 hover:bg-purple-50 px-3 py-2 rounded-lg transition-all"><Plus size={16}/> Añadir línea (Multi-IVA)</button>
+                   </div>
+
+                   <div className="flex flex-col md:flex-row justify-between pt-8 border-t bg-gray-50/50 p-6 rounded-2xl gap-8 font-mono">
+                      <div className="w-full md:w-64">
+                         <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1 font-sans">Retención IRPF (%)</label>
+                         <select 
+                            value={retencionPct} 
+                            onChange={(e) => setRetencionPct(parseFloat(e.target.value) || 0)} 
+                            className="w-full p-2.5 rounded-lg border border-gray-200 font-bold font-sans"
+                          >
+                             <option value="0">0% (Sin IRPF)</option>
+                             {tiposIRPF.map((t: any) => (
+                               <option key={t.id} value={t.valor}>{t.nombre} ({t.valor}%)</option>
+                             ))}
+                          </select>
+                      </div>
+                      <div className="w-full md:w-80 space-y-3">
+                         <div className="flex justify-between text-sm text-gray-500"><span>Base Imponible Tot.:</span><span className="font-bold text-gray-700">{formatCurrency(baseImponible)}</span></div>
+                         <div className="flex justify-between text-sm text-gray-500"><span>Cuota IVA Tot.:</span><span className="font-bold text-gray-700">{formatCurrency(totalIva)}</span></div>
+                         {retencionPct > 0 && <div className="flex justify-between text-sm text-red-600 font-bold"><span>Retención (-{retencionPct}%):</span><span>{formatCurrency(retencionImporte)}</span></div>}
+                         <div className="flex justify-between text-2xl font-bold pt-4 border-t border-gray-200 text-gray-900 font-sans"><span>TOTAL:</span><span className="text-red-600">{formatCurrency(totalFactura)}</span></div>
+                      </div>
+                   </div>
+
+                   <div className="flex gap-4">
+                      <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-4 font-bold text-gray-400 hover:bg-gray-100 rounded-2xl transition-all">Cancelar</button>
+                      <button type="submit" disabled={saving} className="flex-2 px-12 py-4 bg-gray-800 text-white font-bold rounded-2xl shadow-xl hover:bg-black disabled:opacity-50 transition-all flex items-center justify-center gap-3">
+                        {saving ? <Loader2 className="animate-spin" size={20}/> : <Save size={20} />}
+                        {saving ? "Registrando..." : "Confirmar y Registrar"}
+                      </button>
+                   </div>
+                </form>
+             </div>
+          </div>
+        )}
+
+        <div className="glass-card bg-white shadow-sm border-[var(--border)] overflow-visible text-left min-h-[400px]">
+
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-gray-50/50 border-b border-[var(--border)]">
+                <DataTableHeader label="Registro" field="num_interno" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.num_interno || ''} onFilter={handleFilter} />
+                <DataTableHeader label="Factura / Prov." field="proveedor" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.proveedor || ''} onFilter={handleFilter} />
+                <DataTableHeader label="Fecha" field="fecha" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.fecha || ''} onFilter={handleFilter} />
+                <DataTableHeader label="Gasto / Proyecto" field="proyecto" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.proyecto || ''} onFilter={handleFilter} />
+                <DataTableHeader label="Total" field="total" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.total || ''} onFilter={handleFilter} />
+                <DataTableHeader label="Pendiente" field="pendiente" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.pendiente || ''} onFilter={handleFilter} />
+                <DataTableHeader 
+                  label="Estado Pago" 
+                  field="estado_pago" 
+                  sortConfig={sortConfig} 
+                  onSort={handleSort} 
+                  filterValue={columnFilters.estado_pago || ''} 
+                  onFilter={handleFilter} 
+                  filterOptions={[
+                    { label: 'Todos', value: '' },
+                    { label: 'Pagado', value: 'Pagado' },
+                    { label: 'Pendiente', value: 'Pendiente' },
+                    { label: 'Pago Parcial', value: 'Pago Parcial' }
+                  ]}
+                />
+                <th className="px-6 py-4 text-[12px] font-black text-gray-500 uppercase tracking-wider text-right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[var(--border)]">
+              {filteredCostes.map(c => (
+                <tr key={c.id} className="hover:bg-gray-50 transition-colors group">
+                  <td className="px-6 py-4">
+                     <div className="text-[11px] font-black text-blue-600 bg-blue-50/50 px-2 py-1 rounded inline-block">
+                        {c.num_interno || c.registro_interno || c.numero}
                      </div>
+                  </td>
+                  <td className="px-6 py-4">
+                     <div className="flex items-center gap-2">
+                        <div className="font-bold text-gray-800">{c.proveedores?.nombre || '—'}</div>
+                        {(c.pdf_url || c.archivo_url) && (
+                           <a 
+                             href={c.pdf_url || c.archivo_url} 
+                             target="_blank" 
+                             rel="noopener noreferrer"
+                             className="p-1 hover:bg-purple-50 rounded-md transition-colors text-purple-400 hover:text-purple-600"
+                             title="Previsualizar Factura"
+                             onClick={(e) => e.stopPropagation()}
+                           >
+                             <Paperclip size={14} />
+                           </a>
+                        )}
+                     </div>
+                     <div className="flex flex-col">
+                        <div className="text-[10px] text-gray-400 font-mono uppercase leading-tight">{c.num_factura_proveedor}</div>
+                        {c.proveedores?.nif && <div className="text-[9px] text-gray-300 font-mono italic">{c.proveedores.nif}</div>}
+                     </div>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-500 font-medium">
+                    {c.fecha ? new Date(c.fecha).toLocaleDateString() : '—'}
+                  </td>
+                  <td className="px-6 py-4">
+                     <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${c.tipo_gasto === 'proyecto' ? 'bg-orange-50 text-orange-600' : 'bg-gray-50 text-gray-500'}`}>
+                        {c.tipo_gasto === 'proyecto' ? c.proyectos?.nombre : 'Gasto General'}
+                     </span>
+                  </td>
+                  <td className="px-6 py-4 text-sm font-mono font-bold text-right text-gray-900">{formatCurrency(c.total || 0)}</td>
+                  <td className="px-6 py-4 text-sm font-mono font-bold text-right text-red-600">{c.pendiente > 0 ? formatCurrency(c.pendiente) : '—'}</td>
+                    <td className="px-6 py-4">
+                       <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                         c.estadoPago === 'Pagado' ? 'bg-green-50 text-green-600' : 
+                         c.estadoPago === 'Pago Parcial' ? 'bg-orange-50 text-orange-600' : 
+                         'bg-gray-50 text-gray-500'
+                       }`}>
+                          {c.estadoPago || 'Pendiente'}
+                       </span>
+                    </td>
+                   <td className="px-6 py-4 text-right relative">
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === c.id ? null : c.id); }}
+                      className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-gray-600 transition-colors"
+                    >
+                      <MoreHorizontal size={20} />
+                    </button>
+
+                    {openMenuId === c.id && (
+                      <div className="absolute right-6 top-12 w-48 bg-white rounded-xl shadow-xl border z-50 py-2 animate-in fade-in slide-in-from-top-2 duration-200 text-left">
+                        {(c.pdf_url || c.archivo_url) && (
+                          <a href={c.pdf_url || c.archivo_url} target="_blank" rel="noopener noreferrer" className="w-full flex items-center gap-3 px-4 py-2 text-sm text-purple-600 hover:bg-purple-50 transition-colors">
+                            <FileText size={16} className="text-purple-500" /> Ver Factura PDF
+                          </a>
+                        )}
+
+                        <div className="h-px bg-gray-100 my-1 mx-2"></div>
+
+                        <button onClick={() => openEditModal(c)} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+                          <Pencil size={16} className="text-blue-500" /> Editar Factura
+                        </button>
+                        
+                        {c.estado_pago !== 'Pagado' && (
+                          <button 
+                            onClick={() => { 
+                              setSelectedCoste(c); 
+                              const balance = Math.max(0, c.total - (c.totalPagado || 0));
+                              setPagoImporte(balance.toFixed(2));
+                              setIsPayModalOpen(true); 
+                              setOpenMenuId(null);
+                            }} 
+                            className="w-full flex items-center gap-3 px-4 py-2 text-sm text-green-600 hover:bg-green-50 transition-colors"
+                          >
+                            <HandCoins size={16} className="text-green-500" /> Registrar Pago
+                          </button>
+                        )}
+                        
+                        <div className="h-px bg-gray-100 my-1 mx-2"></div>
+                        
+                         <button 
+                           onClick={() => handleDeleteCoste(c)}
+                           className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                         >
+                           <Trash2 size={16} /> Eliminar
+                         </button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Modal Pago */}
+        {isPayModalOpen && (
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl animate-in zoom-in duration-300">
+               <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-xl font-black tracking-tight">Registrar Pago</h3>
+                  <button onClick={() => setIsPayModalOpen(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+               </div>
+               <div className="space-y-4">
+                  <div>
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Proveedor</label>
+                    <div className="p-4 rounded-xl bg-gray-50 border font-bold text-gray-800">{selectedCoste?.proveedores?.nombre}</div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Fecha de Pago</label>
+                      <input type="date" value={pagoFecha} onChange={e => setPagoFecha(e.target.value)} className="w-full p-4 rounded-xl border bg-gray-50 focus:bg-white transition-all outline-none" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Importe (€)</label>
+                      <input type="number" step="0.01" value={pagoImporte} onChange={e => setPagoImporte(e.target.value)} className="w-full p-4 rounded-xl border bg-gray-50 focus:bg-white font-mono font-bold text-[var(--accent)] outline-none transition-all" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Forma de Pago</label>
+                    <select value={pagoForma} onChange={e => setPagoForma(e.target.value)} className="w-full p-4 rounded-xl border bg-gray-50 focus:bg-white font-bold outline-none transition-all">
+                       <option value="Transferencia">Transferencia</option>
+                       <option value="Tarjeta">Tarjeta</option>
+                       <option value="Efectivo">Efectivo</option>
+                       <option value="Giro Bancario">Giro Bancario</option>
+                    </select>
+                  </div>
+                  <div className="pt-4">
                      <button 
-                       onClick={handleSave} 
                        disabled={saving}
-                       className="w-full md:w-auto px-12 py-5 bg-[var(--accent)] text-white rounded-3xl font-black uppercase tracking-[0.2em] shadow-2xl shadow-orange-200 hover:shadow-orange-400 hover:-translate-y-1 transition-all flex items-center justify-center gap-3"
+                       onClick={handleRegisterPayment}
+                       className="w-full py-4 bg-green-600 text-white font-black rounded-2xl shadow-xl hover:bg-green-700 transition-all flex items-center justify-center gap-2"
                      >
-                       {saving ? <Loader2 className="animate-spin" size={24}/> : <Save size={24}/>}
-                       {editingId ? 'Actualizar Factura' : 'Registrar Gasto'}
+                       {saving ? <Loader2 className="animate-spin" size={20} /> : <HandCoins size={20} />}
+                       Confirmar Pago
                      </button>
                   </div>
                </div>
