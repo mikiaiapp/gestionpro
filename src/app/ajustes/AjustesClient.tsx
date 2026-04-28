@@ -1,15 +1,11 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { 
-  Building2, Percent, RefreshCcw, CheckCircle2, Loader2, Lock, ImageIcon, 
-  Upload, Trash2, ShieldCheck, CloudCheck, Database, DownloadCloud, 
-  RotateCcw, Smartphone, Scale, FileText, Table, LayoutGrid, AlertTriangle,
-  Settings2, Save, Plus, X, Pencil, Globe, Mail, Phone, Palette, Briefcase, 
-  ChevronRight, Download, BookOpen, UserPlus, Sparkles, Share2, Fingerprint,
-  ChevronUp, ChevronDown, Key, Shield, ShieldCheck as ShieldCheckIcon, AlertCircle
-} from 'lucide-react';
-import * as XLSX from 'xlsx';
+  Save, Building2, CreditCard, Key, Shield, Upload, Loader2, Plus, Trash2, 
+  Settings2, FileText, Database, Share2, Globe, Mail, Phone, Palette, 
+  Fingerprint, Briefcase, ChevronRight, Download, RefreshCcw, BookOpen, UserPlus, Table, Sparkles
+} from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Sidebar } from "@/components/Sidebar";
 import { SidebarItem } from "@/components/SidebarItem";
@@ -17,22 +13,13 @@ import { encrypt, decrypt } from "@/lib/encryption";
 import { getFullLocationByCP } from "@/lib/geoData";
 import { uploadLogo, uploadCorpImage } from "@/lib/storageService";
 import { cleanNIF } from "@/lib/format";
-
-type ImportResult = { total: number; success: number; errors: number };
-type TabType = 'negocio' | 'facturacion' | 'import' | 'email' | 'integraciones' | 'legal' | 'seguridad' | 'mantenimiento';
+import * as XLSX from 'xlsx';
 
 export default function AjustesClient() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [autoBackups, setAutoBackups] = useState<any[]>([]);
-  const [formaPago, setFormaPago] = useState("");
-  const [condicionesLegales, setCondicionesLegales] = useState("");
-  const [lopdText, setLopdText] = useState("");
-  const [textoAceptacion, setTextoAceptacion] = useState("");
-  const [verifactuEnv, setVerifactuEnv] = useState("test");
-  const [smtpEmail, setSmtpEmail] = useState("");
-  const [smtpAppPassword, setSmtpAppPassword] = useState("");
+  const [activeTab, setActiveTab] = useState("negocio");
 
   // Perfil de Negocio
   const [nombre, setNombre] = useState("");
@@ -64,11 +51,24 @@ export default function AjustesClient() {
   const [tieneRetencion, setTieneRetencion] = useState(false);
   const [irpfDefault, setIrpfDefault] = useState(0);
 
-  // Mantenimiento & Importación
-  const [isResetting, setIsResetting] = useState(false);
-  const [importResults, setImportResults] = useState<ImportResult | null>(null);
-  const [activeTab, setActiveTab] = useState<TabType>('negocio');
+  // Textos Legales
+  const [condicionesLegales, setCondicionesLegales] = useState("");
+  const [lopdText, setLopdText] = useState("");
+  const [textoAceptacion, setTextoAceptacion] = useState("");
+  
+  // Forma de Pago Default
+  const [formaPago, setFormaPago] = useState("");
 
+  // Verifactu / Certificado
+  const [verifactuCert, setVerifactuCert] = useState<string>("");
+  const [verifactuCertPassword, setVerifactuCertPassword] = useState<string>("");
+  const [verifactuEnv, setVerifactuEnv] = useState<"test" | "production">("test");
+
+  // Email SMTP Settings
+  const [smtpEmail, setSmtpEmail] = useState("");
+  const [smtpAppPassword, setSmtpAppPassword] = useState("");
+
+  const [backups, setBackups] = useState<any[]>([]);
   const initialLoadDone = useRef(false);
 
   useEffect(() => {
@@ -94,9 +94,79 @@ export default function AjustesClient() {
 
   const lastSavedPayload = useRef("");
 
+  useEffect(() => {
+    // Solo disparamos el auto-guardado si la carga inicial ha terminado del todo
+    if (initialLoadDone.current && user && !loading) {
+      const timer = setTimeout(() => {
+        handleSaveAll();
+      }, 1500); // 1.5s debounce
+      return () => clearTimeout(timer);
+    }
+  }, [
+    nombre, nif, cuentaBancaria, direccion, cp, poblacion, provincia, 
+    email, geminiKey, logoUrl, imagenCorporativaUrl, formaPago, tieneRetencion, irpfDefault,
+    condicionesLegales, lopdText, telefono, textoAceptacion, web,
+    verifactuCert, verifactuCertPassword, verifactuEnv,
+    contadorVentas, contadorCostes, contadorProyectos,
+    prefijoVentas, prefijoCostes, prefijoProyectos,
+    serieVentas, serieCostes, smtpEmail, smtpAppPassword
+  ]);
+
+  const fetchPerfil = async (userId: string) => {
+    const { data, error } = await supabase
+      .from("perfil_negocio")
+      .select("*")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (data) {
+      setNombre(data.nombre || "");
+      setNif(data.nif || "");
+      setCuentaBancaria(data.cuenta_bancaria ? decrypt(data.cuenta_bancaria) : "");
+      setDireccion(data.direccion || "");
+      setCp(data.codigo_postal || "");
+      setPoblacion(data.poblacion || "");
+      setProvincia(data.provincia || "");
+      setEmail(data.email || "");
+      setTelefono(data.telefono || "");
+      setWeb(data.web || "");
+      setGeminiKey(data.gemini_key || "");
+      setLogoUrl(data.logo_url || "");
+      setImagenCorporativaUrl(data.imagen_corporativa_url || "");
+      setSerieVentas(data.serie_ventas || "A");
+      setPrefijoVentas(data.prefijo_ventas || "");
+      setContadorVentas(data.contador_ventas || 1);
+      setSerieCostes(data.serie_costes || "A");
+      setPrefijoCostes(data.prefijo_costes || "");
+      setContadorCostes(data.contador_costes || 1);
+      setPrefijoProyectos(data.prefijo_proyectos || "");
+      setContadorProyectos(data.contador_proyectos || 1);
+      setTieneRetencion(data.tiene_retencion || false);
+      setIrpfDefault(data.irpf_default || 0);
+      setCondicionesLegales(data.condiciones_legales || "");
+      setLopdText(data.lopd_text || "");
+      setTextoAceptacion(data.texto_aceptacion || "");
+      setFormaPago(data.forma_pago_default || "");
+      setVerifactuEnv(data.verifactu_env || "test");
+      setSmtpEmail(data.smtp_email || "");
+      setSmtpAppPassword(data.smtp_app_password ? decrypt(data.smtp_app_password) : "");
+    }
+  };
+
+  const fetchTipos = async (userId: string) => {
+    const { data } = await supabase.from("tipos_irpf").select("*").eq("user_id", userId).order("valor");
+    setTiposIRPF(data || []);
+  };
+
+  const fetchAutoBackups = async (userId: string) => {
+    const { data } = await supabase.from("backups").select("*").eq("user_id", userId).order("created_at", { ascending: false }).limit(5);
+    setBackups(data || []);
+  };
+
   const handleSaveAll = async () => {
     if (!user) return;
     
+    // Comparar con el último payload para evitar llamadas innecesarias
     const currentPayload = JSON.stringify({
       nombre, nif, cuentaBancaria, direccion, cp, poblacion, provincia, email, telefono, web,
       geminiKey, logoUrl, imagenCorporativaUrl, serieVentas, prefijoVentas, contadorVentas,
@@ -156,80 +226,13 @@ export default function AjustesClient() {
     }
   };
 
-  useEffect(() => {
-    if (initialLoadDone.current && user && !loading) {
-      const timer = setTimeout(() => {
-        handleSaveAll();
-      }, 1500);
-      return () => clearTimeout(timer);
-    }
-  }, [
-    nombre, nif, cuentaBancaria, direccion, cp, poblacion, provincia, 
-    email, geminiKey, logoUrl, imagenCorporativaUrl, formaPago, tieneRetencion, irpfDefault,
-    condicionesLegales, lopdText, telefono, textoAceptacion, web,
-    verifactuEnv, contadorVentas, contadorCostes, contadorProyectos,
-    prefijoVentas, prefijoCostes, prefijoProyectos,
-    serieVentas, serieCostes, smtpEmail, smtpAppPassword
-  ]);
-
-  const fetchPerfil = async (userId: string) => {
-    const { data } = await supabase
-      .from("perfil_negocio")
-      .select("*")
-      .eq("user_id", userId)
-      .maybeSingle();
-
-    if (data) {
-      setNombre(data.nombre || "");
-      setNif(data.nif || "");
-      setCuentaBancaria(data.cuenta_bancaria ? decrypt(data.cuenta_bancaria) : "");
-      setDireccion(data.direccion || "");
-      setCp(data.codigo_postal || "");
-      setPoblacion(data.poblacion || "");
-      setProvincia(data.provincia || "");
-      setEmail(data.email || "");
-      setTelefono(data.telefono || "");
-      setWeb(data.web || "");
-      setGeminiKey(data.gemini_key || "");
-      setLogoUrl(data.logo_url || "");
-      setImagenCorporativaUrl(data.imagen_corporativa_url || "");
-      setSerieVentas(data.serie_ventas || "A");
-      setPrefijoVentas(data.prefijo_ventas || "");
-      setContadorVentas(data.contador_ventas || 1);
-      setSerieCostes(data.serie_costes || "A");
-      setPrefijoCostes(data.prefijo_costes || "");
-      setContadorCostes(data.contador_costes || 1);
-      setPrefijoProyectos(data.prefijo_proyectos || "");
-      setContadorProyectos(data.contador_proyectos || 1);
-      setTieneRetencion(data.tiene_retencion || false);
-      setIrpfDefault(data.irpf_default || 0);
-      setCondicionesLegales(data.condiciones_legales || "");
-      setLopdText(data.lopd_text || "");
-      setTextoAceptacion(data.texto_aceptacion || "");
-      setFormaPago(data.forma_pago_default || "");
-      setVerifactuEnv(data.verifactu_env || "test");
-      setSmtpEmail(data.smtp_email || "");
-      setSmtpAppPassword(data.smtp_app_password ? decrypt(data.smtp_app_password) : "");
-    }
-  };
-
-  const fetchTipos = async (userId: string) => {
-    const { data } = await supabase.from("tipos_irpf").select("*").eq("user_id", userId).order("valor");
-    setTiposIRPF(data || []);
-  };
-
-  const fetchAutoBackups = async (userId: string) => {
-    const { data } = await supabase.from("backups").select("*").eq("user_id", userId).order("created_at", { ascending: false }).limit(5);
-    setAutoBackups(data || []);
-  };
-
   const addTipoIRPF = async () => {
     const valor = prompt("Nuevo tipo de IRPF (%):");
     if (!valor) return;
     const num = parseFloat(valor);
     if (isNaN(num)) return;
     
-    const { data } = await supabase.from("tipos_irpf").insert([{ user_id: user.id, valor: num }]).select();
+    const { data, error } = await supabase.from("tipos_irpf").insert([{ user_id: user.id, valor: num }]).select();
     if (data) setTiposIRPF([...tiposIRPF, data[0]]);
   };
 
@@ -277,177 +280,10 @@ export default function AjustesClient() {
     }
   };
 
-  const handleDownloadTemplate = () => {
-    const data = [
-      {
-        "Fecha": "2024-01-01",
-        "NIF": "B12345678",
-        "Proveedor": "Proveedor Ejemplo S.L.",
-        "Num Factura": "FACT-001",
-        "Base Imponible": 1000,
-        "IVA": 210,
-        "Total": 1210
-      }
-    ];
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Plantilla_Costes");
-    XLSX.writeFile(wb, "plantilla_importacion_gastos.xlsx");
-  };
-
-  const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = async (evt) => {
-      try {
-        setSaving(true);
-        const data = evt.target?.result;
-        const workbook = XLSX.read(data, { type: 'binary' });
-        const sheetName = workbook.SheetNames[0];
-        const sheet = workbook.Sheets[sheetName];
-        const rows: any[] = XLSX.utils.sheet_to_json(sheet);
-
-        if (rows.length === 0) {
-          alert("El Excel parece estar vacío.");
-          setSaving(false);
-          return;
-        }
-
-        const { data: colProbe } = await supabase.from("costes").select("*").limit(1);
-        const availableCols = (colProbe && colProbe.length > 0) ? Object.keys(colProbe[0]) : [];
-        const foundKey = (options: string[]) => options.find(o => availableCols.includes(o));
-
-        const findVal = (row: any, options: string[]) => {
-          const key = Object.keys(row).find(k => options.map(o => o.toLowerCase()).includes(k.toLowerCase().trim()));
-          return key ? row[key] : null;
-        };
-
-        const colNif = ['nif', 'proveedor_nif', 'nif_proveedor', 'cif'];
-        const colNumFact = ['num_factura', 'numero_factura', 'numero', 'referencia', 'factura'];
-        const colFecha = ['fecha', 'date', 'fecha_factura'];
-        const colProveedor = ['proveedor_nombre', 'proveedor', 'nombre_proveedor', 'empresa'];
-        const colBase = ['base_imponible', 'base', 'subtotal'];
-        const colIva = ['iva_importe', 'cuota_iva', 'iva_total', 'iva'];
-        const colTotal = ['total', 'importe_total', 'total_factura'];
-
-        const groupedRows: { [key: string]: any } = {};
-        rows.forEach(row => {
-          const nifRaw = findVal(row, colNif);
-          const numFactRaw = findVal(row, colNumFact);
-          if (!nifRaw || !numFactRaw) return;
-          const cleanNIFStr = String(nifRaw).trim().toUpperCase();
-          const key = `${cleanNIFStr}_${numFactRaw}`;
-          if (!groupedRows[key]) {
-            groupedRows[key] = {
-              fecha: findVal(row, colFecha),
-              nif: cleanNIFStr,
-              proveedor: findVal(row, colProveedor),
-              numFactura: String(numFactRaw),
-              base: 0, iva: 0, total: 0, lineas: []
-            };
-          }
-          const rowBase = parseFloat(findVal(row, colBase) || 0);
-          const rowIva = parseFloat(findVal(row, colIva) || 0);
-          const rowTotal = parseFloat(findVal(row, colTotal) || 0);
-          groupedRows[key].base += rowBase;
-          groupedRows[key].iva += rowIva;
-          groupedRows[key].total += (rowTotal || rowBase + rowIva);
-          groupedRows[key].lineas.push({
-            descripcion: `Línea importada: ${numFactRaw}`,
-            unidades: 1,
-            precio_unitario: rowBase,
-            iva_pct: rowBase > 0 ? Math.round((rowIva / rowBase) * 100) : 21
-          });
-        });
-
-        const finalFacturas = Object.values(groupedRows);
-        let importedCount = 0;
-        let nextSequential = contadorCostes;
-        const prefix = prefijoCostes || "";
-
-        for (const fact of finalFacturas) {
-          let provId: string | null = null;
-          const { data: provExistente } = await supabase.from('proveedores')
-            .select('id').eq('nif', fact.nif).eq('user_id', user.id).maybeSingle();
-          if (provExistente) {
-            provId = provExistente.id;
-          } else {
-            const { data: newProv } = await supabase.from('proveedores').insert([{
-              nombre: fact.proveedor || 'Proveedor Importado',
-              nif: fact.nif,
-              user_id: user.id
-            }]).select('id').single();
-            provId = newProv?.id || null;
-          }
-
-          let finalFecha = new Date().toISOString().split('T')[0];
-          if (fact.fecha) {
-            try {
-              const date = new Date(fact.fecha);
-              if (!isNaN(date.getTime())) {
-                finalFecha = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-              }
-            } catch (_) {}
-          }
-
-          const internalNum = `${prefix}${nextSequential.toString().padStart(4, '0')}`;
-          const payload: any = {
-            user_id: user.id,
-            fecha: finalFecha,
-            total: fact.total,
-            proveedor_id: provId,
-          };
-
-          const setIfFound = (options: string[], value: any) => {
-            const key = foundKey(options);
-            if (key) payload[key] = value;
-          };
-
-          setIfFound(['num_interno', 'registro_interno', 'numero'], internalNum);
-          setIfFound(['base_imponible', 'base', 'subtotal'], fact.base);
-          setIfFound(['iva_importe', 'cuota_iva', 'iva_total'], fact.iva);
-          setIfFound(['num_factura_proveedor', 'numero_factura', 'num_factura'], fact.numFactura);
-          setIfFound(['serie_costes', 'serie'], serieCostes || 'A');
-
-          const { data: newCoste, error: cErr } = await supabase.from('costes').insert(payload).select('id').single();
-          if (cErr) {
-            console.error("Error insertando coste:", cErr.message);
-            continue;
-          }
-
-          if (newCoste) {
-            const lineasToInsert = fact.lineas.map((l: any) => ({
-              coste_id: newCoste.id,
-              user_id: user.id,
-              descripcion: l.descripcion,
-              unidades: l.unidades,
-              precio_unitario: l.precio_unitario,
-              iva_pct: l.iva_pct
-            }));
-            await supabase.from('coste_lineas').insert(lineasToInsert);
-            importedCount++;
-            nextSequential++;
-          }
-        }
-
-        await supabase.from('perfil_negocio').update({ contador_costes: nextSequential }).eq('user_id', user.id);
-        setContadorCostes(nextSequential);
-        setImportResults({ total: finalFacturas.length, success: importedCount, errors: finalFacturas.length - importedCount });
-        alert(`✅ Importación completada: ${importedCount} de ${finalFacturas.length} facturas importadas.`);
-      } catch (err: any) {
-        alert("Error crítico en importación: " + err.message);
-      } finally {
-        setSaving(false);
-      }
-    };
-    reader.readAsBinaryString(file);
-  };
-
   const handleBackupNow = async () => {
     setSaving(true);
     try {
+      // 1. Obtener todos los datos
       const [ventas, costes, clientes, proveedores, proyectos] = await Promise.all([
         supabase.from('ventas').select('*').eq('user_id', user.id),
         supabase.from('costes').select('*').eq('user_id', user.id),
@@ -479,67 +315,181 @@ export default function AjustesClient() {
     }
   };
 
-  const handleResetEmitidas = async () => {
-    if (!user) return;
-    const confirm1 = confirm("⚠️ ATENCIÓN: Vas a borrar TODAS las facturas EMITIDAS (Ventas), sus líneas y registros de COBROS. Esta acción es IRREVERSIBLE.");
-    if (!confirm1) return;
-    const confirmText = prompt("Escribe BORRAR para confirmar:");
-    if (confirmText !== "BORRAR") return;
+  const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-    setIsResetting(true);
-    try {
-      await supabase.from('venta_lineas').delete().eq('user_id', user.id);
-      await supabase.from('cobros').delete().eq('user_id', user.id);
-      await supabase.from('ventas').delete().eq('user_id', user.id);
-      await supabase.from('perfil_negocio').update({ contador_ventas: 1 }).eq('user_id', user.id);
-      alert("✅ Ventas reseteadas.");
-      window.location.reload();
-    } catch (err: any) {
-      alert("Error: " + err.message);
-    } finally {
-      setIsResetting(false);
-    }
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        setSaving(true);
+        const data = evt.target?.result;
+        const workbook = XLSX.read(data, { type: 'binary' });
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+        const rows: any[] = XLSX.utils.sheet_to_json(sheet);
+
+        if (rows.length === 0) {
+          alert("El Excel parece estar vacío.");
+          setSaving(false);
+          return;
+        }
+
+        // DETECCIÓN DE COLUMNAS REALES (PRE-FLIGHT)
+        const { data: colProbe } = await supabase.from("costes").select("*").limit(1);
+        const availableCols = (colProbe && colProbe.length > 0) ? Object.keys(colProbe[0]) : [];
+        const foundKey = (options: string[]) => options.find(o => availableCols.includes(o));
+
+        const mapping = {
+          fecha: ['fecha', 'date', 'f.factura'],
+          nif: ['nif', 'cif', 'nif_proveedor', 'nif/cif'],
+          proveedor: ['proveedor', 'nombre', 'razon_social', 'nombre_proveedor'],
+          numFactura: ['num_factura', 'numero', 'referencia', 'nº factura', 'factura', 'factura_prov', 'num_factura_proveedor'],
+          base: ['base', 'base_imponible', 'base imponible', 'subtotal'],
+          iva: ['iva', 'cuota_iva', 'cuota iva', 'importe_iva'],
+          total: ['total', 'importe_total', 'importe', 'total_factura']
+        };
+
+        const findVal = (row: any, options: string[]) => {
+          const key = Object.keys(row).find(k => options.includes(k.toLowerCase().trim()));
+          return key ? row[key] : null;
+        };
+
+        // AGRUPACIÓN POR FACTURA (NIF + Nº FACTURA)
+        const groupedRows: { [key: string]: any } = {};
+        
+        rows.forEach(row => {
+          const nifProvRaw = findVal(row, mapping.nif);
+          const numFactRaw = findVal(row, mapping.numFactura);
+          if (!nifProvRaw || !numFactRaw) return;
+
+          const key = `${cleanNIF(nifProvRaw)}_${numFactRaw}`;
+          if (!groupedRows[key]) {
+            groupedRows[key] = {
+              fecha: findVal(row, mapping.fecha),
+              nif: cleanNIF(nifProvRaw),
+              proveedor: findVal(row, mapping.proveedor),
+              numFactura: numFactRaw,
+              base: 0,
+              iva: 0,
+              total: 0,
+              lineas: []
+            };
+          }
+          
+          const rowBase = parseFloat(findVal(row, mapping.base) || 0);
+          const rowIva = parseFloat(findVal(row, mapping.iva) || 0);
+          const rowTotal = parseFloat(findVal(row, mapping.total) || 0);
+
+          groupedRows[key].base += rowBase;
+          groupedRows[key].iva += rowIva;
+          groupedRows[key].total += rowTotal;
+          groupedRows[key].lineas.push({
+            descripcion: `Concepto Excel: ${numFactRaw}`,
+            unidades: 1,
+            precio_unitario: rowBase,
+            iva_pct: rowBase > 0 ? (rowIva / rowBase) * 100 : 21
+          });
+        });
+
+        const finalFacturas = Object.values(groupedRows);
+        let importedCount = 0;
+        let nextSequential = contadorCostes;
+        const prefix = prefijoCostes || "";
+
+        for (const fact of finalFacturas) {
+          // 1. Asegurar Proveedor
+          let provId = null;
+          const { data: provExistente } = await supabase.from('proveedores').select('id').eq('nif', fact.nif).eq('user_id', user.id).maybeSingle();
+          
+          if (provExistente) {
+            provId = provExistente.id;
+          } else {
+            const { data: newProv } = await supabase.from('proveedores').insert([{
+              nombre: fact.proveedor || 'Proveedor Importado',
+              nif: fact.nif,
+              user_id: user.id
+            }]).select('id').single();
+            provId = newProv?.id;
+          }
+
+          // 2. Insertar Factura (Coste)
+          let finalFecha = new Date().toISOString().split('T')[0];
+          if (fact.fecha) {
+            const date = new Date(fact.fecha);
+            const a = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            finalFecha = `${a}-${m}-${d}`;
+          }
+
+          const internalNum = `${prefix}${nextSequential.toString().padStart(4, '0')}`;
+          const payload: any = {
+            user_id: user.id,
+            fecha: finalFecha,
+            total: fact.total
+          };
+
+          const setIfFound = (options: string[], value: any) => {
+            const key = foundKey(options);
+            if (key) payload[key] = value;
+          };
+
+          setIfFound(['num_interno', 'numero'], internalNum);
+          setIfFound(['num_factura_proveedor', 'numero_factura', 'num_factura', 'factura_prov', 'referencia'], fact.numFactura);
+          setIfFound(['proveedor_id', 'id_proveedor'], provId);
+          setIfFound(['base_imponible', 'base', 'subtotal'], fact.base);
+          setIfFound(['iva_importe', 'cuota_iva', 'iva'], fact.iva);
+          setIfFound(['tipo_gasto', 'categoria'], 'general');
+          setIfFound(['estado_pago', 'status_pago'], 'Pagado'); // Por defecto en importación masiva suele estar pagado
+
+          const { data: newCoste, error: cErr } = await supabase.from('costes').insert([payload]).select('id').single();
+          
+          if (newCoste) {
+            // 3. Insertar Líneas
+            const lineasToInsert = fact.lineas.map((l: any) => ({
+              coste_id: newCoste.id,
+              user_id: user.id,
+              descripcion: l.descripcion,
+              unidades: l.unidades,
+              precio_unitario: l.precio_unitario,
+              iva_pct: l.iva_pct
+            }));
+            await supabase.from('coste_lineas').insert(lineasToInsert);
+            importedCount++;
+            nextSequential++;
+          } else {
+            console.error("Error importando factura:", cErr);
+          }
+        }
+
+        // 4. Actualizar contador global
+        await supabase.from('perfil_negocio').update({ contador_costes: nextSequential }).eq('user_id', user.id);
+        setContadorCostes(nextSequential);
+
+        alert(`✅ Importación completada: ${importedCount} facturas procesadas correctamente.`);
+      } catch (err: any) {
+        alert("Error al leer Excel: " + err.message);
+      } finally {
+        setSaving(false);
+      }
+    };
+    reader.readAsBinaryString(file);
   };
 
-  const handleResetRecibidas = async () => {
-    if (!user) return;
-    const confirm1 = confirm("⚠️ ATENCIÓN: Vas a borrar TODAS las facturas RECIBIDAS (Costes), PROVEEDORES y registros de PAGOS.");
-    if (!confirm1) return;
-    const confirmText = prompt("Escribe BORRAR para confirmar:");
-    if (confirmText !== "BORRAR") return;
-
-    setIsResetting(true);
-    try {
-      await supabase.from('coste_lineas').delete().eq('user_id', user.id);
-      await supabase.from('pagos').delete().eq('user_id', user.id);
-      await supabase.from('costes').delete().eq('user_id', user.id);
-      await supabase.from('proveedores').delete().eq('user_id', user.id);
-      await supabase.from('perfil_negocio').update({ contador_costes: 1 }).eq('user_id', user.id);
-      alert("✅ Costes reseteados.");
-      window.location.reload();
-    } catch (err: any) {
-      alert("Error: " + err.message);
-    } finally {
-      setIsResetting(false);
-    }
-  };
-
-  if (loading) return null;
-
-  if (!user) {
+  if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gray-100 p-4 font-sans">
-        <div className="bg-white p-12 rounded-3xl shadow-2xl border max-w-sm w-full text-center space-y-6">
-          <Lock className="text-blue-600 mx-auto" size={48} />
-          <h2 className="text-2xl font-black text-gray-800 tracking-tight text-balance">Acceso Restringido</h2>
-          <a href="/login" className="block w-full py-4 bg-blue-600 text-white font-bold rounded-2xl shadow-lg transition-all font-sans">Identificarse</a>
+      <div className="flex bg-[var(--background)] h-screen">
+        <Sidebar />
+        <div className="flex-1 flex items-center justify-center">
+          <Loader2 className="animate-spin text-[var(--accent)]" size={40} />
         </div>
       </div>
     );
   }
 
   return (
-    <main className="flex bg-gray-50 min-h-screen text-left">
+    <div className="flex bg-[var(--background)] min-h-screen text-left">
       <Sidebar />
       <div className="flex-1 p-8 overflow-y-auto">
         <header className="flex justify-between items-end mb-10">
@@ -548,41 +498,45 @@ export default function AjustesClient() {
             <p className="text-[var(--muted)] font-medium">Personaliza tu perfil, facturación y seguridad.</p>
           </div>
           <div className="flex items-center gap-3">
-            <div className="flex flex-col items-end mr-2">
-              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Estado Sistema</span>
-              <span className="text-xs font-bold text-green-600 flex items-center gap-1">
-                <div className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" /> Conectado
-              </span>
-            </div>
+             {saving && (
+               <div className="flex items-center gap-2 text-[10px] font-black text-[var(--accent)] uppercase tracking-widest bg-[var(--accent-alpha)] px-4 py-2 rounded-full animate-pulse">
+                 <RefreshCcw size={12} className="animate-spin" /> Auto-guardando...
+               </div>
+             )}
+             <button onClick={handleSaveAll} disabled={saving} className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-gray-900 text-white font-black hover:bg-black transition-all active:scale-[0.98] shadow-xl">
+               <Save size={18} /> Guardar Cambios
+             </button>
           </div>
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          <div className="lg:col-span-1 space-y-2 bg-gray-100/50 p-4 rounded-[2rem] border border-gray-100 h-fit">
-            {[
-              { id: 'negocio', icon: Building2, label: 'Empresa' },
-              { id: 'facturacion', icon: FileText, label: 'Facturación' },
-              { id: 'import', icon: Table, label: 'Importador' },
-              { id: 'email', icon: Mail, label: 'Email & SMTP' },
-              { id: 'integraciones', icon: Share2, label: 'IA & Verifactu' },
-              { id: 'legal', icon: BookOpen, label: 'Textos Legales' },
-              { id: 'seguridad', icon: ShieldCheck, label: 'Backup & Nube' },
-              { id: 'mantenimiento', icon: RotateCcw, label: 'Mantenimiento' }
-            ].map(tab => (
-              <button 
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as TabType)} 
-                className={`w-full flex items-center gap-3 px-6 py-4 rounded-2xl font-black transition-all ${activeTab === tab.id ? "bg-white text-[var(--accent)] shadow-md border-l-4 border-[var(--accent)]" : "text-gray-400 hover:text-gray-600 hover:bg-white/50"}`}
-              >
-                <tab.icon size={20} /> {tab.label}
-              </button>
-            ))}
+          {/* Menú Lateral de Ajustes */}
+          <div className="lg:col-span-1 space-y-2">
+            <button onClick={() => setActiveTab("negocio")} className={`w-full flex items-center gap-3 px-6 py-4 rounded-2xl font-black transition-all ${activeTab === "negocio" ? "bg-white text-[var(--accent)] shadow-md border-l-4 border-[var(--accent)]" : "text-gray-400 hover:text-gray-600 hover:bg-white/50"}`}>
+              <Building2 size={20} /> Empresa
+            </button>
+            <button onClick={() => setActiveTab("facturacion")} className={`w-full flex items-center gap-3 px-6 py-4 rounded-2xl font-black transition-all ${activeTab === "facturacion" ? "bg-white text-[var(--accent)] shadow-md border-l-4 border-[var(--accent)]" : "text-gray-400 hover:text-gray-600 hover:bg-white/50"}`}>
+              <FileText size={20} /> Facturación
+            </button>
+            <button onClick={() => setActiveTab("email")} className={`w-full flex items-center gap-3 px-6 py-4 rounded-2xl font-black transition-all ${activeTab === "email" ? "bg-white text-[var(--accent)] shadow-md border-l-4 border-[var(--accent)]" : "text-gray-400 hover:text-gray-600 hover:bg-white/50"}`}>
+              <Mail size={20} /> Email & SMTP
+            </button>
+            <button onClick={() => setActiveTab("integraciones")} className={`w-full flex items-center gap-3 px-6 py-4 rounded-2xl font-black transition-all ${activeTab === "integraciones" ? "bg-white text-[var(--accent)] shadow-md border-l-4 border-[var(--accent)]" : "text-gray-400 hover:text-gray-600 hover:bg-white/50"}`}>
+              <Share2 size={20} /> IA & Verifactu
+            </button>
+            <button onClick={() => setActiveTab("legal")} className={`w-full flex items-center gap-3 px-6 py-4 rounded-2xl font-black transition-all ${activeTab === "legal" ? "bg-white text-[var(--accent)] shadow-md border-l-4 border-[var(--accent)]" : "text-gray-400 hover:text-gray-600 hover:bg-white/50"}`}>
+              <BookOpen size={20} /> Textos Legales
+            </button>
+            <button onClick={() => setActiveTab("seguridad")} className={`w-full flex items-center gap-3 px-6 py-4 rounded-2xl font-black transition-all ${activeTab === "seguridad" ? "bg-white text-[var(--accent)] shadow-md border-l-4 border-[var(--accent)]" : "text-gray-400 hover:text-gray-600 hover:bg-white/50"}`}>
+              <Shield size={20} /> Backup & Nube
+            </button>
           </div>
 
-          <div className="lg:col-span-3">
-            {activeTab === 'negocio' && (
-              <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100 space-y-8">
+          {/* Contenido Principal */}
+          <div className="lg:col-span-3 space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+            {activeTab === "negocio" && (
+              <div className="space-y-6">
+                <div className="glass-card p-10 space-y-8">
                   <div className="flex items-center gap-4 mb-2">
                     <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600">
                       <Building2 size={24} />
@@ -592,12 +546,12 @@ export default function AjustesClient() {
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Nombre Comercial / Razón Social</label>
-                      <input type="text" value={nombre} onChange={(e) => setNombre(e.target.value)} className="w-full px-6 py-4 rounded-2xl border bg-gray-50 outline-none font-bold focus:bg-white transition-all" placeholder="Mi Empresa S.L." />
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Razón Social</label>
+                      <input type="text" value={nombre} onChange={(e) => setNombre(e.target.value)} className="w-full px-6 py-4 rounded-2xl border bg-gray-50 outline-none font-bold focus:bg-white focus:ring-4 focus:ring-blue-500/10 transition-all" placeholder="Nombre de tu empresa" />
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">NIF / CIF</label>
-                      <input type="text" value={nif} onChange={(e) => setNif(cleanNIF(e.target.value))} className="w-full px-6 py-4 rounded-2xl border bg-gray-50 outline-none font-bold focus:bg-white transition-all" placeholder="B12345678" />
+                      <input type="text" value={nif} onChange={(e) => setNif(e.target.value)} className="w-full px-6 py-4 rounded-2xl border bg-gray-50 outline-none font-mono font-bold focus:bg-white transition-all uppercase" placeholder="B12345678" />
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Email de Contacto</label>
@@ -605,11 +559,18 @@ export default function AjustesClient() {
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Teléfono</label>
-                      <input type="text" value={telefono} onChange={(e) => setTelefono(e.target.value)} className="w-full px-6 py-4 rounded-2xl border bg-gray-50 outline-none font-bold focus:bg-white transition-all" placeholder="600 000 000" />
+                      <input type="text" value={telefono} onChange={(e) => setTelefono(e.target.value)} className="w-full px-6 py-4 rounded-2xl border bg-gray-50 outline-none font-bold focus:bg-white transition-all" placeholder="+34 600 000 000" />
+                    </div>
+                    <div className="md:col-span-2 space-y-2">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">IBAN (Cifrado en Reposo)</label>
+                      <div className="relative">
+                        <CreditCard className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-300" size={20} />
+                        <input type="text" value={cuentaBancaria} onChange={(e) => setCuentaBancaria(e.target.value)} className="w-full pl-16 pr-6 py-4 rounded-2xl border bg-gray-50 outline-none font-mono font-bold focus:bg-white transition-all" placeholder="ES00 0000 0000 0000 0000 0000" />
+                      </div>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pt-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                     <div className="md:col-span-2 space-y-2">
                       <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Dirección Postal</label>
                       <input type="text" value={direccion} onChange={(e) => setDireccion(e.target.value)} className="w-full px-6 py-4 rounded-2xl border bg-gray-50 outline-none font-bold focus:bg-white transition-all" placeholder="Calle Ejemplo, 123" />
@@ -654,6 +615,7 @@ export default function AjustesClient() {
                           </div>
                         )}
                       </label>
+                      <p className="text-[10px] text-gray-400 italic text-center">Usado en facturas, presupuestos y albaranes.</p>
                     </div>
                   </div>
 
@@ -677,6 +639,7 @@ export default function AjustesClient() {
                           </div>
                         )}
                       </label>
+                      <p className="text-[10px] text-gray-400 italic text-center">Imagen corporativa para la portada de presupuestos.</p>
                     </div>
                   </div>
                 </div>
@@ -759,139 +722,73 @@ export default function AjustesClient() {
                   </div>
                 </div>
 
-                <div className="glass-card p-10 space-y-8 mt-8">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center text-orange-600">
-                      <Fingerprint size={20} />
-                    </div>
-                    <h3 className="text-xl font-black tracking-tight">Configuración IRPF</h3>
-                  </div>
-                  
-                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border">
-                    <div className="space-y-1">
-                      <span className="text-sm font-black text-gray-700">Emitir facturas con retención</span>
-                    </div>
-                    <button onClick={() => setTieneRetencion(!tieneRetencion)} className={`w-14 h-7 rounded-full p-1 transition-all ${tieneRetencion ? "bg-orange-500" : "bg-gray-300"}`}>
-                      <div className={`w-5 h-5 bg-white rounded-full shadow-md transition-all ${tieneRetencion ? "translate-x-7" : "translate-x-0"}`} />
-                    </button>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center px-1">
-                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Tipos de IRPF disponibles</label>
-                      <button onClick={addTipoIRPF} className="text-[10px] font-black text-[var(--accent)] hover:underline flex items-center gap-1"><Plus size={14} /> Añadir</button>
-                    </div>
-                    <div className="flex flex-wrap gap-3">
-                      {tiposIRPF.map(t => (
-                        <div key={t.id} className="flex items-center gap-2 px-4 py-2 bg-white border rounded-xl shadow-sm">
-                          <span className="font-bold text-sm">{t.valor}%</span>
-                          <button onClick={() => removeTipoIRPF(t.id)} className="text-gray-300 hover:text-red-500 transition-colors"><Trash2 size={14} /></button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {activeTab === "import" && (
-              <div className="space-y-8 animate-in fade-in duration-500">
-                <div className="glass-card p-10 space-y-8">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600">
-                        <Table size={24} />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="glass-card p-10 space-y-8">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center text-orange-600">
+                        <Fingerprint size={20} />
                       </div>
-                      <div>
-                        <h2 className="text-xl font-black tracking-tight">Importador de Gastos</h2>
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Carga masiva de facturas recibidas desde Excel</p>
-                      </div>
+                      <h3 className="text-xl font-black tracking-tight">Configuración IRPF</h3>
                     </div>
-                    <button 
-                      onClick={handleDownloadTemplate}
-                      className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-gray-100 text-gray-600 font-black hover:bg-gray-200 transition-all text-xs uppercase tracking-widest"
-                    >
-                      <Download size={18} /> Plantilla Excel
-                    </button>
-                  </div>
+                    
+                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border">
+                      <div className="space-y-1">
+                        <span className="text-sm font-black text-gray-700">Emitir facturas con retención</span>
+                        <p className="text-[10px] text-gray-400">Activa el campo de IRPF por defecto en nuevas facturas.</p>
+                      </div>
+                      <button onClick={() => setTieneRetencion(!tieneRetencion)} className={`w-14 h-7 rounded-full p-1 transition-all ${tieneRetencion ? "bg-orange-500" : "bg-gray-300"}`}>
+                        <div className={`w-5 h-5 bg-white rounded-full shadow-md transition-all ${tieneRetencion ? "translate-x-7" : "translate-x-0"}`} />
+                      </button>
+                    </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="space-y-6">
-                      <div className="p-8 bg-blue-50 rounded-[2rem] border border-blue-100/50 space-y-6">
-                        <div className="space-y-2">
-                          <h3 className="font-black text-blue-900 flex items-center gap-2">
-                            <Upload size={20} /> Subir Archivo
-                          </h3>
-                          <p className="text-xs text-blue-700/60 font-medium">Sube tu archivo .xlsx o .xls con el formato de la plantilla.</p>
-                        </div>
-
-                        <label className="block w-full py-10 px-6 bg-white rounded-[2rem] border-2 border-dashed border-blue-200 hover:border-blue-500 text-center cursor-pointer group transition-all">
-                          <input type="file" className="hidden" accept=".xlsx, .xls" onChange={handleImportExcel} />
-                          <div className="flex flex-col items-center gap-4 group-hover:scale-105 transition-all">
-                            <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 mb-2">
-                              <DownloadCloud size={32} />
-                            </div>
-                            <span className="text-blue-600 font-black uppercase text-xs tracking-widest">Seleccionar Excel</span>
-                            <span className="text-[10px] text-gray-400 font-bold uppercase">o arrastra el archivo aquí</span>
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center px-1">
+                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Tipos de IRPF disponibles</label>
+                        <button onClick={addTipoIRPF} className="text-[10px] font-black text-[var(--accent)] hover:underline flex items-center gap-1"><Plus size={14} /> Añadir</button>
+                      </div>
+                      <div className="flex flex-wrap gap-3">
+                        {tiposIRPF.map(t => (
+                          <div key={t.id} className="flex items-center gap-2 px-4 py-2 bg-white border rounded-xl shadow-sm">
+                            <span className="font-bold text-sm">{t.valor}%</span>
+                            <button onClick={() => removeTipoIRPF(t.id)} className="text-gray-300 hover:text-red-500 transition-colors"><Trash2 size={14} /></button>
                           </div>
-                        </label>
-                      </div>
-                    </div>
-
-                    <div className="space-y-6">
-                      <div className="p-8 bg-gray-50 rounded-[2rem] border border-gray-100 space-y-6">
-                        <h3 className="font-black text-gray-900 flex items-center gap-2">
-                          <AlertCircle size={20} className="text-orange-500" /> Instrucciones
-                        </h3>
-                        <ul className="space-y-4">
-                          {[
-                            "Descarga la plantilla para ver el formato correcto.",
-                            "Asegúrate de que los NIFs son correctos.",
-                            "Si el proveedor no existe, se creará automáticamente.",
-                            "Las facturas con el mismo NIF y Número se agruparán.",
-                            "Se asignará automáticamente un número interno secuencial."
-                          ].map((inst, i) => (
-                            <li key={i} className="flex gap-3 text-xs font-medium text-gray-600">
-                              <div className="w-5 h-5 rounded-full bg-white border flex items-center justify-center text-[10px] font-black shrink-0">{i+1}</div>
-                              {inst}
-                            </li>
-                          ))}
-                        </ul>
+                        ))}
                       </div>
                     </div>
                   </div>
 
-                  {importResults && (
-                    <div className="p-8 bg-green-50 rounded-[2rem] border border-green-100 animate-in zoom-in duration-300">
-                      <div className="flex items-center gap-4 mb-4">
-                        <CheckCircle2 className="text-green-600" size={32} />
-                        <div>
-                          <h3 className="font-black text-green-900">Importación Finalizada</h3>
-                          <p className="text-xs text-green-700 font-medium">Resumen del proceso realizado</p>
+                  <div className="glass-card p-10 space-y-8">
+                     <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600">
+                          <Database size={20} />
                         </div>
-                      </div>
-                      <div className="grid grid-cols-3 gap-4">
-                        <div className="bg-white p-4 rounded-2xl shadow-sm border border-green-100">
-                          <span className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Procesadas</span>
-                          <span className="text-2xl font-black text-green-600">{importResults.total}</span>
+                        <h3 className="text-xl font-black tracking-tight">Importación Masiva</h3>
+                     </div>
+                     <div className="space-y-6">
+                        <div className="p-6 bg-blue-50 rounded-2xl border border-blue-100/50">
+                           <h4 className="text-sm font-black text-blue-900 mb-2 flex items-center gap-2">
+                             <Table size={16} /> Importar desde Excel
+                           </h4>
+                           <p className="text-[10px] text-blue-700/70 font-medium mb-4">Sube un Excel con tus facturas recibidas anteriores para completar el Libro IVA rápidamente.</p>
+                           <label className="block w-full py-4 px-6 bg-white rounded-xl border-2 border-dashed border-blue-200 hover:border-blue-500 text-center cursor-pointer group transition-all">
+                              <input type="file" className="hidden" accept=".xlsx, .xls" onChange={handleImportExcel} />
+                              <div className="flex items-center justify-center gap-3 text-blue-600 font-black uppercase text-[10px] tracking-widest group-hover:scale-105 transition-all">
+                                <Upload size={18} /> Seleccionar Archivo Excel
+                              </div>
+                           </label>
                         </div>
-                        <div className="bg-white p-4 rounded-2xl shadow-sm border border-green-100">
-                          <span className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Éxito</span>
-                          <span className="text-2xl font-black text-green-600">{importResults.success}</span>
+                        <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                           <AlertCircle className="text-gray-400 shrink-0" size={18} />
+                           <p className="text-[10px] text-gray-500 font-medium leading-relaxed italic">El importador mapeará automáticamente columnas como "Fecha", "Proveedor", "NIF", "Base Imponible" y "Total".</p>
                         </div>
-                        <div className="bg-white p-4 rounded-2xl shadow-sm border border-green-100">
-                          <span className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Errores</span>
-                          <span className="text-2xl font-black text-red-600">{importResults.errors}</span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                     </div>
+                  </div>
                 </div>
               </div>
             )}
 
             {activeTab === "integraciones" && (
-              <div className="space-y-8 animate-in fade-in duration-500">
+              <div className="space-y-8">
                 <div className="glass-card p-10 space-y-8">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-purple-50 rounded-2xl flex items-center justify-center text-purple-600">
@@ -910,6 +807,10 @@ export default function AjustesClient() {
                         <Key className="absolute left-6 top-1/2 -translate-y-1/2 text-purple-300" size={20} />
                         <input type="password" value={geminiKey} onChange={(e) => setGeminiKey(e.target.value)} className="w-full pl-16 pr-6 py-5 rounded-2xl border border-purple-200 outline-none font-mono font-bold focus:ring-4 focus:ring-purple-500/10 transition-all" placeholder="Alza_..." />
                       </div>
+                    </div>
+                    <div className="flex items-start gap-3 text-purple-700/60">
+                      <Shield className="shrink-0 mt-1" size={16} />
+                      <p className="text-xs font-medium leading-relaxed">Tu API Key se usa exclusivamente para analizar los PDFs que subas. Nunca se comparte ni se usa para otros fines.</p>
                     </div>
                   </div>
                 </div>
@@ -933,6 +834,14 @@ export default function AjustesClient() {
                         <button onClick={() => setVerifactuEnv("production")} className={`flex-1 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all ${verifactuEnv === "production" ? "bg-gray-900 text-white shadow-lg" : "bg-gray-50 text-gray-400 hover:bg-gray-100"}`}>Producción</button>
                       </div>
                     </div>
+
+                    <div className="p-6 bg-blue-50 rounded-2xl border border-blue-100 flex items-center gap-4">
+                       <ShieldCheck className="text-blue-500" size={32} />
+                       <div>
+                          <h4 className="text-sm font-black text-blue-900">Certificado Digital</h4>
+                          <p className="text-[10px] text-blue-700/60 font-medium">Gestionado de forma segura mediante claves privadas locales.</p>
+                       </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -953,7 +862,7 @@ export default function AjustesClient() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Email Remitente</label>
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Email Remitente (Gmail/Outlook)</label>
                       <input 
                         type="email" 
                         value={smtpEmail} 
@@ -963,7 +872,7 @@ export default function AjustesClient() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Contraseña Aplicación</label>
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Contraseña de Aplicación (Cifrada)</label>
                       <input 
                         type="password" 
                         value={smtpAppPassword} 
@@ -971,6 +880,16 @@ export default function AjustesClient() {
                         className="w-full px-6 py-4 rounded-2xl border bg-gray-50 outline-none font-mono font-bold focus:bg-white transition-all" 
                         placeholder="•••• •••• •••• ••••" 
                       />
+                    </div>
+                    <div className="md:col-span-2 p-6 bg-orange-50 rounded-2xl border border-orange-100 flex items-start gap-4">
+                       <AlertTriangle className="text-orange-500 shrink-0 mt-1" size={20} />
+                       <div className="space-y-2">
+                          <h4 className="text-sm font-black text-orange-900">Nota sobre seguridad</h4>
+                          <p className="text-xs text-orange-700/70 font-medium leading-relaxed">
+                             Si usas Gmail, debes generar una <strong>"Contraseña de aplicación"</strong> en tu cuenta de Google. No uses tu contraseña normal de acceso.
+                             Esta clave se almacena cifrada en nuestra base de datos con grado militar (AES-256).
+                          </p>
+                       </div>
                     </div>
                   </div>
                 </div>
@@ -986,21 +905,29 @@ export default function AjustesClient() {
                     </div>
                     <div>
                       <h2 className="text-xl font-black tracking-tight">Textos Legales</h2>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">RGPD y condiciones generales</p>
                     </div>
                   </div>
 
                   <div className="space-y-8">
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Forma de Pago (Pie)</label>
-                      <textarea value={formaPago} onChange={(e) => setFormaPago(e.target.value)} rows={3} className="w-full px-6 py-4 rounded-2xl border bg-gray-50 outline-none font-medium focus:bg-white transition-all" />
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Forma de Pago (Pie de página)</label>
+                      <textarea value={formaPago} onChange={(e) => setFormaPago(e.target.value)} rows={3} className="w-full px-6 py-4 rounded-2xl border bg-gray-50 outline-none font-medium focus:bg-white transition-all" placeholder="Ej: Pago mediante transferencia bancaria a la cuenta ES00..." />
                     </div>
+
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Condiciones Legales</label>
-                      <textarea value={condicionesLegales} onChange={(e) => setCondicionesLegales(e.target.value)} rows={4} className="w-full px-6 py-4 rounded-2xl border bg-gray-50 outline-none font-medium focus:bg-white transition-all" />
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Condiciones Legales (En facturas)</label>
+                      <textarea value={condicionesLegales} onChange={(e) => setCondicionesLegales(e.target.value)} rows={4} className="w-full px-6 py-4 rounded-2xl border bg-gray-50 outline-none font-medium focus:bg-white transition-all" placeholder="Condiciones generales de venta..." />
                     </div>
+
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">LOPD</label>
-                      <textarea value={lopdText} onChange={(e) => setLopdText(e.target.value)} rows={4} className="w-full px-6 py-4 rounded-2xl border bg-gray-50 outline-none font-medium focus:bg-white transition-all" />
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Cláusula Protección de Datos (LOPD)</label>
+                      <textarea value={lopdText} onChange={(e) => setLopdText(e.target.value)} rows={4} className="w-full px-6 py-4 rounded-2xl border bg-gray-50 outline-none font-medium focus:bg-white transition-all" placeholder="Sus datos serán tratados por..." />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Texto Aceptación Presupuesto</label>
+                      <textarea value={textoAceptacion} onChange={(e) => setTextoAceptacion(e.target.value)} rows={3} className="w-full px-6 py-4 rounded-2xl border bg-gray-50 outline-none font-medium focus:bg-white transition-all" placeholder="Firma este documento para aceptar el presupuesto..." />
                     </div>
                   </div>
                 </div>
@@ -1013,28 +940,25 @@ export default function AjustesClient() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600">
-                        <ShieldCheck size={24} />
+                        <Database size={24} />
                       </div>
-                      <h2 className="text-xl font-black tracking-tight">Seguridad y Backups</h2>
+                      <div>
+                        <h2 className="text-xl font-black tracking-tight">Backups en la Nube</h2>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Seguridad de tus datos</p>
+                      </div>
                     </div>
                     <button onClick={handleBackupNow} disabled={saving} className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-blue-600 text-white font-black hover:bg-blue-700 transition-all active:scale-[0.98] shadow-lg shadow-blue-500/20">
-                      <Database size={18} /> Backup Manual
+                      <Database size={18} /> Backup Manual Ahora
                     </button>
-                  </div>
-                  
-                  <div className="p-6 bg-blue-50 rounded-2xl border border-blue-100 mb-6">
-                    <p className="text-xs text-blue-800 font-medium">
-                      Tus datos sensibles (cuentas bancarias, API keys, contraseñas SMTP) se almacenan cifrados con AES-256 para garantizar tu privacidad.
-                    </p>
                   </div>
 
                   <div className="space-y-4">
-                    <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-1">Últimas copias en la nube</h3>
+                    <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-1">Últimas copias de seguridad</h3>
                     <div className="divide-y border rounded-[2rem] overflow-hidden bg-gray-50/50">
-                      {autoBackups.length === 0 ? (
+                      {backups.length === 0 ? (
                         <div className="p-10 text-center text-gray-400 font-medium italic">No hay backups realizados aún.</div>
                       ) : (
-                        autoBackups.map(b => (
+                        backups.map(b => (
                           <div key={b.id} className="p-6 flex items-center justify-between hover:bg-white transition-all group">
                             <div className="flex items-center gap-4">
                               <div className="p-3 bg-white rounded-xl shadow-sm text-blue-500 group-hover:scale-110 transition-all">
@@ -1045,59 +969,31 @@ export default function AjustesClient() {
                                 <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{b.type === 'auto' ? 'Automática' : 'Manual'}</span>
                               </div>
                             </div>
+                            <button className="p-3 text-gray-300 hover:text-blue-500 hover:bg-blue-50 rounded-xl transition-all">
+                              <Download size={20} />
+                            </button>
                           </div>
                         ))
                       )}
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
 
-            {activeTab === 'mantenimiento' && (
-              <div className="bg-white rounded-[2rem] border border-red-100 p-10 shadow-sm space-y-10 animate-in slide-in-from-bottom-4 duration-500">
-                <div className="flex items-start justify-between border-b border-red-50 pb-8">
-                  <div className="space-y-1">
-                    <h2 className="text-2xl font-black font-head text-red-900 tracking-tighter">Mantenimiento de Datos</h2>
-                    <p className="text-sm text-gray-400 font-sans">Herramientas de limpieza y reset.</p>
-                  </div>
-                  <AlertTriangle className="text-red-100" size={48} />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="p-8 bg-blue-50 rounded-[2rem] border border-blue-100 space-y-6">
-                    <h3 className="font-black text-blue-900 flex items-center gap-2">
-                      <FileText size={20} /> Borrado de Ventas
-                    </h3>
-                    <button 
-                      onClick={handleResetEmitidas}
-                      disabled={isResetting}
-                      className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-xl shadow-blue-200 hover:bg-blue-700 transition-all flex items-center justify-center gap-3"
-                    >
-                      {isResetting ? <Loader2 className="animate-spin" size={16} /> : <Trash2 size={16} />}
-                      Limpiar Emitidas
-                    </button>
-                  </div>
-
-                  <div className="p-8 bg-red-50 rounded-[2rem] border border-red-100 space-y-6">
-                    <h3 className="font-black text-red-900 flex items-center gap-2">
-                      <ShieldCheckIcon size={20} /> Borrado de Gastos
-                    </h3>
-                    <button 
-                      onClick={handleResetRecibidas}
-                      disabled={isResetting}
-                      className="w-full py-4 bg-red-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-xl shadow-red-200 hover:bg-red-700 transition-all flex items-center justify-center gap-3"
-                    >
-                      {isResetting ? <Loader2 className="animate-spin" size={16} /> : <Trash2 size={16} />}
-                      Limpiar Recibidas
-                    </button>
-                  </div>
+                <div className="glass-card p-10 bg-red-50/50 border-red-100 border-2 space-y-6">
+                   <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-red-100 rounded-2xl flex items-center justify-center text-red-600">
+                        <Shield size={24} />
+                      </div>
+                      <h2 className="text-xl font-black text-red-900 tracking-tight">Zona de Peligro</h2>
+                   </div>
+                   <p className="text-sm font-medium text-red-700/70 leading-relaxed">Estas acciones son irreversibles y afectarán a todos tus datos registrados en la plataforma.</p>
+                   <button className="px-8 py-4 bg-white text-red-600 border-2 border-red-100 rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] hover:bg-red-600 hover:text-white transition-all active:scale-[0.98]">Eliminar Todos los Datos</button>
                 </div>
               </div>
             )}
           </div>
         </div>
       </div>
-    </main>
+    </div>
   );
 }
