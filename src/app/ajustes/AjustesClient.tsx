@@ -22,7 +22,7 @@ import {
   FileText,
   Table,
   LayoutGrid,
-  OctagonAlert
+  AlertOctagon
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Sidebar } from '@/components/Sidebar';
@@ -95,6 +95,18 @@ export default function AjustesClient() {
   const [tiposIrpf, setTiposIrpf] = useState<any[]>([]);
   const [syncing, setSyncing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  
+  // Seguridad 2FA
+  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
+  const [totpSecret, setTotpSecret] = useState('');
+  const [isSettingUp2FA, setIsSettingUp2FA] = useState(false);
+  const [qrUrl, setQrUrl] = useState('');
+  const [verifyToken, setVerifyToken] = useState('');
+  
+  // Backup / Restore
+  const [isBackupLoading, setIsBackupLoading] = useState(false);
+  const [isRestoreLoading, setIsRestoreLoading] = useState(false);
+  const [autoBackups, setAutoBackups] = useState<any[]>([]);
   
   // Excel Import State
   const [isImporting, setIsImporting] = useState(false);
@@ -809,13 +821,13 @@ export default function AjustesClient() {
     }
   };
 
-  const handleResetTestData = async () => {
+  const handleResetEmitidas = async () => {
     if (!user) return;
     
-    const confirm1 = confirm("⚠️ ATENCIÓN: Vas a borrar TODAS las facturas (emitidas y recibidas), proveedores y registros de cobros/pagos. Esta acción es IRREVERSIBLE. ¿Estás seguro?");
+    const confirm1 = confirm("⚠️ ATENCIÓN: Vas a borrar TODAS las facturas EMITIDAS (Ventas), sus líneas y registros de COBROS. Esta acción es IRREVERSIBLE. ¿Estás seguro?");
     if (!confirm1) return;
 
-    const confirmText = prompt("Para confirmar el borrado total de datos de prueba, escribe la palabra: BORRAR");
+    const confirmText = prompt("Para confirmar el borrado de VENTAS, escribe la palabra: BORRAR");
     if (confirmText !== "BORRAR") {
       alert("Operación cancelada. El texto de confirmación no coincide.");
       return;
@@ -823,32 +835,50 @@ export default function AjustesClient() {
 
     setIsResetting(true);
     try {
-      // 1. Borrar Líneas (para evitar conflictos de FK si no hay CASCADE)
       await supabase.from('venta_lineas').delete().eq('user_id', user.id);
-      await supabase.from('coste_lineas').delete().eq('user_id', user.id);
-      
-      // 2. Borrar Cobros y Pagos
       await supabase.from('cobros').delete().eq('user_id', user.id);
-      await supabase.from('pagos').delete().eq('user_id', user.id);
-      
-      // 3. Borrar Facturas
       await supabase.from('ventas').delete().eq('user_id', user.id);
-      await supabase.from('costes').delete().eq('user_id', user.id);
       
-      // 4. Borrar Proveedores
-      await supabase.from('proveedores').delete().eq('user_id', user.id);
-
-      // 5. Opcional: Resetear contadores a 1
       await supabase.from('perfil_negocio').update({
-        contador_ventas: 1,
-        contador_costes: 1,
-        contador_proyectos: 1
+        contador_ventas: 1
       }).eq('user_id', user.id);
 
-      alert("✅ Datos de prueba eliminados correctamente. Los contadores han sido reseteados a 1.");
+      alert("✅ Datos de VENTAS eliminados correctamente. El contador ha sido reseteado a 1.");
       window.location.reload();
     } catch (err: any) {
-      alert("Error al resetear datos: " + err.message);
+      alert("Error al resetear ventas: " + err.message);
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
+  const handleResetRecibidas = async () => {
+    if (!user) return;
+    
+    const confirm1 = confirm("⚠️ ATENCIÓN: Vas a borrar TODAS las facturas RECIBIDAS (Costes), PROVEEDORES y registros de PAGOS. Esta acción es IRREVERSIBLE. ¿Estás seguro?");
+    if (!confirm1) return;
+
+    const confirmText = prompt("Para confirmar el borrado de COSTES y PROVEEDORES, escribe la palabra: BORRAR");
+    if (confirmText !== "BORRAR") {
+      alert("Operación cancelada. El texto de confirmación no coincide.");
+      return;
+    }
+
+    setIsResetting(true);
+    try {
+      await supabase.from('coste_lineas').delete().eq('user_id', user.id);
+      await supabase.from('pagos').delete().eq('user_id', user.id);
+      await supabase.from('costes').delete().eq('user_id', user.id);
+      await supabase.from('proveedores').delete().eq('user_id', user.id);
+
+      await supabase.from('perfil_negocio').update({
+        contador_costes: 1
+      }).eq('user_id', user.id);
+
+      alert("✅ Datos de COSTES y PROVEEDORES eliminados correctamente. El contador ha sido reseteado a 1.");
+      window.location.reload();
+    } catch (err: any) {
+      alert("Error al resetear costes: " + err.message);
     } finally {
       setIsResetting(false);
     }
@@ -901,7 +931,7 @@ export default function AjustesClient() {
     { id: 'fiscalidad', label: 'Fiscalidad', icon: Percent, color: 'text-emerald-600' },
     { id: 'backup', label: 'Backup', icon: Database, color: 'text-indigo-600' },
     { id: 'import', label: 'Importar', icon: Table, color: 'text-pink-600' },
-    { id: 'mantenimiento', label: 'Mantenimiento', icon: OctagonAlert, color: 'text-red-600' },
+    { id: 'mantenimiento', label: 'Mantenimiento', icon: AlertOctagon, color: 'text-red-600' },
   ];
 
   const lastBackup = autoBackups[0];
@@ -1077,20 +1107,20 @@ export default function AjustesClient() {
                         <div className="space-y-1.5 flex-1 md:flex-none">
                            <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest pl-1">Prefijo</span>
                            <input 
-                              type="text" 
-                              value={prefijoVentas} 
-                              onChange={e => setPrefijoVentas(e.target.value)} 
-                              placeholder="F-" 
-                              className="w-full md:w-24 px-4 py-3.5 rounded-2xl border bg-gray-50/50 font-black text-blue-600 text-center uppercase focus:bg-white focus:ring-4 focus:ring-blue-500/5 transition-all outline-none" 
+                               type="text" 
+                               value={prefijoVentas} 
+                               onChange={e => setPrefijoVentas(e.target.value)} 
+                               placeholder="F-" 
+                               className="w-full md:w-24 px-4 py-3.5 rounded-2xl border bg-gray-50/50 font-black text-blue-600 text-center uppercase focus:bg-white focus:ring-4 focus:ring-blue-500/5 transition-all outline-none" 
                            />
                         </div>
                         <div className="space-y-1.5 flex-2 md:flex-none">
                            <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest pl-1">Siguiente Número</span>
                            <input 
-                              type="number" 
-                              value={contadorVentas} 
-                              onChange={e => setContadorVentas(parseInt(e.target.value) || 1)} 
-                              className="w-full md:w-32 px-5 py-3.5 rounded-2xl border bg-gray-50/50 font-mono font-bold text-gray-800 text-right focus:bg-white focus:ring-4 focus:ring-blue-500/5 transition-all outline-none" 
+                               type="number" 
+                               value={contadorVentas} 
+                               onChange={e => setContadorVentas(parseInt(e.target.value) || 1)} 
+                               className="w-full md:w-32 px-5 py-3.5 rounded-2xl border bg-gray-50/50 font-mono font-bold text-gray-800 text-right focus:bg-white focus:ring-4 focus:ring-blue-500/5 transition-all outline-none" 
                            />
                         </div>
                       </div>
@@ -1112,20 +1142,20 @@ export default function AjustesClient() {
                         <div className="space-y-1.5 flex-1 md:flex-none">
                            <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest pl-1">Prefijo</span>
                            <input 
-                              type="text" 
-                              value={prefijoCostes} 
-                              onChange={e => setPrefijoCostes(e.target.value)} 
-                              placeholder="G-" 
-                              className="w-full md:w-24 px-4 py-3.5 rounded-2xl border bg-gray-50/50 font-black text-red-600 text-center uppercase focus:bg-white focus:ring-4 focus:ring-red-500/5 transition-all outline-none" 
+                               type="text" 
+                               value={prefijoCostes} 
+                               onChange={e => setPrefijoCostes(e.target.value)} 
+                               placeholder="G-" 
+                               className="w-full md:w-24 px-4 py-3.5 rounded-2xl border bg-gray-50/50 font-black text-red-600 text-center uppercase focus:bg-white focus:ring-4 focus:ring-red-500/5 transition-all outline-none" 
                            />
                         </div>
                         <div className="space-y-1.5 flex-2 md:flex-none">
                            <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest pl-1">Siguiente Número</span>
                            <input 
-                              type="number" 
-                              value={contadorCostes} 
-                              onChange={e => setContadorCostes(parseInt(e.target.value) || 1)} 
-                              className="w-full md:w-32 px-5 py-3.5 rounded-2xl border bg-gray-50/50 font-mono font-bold text-gray-800 text-right focus:bg-white focus:ring-4 focus:ring-red-500/5 transition-all outline-none" 
+                               type="number" 
+                               value={contadorCostes} 
+                               onChange={e => setContadorCostes(parseInt(e.target.value) || 1)} 
+                               className="w-full md:w-32 px-5 py-3.5 rounded-2xl border bg-gray-50/50 font-mono font-bold text-gray-800 text-right focus:bg-white focus:ring-4 focus:ring-blue-500/5 transition-all outline-none" 
                            />
                         </div>
                       </div>
@@ -1147,20 +1177,20 @@ export default function AjustesClient() {
                         <div className="space-y-1.5 flex-1 md:flex-none">
                            <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest pl-1">Prefijo</span>
                            <input 
-                              type="text" 
-                              value={prefijoProyectos} 
-                              onChange={e => setPrefijoProyectos(e.target.value)} 
-                              placeholder="P-" 
-                              className="w-full md:w-24 px-4 py-3.5 rounded-2xl border bg-gray-50/50 font-black text-orange-600 text-center uppercase focus:bg-white focus:ring-4 focus:ring-orange-500/5 transition-all outline-none" 
+                               type="text" 
+                               value={prefijoProyectos} 
+                               onChange={e => setPrefijoProyectos(e.target.value)} 
+                               placeholder="P-" 
+                               className="w-full md:w-24 px-4 py-3.5 rounded-2xl border bg-gray-50/50 font-black text-orange-600 text-center uppercase focus:bg-white focus:ring-4 focus:ring-orange-500/5 transition-all outline-none" 
                            />
                         </div>
                         <div className="space-y-1.5 flex-2 md:flex-none">
                            <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest pl-1">Siguiente Número</span>
                            <input 
-                              type="number" 
-                              value={contadorProyectos} 
-                              onChange={e => setContadorProyectos(parseInt(e.target.value) || 1)} 
-                              className="w-full md:w-32 px-5 py-3.5 rounded-2xl border bg-gray-50/50 font-mono font-bold text-gray-800 text-right focus:bg-white focus:ring-4 focus:ring-orange-500/5 transition-all outline-none" 
+                               type="number" 
+                               value={contadorProyectos} 
+                               onChange={e => setContadorProyectos(parseInt(e.target.value) || 1)} 
+                               className="w-full md:w-32 px-5 py-3.5 rounded-2xl border bg-gray-50/50 font-mono font-bold text-gray-800 text-right focus:bg-white focus:ring-4 focus:ring-orange-500/5 transition-all outline-none" 
                            />
                         </div>
                       </div>
@@ -1637,44 +1667,73 @@ export default function AjustesClient() {
                     <h2 className="text-2xl font-black font-head text-red-900 tracking-tighter">Mantenimiento de Datos</h2>
                     <p className="text-sm text-gray-400 font-sans">Herramientas de limpieza y reset para fase de pruebas.</p>
                   </div>
-                  <OctagonAlert className="text-red-100" size={48} />
+                  <AlertOctagon className="text-red-100" size={48} />
                </div>
 
-               <div className="max-w-2xl space-y-8">
-                  <div className="p-8 bg-red-50 rounded-[2rem] border border-red-100 space-y-6">
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {/* Bloque Emitidas */}
+                  <div className="p-8 bg-blue-50 rounded-[2rem] border border-blue-100 space-y-6">
                     <div className="space-y-2">
-                       <h3 className="font-black text-red-900 flex items-center gap-2">
-                         <Trash2 size={20} /> Borrado Total de Datos de Prueba
+                       <h3 className="font-black text-blue-900 flex items-center gap-2">
+                         <FileText size={20} /> Borrado de Ventas (Emitidas)
                        </h3>
-                       <p className="text-sm text-red-800/70 font-medium leading-relaxed">
-                         Esta acción eliminará todos los proveedores, facturas (ventas y costes), líneas de detalle y registros de cobros/pagos asociados a tu cuenta.
+                       <p className="text-xs text-blue-800/70 font-medium leading-relaxed">
+                         Elimina todas las facturas emitidas, sus líneas y registros de cobros.
                        </p>
                     </div>
 
-                    <div className="bg-white/50 p-4 rounded-xl border border-red-200">
-                       <ul className="text-[11px] text-red-900 space-y-1 list-disc list-inside font-bold">
-                          <li>Se eliminan todos los PROVEEDORES.</li>
-                          <li>Se eliminan todas las VENTAS y COSTES.</li>
-                          <li>Se eliminan todos los COBROS y PAGOS.</li>
-                          <li>Los contadores de facturación volverán a 1.</li>
+                    <div className="bg-white/50 p-4 rounded-xl border border-blue-200">
+                       <ul className="text-[10px] text-blue-900 space-y-1 list-disc list-inside font-bold">
+                          <li>Elimina todas las VENTAS.</li>
+                          <li>Elimina todos los COBROS vinculados.</li>
+                          <li>Reset contador VENTAS a 1.</li>
                        </ul>
                     </div>
 
                     <button 
-                      onClick={handleResetTestData}
+                      onClick={handleResetEmitidas}
                       disabled={isResetting}
-                      className="w-full py-4 bg-red-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-red-200 hover:bg-red-700 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                      className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-xl shadow-blue-200 hover:bg-blue-700 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
                     >
-                      {isResetting ? <Loader2 className="animate-spin" size={18} /> : <Trash2 size={18} />}
-                      Limpiar Base de Datos (Fase de Pruebas)
+                      {isResetting ? <Loader2 className="animate-spin" size={16} /> : <Trash2 size={16} />}
+                      Limpiar Emitidas
                     </button>
                   </div>
 
-                  <div className="p-6 bg-gray-50 rounded-2xl border border-gray-100">
-                     <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest text-center">
-                        ⚠️ Úsalo solo si necesitas volver a importar todo desde cero.
-                     </p>
+                  {/* Bloque Recibidas */}
+                  <div className="p-8 bg-red-50 rounded-[2rem] border border-red-100 space-y-6">
+                    <div className="space-y-2">
+                       <h3 className="font-black text-red-900 flex items-center gap-2">
+                         <ShieldCheck size={20} /> Borrado de Gastos (Recibidas)
+                       </h3>
+                       <p className="text-xs text-red-800/70 font-medium leading-relaxed">
+                         Elimina facturas recibidas (costes), proveedores y registros de pagos.
+                       </p>
+                    </div>
+
+                    <div className="bg-white/50 p-4 rounded-xl border border-red-200">
+                       <ul className="text-[10px] text-red-900 space-y-1 list-disc list-inside font-bold">
+                          <li>Elimina todos los PROVEEDORES.</li>
+                          <li>Elimina todos los COSTES y PAGOS.</li>
+                          <li>Reset contador COSTES a 1.</li>
+                       </ul>
+                    </div>
+
+                    <button 
+                      onClick={handleResetRecibidas}
+                      disabled={isResetting}
+                      className="w-full py-4 bg-red-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-xl shadow-red-200 hover:bg-red-700 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                    >
+                      {isResetting ? <Loader2 className="animate-spin" size={16} /> : <Trash2 size={16} />}
+                      Limpiar Recibidas
+                    </button>
                   </div>
+               </div>
+
+               <div className="p-6 bg-gray-50 rounded-2xl border border-gray-100">
+                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest text-center">
+                     ⚠️ Acciones irreversibles. Úsalas solo durante la puesta a punto de tu base de datos.
+                  </p>
                </div>
             </div>
           )}
