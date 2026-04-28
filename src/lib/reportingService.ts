@@ -128,7 +128,7 @@ export const getVATBookPDF = (type: 'ventas' | 'costes', data: any[], perfil: an
   reportRows.sort((a, b) => {
     const dateComp = new Date(a.fecha).getTime() - new Date(b.fecha).getTime();
     if (dateComp !== 0) return dateComp;
-    return a.registro.toString().localeCompare(b.registro.toString());
+    return a.registro.toString().localeCompare(b.registro.toString(), undefined, { numeric: true });
   });
 
   const tableData = reportRows.map(row => [
@@ -186,15 +186,18 @@ export const getVATBookPDF = (type: 'ventas' | 'costes', data: any[], perfil: an
       8: { halign: 'center' },
       9: { halign: 'right' },
       10: { halign: 'right', fontStyle: 'bold' }
-    },
-    didDrawPage: (data: any) => {
-      // Pie de página elegante
-      doc.setFontSize(8);
-      doc.setTextColor(156, 163, 175);
-      const str = `Página ${data.pageNumber} de ${doc.internal.pages.length - 1}`;
-      doc.text(str, PAGE_WIDTH / 2, doc.internal.pageSize.height - 10, { align: 'center' });
     }
   });
+
+  // Finalización y Numeración de Páginas (X de Y)
+  const totalPages = (doc as any).internal.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.setTextColor(156, 163, 175);
+    const str = `Página ${i} de ${totalPages}`;
+    doc.text(str, PAGE_WIDTH / 2, doc.internal.pageSize.height - 10, { align: 'center' });
+  }
 
   return doc;
 };
