@@ -655,7 +655,7 @@ export default function CostesPage() {
         if (key === 'proveedor') val = c.proveedores?.nombre || '';
         else if (key === 'proyecto') val = c.proyectos?.nombre || '';
         else if (key === 'num_factura') val = c.num_factura_proveedor || '';
-        else if (key === 'estado_pago') val = c.estado_pago || 'Pendiente';
+        else if (key === 'estado_pago') val = c.estadoPago || 'Pendiente';
         else val = c[key] || '';
         return val.toString().toLowerCase().includes(columnFilters[key].toLowerCase());
       });
