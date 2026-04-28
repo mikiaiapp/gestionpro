@@ -1,137 +1,77 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
-import { supabase } from '@/lib/supabase';
+import { useState, useEffect, useRef } from "react";
 import { 
-  Building2, 
-  Percent,
-  RefreshCcw,
-  CheckCircle2,
-  Loader2,
-  Lock,
-  ImageIcon,
-  Upload,
-  Trash2,
-  ShieldCheck,
-  CloudCheck,
-  Database,
-  DownloadCloud,
-  RotateCcw,
-  Smartphone,
-  Scale,
-  FileText,
-  Table,
-  LayoutGrid,
-  AlertTriangle,
-} from 'lucide-react';
+  Save, Building2, CreditCard, Key, Shield, Upload, Loader2, Plus, Trash2, 
+  Settings2, FileText, Database, Share2, Globe, Mail, Phone, Palette, 
+  Fingerprint, Briefcase, ChevronRight, Download, RefreshCcw, BookOpen, UserPlus, Table, Sparkles
+} from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { Sidebar } from "@/components/Sidebar";
+import { SidebarItem } from "@/components/SidebarItem";
+import { encrypt, decrypt } from "@/lib/encryption";
+import { getFullLocationByCP } from "@/lib/geoData";
+import { uploadLogo, uploadCorpImage } from "@/lib/storageService";
+import { cleanNIF } from "@/lib/format";
 import * as XLSX from 'xlsx';
-import { Sidebar } from '@/components/Sidebar';
-import RichTextEditor from '@/components/RichTextEditor';
-import { getFullLocationByCP } from '@/lib/geoData';
-import { formatIBAN } from '@/lib/validations';
-import { encrypt, decrypt } from '@/lib/encryption';
-import { totp } from '@/lib/totp';
-
-// Componente de 2FA cargado dinámicamente para seguridad total contra errores de hidratación
-import dynamic from 'next/dynamic';
-const TwoFactorSetup = dynamic(() => import('@/components/TwoFactorSetup'), { 
-  ssr: false 
-});
 
 export default function AjustesClient() {
-  const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
-  const [autoStatus, setAutoStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
-  const [isMounted, setIsMounted] = useState(false);
-  
-  // Perfil State
-  const [nombre, setNombre] = useState('Mi Empresa');
-  const [nif, setNif] = useState('');
-  const [cuentaBancaria, setCuentaBancaria] = useState('');
-  const [direccion, setDireccion] = useState('');
-  const [cp, setCp] = useState('');
-  const [poblacion, setPoblacion] = useState('');
-  const [provincia, setProvincia] = useState('');
-  const [email, setEmail] = useState('');
-  const [geminiKey, setGeminiKey] = useState('');
-  const [logoUrl, setLogoUrl] = useState('');
-  const [formaPago, setFormaPago] = useState('Transferencia Bancaria');
-  const [tieneRetencion, setTieneRetencion] = useState(false);
-  const [irpfDefault, setIrpfDefault] = useState(15);
-  const [condicionesLegales, setCondicionesLegales] = useState('');
-  const [lopdText, setLopdText] = useState('');
-  const [telefono, setTelefono] = useState('');
-  const [imagenCorporativaUrl, setImagenCorporativaUrl] = useState('');
-  const [textoAceptacion, setTextoAceptacion] = useState('');
-  const [web, setWeb] = useState('');
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [perfilId, setPerfilId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState("negocio");
 
-  // Contadores y Series
+  // Perfil de Negocio
+  const [nombre, setNombre] = useState("");
+  const [nif, setNif] = useState("");
+  const [cuentaBancaria, setCuentaBancaria] = useState("");
+  const [direccion, setDireccion] = useState("");
+  const [cp, setCp] = useState("");
+  const [poblacion, setPoblacion] = useState("");
+  const [provincia, setProvincia] = useState("");
+  const [email, setEmail] = useState("");
+  const [telefono, setTelefono] = useState("");
+  const [web, setWeb] = useState("");
+  const [geminiKey, setGeminiKey] = useState("");
+  const [logoUrl, setLogoUrl] = useState("");
+  const [imagenCorporativaUrl, setImagenCorporativaUrl] = useState("");
+  
+  // Facturación & Contadores
+  const [serieVentas, setSerieVentas] = useState("A");
+  const [prefijoVentas, setPrefijoVentas] = useState("");
   const [contadorVentas, setContadorVentas] = useState(1);
+  const [serieCostes, setSerieCostes] = useState("A");
+  const [prefijoCostes, setPrefijoCostes] = useState("");
   const [contadorCostes, setContadorCostes] = useState(1);
+  const [prefijoProyectos, setPrefijoProyectos] = useState("");
   const [contadorProyectos, setContadorProyectos] = useState(1);
-  const [serieVentas, setSerieVentas] = useState('A');
-  const [serieCostes, setSerieCostes] = useState('A');
-  const [serieProyectos, setSerieProyectos] = useState('P');
-  const [prefijoVentas, setPrefijoVentas] = useState('');
-  const [prefijoCostes, setPrefijoCostes] = useState('');
-  const [prefijoProyectos, setPrefijoProyectos] = useState('');
   
-  const [verifactuCert, setVerifactuCert] = useState('');
-  const [verifactuCertPassword, setVerifactuCertPassword] = useState('');
-  const [verifactuEnv, setVerifactuEnv] = useState<'pruebas' | 'produccion'>('pruebas');
-  
-  // Email SMTP
-  const [smtpEmail, setSmtpEmail] = useState('');
-  const [smtpPassword, setSmtpPassword] = useState('');
-  const [smtpHost, setSmtpHost] = useState('smtp.gmail.com');
-  const [smtpPort, setSmtpPort] = useState('587');
-  const [useGmailPreset, setUseGmailPreset] = useState(true);
-  const [testingEmail, setTestingEmail] = useState(false);
-  const [emailTestResult, setEmailTestResult] = useState<'ok' | 'error' | null>(null);
-  
-  const [tiposIva, setTiposIva] = useState<any[]>([]);
-  const [tiposIrpf, setTiposIrpf] = useState<any[]>([]);
-  const [syncing, setSyncing] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  
-  // Seguridad 2FA
-  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
-  const [totpSecret, setTotpSecret] = useState('');
-  const [isSettingUp2FA, setIsSettingUp2FA] = useState(false);
-  const [qrUrl, setQrUrl] = useState('');
-  const [verifyToken, setVerifyToken] = useState('');
-  
-  // Backup / Restore
-  const [isBackupLoading, setIsBackupLoading] = useState(false);
-  const [isRestoreLoading, setIsRestoreLoading] = useState(false);
-  const [autoBackups, setAutoBackups] = useState<any[]>([]);
-  
-  // Excel Import State
-  const [isImporting, setIsImporting] = useState(false);
-  const [importResults, setImportResults] = useState<{ total: number, success: number, errors: string[] } | null>(null);
+  // Configuración de IRPF
+  const [tiposIRPF, setTiposIRPF] = useState<any[]>([]);
+  const [tieneRetencion, setTieneRetencion] = useState(false);
+  const [irpfDefault, setIrpfDefault] = useState(0);
 
-  // Mantenimiento
-  const [isResetting, setIsResetting] = useState(false);
+  // Textos Legales
+  const [condicionesLegales, setCondicionesLegales] = useState("");
+  const [lopdText, setLopdText] = useState("");
+  const [textoAceptacion, setTextoAceptacion] = useState("");
+  
+  // Forma de Pago Default
+  const [formaPago, setFormaPago] = useState("");
 
+  // Verifactu / Certificado
+  const [verifactuCert, setVerifactuCert] = useState<string>("");
+  const [verifactuCertPassword, setVerifactuCertPassword] = useState<string>("");
+  const [verifactuEnv, setVerifactuEnv] = useState<"test" | "production">("test");
+
+  // Email SMTP Settings
+  const [smtpEmail, setSmtpEmail] = useState("");
+  const [smtpAppPassword, setSmtpAppPassword] = useState("");
+
+  const [backups, setBackups] = useState<any[]>([]);
   const initialLoadDone = useRef(false);
-  const latestValuesRef = useRef<any>(null);
-
-  // Mantener el ref actualizado sincronamente para que el guardado en unmount tenga siempre lo último
-  latestValuesRef.current = {
-    nombre, nif, direccion, cp, poblacion, provincia, cuentaBancaria, 
-    email, geminiKey, logoUrl, imagenCorporativaUrl, formaPago, tieneRetencion, irpfDefault,
-    condicionesLegales, lopdText, telefono, textoAceptacion, web,
-    verifactuCert, verifactuCertPassword, verifactuEnv,
-    smtpEmail, smtpPassword, smtpHost, smtpPort,
-    contadorVentas, contadorCostes, contadorProyectos,
-    serieVentas, serieCostes, serieProyectos,
-    prefijoVentas, prefijoCostes, prefijoProyectos
-  };
 
   useEffect(() => {
-    setIsMounted(true);
     checkUser();
   }, []);
 
@@ -168,1590 +108,891 @@ export default function AjustesClient() {
     condicionesLegales, lopdText, telefono, textoAceptacion, web,
     verifactuCert, verifactuCertPassword, verifactuEnv,
     contadorVentas, contadorCostes, contadorProyectos,
-    serieVentas, serieCostes, serieProyectos,
     prefijoVentas, prefijoCostes, prefijoProyectos,
-    smtpEmail, smtpPassword, smtpHost, smtpPort
+    serieVentas, serieCostes, smtpEmail, smtpAppPassword
   ]);
 
-
-  // Guardado al desmontar (por si el usuario sale antes del timeout)
-  useEffect(() => {
-    return () => {
-      // El navegador/React a veces corta las llamadas asíncronas en unmount,
-      // pero en una SPA la navegación interna suele permitir completar el fetch.
-      if (initialLoadDone.current) {
-        handleSaveAll();
-      }
-    };
-  }, []);
-
-  const fetchAutoBackups = async (userId: string) => {
-    const { data } = await supabase.from('backups').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(5);
-    setAutoBackups(data || []);
-  };
-
-  useEffect(() => {
-    if (cp.length === 5) {
-      getFullLocationByCP(cp).then(resp => {
-        if (resp) {
-          if (resp.provincia && resp.provincia !== provincia) setProvincia(resp.provincia);
-          if (resp.poblacion && resp.poblacion !== poblacion) setPoblacion(resp.poblacion);
-        }
-      });
-    }
-  }, [cp]);
-
   const fetchPerfil = async (userId: string) => {
-    try {
-      const { data } = await supabase.from('perfil_negocio').select('*').eq('user_id', userId).maybeSingle();
-      if (data) {
-        setPerfilId(data.id);
-        setNombre(data.nombre || '');
-        setNif(data.nif || '');
-        const rawIBAN = data.cuenta_bancaria || '';
-        const decryptedIBAN = rawIBAN.includes(':') ? decrypt(rawIBAN) : rawIBAN;
-        setCuentaBancaria(decryptedIBAN ? formatIBAN(decryptedIBAN) : '');
-        setDireccion(data.direccion || '');
-        setCp(data.cp || '');
-        setPoblacion(data.poblacion || '');
-        setProvincia(data.provincia || '');
-        setEmail(data.email || '');
-        setGeminiKey(data.gemini_key || '');
-        setLogoUrl(data.logo_url || '');
-        setFormaPago(data.forma_pago_default || 'Transferencia Bancaria');
-        setTieneRetencion(data.tiene_retencion || false);
-        setIrpfDefault(Number(data.irpf_default) || 0);
-        setCondicionesLegales(data.condiciones_legales || '');
-        setLopdText(data.lopd_text || '');
-        setVerifactuCert(data.verifactu_certificado || '');
-        const rawVfPass = data.verifactu_pass || '';
-        const decVfPass = rawVfPass.includes(':') ? decrypt(rawVfPass) : rawVfPass;
-        setVerifactuCertPassword(decVfPass);
-        setVerifactuEnv(data.verifactu_env || 'pruebas');
-        setTelefono(data.telefono || '');
-        setImagenCorporativaUrl(data.imagen_corporativa_url || '');
-        setTextoAceptacion(data.texto_aceptacion || '');
-        setWeb(data.web || '');
-        const rawSmtpPass = data.smtp_app_password || '';
-        setSmtpEmail(data.smtp_email || '');
-        setSmtpPassword(rawSmtpPass.includes(':') ? decrypt(rawSmtpPass) : rawSmtpPass);
-        setSmtpHost(data.smtp_host || 'smtp.gmail.com');
-        setSmtpPort(data.smtp_port || '587');
-        setUseGmailPreset(data.smtp_host === 'smtp.gmail.com' || !data.smtp_host);
+    const { data, error } = await supabase
+      .from("perfil_negocio")
+      .select("*")
+      .eq("user_id", userId)
+      .maybeSingle();
 
-        // Contadores
-        setContadorVentas(data.contador_ventas || 1);
-        setContadorCostes(data.contador_costes || 1);
-        setContadorProyectos(data.contador_proyectos || 1);
-        setSerieVentas(data.serie_ventas || 'A');
-        setSerieCostes(data.serie_costes || 'A');
-        setSerieProyectos(data.serie_proyectos || 'P');
-        setPrefijoVentas(data.prefijo_ventas || '');
-        setPrefijoCostes(data.prefijo_costes || '');
-        setPrefijoProyectos(data.prefijo_proyectos || '');
-
-        // Inicializamos el comparador con los datos recién cargados para evitar que el primer render dispare un auto-save
-        const rawIBAN_init = data.cuenta_bancaria || '';
-        const decryptedIBAN_init = rawIBAN_init.includes(':') ? decrypt(rawIBAN_init) : rawIBAN_init;
-        const rawVfPass_init = data.verifactu_pass || '';
-        const decVfPass_init = rawVfPass_init.includes(':') ? decrypt(rawVfPass_init) : rawVfPass_init;
-        const rawSmtpPass_init = data.smtp_app_password || '';
-        const decSmtpPass_init = rawSmtpPass_init.includes(':') ? decrypt(rawSmtpPass_init) : rawSmtpPass_init;
-
-        lastSavedPayload.current = JSON.stringify({
-          nombre: data.nombre || '', nif: data.nif || '', direccion: data.direccion || '', cp: data.cp || '', poblacion: data.poblacion || '', provincia: data.provincia || '', 
-          cuentaBancaria: decryptedIBAN_init ? formatIBAN(decryptedIBAN_init) : '', 
-          email: data.email || '', geminiKey: data.gemini_key || '', logoUrl: data.logo_url || '', imagenCorporativaUrl: data.imagen_corporativa_url || '', 
-          formaPago: data.forma_pago_default || 'Transferencia Bancaria', tieneRetencion: data.tiene_retencion || false, irpfDefault: Number(data.irpf_default) || 0,
-          condicionesLegales: data.condiciones_legales || '', lopdText: data.lopd_text || '', telefono: data.telefono || '', textoAceptacion: data.texto_aceptacion || '', web: data.web || '',
-          verifactuCert: data.verifactu_certificado || '', verifactuCertPassword: decVfPass_init, verifactuEnv: data.verifactu_env || 'pruebas',
-          smtpEmail: data.smtp_email || '', smtpPassword: decSmtpPass_init, smtpHost: data.smtp_host || 'smtp.gmail.com', smtpPort: data.smtp_port || '587',
-          contadorVentas: data.contador_ventas || 1, contadorCostes: data.contador_costes || 1, contadorProyectos: data.contador_proyectos || 1,
-          serieVentas: data.serie_ventas || 'A', serieCostes: data.serie_costes || 'A', serieProyectos: data.serie_proyectos || 'P',
-          prefijoVentas: data.prefijo_ventas || '', prefijoCostes: data.prefijo_costes || '', prefijoProyectos: data.prefijo_proyectos || ''
-        });
-      }
-      
-      const { data: prof } = await supabase.from('perfiles').select('two_factor_enabled, two_factor_secret').eq('id', userId).single();
-      if (prof) {
-        setTwoFactorEnabled(prof.two_factor_enabled || false);
-        setTotpSecret(prof.two_factor_secret || '');
-      }
-    } catch (e) { console.error(e); }
+    if (data) {
+      setNombre(data.nombre || "");
+      setNif(data.nif || "");
+      setCuentaBancaria(data.cuenta_bancaria ? decrypt(data.cuenta_bancaria) : "");
+      setDireccion(data.direccion || "");
+      setCp(data.codigo_postal || "");
+      setPoblacion(data.poblacion || "");
+      setProvincia(data.provincia || "");
+      setEmail(data.email || "");
+      setTelefono(data.telefono || "");
+      setWeb(data.web || "");
+      setGeminiKey(data.gemini_key || "");
+      setLogoUrl(data.logo_url || "");
+      setImagenCorporativaUrl(data.imagen_corporativa_url || "");
+      setSerieVentas(data.serie_ventas || "A");
+      setPrefijoVentas(data.prefijo_ventas || "");
+      setContadorVentas(data.contador_ventas || 1);
+      setSerieCostes(data.serie_costes || "A");
+      setPrefijoCostes(data.prefijo_costes || "");
+      setContadorCostes(data.contador_costes || 1);
+      setPrefijoProyectos(data.prefijo_proyectos || "");
+      setContadorProyectos(data.contador_proyectos || 1);
+      setTieneRetencion(data.tiene_retencion || false);
+      setIrpfDefault(data.irpf_default || 0);
+      setCondicionesLegales(data.condiciones_legales || "");
+      setLopdText(data.lopd_text || "");
+      setTextoAceptacion(data.texto_aceptacion || "");
+      setFormaPago(data.forma_pago_default || "");
+      setVerifactuEnv(data.verifactu_env || "test");
+      setSmtpEmail(data.smtp_email || "");
+      setSmtpAppPassword(data.smtp_app_password ? decrypt(data.smtp_app_password) : "");
+    }
   };
 
   const fetchTipos = async (userId: string) => {
-    const { data: iva } = await supabase.from('tipos_iva').select('*').eq('user_id', userId).order('valor', { ascending: false });
-    const { data: irpf } = await supabase.from('tipos_irpf').select('*').eq('user_id', userId).order('valor', { ascending: false });
-    setTiposIva(iva || []);
-    setTiposIrpf(irpf || []);
+    const { data } = await supabase.from("tipos_irpf").select("*").eq("user_id", userId).order("valor");
+    setTiposIRPF(data || []);
+  };
+
+  const fetchAutoBackups = async (userId: string) => {
+    const { data } = await supabase.from("backups").select("*").eq("user_id", userId).order("created_at", { ascending: false }).limit(5);
+    setBackups(data || []);
   };
 
   const handleSaveAll = async () => {
     if (!user) return;
-    setAutoStatus('saving');
-    const vals = latestValuesRef.current || { 
-      nombre, nif, direccion, cp, poblacion, provincia, cuentaBancaria, 
-      email, geminiKey, logoUrl, imagenCorporativaUrl, formaPago, tieneRetencion, irpfDefault,
-      condicionesLegales, lopdText, telefono, textoAceptacion, web,
-      verifactuCert, verifactuCertPassword, verifactuEnv,
-      smtpEmail, smtpPassword, smtpHost, smtpPort,
-      contadorVentas, contadorCostes, contadorProyectos,
-      serieVentas, serieCostes, serieProyectos,
-      prefijoVentas, prefijoCostes, prefijoProyectos
-    };
+    
+    // Comparar con el último payload para evitar llamadas innecesarias
+    const currentPayload = JSON.stringify({
+      nombre, nif, cuentaBancaria, direccion, cp, poblacion, provincia, email, telefono, web,
+      geminiKey, logoUrl, imagenCorporativaUrl, serieVentas, prefijoVentas, contadorVentas,
+      serieCostes, prefijoCostes, contadorCostes, prefijoProyectos, contadorProyectos,
+      tieneRetencion, irpfDefault, condicionesLegales, lopdText, textoAceptacion, formaPago,
+      verifactuEnv, smtpEmail, smtpAppPassword
+    });
 
+    if (currentPayload === lastSavedPayload.current) return;
+    
+    setSaving(true);
     try {
-      const payload: any = {
-        id: perfilId,
+      const payload = {
         user_id: user.id,
-        nombre: vals.nombre, 
-        nif: vals.nif, 
-        direccion: vals.direccion, 
-        cp: vals.cp, 
-        poblacion: vals.poblacion, 
-        provincia: vals.provincia,
-        cuenta_bancaria: encrypt(vals.cuentaBancaria.replace(/\s/g, '')),
-        email: vals.email, 
-        gemini_key: vals.geminiKey, 
-        logo_url: vals.logoUrl, 
-        imagen_corporativa_url: vals.imagenCorporativaUrl,
-        forma_pago_default: vals.formaPago, 
-        tiene_retencion: vals.tieneRetencion, 
-        irpf_default: vals.irpfDefault,
-        telefono: vals.telefono,
-        condiciones_legales: vals.condicionesLegales,
-        lopd_text: vals.lopdText,
-        texto_aceptacion: vals.textoAceptacion,
-        web: vals.web,
-        verifactu_certificado: vals.verifactuCert,
-        verifactu_pass: encrypt(vals.verifactuCertPassword),
-        verifactu_env: vals.verifactuEnv,
-        smtp_email: vals.smtpEmail,
-        smtp_app_password: vals.smtpPassword ? encrypt(vals.smtpPassword) : '',
-        smtp_host: vals.smtpHost,
-        smtp_port: vals.smtpPort,
-        contador_ventas: vals.contadorVentas,
-        contador_costes: vals.contadorCostes,
-        contador_proyectos: vals.contadorProyectos,
-        serie_ventas: vals.serieVentas,
-        serie_costes: vals.serieCostes,
-        serie_proyectos: vals.serieProyectos,
-        prefijo_ventas: vals.prefijoVentas,
-        prefijo_costes: vals.prefijo_costes,
-        prefijo_proyectos: vals.prefijoProyectos
-      };
-
-      // Comparamos estados brutos para evitar bucles por el IV aleatorio del cifrado
-      const stateToCompare = JSON.stringify(vals);
-
-      if (stateToCompare === lastSavedPayload.current) {
-        setAutoStatus('idle');
-        return;
-      }
-
-      setSaveError(null);
-      const { error } = await supabase.from('perfil_negocio').upsert(payload, { onConflict: 'user_id' });
-      
-      if (error) {
-        console.error("Save error:", error.message);
-        setSaveError(error.message);
-        setAutoStatus('idle');
-        alert("❌ Error al guardar datos en la base de datos: " + error.message);
-        return;
-      }
-
-      lastSavedPayload.current = stateToCompare;
-      setAutoStatus('saved');
-      window.dispatchEvent(new Event('perfil_updated'));
-      setTimeout(() => setAutoStatus('idle'), 2000);
-    } catch (e: any) {
-      console.error("Critical Save error:", e.message);
-      setSaveError(e.message);
-      setAutoStatus('idle');
-      alert("❌ Fallo crítico al intentar guardar (posible error de cifrado): " + e.message);
-    }
-  };
-
-  const handleSaveLegales = async () => {
-    if (!user) return;
-    setAutoStatus('saving');
-    try {
-      await supabase.from('perfil_negocio').update({
+        nombre,
+        nif,
+        cuenta_bancaria: encrypt(cuentaBancaria),
+        direccion,
+        codigo_postal: cp,
+        poblacion,
+        provincia,
+        email,
+        telefono,
+        web,
+        gemini_key: geminiKey,
+        logo_url: logoUrl,
+        imagen_corporativa_url: imagenCorporativaUrl,
+        serie_ventas: serieVentas,
+        prefijo_ventas: prefijoVentas,
+        contador_ventas: contadorVentas,
+        serie_costes: serieCostes,
+        prefijo_costes: prefijoCostes,
+        contador_costes: contadorCostes,
+        prefijo_proyectos: prefijoProyectos,
+        contador_proyectos: contadorProyectos,
+        tiene_retencion: tieneRetencion,
+        irpf_default: irpfDefault,
         condiciones_legales: condicionesLegales,
         lopd_text: lopdText,
-        forma_pago_default: formaPago
-      }).eq('user_id', user.id);
-      setAutoStatus('saved');
-      setTimeout(() => setAutoStatus('idle'), 2000);
-    } catch (e: any) {
-      console.error(e);
-      setAutoStatus('idle');
-    }
-  };
+        texto_aceptacion: textoAceptacion,
+        forma_pago_default: formaPago,
+        verifactu_env: verifactuEnv,
+        smtp_email: smtpEmail,
+        smtp_app_password: encrypt(smtpAppPassword)
+      };
 
-  const triggerUpload = (target: 'logo' | 'corp') => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.onchange = async (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (!file || !user) return;
+      const { error } = await supabase
+        .from("perfil_negocio")
+        .upsert(payload, { onConflict: 'user_id' });
 
-      setAutoStatus('saving');
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Math.random()}.${fileExt}`;
-      // Aislamiento Físico: Usar carpeta del usuario
-      const filePath = `${user.id}/logos/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('logos')
-        .upload(filePath, file);
-
-      if (uploadError) {
-        alert("Error al subir imagen");
-        setAutoStatus('idle');
-        return;
-      }
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('logos')
-        .getPublicUrl(filePath);
-
-      if (target === 'logo') setLogoUrl(publicUrl);
-      else setImagenCorporativaUrl(publicUrl);
-      
-      setAutoStatus('saved');
-      setTimeout(() => setAutoStatus('idle'), 2000);
-    };
-    input.click();
-  };
-
-  const setup2FA = () => {
-    const secret = totp.generateSecret();
-    const otpauth = totp.generateUri(user.email, secret);
-    setTotpSecret(secret);
-    setQrUrl(otpauth);
-    setIsSettingUp2FA(true);
-  };
-
-  const confirm2FA = async () => {
-    if (totp.check(verifyToken, totpSecret)) {
-      setTwoFactorEnabled(true);
-      setIsSettingUp2FA(false);
-      setVerifyToken('');
-      
-      // Guardado explícito de 2FA
-      const { error } = await supabase.from('perfiles').upsert({ 
-        id: user.id, 
-        two_factor_enabled: true, 
-        two_factor_secret: totpSecret 
-      });
-
-      if (error) {
-        console.error("Error guardando 2FA:", error);
-        alert("⚠️ El código es correcto, pero hubo un error al guardar en la base de datos. Verifica el SQL de migración.");
-      } else {
-        alert("✅ 2FA Activado perfectamente.");
-      }
-    } else {
-      alert("❌ Código inválido.");
-    }
-  };
-
-  const disable2FA = async () => {
-    if (confirm("¿Desactivar doble factor?")) {
-      setTwoFactorEnabled(false);
-      setTotpSecret('');
-      setTimeout(() => handleSaveAll(), 100);
-    }
-  };
-
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file || !user) return;
-    const fileName = `${user.id}-${Math.random()}.${file.name.split('.').pop()}`;
-    const filePath = `${user.id}/logos/${fileName}`;
-    setIsSaving(true);
-    try {
-      await supabase.storage.from('logos').upload(filePath, file);
-      const { data: { publicUrl } } = supabase.storage.from('logos').getPublicUrl(filePath);
-      setLogoUrl(publicUrl);
-    } catch (error: any) {
-      alert('⚠️ ' + error.message);
-    } finally { setIsSaving(false); }
-  };
-
-  const handleSyncOfficial = async () => {
-    if (!user) return;
-    setSyncing(true);
-    try {
-      await supabase.from('tipos_iva').delete().eq('user_id', user.id);
-      await supabase.from('tipos_irpf').delete().eq('user_id', user.id);
-      await supabase.from('tipos_iva').insert([
-        { user_id: user.id, nombre: 'IVA General', valor: 21 },
-        { user_id: user.id, nombre: 'IVA Reducido', valor: 10 },
-        { user_id: user.id, nombre: 'IVA Superreducido', valor: 4 },
-        { user_id: user.id, nombre: 'Exento', valor: 0 }
-      ]);
-      await supabase.from('tipos_irpf').insert([
-        { user_id: user.id, nombre: 'IRPF Profesional', valor: 15 },
-        { user_id: user.id, nombre: 'IRPF Nuevos Auton.', valor: 7 },
-        { user_id: user.id, nombre: 'IRPF Alquileres', valor: 19 }
-      ]);
-      fetchTipos(user.id);
-    } catch (e) { console.error(e); } finally { setSyncing(false); }
-  };
-
-  const handleAddTipo = async (tabla: 'tipos_iva' | 'tipos_irpf') => {
-    if (!user) return;
-    const n = prompt("Nombre:");
-    const v = prompt("Valor %:");
-    if (n && v) {
-      await supabase.from(tabla).insert({ user_id: user.id, nombre: n, valor: parseFloat(v) });
-      fetchTipos(user.id);
-    }
-  };
-
-  const handleDeleteTipo = async (tabla: 'tipos_iva' | 'tipos_irpf', id: string) => {
-    if (confirm("¿Eliminar?")) {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      await supabase.from(tabla).delete().eq('id', id).eq('user_id', user.id);
-      fetchTipos(user.id);
-    }
-  };
-
-  const handleExportBackup = async () => {
-    if (!confirm("Se generará un archivo ZIP integral (Datos + PDFs). ¿Continuar?")) return;
-    setIsBackupLoading(true);
-    try {
-      const { createFullBackupZIP } = await import('@/lib/backup');
-      const blob = await createFullBackupZIP(user);
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `GP_FULL_BACKUP_${new Date().toISOString().split('T')[0]}.zip`;
-      link.click();
-    } catch (e: any) { alert("Error al generar backup: " + e.message); } finally { setIsBackupLoading(false); }
-  };
-
-  const handleImportBackup = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !confirm("¿Restaurar copia integral (ZIP o JSON)? Esto reemplazará o añadirá datos a tu cuenta actual.")) return;
-    setIsRestoreLoading(true);
-    try {
-      let text = "";
-      let zip: any = null;
-      if (file.name.endsWith('.zip')) {
-        const JSZip = (await import('jszip')).default;
-        zip = await JSZip.loadAsync(file);
-        const dataFile = zip.file("data.json");
-        if (!dataFile) throw new Error("No se encontró data.json dentro del ZIP");
-        text = await dataFile.async("string");
-      } else {
-        text = await file.text();
-      }
-
-      const backup = JSON.parse(text);
-      const data = backup.data || backup;
-      const urlFields = ['pdf_url', 'archivo_url', 'url_archivo', 'logo_url', 'imagen_corporativa_url'];
-
-      for (const table in data) {
-        if (!Array.isArray(data[table])) continue;
-        
-        console.log(`♻️ Restaurando tabla: ${table}...`);
-        for (const row of data[table]) {
-          // 1. Asegurar pertenencia al usuario actual
-          if ('user_id' in row) row.user_id = user.id;
-
-          // 2. Re-siembra de archivos si es un ZIP
-          if (zip) {
-            for (const field of urlFields) {
-              if (row[field] && typeof row[field] === 'string' && row[field].includes('supabase')) {
-                const parts = row[field].split('/');
-                const originalFilename = parts[parts.length - 1]?.split('?')[0];
-                const zipFile = zip.file(`documentos/${originalFilename}`);
-                
-                if (zipFile) {
-                  const blob = await zipFile.async("blob");
-                  const cleanFilename = `${Date.now()}_${originalFilename}`;
-                  const storagePath = `restored/${cleanFilename}`;
-                  
-                  const { error: upErr } = await supabase.storage.from('facturas').upload(storagePath, blob);
-                  if (!upErr) {
-                    const { data: { publicUrl } } = supabase.storage.from('facturas').getPublicUrl(storagePath);
-                    row[field] = publicUrl;
-                  }
-                }
-              }
-            }
-          }
-
-          // 3. Inserción
-          await supabase.from(table).upsert(row);
-        }
-      }
-      alert("✅ Restauración completada con éxito. Todos los documentos han sido re-sincronizados.");
-      window.location.reload();
-    } catch (e: any) { 
-      alert("Error en restauración: " + e.message); 
-    } finally { 
-      setIsRestoreLoading(false); 
-    }
-  };
-
-  const handleTestEmail = async () => {
-    setTestingEmail(true);
-    setEmailTestResult(null);
-    try {
-      const res = await fetch('/api/email/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          to: smtpEmail,
-          subject: '✅ Prueba de Conexión — GestiónPro',
-          body: 'Si recibes este email, la configuración SMTP está correcta.',
-          smtpEmail,
-          smtpPassword,
-          smtpHost,
-          smtpPort,
-          senderName: nombre
-        }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setEmailTestResult('ok');
-        // Forzamos un guardado inmediato si la prueba es exitosa
-        handleSaveAll();
-      } else {
-        setEmailTestResult('error');
-        setSaveError(data.error || 'Error al validar conexión');
-      }
+      if (error) throw error;
+      lastSavedPayload.current = currentPayload;
     } catch (err: any) {
-      console.error(err);
-      setEmailTestResult('error');
-      setSaveError(err.message || 'Fallo crítico en la conexión');
+      console.error("Error auto-saving:", err.message);
     } finally {
-      setTestingEmail(false);
+      setSaving(false);
+    }
+  };
+
+  const addTipoIRPF = async () => {
+    const valor = prompt("Nuevo tipo de IRPF (%):");
+    if (!valor) return;
+    const num = parseFloat(valor);
+    if (isNaN(num)) return;
+    
+    const { data, error } = await supabase.from("tipos_irpf").insert([{ user_id: user.id, valor: num }]).select();
+    if (data) setTiposIRPF([...tiposIRPF, data[0]]);
+  };
+
+  const removeTipoIRPF = async (id: string) => {
+    await supabase.from("tipos_irpf").delete().eq("id", id);
+    setTiposIRPF(tiposIRPF.filter(t => t.id !== id));
+  };
+
+  const handleCPChange = async (val: string) => {
+    setCp(val);
+    if (val.length === 5) {
+      const data = await getFullLocationByCP(val);
+      if (data) {
+        setPoblacion(data.poblacion);
+        setProvincia(data.provincia);
+      }
+    }
+  };
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setSaving(true);
+      const url = await uploadLogo(file);
+      setLogoUrl(url);
+    } catch (err: any) {
+      alert("Error al subir logo: " + err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCorpImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setSaving(true);
+      const url = await uploadCorpImage(file);
+      setImagenCorporativaUrl(url);
+    } catch (err: any) {
+      alert("Error al subir imagen corporativa: " + err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleBackupNow = async () => {
+    setSaving(true);
+    try {
+      // 1. Obtener todos los datos
+      const [ventas, costes, clientes, proveedores, proyectos] = await Promise.all([
+        supabase.from('ventas').select('*').eq('user_id', user.id),
+        supabase.from('costes').select('*').eq('user_id', user.id),
+        supabase.from('clientes').select('*').eq('user_id', user.id),
+        supabase.from('proveedores').select('*').eq('user_id', user.id),
+        supabase.from('proyectos').select('*').eq('user_id', user.id),
+      ]);
+
+      const fullData = {
+        ventas: ventas.data,
+        costes: costes.data,
+        clientes: clientes.data,
+        proveedores: proveedores.data,
+        proyectos: proyectos.data,
+        timestamp: new Date().toISOString()
+      };
+
+      const { error } = await supabase.from('backups').insert([
+        { user_id: user.id, data: fullData, type: 'manual' }
+      ]);
+      
+      if (error) throw error;
+      fetchAutoBackups(user.id);
+      alert("✅ Backup completado y guardado en la nube.");
+    } catch (err: any) {
+      alert("Error al realizar backup: " + err.message);
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const XLSX = await import('xlsx');
 
-    setIsImporting(true);
-    setImportResults(null);
-    const errors: string[] = [];
-    let successCount = 0;
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        setSaving(true);
+        const data = evt.target?.result;
+        const workbook = XLSX.read(data, { type: 'binary' });
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+        const rows: any[] = XLSX.utils.sheet_to_json(sheet);
 
-    try {
-      const data = await file.arrayBuffer();
-      const workbook = XLSX.read(data, { type: 'array' });
-      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-      const jsonData = XLSX.utils.sheet_to_json(worksheet) as any[];
+        if (rows.length === 0) {
+          alert("El Excel parece estar vacío.");
+          setSaving(false);
+          return;
+        }
 
-      // Agrupar filas por factura (NIF + Número) para soportar múltiples bases de IVA
-      const groupedData: Record<string, any[]> = {};
-      for (const row of jsonData) {
-        if (!row.proveedor_nif || !row.num_factura) continue;
-        const key = `${row.proveedor_nif.toString().trim()}_${row.num_factura.toString().trim()}`;
-        if (!groupedData[key]) groupedData[key] = [];
-        groupedData[key].push(row);
-      }
+        // DETECCIÓN DE COLUMNAS REALES (PRE-FLIGHT)
+        const { data: colProbe } = await supabase.from("costes").select("*").limit(1);
+        const availableCols = (colProbe && colProbe.length > 0) ? Object.keys(colProbe[0]) : [];
+        const foundKey = (options: string[]) => options.find(o => availableCols.includes(o));
 
-      // 0. Probar columnas reales para evitar errores de esquema (Smart Mapping)
-      const { data: probe } = await supabase.from('costes').select('*').limit(1);
-      const cols = (probe && probe.length > 0) ? Object.keys(probe[0]) : [];
-      
-      // Columnas que sabemos que existen por el esquema base (mínimo común denominador)
-      const guaranteedCols = ['id', 'user_id', 'fecha', 'total', 'proveedor_id', 'num_interno'];
-      const allKnownCols = [...new Set([...cols, ...guaranteedCols])];
-      const findKey = (options: string[]) => options.find(o => allKnownCols.includes(o));
+        const mapping = {
+          fecha: ['fecha', 'date', 'f.factura'],
+          nif: ['nif', 'cif', 'nif_proveedor', 'nif/cif'],
+          proveedor: ['proveedor', 'nombre', 'razon_social', 'nombre_proveedor'],
+          numFactura: ['num_factura', 'numero', 'referencia', 'nº factura', 'factura', 'factura_prov', 'num_factura_proveedor'],
+          base: ['base', 'base_imponible', 'base imponible', 'subtotal'],
+          iva: ['iva', 'cuota_iva', 'cuota iva', 'importe_iva'],
+          total: ['total', 'importe_total', 'importe', 'total_factura']
+        };
 
-      // 0.1 Obtener Perfil y Numeración Secuencial para el Libro de IVA
-      const { data: perf } = await supabase.from('perfil_negocio').select('*').eq('user_id', user.id).maybeSingle();
-      const prefix = perf?.prefijo_costes || "";
-      const { data: existingNums } = await supabase.from('costes').select('num_interno, registro_interno, numero').eq('user_id', user.id);
-      const usedNumbers = (existingNums || [])
-        .map(c => {
-          const val = c.num_interno || c.registro_interno || c.numero || "";
-          if (prefix && !val.startsWith(prefix)) return NaN;
-          return parseInt(prefix ? val.slice(prefix.length) : val, 10);
-        })
-        .filter(n => !isNaN(n));
-      
-      let nextSequential = perf?.contador_costes || 1;
-      while (usedNumbers.includes(nextSequential)) {
-        nextSequential++;
-      }
+        const findVal = (row: any, options: string[]) => {
+          const key = Object.keys(row).find(k => options.includes(k.toLowerCase().trim()));
+          return key ? row[key] : null;
+        };
 
-      const entries = Object.entries(groupedData);
-      for (let i = 0; i < entries.length; i++) {
-        const [key, rows] = entries[i];
-        const firstRow = rows[0];
-        try {
-          const rawNif = firstRow.proveedor_nif || firstRow.nif_proveedor || firstRow.nif || firstRow.nif_emisor || firstRow.CIF || firstRow.cif;
-          const { fecha, num_factura, proveedor_nombre } = firstRow;
+        // AGRUPACIÓN POR FACTURA (NIF + Nº FACTURA)
+        const groupedRows: { [key: string]: any } = {};
+        
+        rows.forEach(row => {
+          const nifProvRaw = findVal(row, mapping.nif);
+          const numFactRaw = findVal(row, mapping.numFactura);
+          if (!nifProvRaw || !numFactRaw) return;
+
+          const key = `${cleanNIF(nifProvRaw)}_${numFactRaw}`;
+          if (!groupedRows[key]) {
+            groupedRows[key] = {
+              fecha: findVal(row, mapping.fecha),
+              nif: cleanNIF(nifProvRaw),
+              proveedor: findVal(row, mapping.proveedor),
+              numFactura: numFactRaw,
+              base: 0,
+              iva: 0,
+              total: 0,
+              lineas: []
+            };
+          }
           
-          if (!fecha || !num_factura || !proveedor_nombre || !rawNif) {
-            errors.push(`Grupo ${key}: Faltan campos obligatorios (fecha, num_factura, nombre o NIF).`);
-            continue;
+          const rowBase = parseFloat(findVal(row, mapping.base) || 0);
+          const rowIva = parseFloat(findVal(row, mapping.iva) || 0);
+          const rowTotal = parseFloat(findVal(row, mapping.total) || 0);
+
+          groupedRows[key].base += rowBase;
+          groupedRows[key].iva += rowIva;
+          groupedRows[key].total += rowTotal;
+          groupedRows[key].lineas.push({
+            descripcion: `Concepto Excel: ${numFactRaw}`,
+            unidades: 1,
+            precio_unitario: rowBase,
+            iva_pct: rowBase > 0 ? (rowIva / rowBase) * 100 : 21
+          });
+        });
+
+        const finalFacturas = Object.values(groupedRows);
+        let importedCount = 0;
+        let nextSequential = contadorCostes;
+        const prefix = prefijoCostes || "";
+
+        for (const fact of finalFacturas) {
+          // 1. Asegurar Proveedor
+          let provId = null;
+          const { data: provExistente } = await supabase.from('proveedores').select('id').eq('nif', fact.nif).eq('user_id', user.id).maybeSingle();
+          
+          if (provExistente) {
+            provId = provExistente.id;
+          } else {
+            const { data: newProv } = await supabase.from('proveedores').insert([{
+              nombre: fact.proveedor || 'Proveedor Importado',
+              nif: fact.nif,
+              user_id: user.id
+            }]).select('id').single();
+            provId = newProv?.id;
           }
 
-          // 1. Buscar o Crear Proveedor
-          const cleanNif = rawNif.toString().replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
-          let { data: prov } = await supabase.from('proveedores').select('id').eq('user_id', user.id).eq('nif', cleanNif).maybeSingle();
-
-          if (!prov) {
-            const { data: newProv, error: pErr } = await supabase.from('proveedores').insert({
-              user_id: user.id,
-              nombre: proveedor_nombre,
-              nif: cleanNif,
-              direccion: firstRow.proveedor_direccion || '',
-              codigo_postal: firstRow.proveedor_cp || '',
-              poblacion: firstRow.proveedor_poblacion || '',
-              provincia: firstRow.proveedor_provincia || ''
-            }).select('id').single();
-            
-            if (pErr) throw new Error(`Error creando proveedor: ${pErr.message}`);
-            prov = newProv;
-          }
-
-          // 2. Comprobar duplicado o registro existente para actualizar
-          const colNum = findKey(['num_factura_proveedor', 'numero_factura', 'num_factura', 'factura_prov', 'referencia']) || 'num_factura_proveedor';
-          const { data: exist } = await supabase.from('costes')
-            .select('id, num_interno, registro_interno, numero')
-            .eq('user_id', user.id)
-            .eq('proveedor_id', prov.id)
-            .eq(colNum, num_factura.toString())
-            .maybeSingle();
-
-          // 3. Totales del Grupo
-          let totalBI = 0;
-          let totalIVA = 0;
-          let totalRet = 0;
-          for (const r of rows) {
-            const bi = parseFloat(r.base_imponible) || 0;
-            const ipct = parseFloat(r.iva_pct) || 0;
-            const rpct = parseFloat(r.retencion_pct) || 0;
-            totalBI += bi;
-            totalIVA += bi * (ipct / 100);
-            totalRet += bi * (rpct / 100);
-          }
-
-          // Fecha
-          let finalFecha = fecha;
-          if (typeof fecha === 'number') {
-            finalFecha = new Date((fecha - (25567 + 1)) * 86400 * 1000).toISOString().split('T')[0];
-          } else if (typeof fecha === 'string' && fecha.includes('/')) {
-            const [d, m, a] = fecha.split('/');
+          // 2. Insertar Factura (Coste)
+          let finalFecha = new Date().toISOString().split('T')[0];
+          if (fact.fecha) {
+            const date = new Date(fact.fecha);
+            const a = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
             finalFecha = `${a}-${m}-${d}`;
           }
 
-          const internalNum = `${prefix}${nextSequential}`;
+          const internalNum = `${prefix}${nextSequential.toString().padStart(4, '0')}`;
           const payload: any = {
             user_id: user.id,
             fecha: finalFecha,
-            total: totalBI + totalIVA - totalRet,
-            estado_pago: firstRow.estado_pago || 'Pendiente',
-            tipo_gasto: 'general'
+            total: fact.total
           };
 
-          const setIfFound = (options: string[], value: any, target: any = payload) => {
-            const k = findKey(options);
-            if (k) target[k] = value;
+          const setIfFound = (options: string[], value: any) => {
+            const key = foundKey(options);
+            if (key) payload[key] = value;
           };
 
-          if (exist) {
-            // Durante la re-importación total, actualizamos el número de registro y el proveedor/NIF para asegurar coherencia
-            const updatePayload: any = {};
-            setIfFound(['proveedor_id', 'id_proveedor'], prov.id, updatePayload);
-            setIfFound(['num_interno', 'registro_interno', 'numero'], internalNum, updatePayload);
-            
-            const { error: uErr } = await supabase.from('costes').update(updatePayload).eq('id', exist.id);
-            if (uErr) throw new Error(`Error actualizando: ${uErr.message}`);
-            
-            nextSequential++;
-            successCount += rows.length;
-            continue;
-          }
+          setIfFound(['num_interno', 'numero'], internalNum);
+          setIfFound(['num_factura_proveedor', 'numero_factura', 'num_factura', 'factura_prov', 'referencia'], fact.numFactura);
+          setIfFound(['proveedor_id', 'id_proveedor'], provId);
+          setIfFound(['base_imponible', 'base', 'subtotal'], fact.base);
+          setIfFound(['iva_importe', 'cuota_iva', 'iva'], fact.iva);
+          setIfFound(['tipo_gasto', 'categoria'], 'general');
+          setIfFound(['estado_pago', 'status_pago'], 'Pagado'); // Por defecto en importación masiva suele estar pagado
 
-          // 4. Inserción Nueva
-          setIfFound(['num_interno', 'registro_interno', 'numero'], internalNum);
-          setIfFound(['nif_proveedor', 'proveedor_nif', 'nif'], cleanNif); // Asegurar que el NIF se guarda directamente
-          setIfFound(['serie_costes', 'serie'], perf?.serie_costes || 'A');
-          setIfFound(['num_factura_proveedor', 'numero_factura', 'num_factura', 'factura_prov', 'referencia'], num_factura.toString());
-          setIfFound(['proveedor_id', 'id_proveedor'], prov.id);
-          setIfFound(['base_imponible', 'base', 'subtotal'], totalBI);
-          setIfFound(['iva_importe', 'cuota_iva', 'iva_total', 'iva'], totalIVA);
-          setIfFound(['retencion_pct', 'irpf_pct'], parseFloat(firstRow.retencion_pct) || 0);
-          setIfFound(['retencion_importe', 'irpf_importe', 'retencion', 'irpf'], totalRet);
-
-          // 4.1 Fallback Crítico para bases de datos vacías (Solo campos esenciales garantizados)
-          if (cols.length === 0) {
-            payload.num_interno = internalNum;
-            payload.proveedor_id = prov.id;
-            // Intentar asignar el número de factura al campo más probable si no se detectó
-            if (!payload.num_factura_proveedor && !payload.numero_factura) {
-              payload.num_factura_proveedor = num_factura.toString();
-            }
-          }
-
-          const { data: newCoste, error: cErr } = await supabase.from('costes').insert(payload).select('id').single();
-
-          if (cErr) throw new Error(cErr.message);
+          const { data: newCoste, error: cErr } = await supabase.from('costes').insert([payload]).select('id').single();
           
-          nextSequential++; // Incrementar para la siguiente factura
-
-          // 5. Líneas
-          for (const r of rows) {
-             await supabase.from('coste_lineas').insert({
-                coste_id: newCoste.id,
-                user_id: user.id,
-                descripcion: r.concepto || 'Importación Excel',
-                unidades: 1,
-                precio_unitario: parseFloat(r.base_imponible) || 0,
-                iva_pct: parseFloat(r.iva_pct) || 0
-             });
+          if (newCoste) {
+            // 3. Insertar Líneas
+            const lineasToInsert = fact.lineas.map((l: any) => ({
+              coste_id: newCoste.id,
+              user_id: user.id,
+              descripcion: l.descripcion,
+              unidades: l.unidades,
+              precio_unitario: l.precio_unitario,
+              iva_pct: l.iva_pct
+            }));
+            await supabase.from('coste_lineas').insert(lineasToInsert);
+            importedCount++;
+            nextSequential++;
+          } else {
+            console.error("Error importando factura:", cErr);
           }
-          successCount += rows.length;
-        } catch (err: any) {
-          errors.push(`Error en ${key}: ${err.message}`);
         }
+
+        // 4. Actualizar contador global
+        await supabase.from('perfil_negocio').update({ contador_costes: nextSequential }).eq('user_id', user.id);
+        setContadorCostes(nextSequential);
+
+        alert(`✅ Importación completada: ${importedCount} facturas procesadas correctamente.`);
+      } catch (err: any) {
+        alert("Error al leer Excel: " + err.message);
+      } finally {
+        setSaving(false);
       }
-
-      // 6. Sincronizar el contador oficial en Ajustes
-      await supabase.from('perfil_negocio').update({ contador_costes: nextSequential }).eq('user_id', user.id);
-
-
-      setImportResults({ total: jsonData.length, success: successCount, errors });
-    } catch (err: any) {
-      alert("Error crítico en importación: " + err.message);
-    } finally {
-      setIsImporting(false);
-    }
+    };
+    reader.readAsBinaryString(file);
   };
 
-  const handleResetEmitidas = async () => {
-    if (!user) return;
-    
-    const confirm1 = confirm("⚠️ ATENCIÓN: Vas a borrar TODAS las facturas EMITIDAS (Ventas), sus líneas y registros de COBROS. Esta acción es IRREVERSIBLE. ¿Estás seguro?");
-    if (!confirm1) return;
-
-    const confirmText = prompt("Para confirmar el borrado de VENTAS, escribe la palabra: BORRAR");
-    if (confirmText !== "BORRAR") {
-      alert("Operación cancelada. El texto de confirmación no coincide.");
-      return;
-    }
-
-    setIsResetting(true);
-    try {
-      await supabase.from('venta_lineas').delete().eq('user_id', user.id);
-      await supabase.from('cobros').delete().eq('user_id', user.id);
-      await supabase.from('ventas').delete().eq('user_id', user.id);
-      
-      await supabase.from('perfil_negocio').update({
-        contador_ventas: 1
-      }).eq('user_id', user.id);
-
-      alert("✅ Datos de VENTAS eliminados correctamente. El contador ha sido reseteado a 1.");
-      window.location.reload();
-    } catch (err: any) {
-      alert("Error al resetear ventas: " + err.message);
-    } finally {
-      setIsResetting(false);
-    }
-  };
-
-  const handleResetRecibidas = async () => {
-    if (!user) return;
-    
-    const confirm1 = confirm("⚠️ ATENCIÓN: Vas a borrar TODAS las facturas RECIBIDAS (Costes), PROVEEDORES y registros de PAGOS. Esta acción es IRREVERSIBLE. ¿Estás seguro?");
-    if (!confirm1) return;
-
-    const confirmText = prompt("Para confirmar el borrado de COSTES y PROVEEDORES, escribe la palabra: BORRAR");
-    if (confirmText !== "BORRAR") {
-      alert("Operación cancelada. El texto de confirmación no coincide.");
-      return;
-    }
-
-    setIsResetting(true);
-    try {
-      await supabase.from('coste_lineas').delete().eq('user_id', user.id);
-      await supabase.from('pagos').delete().eq('user_id', user.id);
-      await supabase.from('costes').delete().eq('user_id', user.id);
-      await supabase.from('proveedores').delete().eq('user_id', user.id);
-
-      await supabase.from('perfil_negocio').update({
-        contador_costes: 1
-      }).eq('user_id', user.id);
-
-      alert("✅ Datos de COSTES y PROVEEDORES eliminados correctamente. El contador ha sido reseteado a 1.");
-      window.location.reload();
-    } catch (err: any) {
-      alert("Error al resetear costes: " + err.message);
-    } finally {
-      setIsResetting(false);
-    }
-  };
-
-  const downloadExcelTemplate = async () => {
-    const XLSX = await import('xlsx');
-    const ws = XLSX.utils.json_to_sheet([
-      {
-        fecha: '2024-05-01',
-        num_factura: 'INV-001',
-        proveedor_nombre: 'Proveedor Ejemplo S.L.',
-        proveedor_nif: 'B12345678',
-        proveedor_direccion: 'Calle Falsa 123',
-        proveedor_cp: '28001',
-        proveedor_poblacion: 'Madrid',
-        proveedor_provincia: 'Madrid',
-        concepto: 'Compra de materiales oficina',
-        base_imponible: 100.50,
-        iva_pct: 21,
-        retencion_pct: 0,
-        estado_pago: 'Pagado'
-      }
-    ]);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Plantilla");
-    XLSX.writeFile(wb, "Plantilla_Importacion_Gastos.xlsx");
-  };
-
-  const [activeTab, setActiveTab] = useState<'perfil' | 'ai' | 'legales' | 'seguridad' | 'fiscalidad' | 'backup' | 'email' | 'import' | 'mantenimiento'>('perfil');
-
-  if (loading) return null;
-
-  if (!user) return (
-    <div className="flex h-screen items-center justify-center bg-gray-100 p-4 font-sans">
-      <div className="bg-white p-12 rounded-3xl shadow-2xl border max-w-sm w-full text-center space-y-6">
-        <Lock className="text-blue-600 mx-auto" size={48} />
-        <h2 className="text-2xl font-black text-gray-800 tracking-tight text-balance">Acceso Restringido</h2>
-        <a href="/login" className="block w-full py-4 bg-blue-600 text-white font-bold rounded-2xl shadow-lg transition-all font-sans">Identificarse</a>
+  if (loading) {
+    return (
+      <div className="flex bg-[var(--background)] h-screen">
+        <Sidebar />
+        <div className="flex-1 flex items-center justify-center">
+          <Loader2 className="animate-spin text-[var(--accent)]" size={40} />
+        </div>
       </div>
-    </div>
-  );
-
-  const navItems = [
-    { id: 'perfil', label: 'Identidad', icon: Building2, color: 'text-blue-600' },
-    { id: 'ai', label: 'IA & Bot', icon: RefreshCcw, color: 'text-purple-600' },
-    { id: 'legales', label: 'Legal & LOPD', icon: Scale, color: 'text-orange-600' },
-    { id: 'seguridad', label: 'Seguridad', icon: ShieldCheck, color: 'text-green-600' },
-    { id: 'email', label: 'Email', icon: FileText, color: 'text-blue-500' },
-    { id: 'fiscalidad', label: 'Fiscalidad', icon: Percent, color: 'text-emerald-600' },
-    { id: 'backup', label: 'Backup', icon: Database, color: 'text-indigo-600' },
-    { id: 'import', label: 'Importar', icon: Table, color: 'text-pink-600' },
-    { id: 'mantenimiento', label: 'Mantenimiento', icon: AlertTriangle, color: 'text-red-600' },
-  ];
-
-  const lastBackup = autoBackups[0];
-  const lastBackupStr = lastBackup 
-    ? new Date(lastBackup.created_at).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-    : 'No disponible';
+    );
+  }
 
   return (
-    <div className="flex bg-[var(--background)] min-h-screen">
+    <div className="flex bg-[var(--background)] min-h-screen text-left">
       <Sidebar />
-      
-      {/* Selector de Apartados (Nueva Columna) */}
-      <nav className="w-72 bg-white/50 backdrop-blur-xl border-r border-[var(--border)] p-6 space-y-2 hidden md:block">
-        <div className="mb-10 pl-2">
-          <h2 className="text-xs font-black text-gray-400 uppercase tracking-[0.2em]">Configuración</h2>
-        </div>
-        {navItems.map((item) => (
-          <button
-            key={item.id}
-            onClick={() => setActiveTab(item.id as any)}
-            className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all duration-300 font-sans group ${
-              activeTab === item.id 
-                ? 'bg-white shadow-sm border border-gray-100 translate-x-1' 
-                : 'hover:bg-gray-100/50 text-gray-500'
-            }`}
-          >
-            <item.icon 
-              size={20} 
-              className={`${activeTab === item.id ? item.color : 'text-gray-300 group-hover:text-gray-400'} transition-colors`} 
-            />
-            <span className={`text-sm font-bold ${activeTab === item.id ? 'text-gray-900' : 'text-gray-500'}`}>
-              {item.label}
-            </span>
-          </button>
-        ))}
-
-        <div className="mt-20 p-6 bg-[var(--accent)] rounded-3xl text-white shadow-xl relative overflow-hidden group">
-          <ShieldCheck size={80} className="absolute -bottom-4 -right-4 opacity-10 group-hover:rotate-12 transition-transform" />
-          <p className="text-[10px] font-black uppercase tracking-widest text-white/50 mb-2">Estado Sistema</p>
-          <div className="flex items-center gap-2 mb-3">
-            <div className="h-2 w-2 rounded-full bg-green-300 animate-pulse" />
-            <span className="text-xs font-bold">Sistema Protegido</span>
-          </div>
-          <div className="pt-3 border-t border-white/10">
-            <p className="text-[10px] font-bold text-white/40 uppercase tracking-wider">Última Copia</p>
-            <p className="text-[11px] font-mono text-white/90">{lastBackupStr}</p>
-          </div>
-        </div>
-      </nav>
-
-      <div className="flex-1 p-8 space-y-10 animate-in fade-in duration-500 overflow-y-auto text-left font-sans">
-        <header className="flex justify-between items-end">
+      <div className="flex-1 p-8 overflow-y-auto">
+        <header className="flex justify-between items-end mb-10">
           <div>
-            <h1 className="text-4xl font-black font-head tracking-tighter text-[var(--foreground)]">
-              {navItems.find(n => n.id === activeTab)?.label}
-            </h1>
-            <p className="text-[var(--muted)] font-medium font-sans">
-              Personaliza tu entorno de trabajo y seguridad.
-            </p>
+            <h1 className="text-3xl font-black font-head tracking-tight mb-2 text-gray-900">Configuración</h1>
+            <p className="text-[var(--muted)] font-medium">Personaliza tu perfil, facturación y seguridad.</p>
           </div>
-          <div className={`px-5 py-2 rounded-full text-xs font-bold border flex items-center gap-2 transition-all duration-300 font-sans ${autoStatus === 'saving' ? 'bg-blue-50 text-blue-600 border-blue-100' : autoStatus === 'saved' ? 'bg-green-50 text-green-700 border-green-100' : 'bg-gray-50 text-gray-400 border-gray-100'}`}>
-            {autoStatus === 'saving' ? <Loader2 className="animate-spin" size={14} /> : autoStatus === 'saved' ? <CheckCircle2 size={14} /> : <ShieldCheck size={14} />}
-            {autoStatus === 'saving' ? 'Guardando...' : autoStatus === 'saved' ? 'Sincronizado' : `Sesión: ${user.email}`}
+          <div className="flex items-center gap-3">
+             {saving && (
+               <div className="flex items-center gap-2 text-[10px] font-black text-[var(--accent)] uppercase tracking-widest bg-[var(--accent-alpha)] px-4 py-2 rounded-full animate-pulse">
+                 <RefreshCcw size={12} className="animate-spin" /> Auto-guardando...
+               </div>
+             )}
+             <button onClick={handleSaveAll} disabled={saving} className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-gray-900 text-white font-black hover:bg-black transition-all active:scale-[0.98] shadow-xl">
+               <Save size={18} /> Guardar Cambios
+             </button>
           </div>
         </header>
 
-        <main className="max-w-4xl pb-32">
-          {activeTab === 'perfil' && (
-            <div className="bg-white rounded-[2rem] border p-10 shadow-sm space-y-10 animate-in slide-in-from-bottom-4 duration-500">
-               <div className="flex items-start justify-between border-b pb-8">
-                  <div className="space-y-1">
-                    <h2 className="text-2xl font-black font-head text-gray-900">Perfil de Empresa</h2>
-                    <p className="text-sm text-gray-400 font-sans">Estos datos aparecerán en todas tus facturas y presupuestos.</p>
-                  </div>
-                  <Building2 className="text-blue-100" size={48} />
-               </div>
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+          {/* Menú Lateral de Ajustes */}
+          <div className="lg:col-span-1 space-y-2">
+            <button onClick={() => setActiveTab("negocio")} className={`w-full flex items-center gap-3 px-6 py-4 rounded-2xl font-black transition-all ${activeTab === "negocio" ? "bg-white text-[var(--accent)] shadow-md border-l-4 border-[var(--accent)]" : "text-gray-400 hover:text-gray-600 hover:bg-white/50"}`}>
+              <Building2 size={20} /> Empresa
+            </button>
+            <button onClick={() => setActiveTab("facturacion")} className={`w-full flex items-center gap-3 px-6 py-4 rounded-2xl font-black transition-all ${activeTab === "facturacion" ? "bg-white text-[var(--accent)] shadow-md border-l-4 border-[var(--accent)]" : "text-gray-400 hover:text-gray-600 hover:bg-white/50"}`}>
+              <FileText size={20} /> Facturación
+            </button>
+            <button onClick={() => setActiveTab("email")} className={`w-full flex items-center gap-3 px-6 py-4 rounded-2xl font-black transition-all ${activeTab === "email" ? "bg-white text-[var(--accent)] shadow-md border-l-4 border-[var(--accent)]" : "text-gray-400 hover:text-gray-600 hover:bg-white/50"}`}>
+              <Mail size={20} /> Email & SMTP
+            </button>
+            <button onClick={() => setActiveTab("integraciones")} className={`w-full flex items-center gap-3 px-6 py-4 rounded-2xl font-black transition-all ${activeTab === "integraciones" ? "bg-white text-[var(--accent)] shadow-md border-l-4 border-[var(--accent)]" : "text-gray-400 hover:text-gray-600 hover:bg-white/50"}`}>
+              <Share2 size={20} /> IA & Verifactu
+            </button>
+            <button onClick={() => setActiveTab("legal")} className={`w-full flex items-center gap-3 px-6 py-4 rounded-2xl font-black transition-all ${activeTab === "legal" ? "bg-white text-[var(--accent)] shadow-md border-l-4 border-[var(--accent)]" : "text-gray-400 hover:text-gray-600 hover:bg-white/50"}`}>
+              <BookOpen size={20} /> Textos Legales
+            </button>
+            <button onClick={() => setActiveTab("seguridad")} className={`w-full flex items-center gap-3 px-6 py-4 rounded-2xl font-black transition-all ${activeTab === "seguridad" ? "bg-white text-[var(--accent)] shadow-md border-l-4 border-[var(--accent)]" : "text-gray-400 hover:text-gray-600 hover:bg-white/50"}`}>
+              <Shield size={20} /> Backup & Nube
+            </button>
+          </div>
 
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                <div className="space-y-3">
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1 font-sans">Logo Corporativo</label>
-                  <div className="group relative h-40 w-full overflow-hidden rounded-3xl border-2 border-dashed border-gray-100 bg-gray-50/50 transition-all hover:border-blue-200">
-                    {logoUrl ? (
-                      <div className="relative h-full w-full p-4 flex items-center justify-center">
-                        <img src={logoUrl} alt="Logo" className="max-h-full max-w-full object-contain" />
-                        <button onClick={() => setLogoUrl('')} className="absolute top-4 right-4 p-2 bg-white/80 backdrop-blur shadow-sm rounded-xl text-red-500 hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100"><Trash2 size={16} /></button>
-                      </div>
-                    ) : (
-                      <button onClick={() => triggerUpload('logo')} className="flex h-full w-full flex-col items-center justify-center gap-3">
-                        <div className="p-4 bg-white rounded-2xl shadow-sm text-blue-500"><Upload size={24} /></div>
-                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Subir Logo</p>
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1 font-sans">Imagen para PDF (Anexo)</label>
-                  <div className="group relative h-40 w-full overflow-hidden rounded-3xl border-2 border-dashed border-gray-100 bg-gray-50/50 transition-all hover:border-orange-200">
-                    {imagenCorporativaUrl ? (
-                      <div className="relative h-full w-full p-4 flex items-center justify-center">
-                        <img src={imagenCorporativaUrl} alt="Corp" className="max-h-full max-w-full object-contain" />
-                        <button onClick={() => setImagenCorporativaUrl('')} className="absolute top-4 right-4 p-2 bg-white/80 backdrop-blur shadow-sm rounded-xl text-red-500 hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100"><Trash2 size={16} /></button>
-                      </div>
-                    ) : (
-                      <button onClick={() => triggerUpload('corp')} className="flex h-full w-full flex-col items-center justify-center gap-3">
-                        <div className="p-4 bg-white rounded-2xl shadow-sm text-orange-500"><Upload size={24} /></div>
-                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Subir Imagen</p>
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                <div className="md:col-span-2 space-y-1">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1 font-sans">Razón Social</label>
-                  <input type="text" value={nombre} onChange={e => setNombre(e.target.value)} className="w-full px-6 py-5 rounded-[1.5rem] border bg-gray-50 outline-none font-sans text-lg font-bold focus:bg-white focus:ring-4 focus:ring-blue-500/5 transition-all" />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1 font-sans">NIF / CIF</label>
-                  <input type="text" value={nif} onChange={e => setNif(e.target.value.toUpperCase())} className="w-full px-6 py-5 rounded-[1.5rem] border bg-gray-50 outline-none font-sans focus:bg-white transition-all capitalize" />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1 font-sans">IBAN Principal</label>
-                  <input type="text" value={cuentaBancaria} onChange={e => setCuentaBancaria(formatIBAN(e.target.value))} className="w-full px-6 py-5 rounded-[1.5rem] border bg-gray-50 font-mono text-sm focus:bg-white transition-all" />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1 font-sans">Teléfono</label>
-                  <input type="text" value={telefono} onChange={e => setTelefono(e.target.value)} className="w-full px-6 py-5 rounded-[1.5rem] border bg-gray-50 outline-none font-sans focus:bg-white transition-all" />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1 font-sans">Email Corporativo</label>
-                  <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full px-6 py-5 rounded-[1.5rem] border bg-gray-50 outline-none font-sans focus:bg-white transition-all" />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1 font-sans">Sitio Web</label>
-                  <input type="text" value={web} onChange={e => setWeb(e.target.value)} placeholder="www.tuweb.com" className="w-full px-6 py-5 rounded-[1.5rem] border bg-gray-50 outline-none font-sans focus:bg-white transition-all" />
-                </div>
-
-                <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t border-dashed">
-                  <div className="md:col-span-3 space-y-1">
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1 font-sans">Dirección</label>
-                    <input type="text" value={direccion} onChange={e => setDireccion(e.target.value)} className="w-full px-6 py-5 rounded-[1.5rem] border bg-gray-50 font-sans focus:bg-white transition-all" />
-                  </div>
-                  <input type="text" placeholder="C.P." value={cp} maxLength={5} onChange={e => setCp(e.target.value)} className="px-6 py-5 rounded-[1.5rem] border bg-gray-50 outline-none font-mono focus:bg-white transition-all" />
-                  <input type="text" placeholder="Ciudad" value={poblacion} onChange={e => setPoblacion(e.target.value)} className="px-6 py-5 rounded-[1.5rem] border bg-gray-50 outline-none font-sans focus:bg-white transition-all" />
-                  <input type="text" placeholder="Provincia" value={provincia} onChange={e => setProvincia(e.target.value)} className="px-6 py-5 rounded-[1.5rem] border bg-gray-50 outline-none font-sans focus:bg-white transition-all" />
-                </div>
-
-                <div className="md:col-span-2 pt-8 border-t border-dashed">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="p-2 bg-blue-50 rounded-lg text-blue-600"><RotateCcw size={18} /></div>
-                    <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest pl-1 font-sans">Contadores de Documentos</h3>
+          {/* Contenido Principal */}
+          <div className="lg:col-span-3 space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+            {activeTab === "negocio" && (
+              <div className="space-y-6">
+                <div className="glass-card p-10 space-y-8">
+                  <div className="flex items-center gap-4 mb-2">
+                    <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600">
+                      <Building2 size={24} />
+                    </div>
+                    <h2 className="text-xl font-black tracking-tight">Datos Fiscales</h2>
                   </div>
                   
-                  <div className="space-y-4">
-                    {/* Fila Ventas */}
-                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between p-6 bg-white rounded-[2rem] border border-gray-100 shadow-sm hover:shadow-md transition-shadow gap-6 group">
-                      <div className="flex items-center gap-4">
-                        <div className="p-3 bg-blue-50 rounded-2xl text-blue-600 transition-transform group-hover:scale-110">
-                           <FileText size={20} />
-                        </div>
-                        <div className="space-y-0.5">
-                           <h4 className="text-sm font-black text-gray-900 uppercase tracking-tight">Ventas</h4>
-                           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Facturación Emitida</p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-4 w-full md:w-auto">
-                        <div className="space-y-1.5 flex-1 md:flex-none">
-                           <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest pl-1">Prefijo</span>
-                           <input 
-                              type="text" 
-                              value={prefijoVentas} 
-                              onChange={e => setPrefijoVentas(e.target.value)} 
-                              placeholder="F-" 
-                              className="w-full md:w-24 px-4 py-3.5 rounded-2xl border bg-gray-50/50 font-black text-blue-600 text-center uppercase focus:bg-white focus:ring-4 focus:ring-blue-500/5 transition-all outline-none" 
-                           />
-                        </div>
-                        <div className="space-y-1.5 flex-2 md:flex-none">
-                           <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest pl-1">Siguiente Número</span>
-                           <input 
-                              type="number" 
-                              value={contadorVentas} 
-                              onChange={e => setContadorVentas(parseInt(e.target.value) || 1)} 
-                              className="w-full md:w-32 px-5 py-3.5 rounded-2xl border bg-gray-50/50 font-mono font-bold text-gray-800 text-right focus:bg-white focus:ring-4 focus:ring-blue-500/5 transition-all outline-none" 
-                           />
-                        </div>
-                      </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Razón Social</label>
+                      <input type="text" value={nombre} onChange={(e) => setNombre(e.target.value)} className="w-full px-6 py-4 rounded-2xl border bg-gray-50 outline-none font-bold focus:bg-white focus:ring-4 focus:ring-blue-500/10 transition-all" placeholder="Nombre de tu empresa" />
                     </div>
-
-                    {/* Fila Compras */}
-                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between p-6 bg-white rounded-[2rem] border border-gray-100 shadow-sm hover:shadow-md transition-shadow gap-6 group">
-                      <div className="flex items-center gap-4">
-                        <div className="p-3 bg-red-50 rounded-2xl text-red-600 transition-transform group-hover:scale-110">
-                           <ShieldCheck size={20} />
-                        </div>
-                        <div className="space-y-0.5">
-                           <h4 className="text-sm font-black text-gray-900 uppercase tracking-tight">Compras</h4>
-                           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Gastos y Recibidas</p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-4 w-full md:w-auto">
-                        <div className="space-y-1.5 flex-1 md:flex-none">
-                           <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest pl-1">Prefijo</span>
-                           <input 
-                              type="text" 
-                              value={prefijoCostes} 
-                              onChange={e => setPrefijoCostes(e.target.value)} 
-                              placeholder="G-" 
-                              className="w-full md:w-24 px-4 py-3.5 rounded-2xl border bg-gray-50/50 font-black text-red-600 text-center uppercase focus:bg-white focus:ring-4 focus:ring-red-500/5 transition-all outline-none" 
-                           />
-                        </div>
-                        <div className="space-y-1.5 flex-2 md:flex-none">
-                           <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest pl-1">Siguiente Número</span>
-                           <input 
-                              type="number" 
-                              value={contadorCostes} 
-                              onChange={e => setContadorCostes(parseInt(e.target.value) || 1)} 
-                              className="w-full md:w-32 px-5 py-3.5 rounded-2xl border bg-gray-50/50 font-mono font-bold text-gray-800 text-right focus:bg-white focus:ring-4 focus:ring-blue-500/5 transition-all outline-none" 
-                           />
-                        </div>
-                      </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">NIF / CIF</label>
+                      <input type="text" value={nif} onChange={(e) => setNif(e.target.value)} className="w-full px-6 py-4 rounded-2xl border bg-gray-50 outline-none font-mono font-bold focus:bg-white transition-all uppercase" placeholder="B12345678" />
                     </div>
-
-                    {/* Fila Presupuestos */}
-                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between p-6 bg-white rounded-[2rem] border border-gray-100 shadow-sm hover:shadow-md transition-shadow gap-6 group">
-                      <div className="flex items-center gap-4">
-                        <div className="p-3 bg-orange-50 rounded-2xl text-orange-600 transition-transform group-hover:scale-110">
-                           <ImageIcon size={20} />
-                        </div>
-                        <div className="space-y-0.5">
-                           <h4 className="text-sm font-black text-gray-900 uppercase tracking-tight">Presupuestos</h4>
-                           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Propuestas y Proyectos</p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-4 w-full md:w-auto">
-                        <div className="space-y-1.5 flex-1 md:flex-none">
-                           <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest pl-1">Prefijo</span>
-                           <input 
-                              type="text" 
-                              value={prefijoProyectos} 
-                              onChange={e => setPrefijoProyectos(e.target.value)} 
-                              placeholder="P-" 
-                              className="w-full md:w-24 px-4 py-3.5 rounded-2xl border bg-gray-50/50 font-black text-orange-600 text-center uppercase focus:bg-white focus:ring-4 focus:ring-orange-500/5 transition-all outline-none" 
-                           />
-                        </div>
-                        <div className="space-y-1.5 flex-2 md:flex-none">
-                           <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest pl-1">Siguiente Número</span>
-                           <input 
-                              type="number" 
-                              value={contadorProyectos} 
-                              onChange={e => setContadorProyectos(parseInt(e.target.value) || 1)} 
-                              className="w-full md:w-32 px-5 py-3.5 rounded-2xl border bg-gray-50/50 font-mono font-bold text-gray-800 text-right focus:bg-white focus:ring-4 focus:ring-orange-500/5 transition-all outline-none" 
-                           />
-                        </div>
-                      </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Email de Contacto</label>
+                      <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-6 py-4 rounded-2xl border bg-gray-50 outline-none font-bold focus:bg-white transition-all" placeholder="hola@empresa.com" />
                     </div>
-                  </div>
-                  <p className="text-[10px] text-gray-400 mt-4 px-2 italic font-sans">
-                    Define aquí el número por el que deseas que comiencen tus próximos documentos. Se incrementarán automáticamente después de cada emisión.
-                  </p>
-                </div>
-               </div>
-
-               {saveError && (
-                <div className="p-5 bg-red-50 border border-red-100 rounded-[1.5rem] text-red-600 text-xs font-bold font-sans flex items-center gap-3">
-                  <Trash2 size={18} /> Error al sincronizar: {saveError}.
-                </div>
-               )}
-            </div>
-          )}
-
-          {activeTab === 'ai' && (
-            <div className="bg-white rounded-[2rem] border p-10 shadow-sm space-y-10 animate-in slide-in-from-bottom-4 duration-500 border-purple-100">
-               <div className="flex items-start justify-between border-b pb-8">
-                  <div className="space-y-1">
-                    <h2 className="text-2xl font-black font-head text-purple-900">Inteligencia Artificial</h2>
-                    <p className="text-sm text-gray-400 font-sans">Configura los motores de IA para automatizar tu gestión.</p>
-                  </div>
-                  <RefreshCcw className="text-purple-100" size={48} />
-               </div>
-
-               <div className="space-y-8">
-                  <div className="p-8 bg-purple-50/50 rounded-[2rem] border border-purple-100 space-y-6">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-black text-purple-400 uppercase tracking-widest pl-1">Gemini API Key (Google Cloud)</label>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Teléfono</label>
+                      <input type="text" value={telefono} onChange={(e) => setTelefono(e.target.value)} className="w-full px-6 py-4 rounded-2xl border bg-gray-50 outline-none font-bold focus:bg-white transition-all" placeholder="+34 600 000 000" />
+                    </div>
+                    <div className="md:col-span-2 space-y-2">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">IBAN (Cifrado en Reposo)</label>
                       <div className="relative">
-                        <input 
-                          type="password" 
-                          value={geminiKey} 
-                          onChange={e => setGeminiKey(e.target.value)} 
-                          className="w-full pl-14 pr-6 py-5 rounded-[1.5rem] border bg-white outline-none font-mono text-sm focus:ring-4 focus:ring-purple-500/10 transition-all" 
-                          placeholder="AIzaSy..." 
-                        />
-                        <Lock className="absolute left-6 top-1/2 -translate-y-1/2 text-purple-300" size={20} />
+                        <CreditCard className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-300" size={20} />
+                        <input type="text" value={cuentaBancaria} onChange={(e) => setCuentaBancaria(e.target.value)} className="w-full pl-16 pr-6 py-4 rounded-2xl border bg-gray-50 outline-none font-mono font-bold focus:bg-white transition-all" placeholder="ES00 0000 0000 0000 0000 0000" />
                       </div>
-                      <p className="text-[10px] text-purple-700/60 mt-4 pl-1 leading-relaxed font-sans italic">
-                        Esta llave se utiliza para la extracción automática de datos desde facturas en PDF. La información se procesa localmente en tu sesión y no se utiliza para entrenar modelos.
-                      </p>
-                    </div>
-
-                    <div className="pt-4 flex justify-end">
-                       <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="px-6 py-3 bg-purple-600 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-purple-200 hover:bg-purple-700 transition-all">Obtener Clave Gratis</a>
                     </div>
                   </div>
-               </div>
-            </div>
-          )}
 
-          {activeTab === 'legales' && (
-            <div className="bg-white rounded-[2rem] border p-10 shadow-sm space-y-10 animate-in slide-in-from-bottom-4 duration-500">
-               <div className="flex items-start justify-between border-b pb-8">
-                  <div className="space-y-1">
-                    <h2 className="text-2xl font-black font-head text-gray-900">Textos Legales</h2>
-                    <p className="text-sm text-gray-400 font-sans">Condiciones, LOPD y cláusulas de aceptación.</p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div className="md:col-span-2 space-y-2">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Dirección Postal</label>
+                      <input type="text" value={direccion} onChange={(e) => setDireccion(e.target.value)} className="w-full px-6 py-4 rounded-2xl border bg-gray-50 outline-none font-bold focus:bg-white transition-all" placeholder="Calle Ejemplo, 123" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Código Postal</label>
+                      <input type="text" value={cp} maxLength={5} onChange={(e) => handleCPChange(e.target.value)} className="w-full px-6 py-4 rounded-2xl border bg-gray-50 outline-none font-bold focus:bg-white transition-all" placeholder="28001" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Población</label>
+                      <input type="text" value={poblacion} onChange={(e) => setPoblacion(e.target.value)} className="w-full px-6 py-4 rounded-2xl border bg-gray-50 outline-none font-bold focus:bg-white transition-all" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Provincia</label>
+                      <input type="text" value={provincia} onChange={(e) => setProvincia(e.target.value)} className="w-full px-6 py-4 rounded-2xl border bg-gray-50 outline-none font-bold focus:bg-white transition-all" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Sitio Web</label>
+                      <input type="text" value={web} onChange={(e) => setWeb(e.target.value)} className="w-full px-6 py-4 rounded-2xl border bg-gray-50 outline-none font-bold focus:bg-white transition-all" placeholder="www.tuempresa.com" />
+                    </div>
                   </div>
-                  <Scale className="text-orange-100" size={48} />
-               </div>
+                </div>
 
-               <div className="space-y-8">
-                 <div className="space-y-3">
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1 font-sans flex items-center gap-2"><FileText size={16} /> Condiciones Generales</label>
-                    <RichTextEditor 
-                      value={condicionesLegales} 
-                      onChange={setCondicionesLegales}
-                      placeholder="Estas condiciones aparecerán en el pie de los presupuestos..."
-                    />
-                 </div>
-
-                 <div className="space-y-3">
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1 font-sans flex items-center gap-2"><ShieldCheck size={16} /> Cláusula LOPD</label>
-                    <RichTextEditor 
-                      value={lopdText} 
-                      onChange={setLopdText}
-                      placeholder="Texto legal para dar cumplimiento a la normativa de protección de datos..."
-                    />
-                 </div>
-
-                 <div className="space-y-3">
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1 font-sans flex items-center gap-2"><DownloadCloud size={16} /> Forma de Pago Predeterminada</label>
-                    <RichTextEditor 
-                      value={formaPago} 
-                      onChange={setFormaPago}
-                      placeholder="Ej: Transferencia bancaria a la cuenta indicada arriba..."
-                    />
-                 </div>
-
-                 <button onClick={handleSaveLegales} className="w-full py-5 bg-gray-900 text-white rounded-[1.5rem] font-black uppercase tracking-[0.2em] shadow-xl hover:bg-black transition-all">Guardar Cláusulas</button>
-               </div>
-            </div>
-          )}
-
-          {activeTab === 'seguridad' && (
-            <div className="bg-white rounded-[2rem] border p-10 shadow-sm space-y-10 animate-in slide-in-from-bottom-4 duration-500 border-green-50">
-               <div className="flex items-start justify-between border-b pb-8">
-                  <div className="space-y-1">
-                    <h2 className="text-2xl font-black font-head text-green-900">Seguridad de la Cuenta</h2>
-                    <p className="text-sm text-gray-400 font-sans">Protege tu acceso con verificación de doble factor.</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="glass-card p-10 space-y-6">
+                    <div className="flex items-center gap-3">
+                      <Palette className="text-purple-500" size={24} />
+                      <h3 className="text-xl font-black tracking-tight">Identidad Visual</h3>
+                    </div>
+                    <div className="space-y-4">
+                      <label className="block p-8 border-2 border-dashed border-gray-200 rounded-[2rem] hover:border-[var(--accent)] hover:bg-blue-50/30 transition-all cursor-pointer group text-center">
+                        <input type="file" className="hidden" accept="image/*" onChange={handleLogoUpload} />
+                        {logoUrl ? (
+                          <div className="space-y-4">
+                            <img src={logoUrl} alt="Logo" className="h-16 mx-auto object-contain drop-shadow-xl" />
+                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest group-hover:text-[var(--accent)]">Click para cambiar Logo</span>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <Upload className="mx-auto text-gray-300 group-hover:text-[var(--accent)] group-hover:scale-110 transition-all" size={32} />
+                            <span className="block text-[10px] font-black text-gray-400 uppercase tracking-widest">Subir Logotipo</span>
+                          </div>
+                        )}
+                      </label>
+                      <p className="text-[10px] text-gray-400 italic text-center">Usado en facturas, presupuestos y albaranes.</p>
+                    </div>
                   </div>
-                  <ShieldCheck className="text-green-100" size={48} />
-               </div>
 
-               <div className="space-y-8">
-                  <div className="flex items-center justify-between p-10 bg-green-50/50 rounded-[2.5rem] border border-green-100">
-                    <div className="flex gap-6 items-center">
-                      <div className={`p-5 rounded-2xl ${twoFactorEnabled ? 'bg-green-100 text-green-600' : 'bg-gray-200 text-gray-400'}`}>
-                         <Smartphone size={32} />
+                  <div className="glass-card p-10 space-y-6">
+                    <div className="flex items-center gap-3">
+                      <BookOpen className="text-orange-500" size={24} />
+                      <h3 className="text-xl font-black tracking-tight">Imagen de Marca</h3>
+                    </div>
+                    <div className="space-y-4">
+                      <label className="block p-8 border-2 border-dashed border-gray-200 rounded-[2rem] hover:border-orange-500 hover:bg-orange-50/30 transition-all cursor-pointer group text-center">
+                        <input type="file" className="hidden" accept="image/*" onChange={handleCorpImageUpload} />
+                        {imagenCorporativaUrl ? (
+                          <div className="space-y-4">
+                            <img src={imagenCorporativaUrl} alt="Corp" className="h-16 mx-auto object-contain rounded-lg shadow-xl" />
+                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest group-hover:text-orange-500">Click para cambiar Imagen</span>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <Plus className="mx-auto text-gray-300 group-hover:text-orange-500 group-hover:scale-110 transition-all" size={32} />
+                            <span className="block text-[10px] font-black text-gray-400 uppercase tracking-widest">Añadir Portada</span>
+                          </div>
+                        )}
+                      </label>
+                      <p className="text-[10px] text-gray-400 italic text-center">Imagen corporativa para la portada de presupuestos.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === "facturacion" && (
+              <div className="space-y-8 animate-in fade-in duration-500">
+                <div className="glass-card p-10">
+                  <div className="flex items-center gap-4 mb-8">
+                    <div className="w-12 h-12 bg-orange-50 rounded-2xl flex items-center justify-center text-orange-600">
+                      <FileText size={24} />
+                    </div>
+                    <h2 className="text-xl font-black tracking-tight">Series y Contadores</h2>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div className="bg-gray-50 rounded-[2rem] p-8 space-y-6">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Facturas Emitidas</h3>
+                        <span className="px-2 py-1 bg-green-100 text-green-700 text-[9px] font-black rounded uppercase">Ventas</span>
                       </div>
+                      <div className="space-y-4">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-gray-400 ml-1">Siguiente Número</label>
+                          <input type="number" value={contadorVentas} onChange={(e) => setContadorVentas(parseInt(e.target.value) || 1)} className="w-full px-5 py-3 rounded-xl border bg-white font-black text-xl text-[var(--accent)]" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-gray-400 ml-1">Serie</label>
+                            <input type="text" value={serieVentas} onChange={(e) => setSerieVentas(e.target.value)} className="w-full px-5 py-3 rounded-xl border bg-white font-bold" placeholder="A" />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-gray-400 ml-1">Prefijo</label>
+                            <input type="text" value={prefijoVentas} onChange={(e) => setPrefijoVentas(e.target.value)} className="w-full px-5 py-3 rounded-xl border bg-white font-bold" placeholder="F-2024-" />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-gray-50 rounded-[2rem] p-8 space-y-6">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Facturas Recibidas</h3>
+                        <span className="px-2 py-1 bg-purple-100 text-purple-700 text-[9px] font-black rounded uppercase">Costes</span>
+                      </div>
+                      <div className="space-y-4">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-gray-400 ml-1">Siguiente Registro</label>
+                          <input type="number" value={contadorCostes} onChange={(e) => setContadorCostes(parseInt(e.target.value) || 1)} className="w-full px-5 py-3 rounded-xl border bg-white font-black text-xl text-purple-600" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-gray-400 ml-1">Serie</label>
+                            <input type="text" value={serieCostes} onChange={(e) => setSerieCostes(e.target.value)} className="w-full px-5 py-3 rounded-xl border bg-white font-bold" placeholder="C" />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-gray-400 ml-1">Prefijo</label>
+                            <input type="text" value={prefijoCostes} onChange={(e) => setPrefijoCostes(e.target.value)} className="w-full px-5 py-3 rounded-xl border bg-white font-bold" placeholder="G-2024-" />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-gray-50 rounded-[2rem] p-8 space-y-6">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Presupuestos</h3>
+                        <span className="px-2 py-1 bg-orange-100 text-orange-700 text-[9px] font-black rounded uppercase">Proyectos</span>
+                      </div>
+                      <div className="space-y-4">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-gray-400 ml-1">Siguiente Número</label>
+                          <input type="number" value={contadorProyectos} onChange={(e) => setContadorProyectos(parseInt(e.target.value) || 1)} className="w-full px-5 py-3 rounded-xl border bg-white font-black text-xl text-orange-600" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-gray-400 ml-1">Prefijo</label>
+                          <input type="text" value={prefijoProyectos} onChange={(e) => setPrefijoProyectos(e.target.value)} className="w-full px-5 py-3 rounded-xl border bg-white font-bold" placeholder="P-2024-" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="glass-card p-10 space-y-8">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center text-orange-600">
+                        <Fingerprint size={20} />
+                      </div>
+                      <h3 className="text-xl font-black tracking-tight">Configuración IRPF</h3>
+                    </div>
+                    
+                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border">
                       <div className="space-y-1">
-                        <h3 className="text-lg font-black text-gray-900">Doble Factor (2FA)</h3>
-                        <p className="text-sm font-medium text-gray-500">Capa adicional de seguridad mediante Google Authenticator.</p>
+                        <span className="text-sm font-black text-gray-700">Emitir facturas con retención</span>
+                        <p className="text-[10px] text-gray-400">Activa el campo de IRPF por defecto en nuevas facturas.</p>
+                      </div>
+                      <button onClick={() => setTieneRetencion(!tieneRetencion)} className={`w-14 h-7 rounded-full p-1 transition-all ${tieneRetencion ? "bg-orange-500" : "bg-gray-300"}`}>
+                        <div className={`w-5 h-5 bg-white rounded-full shadow-md transition-all ${tieneRetencion ? "translate-x-7" : "translate-x-0"}`} />
+                      </button>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center px-1">
+                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Tipos de IRPF disponibles</label>
+                        <button onClick={addTipoIRPF} className="text-[10px] font-black text-[var(--accent)] hover:underline flex items-center gap-1"><Plus size={14} /> Añadir</button>
+                      </div>
+                      <div className="flex flex-wrap gap-3">
+                        {tiposIRPF.map(t => (
+                          <div key={t.id} className="flex items-center gap-2 px-4 py-2 bg-white border rounded-xl shadow-sm">
+                            <span className="font-bold text-sm">{t.valor}%</span>
+                            <button onClick={() => removeTipoIRPF(t.id)} className="text-gray-300 hover:text-red-500 transition-colors"><Trash2 size={14} /></button>
+                          </div>
+                        ))}
                       </div>
                     </div>
-                    <button 
-                      onClick={() => twoFactorEnabled ? disable2FA() : setup2FA()}
-                      className={`px-10 py-4 rounded-2xl text-xs font-black tracking-widest transition-all ${twoFactorEnabled ? 'bg-red-50 text-red-600 border border-red-100 hover:bg-red-100' : 'bg-green-600 text-white shadow-xl shadow-green-200 hover:bg-green-700'}`}
-                    >
-                      {twoFactorEnabled ? 'DESACTIVAR' : 'CONFIGURAR AHORA'}
+                  </div>
+
+                  <div className="glass-card p-10 space-y-8">
+                     <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600">
+                          <Database size={20} />
+                        </div>
+                        <h3 className="text-xl font-black tracking-tight">Importación Masiva</h3>
+                     </div>
+                     <div className="space-y-6">
+                        <div className="p-6 bg-blue-50 rounded-2xl border border-blue-100/50">
+                           <h4 className="text-sm font-black text-blue-900 mb-2 flex items-center gap-2">
+                             <Table size={16} /> Importar desde Excel
+                           </h4>
+                           <p className="text-[10px] text-blue-700/70 font-medium mb-4">Sube un Excel con tus facturas recibidas anteriores para completar el Libro IVA rápidamente.</p>
+                           <label className="block w-full py-4 px-6 bg-white rounded-xl border-2 border-dashed border-blue-200 hover:border-blue-500 text-center cursor-pointer group transition-all">
+                              <input type="file" className="hidden" accept=".xlsx, .xls" onChange={handleImportExcel} />
+                              <div className="flex items-center justify-center gap-3 text-blue-600 font-black uppercase text-[10px] tracking-widest group-hover:scale-105 transition-all">
+                                <Upload size={18} /> Seleccionar Archivo Excel
+                              </div>
+                           </label>
+                        </div>
+                        <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                           <AlertCircle className="text-gray-400 shrink-0" size={18} />
+                           <p className="text-[10px] text-gray-500 font-medium leading-relaxed italic">El importador mapeará automáticamente columnas como "Fecha", "Proveedor", "NIF", "Base Imponible" y "Total".</p>
+                        </div>
+                     </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === "integraciones" && (
+              <div className="space-y-8">
+                <div className="glass-card p-10 space-y-8">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-purple-50 rounded-2xl flex items-center justify-center text-purple-600">
+                      <Sparkles size={24} />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-black tracking-tight">Google Gemini IA</h2>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Extracción inteligente de facturas</p>
+                    </div>
+                  </div>
+                  
+                  <div className="p-8 bg-purple-50 rounded-[2rem] border border-purple-100 space-y-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-purple-900/40 uppercase tracking-widest ml-1">API KEY DE GEMINI</label>
+                      <div className="relative">
+                        <Key className="absolute left-6 top-1/2 -translate-y-1/2 text-purple-300" size={20} />
+                        <input type="password" value={geminiKey} onChange={(e) => setGeminiKey(e.target.value)} className="w-full pl-16 pr-6 py-5 rounded-2xl border border-purple-200 outline-none font-mono font-bold focus:ring-4 focus:ring-purple-500/10 transition-all" placeholder="Alza_..." />
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3 text-purple-700/60">
+                      <Shield className="shrink-0 mt-1" size={16} />
+                      <p className="text-xs font-medium leading-relaxed">Tu API Key se usa exclusivamente para analizar los PDFs que subas. Nunca se comparte ni se usa para otros fines.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="glass-card p-10 space-y-8">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600">
+                      <Shield size={24} />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-black tracking-tight">Verifactu / AEAT</h2>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Cumplimiento normativa antifraude</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-4">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Entorno de Envío</label>
+                      <div className="flex gap-4">
+                        <button onClick={() => setVerifactuEnv("test")} className={`flex-1 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all ${verifactuEnv === "test" ? "bg-blue-600 text-white shadow-lg" : "bg-gray-50 text-gray-400 hover:bg-gray-100"}`}>Entorno Pruebas</button>
+                        <button onClick={() => setVerifactuEnv("production")} className={`flex-1 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all ${verifactuEnv === "production" ? "bg-gray-900 text-white shadow-lg" : "bg-gray-50 text-gray-400 hover:bg-gray-100"}`}>Producción</button>
+                      </div>
+                    </div>
+
+                    <div className="p-6 bg-blue-50 rounded-2xl border border-blue-100 flex items-center gap-4">
+                       <ShieldCheck className="text-blue-500" size={32} />
+                       <div>
+                          <h4 className="text-sm font-black text-blue-900">Certificado Digital</h4>
+                          <p className="text-[10px] text-blue-700/60 font-medium">Gestionado de forma segura mediante claves privadas locales.</p>
+                       </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === "email" && (
+              <div className="space-y-8 animate-in fade-in duration-500">
+                <div className="glass-card p-10 space-y-8">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600">
+                      <Mail size={24} />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-black tracking-tight">Configuración SMTP</h2>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Para enviar facturas directamente por email</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Email Remitente (Gmail/Outlook)</label>
+                      <input 
+                        type="email" 
+                        value={smtpEmail} 
+                        onChange={(e) => setSmtpEmail(e.target.value)} 
+                        className="w-full px-6 py-4 rounded-2xl border bg-gray-50 outline-none font-bold focus:bg-white focus:ring-4 focus:ring-blue-500/10 transition-all" 
+                        placeholder="tu-email@gmail.com" 
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Contraseña de Aplicación (Cifrada)</label>
+                      <input 
+                        type="password" 
+                        value={smtpAppPassword} 
+                        onChange={(e) => setSmtpAppPassword(e.target.value)} 
+                        className="w-full px-6 py-4 rounded-2xl border bg-gray-50 outline-none font-mono font-bold focus:bg-white transition-all" 
+                        placeholder="•••• •••• •••• ••••" 
+                      />
+                    </div>
+                    <div className="md:col-span-2 p-6 bg-orange-50 rounded-2xl border border-orange-100 flex items-start gap-4">
+                       <AlertTriangle className="text-orange-500 shrink-0 mt-1" size={20} />
+                       <div className="space-y-2">
+                          <h4 className="text-sm font-black text-orange-900">Nota sobre seguridad</h4>
+                          <p className="text-xs text-orange-700/70 font-medium leading-relaxed">
+                             Si usas Gmail, debes generar una <strong>"Contraseña de aplicación"</strong> en tu cuenta de Google. No uses tu contraseña normal de acceso.
+                             Esta clave se almacena cifrada en nuestra base de datos con grado militar (AES-256).
+                          </p>
+                       </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === "legal" && (
+              <div className="space-y-8 animate-in fade-in duration-500">
+                <div className="glass-card p-10 space-y-8">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center text-gray-600">
+                      <BookOpen size={24} />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-black tracking-tight">Textos Legales</h2>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">RGPD y condiciones generales</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-8">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Forma de Pago (Pie de página)</label>
+                      <textarea value={formaPago} onChange={(e) => setFormaPago(e.target.value)} rows={3} className="w-full px-6 py-4 rounded-2xl border bg-gray-50 outline-none font-medium focus:bg-white transition-all" placeholder="Ej: Pago mediante transferencia bancaria a la cuenta ES00..." />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Condiciones Legales (En facturas)</label>
+                      <textarea value={condicionesLegales} onChange={(e) => setCondicionesLegales(e.target.value)} rows={4} className="w-full px-6 py-4 rounded-2xl border bg-gray-50 outline-none font-medium focus:bg-white transition-all" placeholder="Condiciones generales de venta..." />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Cláusula Protección de Datos (LOPD)</label>
+                      <textarea value={lopdText} onChange={(e) => setLopdText(e.target.value)} rows={4} className="w-full px-6 py-4 rounded-2xl border bg-gray-50 outline-none font-medium focus:bg-white transition-all" placeholder="Sus datos serán tratados por..." />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Texto Aceptación Presupuesto</label>
+                      <textarea value={textoAceptacion} onChange={(e) => setTextoAceptacion(e.target.value)} rows={3} className="w-full px-6 py-4 rounded-2xl border bg-gray-50 outline-none font-medium focus:bg-white transition-all" placeholder="Firma este documento para aceptar el presupuesto..." />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === "seguridad" && (
+              <div className="space-y-8 animate-in fade-in duration-500">
+                <div className="glass-card p-10 space-y-8">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600">
+                        <Database size={24} />
+                      </div>
+                      <div>
+                        <h2 className="text-xl font-black tracking-tight">Backups en la Nube</h2>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Seguridad de tus datos</p>
+                      </div>
+                    </div>
+                    <button onClick={handleBackupNow} disabled={saving} className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-blue-600 text-white font-black hover:bg-blue-700 transition-all active:scale-[0.98] shadow-lg shadow-blue-500/20">
+                      <Database size={18} /> Backup Manual Ahora
                     </button>
                   </div>
 
-                  {isSettingUp2FA && isMounted && (
-                    <div className="animate-in zoom-in-95 duration-300">
-                      <TwoFactorSetup 
-                        qrUrl={qrUrl}
-                        verifyToken={verifyToken}
-                        setVerifyToken={setVerifyToken}
-                        onConfirm={confirm2FA}
-                        onCancel={() => setIsSettingUp2FA(false)}
-                      />
-                    </div>
-                  )}
-               </div>
-            </div>
-          )}
-
-          {activeTab === 'fiscalidad' && (
-            <div className="bg-white rounded-[2rem] border p-10 shadow-sm space-y-10 animate-in slide-in-from-bottom-4 duration-500">
-               <div className="flex items-start justify-between border-b pb-8">
-                  <div className="space-y-1">
-                    <h2 className="text-2xl font-black font-head text-gray-900">Gestión Fiscal</h2>
-                    <p className="text-sm text-gray-400 font-sans">Tipos de impuestos y retenciones por defecto.</p>
-                  </div>
-                  <Percent className="text-emerald-100" size={48} />
-               </div>
-
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                  <div className="space-y-6">
-                    <div className="flex justify-between items-center mb-2">
-                      <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest pl-1">Tabla de IVA</h3>
-                      <button onClick={() => handleAddTipo('tipos_iva')} className="text-xs font-bold text-blue-600 hover:underline">+ Nuevo Tipo</button>
-                    </div>
-                    <div className="space-y-2">
-                      {tiposIva.map(t => (
-                        <div key={t.id} className="flex justify-between items-center p-5 bg-gray-50 rounded-2xl border border-gray-100 group transition-all hover:bg-white hover:shadow-md">
-                          <span className="font-bold text-gray-700">{t.nombre} <span className="text-blue-500 ml-2">{t.valor}%</span></span>
-                          <button onClick={() => handleDeleteTipo('tipos_iva', t.id)} className="p-2 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={16} /></button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="space-y-6">
-                    <div className="flex justify-between items-center mb-2">
-                      <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest pl-1">Tabla de IRPF</h3>
-                      <button onClick={() => handleAddTipo('tipos_irpf')} className="text-xs font-bold text-orange-600 hover:underline">+ Nuevo Tipo</button>
-                    </div>
-                    <div className="space-y-2">
-                        {tiposIrpf.map(t => (
-                          <div key={t.id} className="flex justify-between items-center p-5 bg-orange-50/20 rounded-2xl border border-orange-100 group transition-all hover:bg-white hover:shadow-md">
-                            <span className="font-bold text-gray-700">{t.nombre} <span className="text-orange-500 ml-2">{t.valor}%</span></span>
-                            <button onClick={() => handleDeleteTipo('tipos_irpf', t.id)} className="p-2 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={16} /></button>
-                          </div>
-                        ))}
-                    </div>
-                  </div>
-
-                  <div className="md:col-span-2 p-8 bg-gray-50 rounded-[2rem] border border-gray-100 flex items-center justify-between">
-                    <div className="space-y-1">
-                      <p className="font-black tracking-tight text-lg text-gray-900">Retención por Defecto</p>
-                      <p className="text-xs text-gray-400 font-sans">Aplica el IRPF seleccionado automáticamente en todas las ventas.</p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input type="checkbox" checked={tieneRetencion} onChange={e => setTieneRetencion(e.target.checked)} className="sr-only peer" />
-                      <div className="w-14 h-8 bg-gray-200 rounded-full peer peer-checked:bg-emerald-500 after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:after:translate-x-full"></div>
-                    </label>
-                  </div>
-               </div>
-            </div>
-          )}
-
-          {activeTab === 'backup' && (
-            <div className="bg-white rounded-[2rem] border p-10 shadow-sm space-y-10 animate-in slide-in-from-bottom-4 duration-500 border-indigo-50">
-               <div className="flex items-start justify-between border-b pb-8">
-                  <div className="space-y-1">
-                    <h2 className="text-2xl font-black font-head text-indigo-900">Seguridad de Datos (Backup)</h2>
-                    <p className="text-sm text-gray-400 font-sans">Copia de seguridad y restauración del sistema.</p>
-                  </div>
-                  <Database className="text-indigo-100" size={48} />
-               </div>
-
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <button onClick={handleExportBackup} disabled={isBackupLoading} className="flex flex-col items-center gap-6 p-10 bg-indigo-50 rounded-[2rem] border border-indigo-100 hover:bg-indigo-100 transition-all text-center group">
-                     <div className="p-5 bg-white rounded-2xl shadow-sm text-indigo-600 group-hover:scale-110 transition-transform"><DownloadCloud size={32} /></div>
-                     <div className="space-y-2">
-                        <p className="font-black text-indigo-900 text-lg">Exportar Sistema</p>
-                        <p className="text-xs text-indigo-600/70 font-sans">Genera un volcado completo de toda tu base de datos y PDFs en formato ZIP.</p>
-                     </div>
-                  </button>
-
-                  <div className="relative group">
-                    <input type="file" accept=".json,.zip" onChange={handleImportBackup} className="hidden" id="restore-up-v2" />
-                    <label htmlFor="restore-up-v2" className="flex flex-col items-center gap-6 p-10 bg-gray-50 rounded-[2rem] border border-gray-100 hover:bg-gray-100 transition-all text-center cursor-pointer h-full">
-                       <div className="p-5 bg-white rounded-2xl shadow-sm text-gray-400 group-hover:rotate-180 transition-all duration-700"><RotateCcw size={32} /></div>
-                       <div className="space-y-2">
-                          <p className="font-black text-gray-800 text-lg">Restaurar Copia</p>
-                          <p className="text-xs text-gray-400 font-sans">Carga un punto de restauración previo (ZIP o JSON) para recuperar tu información.</p>
-                       </div>
-                    </label>
-                  </div>
-               </div>
-
-               {autoBackups.length > 0 && (
-                <div className="pt-10 border-t border-dashed space-y-6">
-                   <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest pl-1">Historial de Backups Automáticos</h3>
-                   <div className="flex flex-col gap-3">
-                      {autoBackups.map((b, idx) => (
-                        <div key={b.id} className="group flex items-center justify-between p-5 bg-gray-50 rounded-2xl border border-gray-100 hover:bg-white hover:shadow-xl hover:shadow-indigo-500/5 transition-all duration-300">
-                           <div className="flex gap-5 items-center">
-                              <div className={`p-3 rounded-xl ${idx === 0 ? 'bg-indigo-50 text-indigo-600' : 'bg-gray-100 text-gray-400'} group-hover:scale-110 transition-transform`}>
-                                 <Database size={20} />
-                              </div>
-                              <div className="flex flex-col gap-0.5">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-black text-gray-800 text-sm">{b.nombre}</span>
-                                  {idx === 0 && <span className="px-2 py-0.5 bg-green-100 text-green-700 text-[8px] font-black uppercase tracking-widest rounded-full">Más reciente</span>}
-                                </div>
-                                <span className="text-[10px] text-gray-400 font-medium">
-                                  {new Date(b.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })} • {(b.size / 1024 / 1024).toFixed(2)} MB
-                                </span>
-                              </div>
-                           </div>
-                           <a 
-                             href={b.archivo_url} 
-                             download 
-                             className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-indigo-50 border border-gray-100 rounded-xl text-indigo-600 text-xs font-bold shadow-sm transition-all"
-                           >
-                             <DownloadCloud size={16} />
-                             <span className="hidden md:inline">Descargar</span>
-                           </a>
-                        </div>
-                      ))}
-                   </div>
-                </div>
-               )}
-            </div>
-          )}
-          {activeTab === 'email' && (
-            <div className="space-y-8 animate-in fade-in duration-300">
-              <div className="bg-white rounded-[2rem] border p-8 shadow-sm space-y-6">
-                <div>
-                  <h2 className="text-2xl font-black font-head text-blue-900">Configuración de Email</h2>
-                  <p className="text-sm text-gray-400 mt-1">Configura tu servidor de correo para enviar documentos.</p>
-                </div>
-
-                <div className="flex bg-gray-100 p-1.5 rounded-2xl w-fit">
-                  <button 
-                    onClick={() => { setUseGmailPreset(true); setSmtpHost('smtp.gmail.com'); setSmtpPort('587'); }}
-                    className={`px-6 py-2.5 rounded-xl text-xs font-black transition-all ${useGmailPreset ? 'bg-white shadow-sm text-blue-600' : 'text-gray-400'}`}
-                  >GMAIL</button>
-                  <button 
-                    onClick={() => setUseGmailPreset(false)}
-                    className={`px-6 py-2.5 rounded-xl text-xs font-black transition-all ${!useGmailPreset ? 'bg-white shadow-sm text-blue-600' : 'text-gray-400'}`}
-                  >OTRO (SMTP)</button>
-                </div>
-
-                {useGmailPreset ? (
-                  <div className="bg-blue-50 rounded-2xl p-4 border border-blue-100 space-y-2">
-                    <p className="text-xs font-black text-blue-800 uppercase tracking-wider flex items-center gap-2">
-                       <ShieldCheck size={14} /> Requisito: Contraseña de Aplicación
-                    </p>
-                    <p className="text-xs text-blue-700 leading-relaxed">
-                      Google no permite usar tu contraseña normal. Debes crear una <strong>Contraseña de Aplicación</strong>:
-                    </p>
-                    <ol className="text-[11px] text-blue-700 list-decimal list-inside space-y-1 pl-1">
-                      <li>Ve a <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer" className="font-bold underline decoration-blue-300 hover:text-blue-900 transition-colors">Configuración de Contraseñas de Aplicación</a></li>
-                      <li>Genera una para "Correo" y pégala abajo (16 caracteres)</li>
-                    </ol>
-                  </div>
-                ) : (
-                  <div className="bg-orange-50 rounded-2xl p-4 border border-orange-100">
-                    <p className="text-xs text-orange-800 leading-relaxed font-medium">
-                      Introduce los datos de tu proveedor SMTP (Outlook, Yahoo, Hostinger, etc.).
-                    </p>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {!useGmailPreset && (
-                    <>
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Servidor SMTP</label>
-                        <input
-                          type="text"
-                          placeholder="smtp.proveedor.com"
-                          value={smtpHost}
-                          onChange={e => setSmtpHost(e.target.value)}
-                          className="w-full p-4 rounded-2xl border bg-gray-50 outline-none font-medium"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Puerto</label>
-                        <input
-                          type="text"
-                          placeholder="587 o 465"
-                          value={smtpPort}
-                          onChange={e => setSmtpPort(e.target.value)}
-                          className="w-full p-4 rounded-2xl border bg-gray-50 outline-none font-medium"
-                        />
-                      </div>
-                    </>
-                  )}
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Usuario / Email</label>
-                    <input
-                      type="email"
-                      placeholder="tu@email.com"
-                      value={smtpEmail}
-                      onChange={e => setSmtpEmail(e.target.value)}
-                      onBlur={() => handleSaveAll()}
-                      className="w-full p-4 rounded-2xl border bg-gray-50 outline-none font-medium"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Contraseña {useGmailPreset ? '(de Aplicación)' : ''}</label>
-                    <input
-                      type="password"
-                      placeholder="••••••••••••••••"
-                      value={smtpPassword}
-                      onChange={e => setSmtpPassword(e.target.value)}
-                      onBlur={() => handleSaveAll()}
-                      className="w-full p-4 rounded-2xl border bg-gray-50 outline-none font-mono"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex gap-3 pt-4 border-t border-gray-100">
-                  <button
-                    onClick={handleTestEmail}
-                    disabled={testingEmail || !smtpEmail || !smtpPassword}
-                    className="flex items-center gap-2 px-6 py-4 bg-blue-600 text-white font-black rounded-2xl hover:bg-blue-700 transition-all disabled:opacity-50 shadow-lg shadow-blue-100 uppercase text-[11px] tracking-widest"
-                  >
-                    {testingEmail ? <Loader2 className="animate-spin" size={16} /> : <CheckCircle2 size={16} />}
-                    Probar & Validar
-                  </button>
-                  <div className="flex-1"></div>
-                  {autoStatus === 'saving' && <div className="flex items-center gap-2 text-xs font-bold text-blue-600 animate-pulse"><Loader2 size={14} className="animate-spin" /> Guardando...</div>}
-                  {autoStatus === 'saved' && <div className="flex items-center gap-2 text-xs font-bold text-green-600"><CheckCircle2 size={14} /> Guardado</div>}
-                </div>
-
-                {emailTestResult === 'ok' && (
-                  <div className="p-4 bg-green-50 text-green-700 rounded-2xl text-sm font-bold flex items-center gap-2 border border-green-100 animate-in zoom-in-95">
-                    <CheckCircle2 size={18} /> ¡Excelente! Conexión validada. Revisa tu bandeja de entrada.
-                  </div>
-                )}
-                {emailTestResult === 'error' && (
-                  <div className="p-4 bg-red-50 text-red-700 rounded-2xl text-sm font-bold border border-red-100 animate-in zoom-in-95 leading-relaxed">
-                    ❌ Fallo en la conexión:<br/>
-                    <span className="font-normal text-xs">{saveError || 'Asegúrate de que los datos son correctos.'}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'import' && (
-            <div className="bg-white rounded-[2rem] border p-10 shadow-sm space-y-10 animate-in slide-in-from-bottom-4 duration-500 border-pink-50">
-               <div className="flex items-start justify-between border-b pb-8">
-                  <div className="space-y-1">
-                    <h2 className="text-2xl font-black font-head text-pink-900 tracking-tighter">Importación de Gastos</h2>
-                    <p className="text-sm text-gray-400 font-sans">Sube tus facturas recibidas masivamente desde Excel.</p>
-                  </div>
-                  <Table className="text-pink-100" size={48} />
-               </div>
-
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="space-y-6">
-                    <div className="p-6 bg-blue-50 rounded-2xl border border-blue-100">
-                      <h3 className="font-bold text-blue-900 mb-2 flex items-center gap-2">
-                        <Scale size={18} /> Instrucciones de Preparación
-                      </h3>
-                      <ul className="text-xs text-blue-800 space-y-2 list-disc list-inside font-medium">
-                        <li>Columnas obligatorias: <b>fecha, num_factura, proveedor_nombre, proveedor_nif</b>.</li>
-                        <li>El sistema detecta automáticamente si el proveedor existe por su NIF.</li>
-                        <li><b>Alta Automática:</b> Si el proveedor es nuevo, se registrará con los datos del Excel.</li>
-                        <li>Formatos aceptados: .xlsx, .xls</li>
-                      </ul>
-                      <button 
-                        onClick={downloadExcelTemplate}
-                        className="mt-6 flex items-center gap-2 px-5 py-3 bg-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
-                      >
-                        <DownloadCloud size={14} /> Descargar Plantilla Oficial
-                      </button>
-                    </div>
-
-                    <div className="p-10 border-2 border-dashed border-gray-100 rounded-[2.5rem] text-center space-y-4 hover:border-pink-300 transition-colors group bg-gray-50/30">
-                      {isImporting ? (
-                        <div className="space-y-4 py-6">
-                          <Loader2 className="animate-spin mx-auto text-pink-500" size={40} />
-                          <p className="font-black text-gray-600 uppercase text-[10px] tracking-widest">Procesando Filas...</p>
-                        </div>
+                  <div className="space-y-4">
+                    <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-1">Últimas copias de seguridad</h3>
+                    <div className="divide-y border rounded-[2rem] overflow-hidden bg-gray-50/50">
+                      {backups.length === 0 ? (
+                        <div className="p-10 text-center text-gray-400 font-medium italic">No hay backups realizados aún.</div>
                       ) : (
-                        <label className="cursor-pointer block py-6">
-                          <Upload className="mx-auto text-gray-200 group-hover:text-pink-400 transition-colors mb-4" size={48} />
-                          <p className="text-lg font-black text-gray-800 tracking-tight">Cargar Archivo Excel</p>
-                          <p className="text-xs text-gray-400 mt-1 font-medium">Arrastra o haz clic para seleccionar</p>
-                          <input type="file" accept=".xlsx, .xls" onChange={handleImportExcel} className="hidden" />
-                        </label>
+                        backups.map(b => (
+                          <div key={b.id} className="p-6 flex items-center justify-between hover:bg-white transition-all group">
+                            <div className="flex items-center gap-4">
+                              <div className="p-3 bg-white rounded-xl shadow-sm text-blue-500 group-hover:scale-110 transition-all">
+                                <Database size={16} />
+                              </div>
+                              <div>
+                                <span className="block font-bold text-gray-800">{new Date(b.created_at).toLocaleString()}</span>
+                                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{b.type === 'auto' ? 'Automática' : 'Manual'}</span>
+                              </div>
+                            </div>
+                            <button className="p-3 text-gray-300 hover:text-blue-500 hover:bg-blue-50 rounded-xl transition-all">
+                              <Download size={20} />
+                            </button>
+                          </div>
+                        ))
                       )}
                     </div>
                   </div>
+                </div>
 
-                  <div className="space-y-6">
-                    {importResults && (
-                      <div className={`p-8 rounded-[2rem] border animate-in zoom-in-95 duration-500 ${importResults.errors.length > 0 ? 'bg-orange-50 border-orange-100' : 'bg-green-50 border-green-100'}`}>
-                        <h3 className={`font-black text-sm uppercase tracking-widest mb-6 flex items-center gap-2 ${importResults.errors.length > 0 ? 'text-orange-900' : 'text-green-900'}`}>
-                          <CheckCircle2 size={18} /> Resumen del Proceso
-                        </h3>
-                        <div className="grid grid-cols-2 gap-4 mb-6">
-                          <div className="bg-white p-5 rounded-2xl shadow-sm border border-black/5 text-center">
-                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Leídos</p>
-                            <p className="text-3xl font-black text-gray-800 tracking-tighter">{importResults.total}</p>
-                          </div>
-                          <div className="bg-white p-5 rounded-2xl shadow-sm border border-black/5 text-center">
-                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Éxito</p>
-                            <p className="text-3xl font-black text-green-600 tracking-tighter">{importResults.success}</p>
-                          </div>
-                        </div>
-
-                        {importResults.errors.length > 0 && (
-                          <div className="space-y-2 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
-                            <p className="text-[10px] font-black text-orange-700 uppercase tracking-widest mb-2 ml-1">Incidencias Detectadas:</p>
-                            {importResults.errors.map((err, idx) => (
-                              <div key={idx} className="p-4 bg-white rounded-2xl border border-orange-200 text-[10px] text-orange-800 font-bold leading-relaxed shadow-sm">
-                                {err}
-                              </div>
-                            ))}
-                          </div>
-                        )}
+                <div className="glass-card p-10 bg-red-50/50 border-red-100 border-2 space-y-6">
+                   <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-red-100 rounded-2xl flex items-center justify-center text-red-600">
+                        <Shield size={24} />
                       </div>
-                    )}
-
-                    {!importResults && (
-                      <div className="flex flex-col items-center justify-center h-full text-center p-10 opacity-20 group-hover:opacity-40 transition-opacity">
-                        <LayoutGrid size={80} className="text-gray-300 mb-4" />
-                        <p className="text-gray-400 font-black uppercase text-[10px] tracking-widest">Resultados</p>
-                      </div>
-                    )}
-                  </div>
-               </div>
-            </div>
-          )}
-          {activeTab === 'mantenimiento' && (
-            <div className="bg-white rounded-[2rem] border border-red-100 p-10 shadow-sm space-y-10 animate-in slide-in-from-bottom-4 duration-500">
-               <div className="flex items-start justify-between border-b border-red-50 pb-8">
-                  <div className="space-y-1">
-                    <h2 className="text-2xl font-black font-head text-red-900 tracking-tighter">Mantenimiento de Datos</h2>
-                    <p className="text-sm text-gray-400 font-sans">Herramientas de limpieza y reset para fase de pruebas.</p>
-                  </div>
-                  <AlertTriangle className="text-red-100" size={48} />
-               </div>
-
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  {/* Bloque Emitidas */}
-                  <div className="p-8 bg-blue-50 rounded-[2rem] border border-blue-100 space-y-6">
-                    <div className="space-y-2">
-                       <h3 className="font-black text-blue-900 flex items-center gap-2">
-                         <FileText size={20} /> Borrado de Ventas (Emitidas)
-                       </h3>
-                       <p className="text-xs text-blue-800/70 font-medium leading-relaxed">
-                         Elimina todas las facturas emitidas, sus líneas y registros de cobros.
-                       </p>
-                    </div>
-
-                    <div className="bg-white/50 p-4 rounded-xl border border-blue-200">
-                       <ul className="text-[10px] text-blue-900 space-y-1 list-disc list-inside font-bold">
-                          <li>Elimina todas las VENTAS.</li>
-                          <li>Elimina todos los COBROS vinculados.</li>
-                          <li>Reset contador VENTAS a 1.</li>
-                       </ul>
-                    </div>
-
-                    <button 
-                      onClick={handleResetEmitidas}
-                      disabled={isResetting}
-                      className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-xl shadow-blue-200 hover:bg-blue-700 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
-                    >
-                      {isResetting ? <Loader2 className="animate-spin" size={16} /> : <Trash2 size={16} />}
-                      Limpiar Emitidas
-                    </button>
-                  </div>
-
-                  {/* Bloque Recibidas */}
-                  <div className="p-8 bg-red-50 rounded-[2rem] border border-red-100 space-y-6">
-                    <div className="space-y-2">
-                       <h3 className="font-black text-red-900 flex items-center gap-2">
-                         <ShieldCheck size={20} /> Borrado de Gastos (Recibidas)
-                       </h3>
-                       <p className="text-xs text-red-800/70 font-medium leading-relaxed">
-                         Elimina facturas recibidas (costes), proveedores y registros de pagos.
-                       </p>
-                    </div>
-
-                    <div className="bg-white/50 p-4 rounded-xl border border-red-200">
-                       <ul className="text-[10px] text-red-900 space-y-1 list-disc list-inside font-bold">
-                          <li>Elimina todos los PROVEEDORES.</li>
-                          <li>Elimina todos los COSTES y PAGOS.</li>
-                          <li>Reset contador COSTES a 1.</li>
-                       </ul>
-                    </div>
-
-                    <button 
-                      onClick={handleResetRecibidas}
-                      disabled={isResetting}
-                      className="w-full py-4 bg-red-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-xl shadow-red-200 hover:bg-red-700 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
-                    >
-                      {isResetting ? <Loader2 className="animate-spin" size={16} /> : <Trash2 size={16} />}
-                      Limpiar Recibidas
-                    </button>
-                  </div>
-               </div>
-
-               <div className="p-6 bg-gray-50 rounded-2xl border border-gray-100">
-                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest text-center">
-                     ⚠️ Acciones irreversibles. Úsalas solo durante la puesta a punto de tu base de datos.
-                  </p>
-               </div>
-            </div>
-          )}
-        </main>
+                      <h2 className="text-xl font-black text-red-900 tracking-tight">Zona de Peligro</h2>
+                   </div>
+                   <p className="text-sm font-medium text-red-700/70 leading-relaxed">Estas acciones son irreversibles y afectarán a todos tus datos registrados en la plataforma.</p>
+                   <button className="px-8 py-4 bg-white text-red-600 border-2 border-red-100 rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] hover:bg-red-600 hover:text-white transition-all active:scale-[0.98]">Eliminar Todos los Datos</button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
