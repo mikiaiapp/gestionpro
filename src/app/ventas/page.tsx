@@ -11,7 +11,7 @@ import { SearchableSelect } from "@/components/SearchableSelect";
 import { generatePDF } from "@/lib/pdfGenerator";
 import { formatCurrency } from "@/lib/format";
 import { sendInvoiceToAeat } from "@/lib/aeatService";
-import { encrypt } from "@/lib/encryption";
+import { encrypt, decrypt } from "@/lib/encryption";
 import { UploadCloud, ShieldCheck, OctagonAlert } from "lucide-react";
 import { exportVATBookPDF, exportVATBookExcel } from "@/lib/reportingService";
 import { uploadInvoiceFile, deleteInvoiceFile } from "@/lib/storageService";
@@ -304,8 +304,7 @@ function VentasContent() {
       setLineas(v.venta_lineas.map((l: any) => ({
         unidades: l.unidades,
         descripcion: l.descripcion,
-        precio_unitario: l.precio_unitario,
-        iva_pct: l.iva_pct
+        precio_unitario: l.precio_unitario
       })));
     } else {
       setLineas([{ unidades: 1, descripcion: "", precio_unitario: 0 }]);
@@ -381,7 +380,6 @@ function VentasContent() {
 
       const lineasToInsert = lineas.map(l => ({
         venta_id: currentVentaId,
-        user_id: user.id,
         unidades: l.unidades,
         descripcion: l.descripcion,
         precio_unitario: l.precio_unitario,
@@ -421,6 +419,10 @@ function VentasContent() {
         });
 
         const blob = pdfDoc.output('blob');
+        
+        // Descargar localmente para the user (si lo desea, aunque aquí es auto-archivado)
+        // pdfDoc.save(`Factura_${vFull.num_factura}.pdf`); 
+
         const publicUrl = await uploadInvoiceFile(blob, 'ventas', { 
           number: vFull.num_factura, 
           entity: vFull.clientes?.nombre || 'Cliente' 
