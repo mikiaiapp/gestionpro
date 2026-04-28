@@ -21,7 +21,8 @@ import {
   Scale,
   FileText,
   Table,
-  LayoutGrid
+  LayoutGrid,
+  OctagonAlert
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Sidebar } from '@/components/Sidebar';
@@ -95,21 +96,12 @@ export default function AjustesClient() {
   const [syncing, setSyncing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   
-  // Seguridad 2FA
-  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
-  const [totpSecret, setTotpSecret] = useState('');
-  const [isSettingUp2FA, setIsSettingUp2FA] = useState(false);
-  const [qrUrl, setQrUrl] = useState('');
-  const [verifyToken, setVerifyToken] = useState('');
-  
-  // Backup / Restore
-  const [isBackupLoading, setIsBackupLoading] = useState(false);
-  const [isRestoreLoading, setIsRestoreLoading] = useState(false);
-  const [autoBackups, setAutoBackups] = useState<any[]>([]);
-  
   // Excel Import State
   const [isImporting, setIsImporting] = useState(false);
   const [importResults, setImportResults] = useState<{ total: number, success: number, errors: string[] } | null>(null);
+
+  // Mantenimiento
+  const [isResetting, setIsResetting] = useState(false);
 
   const initialLoadDone = useRef(false);
   const latestValuesRef = useRef<any>(null);
@@ -817,6 +809,51 @@ export default function AjustesClient() {
     }
   };
 
+  const handleResetTestData = async () => {
+    if (!user) return;
+    
+    const confirm1 = confirm("⚠️ ATENCIÓN: Vas a borrar TODAS las facturas (emitidas y recibidas), proveedores y registros de cobros/pagos. Esta acción es IRREVERSIBLE. ¿Estás seguro?");
+    if (!confirm1) return;
+
+    const confirmText = prompt("Para confirmar el borrado total de datos de prueba, escribe la palabra: BORRAR");
+    if (confirmText !== "BORRAR") {
+      alert("Operación cancelada. El texto de confirmación no coincide.");
+      return;
+    }
+
+    setIsResetting(true);
+    try {
+      // 1. Borrar Líneas (para evitar conflictos de FK si no hay CASCADE)
+      await supabase.from('venta_lineas').delete().eq('user_id', user.id);
+      await supabase.from('coste_lineas').delete().eq('user_id', user.id);
+      
+      // 2. Borrar Cobros y Pagos
+      await supabase.from('cobros').delete().eq('user_id', user.id);
+      await supabase.from('pagos').delete().eq('user_id', user.id);
+      
+      // 3. Borrar Facturas
+      await supabase.from('ventas').delete().eq('user_id', user.id);
+      await supabase.from('costes').delete().eq('user_id', user.id);
+      
+      // 4. Borrar Proveedores
+      await supabase.from('proveedores').delete().eq('user_id', user.id);
+
+      // 5. Opcional: Resetear contadores a 1
+      await supabase.from('perfil_negocio').update({
+        contador_ventas: 1,
+        contador_costes: 1,
+        contador_proyectos: 1
+      }).eq('user_id', user.id);
+
+      alert("✅ Datos de prueba eliminados correctamente. Los contadores han sido reseteados a 1.");
+      window.location.reload();
+    } catch (err: any) {
+      alert("Error al resetear datos: " + err.message);
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
   const downloadExcelTemplate = async () => {
     const XLSX = await import('xlsx');
     const ws = XLSX.utils.json_to_sheet([
@@ -841,7 +878,7 @@ export default function AjustesClient() {
     XLSX.writeFile(wb, "Plantilla_Importacion_Gastos.xlsx");
   };
 
-  const [activeTab, setActiveTab] = useState<'perfil' | 'ai' | 'legales' | 'seguridad' | 'fiscalidad' | 'backup' | 'email' | 'import'>('perfil');
+  const [activeTab, setActiveTab] = useState<'perfil' | 'ai' | 'legales' | 'seguridad' | 'fiscalidad' | 'backup' | 'email' | 'import' | 'mantenimiento'>('perfil');
 
   if (loading) return null;
 
@@ -864,6 +901,7 @@ export default function AjustesClient() {
     { id: 'fiscalidad', label: 'Fiscalidad', icon: Percent, color: 'text-emerald-600' },
     { id: 'backup', label: 'Backup', icon: Database, color: 'text-indigo-600' },
     { id: 'import', label: 'Importar', icon: Table, color: 'text-pink-600' },
+    { id: 'mantenimiento', label: 'Mantenimiento', icon: OctagonAlert, color: 'text-red-600' },
   ];
 
   const lastBackup = autoBackups[0];
@@ -1588,6 +1626,54 @@ export default function AjustesClient() {
                         <p className="text-gray-400 font-black uppercase text-[10px] tracking-widest">Resultados</p>
                       </div>
                     )}
+                  </div>
+               </div>
+            </div>
+          )}
+          {activeTab === 'mantenimiento' && (
+            <div className="bg-white rounded-[2rem] border border-red-100 p-10 shadow-sm space-y-10 animate-in slide-in-from-bottom-4 duration-500">
+               <div className="flex items-start justify-between border-b border-red-50 pb-8">
+                  <div className="space-y-1">
+                    <h2 className="text-2xl font-black font-head text-red-900 tracking-tighter">Mantenimiento de Datos</h2>
+                    <p className="text-sm text-gray-400 font-sans">Herramientas de limpieza y reset para fase de pruebas.</p>
+                  </div>
+                  <OctagonAlert className="text-red-100" size={48} />
+               </div>
+
+               <div className="max-w-2xl space-y-8">
+                  <div className="p-8 bg-red-50 rounded-[2rem] border border-red-100 space-y-6">
+                    <div className="space-y-2">
+                       <h3 className="font-black text-red-900 flex items-center gap-2">
+                         <Trash2 size={20} /> Borrado Total de Datos de Prueba
+                       </h3>
+                       <p className="text-sm text-red-800/70 font-medium leading-relaxed">
+                         Esta acción eliminará todos los proveedores, facturas (ventas y costes), líneas de detalle y registros de cobros/pagos asociados a tu cuenta.
+                       </p>
+                    </div>
+
+                    <div className="bg-white/50 p-4 rounded-xl border border-red-200">
+                       <ul className="text-[11px] text-red-900 space-y-1 list-disc list-inside font-bold">
+                          <li>Se eliminan todos los PROVEEDORES.</li>
+                          <li>Se eliminan todas las VENTAS y COSTES.</li>
+                          <li>Se eliminan todos los COBROS y PAGOS.</li>
+                          <li>Los contadores de facturación volverán a 1.</li>
+                       </ul>
+                    </div>
+
+                    <button 
+                      onClick={handleResetTestData}
+                      disabled={isResetting}
+                      className="w-full py-4 bg-red-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-red-200 hover:bg-red-700 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                    >
+                      {isResetting ? <Loader2 className="animate-spin" size={18} /> : <Trash2 size={18} />}
+                      Limpiar Base de Datos (Fase de Pruebas)
+                    </button>
+                  </div>
+
+                  <div className="p-6 bg-gray-50 rounded-2xl border border-gray-100">
+                     <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest text-center">
+                        ⚠️ Úsalo solo si necesitas volver a importar todo desde cero.
+                     </p>
                   </div>
                </div>
             </div>
