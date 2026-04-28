@@ -22,7 +22,7 @@ import {
   FileText,
   Table,
   LayoutGrid,
-  AlertOctagon
+  AlertTriangle,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Sidebar } from '@/components/Sidebar';
@@ -226,6 +226,7 @@ export default function AjustesClient() {
         setVerifactuCert(data.verifactu_certificado || '');
         const rawVfPass = data.verifactu_pass || '';
         const decVfPass = rawVfPass.includes(':') ? decrypt(rawVfPass) : rawVfPass;
+        setVerifactuCertPassword(decVfPass);
         setVerifactuCertPassword(decVfPass);
         setVerifactuEnv(data.verifactu_env || 'pruebas');
         setTelefono(data.telefono || '');
@@ -665,7 +666,11 @@ export default function AjustesClient() {
       // 0. Probar columnas reales para evitar errores de esquema (Smart Mapping)
       const { data: probe } = await supabase.from('costes').select('*').limit(1);
       const cols = (probe && probe.length > 0) ? Object.keys(probe[0]) : [];
-      const findKey = (options: string[]) => options.find(o => cols.includes(o));
+      
+      // Columnas que sabemos que existen por el esquema base
+      const guaranteedCols = ['id', 'user_id', 'fecha', 'proveedor_id', 'num_factura_proveedor', 'total', 'num_interno', 'base_imponible', 'iva_importe', 'iva_pct', 'retencion_pct', 'retencion_importe', 'estado_pago', 'tipo_gasto'];
+      const allKnownCols = [...new Set([...cols, ...guaranteedCols])];
+      const findKey = (options: string[]) => options.find(o => allKnownCols.includes(o));
 
       // 0.1 Obtener Perfil y Numeración Secuencial para el Libro de IVA
       const { data: perf } = await supabase.from('perfil_negocio').select('*').eq('user_id', user.id).maybeSingle();
@@ -1107,20 +1112,20 @@ export default function AjustesClient() {
                         <div className="space-y-1.5 flex-1 md:flex-none">
                            <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest pl-1">Prefijo</span>
                            <input 
-                               type="text" 
-                               value={prefijoVentas} 
-                               onChange={e => setPrefijoVentas(e.target.value)} 
-                               placeholder="F-" 
-                               className="w-full md:w-24 px-4 py-3.5 rounded-2xl border bg-gray-50/50 font-black text-blue-600 text-center uppercase focus:bg-white focus:ring-4 focus:ring-blue-500/5 transition-all outline-none" 
+                              type="text" 
+                              value={prefijoVentas} 
+                              onChange={e => setPrefijoVentas(e.target.value)} 
+                              placeholder="F-" 
+                              className="w-full md:w-24 px-4 py-3.5 rounded-2xl border bg-gray-50/50 font-black text-blue-600 text-center uppercase focus:bg-white focus:ring-4 focus:ring-blue-500/5 transition-all outline-none" 
                            />
                         </div>
                         <div className="space-y-1.5 flex-2 md:flex-none">
                            <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest pl-1">Siguiente Número</span>
                            <input 
-                               type="number" 
-                               value={contadorVentas} 
-                               onChange={e => setContadorVentas(parseInt(e.target.value) || 1)} 
-                               className="w-full md:w-32 px-5 py-3.5 rounded-2xl border bg-gray-50/50 font-mono font-bold text-gray-800 text-right focus:bg-white focus:ring-4 focus:ring-blue-500/5 transition-all outline-none" 
+                              type="number" 
+                              value={contadorVentas} 
+                              onChange={e => setContadorVentas(parseInt(e.target.value) || 1)} 
+                              className="w-full md:w-32 px-5 py-3.5 rounded-2xl border bg-gray-50/50 font-mono font-bold text-gray-800 text-right focus:bg-white focus:ring-4 focus:ring-blue-500/5 transition-all outline-none" 
                            />
                         </div>
                       </div>
@@ -1142,20 +1147,20 @@ export default function AjustesClient() {
                         <div className="space-y-1.5 flex-1 md:flex-none">
                            <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest pl-1">Prefijo</span>
                            <input 
-                               type="text" 
-                               value={prefijoCostes} 
-                               onChange={e => setPrefijoCostes(e.target.value)} 
-                               placeholder="G-" 
-                               className="w-full md:w-24 px-4 py-3.5 rounded-2xl border bg-gray-50/50 font-black text-red-600 text-center uppercase focus:bg-white focus:ring-4 focus:ring-red-500/5 transition-all outline-none" 
+                              type="text" 
+                              value={prefijoCostes} 
+                              onChange={e => setPrefijoCostes(e.target.value)} 
+                              placeholder="G-" 
+                              className="w-full md:w-24 px-4 py-3.5 rounded-2xl border bg-gray-50/50 font-black text-red-600 text-center uppercase focus:bg-white focus:ring-4 focus:ring-red-500/5 transition-all outline-none" 
                            />
                         </div>
                         <div className="space-y-1.5 flex-2 md:flex-none">
                            <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest pl-1">Siguiente Número</span>
                            <input 
-                               type="number" 
-                               value={contadorCostes} 
-                               onChange={e => setContadorCostes(parseInt(e.target.value) || 1)} 
-                               className="w-full md:w-32 px-5 py-3.5 rounded-2xl border bg-gray-50/50 font-mono font-bold text-gray-800 text-right focus:bg-white focus:ring-4 focus:ring-blue-500/5 transition-all outline-none" 
+                              type="number" 
+                              value={contadorCostes} 
+                              onChange={e => setContadorCostes(parseInt(e.target.value) || 1)} 
+                              className="w-full md:w-32 px-5 py-3.5 rounded-2xl border bg-gray-50/50 font-mono font-bold text-gray-800 text-right focus:bg-white focus:ring-4 focus:ring-red-500/5 transition-all outline-none" 
                            />
                         </div>
                       </div>
@@ -1177,20 +1182,20 @@ export default function AjustesClient() {
                         <div className="space-y-1.5 flex-1 md:flex-none">
                            <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest pl-1">Prefijo</span>
                            <input 
-                               type="text" 
-                               value={prefijoProyectos} 
-                               onChange={e => setPrefijoProyectos(e.target.value)} 
-                               placeholder="P-" 
-                               className="w-full md:w-24 px-4 py-3.5 rounded-2xl border bg-gray-50/50 font-black text-orange-600 text-center uppercase focus:bg-white focus:ring-4 focus:ring-orange-500/5 transition-all outline-none" 
+                              type="text" 
+                              value={prefijoProyectos} 
+                              onChange={e => setPrefijoProyectos(e.target.value)} 
+                              placeholder="P-" 
+                              className="w-full md:w-24 px-4 py-3.5 rounded-2xl border bg-gray-50/50 font-black text-orange-600 text-center uppercase focus:bg-white focus:ring-4 focus:ring-orange-500/5 transition-all outline-none" 
                            />
                         </div>
                         <div className="space-y-1.5 flex-2 md:flex-none">
                            <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest pl-1">Siguiente Número</span>
                            <input 
-                               type="number" 
-                               value={contadorProyectos} 
-                               onChange={e => setContadorProyectos(parseInt(e.target.value) || 1)} 
-                               className="w-full md:w-32 px-5 py-3.5 rounded-2xl border bg-gray-50/50 font-mono font-bold text-gray-800 text-right focus:bg-white focus:ring-4 focus:ring-orange-500/5 transition-all outline-none" 
+                              type="number" 
+                              value={contadorProyectos} 
+                              onChange={e => setContadorProyectos(parseInt(e.target.value) || 1)} 
+                              className="w-full md:w-32 px-5 py-3.5 rounded-2xl border bg-gray-50/50 font-mono font-bold text-gray-800 text-right focus:bg-white focus:ring-4 focus:ring-orange-500/5 transition-all outline-none" 
                            />
                         </div>
                       </div>
@@ -1667,7 +1672,7 @@ export default function AjustesClient() {
                     <h2 className="text-2xl font-black font-head text-red-900 tracking-tighter">Mantenimiento de Datos</h2>
                     <p className="text-sm text-gray-400 font-sans">Herramientas de limpieza y reset para fase de pruebas.</p>
                   </div>
-                  <AlertOctagon className="text-red-100" size={48} />
+                  <AlertTriangle className="text-red-100" size={48} />
                </div>
 
                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
