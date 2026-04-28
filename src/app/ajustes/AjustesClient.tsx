@@ -65,6 +65,8 @@ export default function AjustesClient() {
 
   // Mantenimiento
   const [isResetting, setIsResetting] = useState(false);
+  const [importResults, setImportResults] = useState<{ total: number; success: number; errors: number } | null>(null);
+  const [activeTab, setActiveTab] = useState<'perfil' | 'ai' | 'legales' | 'seguridad' | 'fiscalidad' | 'backup' | 'email' | 'import' | 'mantenimiento'>('perfil');
 
   const initialLoadDone = useRef(false);
 
@@ -157,7 +159,7 @@ export default function AjustesClient() {
 
   const fetchAutoBackups = async (userId: string) => {
     const { data } = await supabase.from("backups").select("*").eq("user_id", userId).order("created_at", { ascending: false }).limit(5);
-    setBackups(data || []);
+    setAutoBackups(data || []);
   };
 
   const handleSaveAll = async () => {
@@ -332,59 +334,52 @@ export default function AjustesClient() {
           return;
         }
 
-        // DETECCIÓN DE COLUMNAS REALES (PRE-FLIGHT)
+        // Detectar columnas reales de la tabla costes
         const { data: colProbe } = await supabase.from("costes").select("*").limit(1);
         const availableCols = (colProbe && colProbe.length > 0) ? Object.keys(colProbe[0]) : [];
         const foundKey = (options: string[]) => options.find(o => availableCols.includes(o));
 
-      // 0. Probar columnas reales para evitar errores de esquema (Smart Mapping)
-      const { data: probe } = await supabase.from('costes').select('*').limit(1);
-      const cols = (probe && probe.length > 0) ? Object.keys(probe[0]) : [];
-      
-      // Columnas que sabemos que existen por el esquema base (mínimo común denominador)
-      const guaranteedCols = ['id', 'user_id', 'fecha', 'total', 'proveedor_id', 'num_interno'];
-      const allKnownCols = [...new Set([...cols, ...guaranteedCols])];
-      const findKey = (options: string[]) => options.find(o => allKnownCols.includes(o));
-
         const findVal = (row: any, options: string[]) => {
-          const key = Object.keys(row).find(k => options.includes(k.toLowerCase().trim()));
+          const key = Object.keys(row).find(k => options.map(o => o.toLowerCase()).includes(k.toLowerCase().trim()));
           return key ? row[key] : null;
         };
 
-        // AGRUPACIÓN POR FACTURA (NIF + Nº FACTURA)
-        const groupedRows: { [key: string]: any } = {};
-        
-        rows.forEach(row => {
-          const nifProvRaw = findVal(row, mapping.nif);
-          const numFactRaw = findVal(row, mapping.numFactura);
-          if (!nifProvRaw || !numFactRaw) return;
+        const colNif = ['nif', 'proveedor_nif', 'nif_proveedor', 'cif'];
+        const colNumFact = ['num_factura', 'numero_factura', 'numero', 'referencia', 'factura'];
+        const colFecha = ['fecha', 'date', 'fecha_factura'];
+        const colProveedor = ['proveedor_nombre', 'proveedor', 'nombre_proveedor', 'empresa'];
+        const colBase = ['base_imponible', 'base', 'subtotal'];
+        const colIva = ['iva_importe', 'cuota_iva', 'iva_total', 'iva'];
+        const colTotal = ['total', 'importe_total', 'total_factura'];
 
-          const key = `${cleanNIF(nifProvRaw)}_${numFactRaw}`;
+        // Agrupar filas por NIF + Nº Factura
+        const groupedRows: { [key: string]: any } = {};
+        rows.forEach(row => {
+          const nifRaw = findVal(row, colNif);
+          const numFactRaw = findVal(row, colNumFact);
+          if (!nifRaw || !numFactRaw) return;
+          const cleanNIF = String(nifRaw).trim().toUpperCase();
+          const key = `${cleanNIF}_${numFactRaw}`;
           if (!groupedRows[key]) {
             groupedRows[key] = {
-              fecha: findVal(row, mapping.fecha),
-              nif: cleanNIF(nifProvRaw),
-              proveedor: findVal(row, mapping.proveedor),
-              numFactura: numFactRaw,
-              base: 0,
-              iva: 0,
-              total: 0,
-              lineas: []
+              fecha: findVal(row, colFecha),
+              nif: cleanNIF,
+              proveedor: findVal(row, colProveedor),
+              numFactura: String(numFactRaw),
+              base: 0, iva: 0, total: 0, lineas: []
             };
           }
-          
-          const rowBase = parseFloat(findVal(row, mapping.base) || 0);
-          const rowIva = parseFloat(findVal(row, mapping.iva) || 0);
-          const rowTotal = parseFloat(findVal(row, mapping.total) || 0);
-
+          const rowBase = parseFloat(findVal(row, colBase) || 0);
+          const rowIva = parseFloat(findVal(row, colIva) || 0);
+          const rowTotal = parseFloat(findVal(row, colTotal) || 0);
           groupedRows[key].base += rowBase;
           groupedRows[key].iva += rowIva;
-          groupedRows[key].total += rowTotal;
+          groupedRows[key].total += (rowTotal || rowBase + rowIva);
           groupedRows[key].lineas.push({
-            descripcion: `Concepto Excel: ${numFactRaw}`,
+            descripcion: `Línea importada: ${numFactRaw}`,
             unidades: 1,
             precio_unitario: rowBase,
-            iva_pct: rowBase > 0 ? (rowIva / rowBase) * 100 : 21
+            iva_pct: rowBase > 0 ? Math.round((rowIva / rowBase) * 100) : 21
           });
         });
 
@@ -394,10 +389,10 @@ export default function AjustesClient() {
         const prefix = prefijoCostes || "";
 
         for (const fact of finalFacturas) {
-          // 1. Asegurar Proveedor
-          let provId = null;
-          const { data: provExistente } = await supabase.from('proveedores').select('id').eq('nif', fact.nif).eq('user_id', user.id).maybeSingle();
-          
+          // 1. Buscar o crear proveedor
+          let provId: string | null = null;
+          const { data: provExistente } = await supabase.from('proveedores')
+            .select('id').eq('nif', fact.nif).eq('user_id', user.id).maybeSingle();
           if (provExistente) {
             provId = provExistente.id;
           } else {
@@ -406,24 +401,26 @@ export default function AjustesClient() {
               nif: fact.nif,
               user_id: user.id
             }]).select('id').single();
-            provId = newProv?.id;
+            provId = newProv?.id || null;
           }
 
-          // 2. Insertar Factura (Coste)
+          // 2. Preparar fecha
           let finalFecha = new Date().toISOString().split('T')[0];
           if (fact.fecha) {
-            const date = new Date(fact.fecha);
-            const a = date.getFullYear();
-            const m = String(date.getMonth() + 1).padStart(2, '0');
-            const d = String(date.getDate()).padStart(2, '0');
-            finalFecha = `${a}-${m}-${d}`;
+            try {
+              const date = new Date(fact.fecha);
+              if (!isNaN(date.getTime())) {
+                finalFecha = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+              }
+            } catch (_) {}
           }
 
           const internalNum = `${prefix}${nextSequential.toString().padStart(4, '0')}`;
           const payload: any = {
             user_id: user.id,
             fecha: finalFecha,
-            total: fact.total
+            total: fact.total,
+            proveedor_id: provId,
           };
 
           const setIfFound = (options: string[], value: any) => {
@@ -431,47 +428,21 @@ export default function AjustesClient() {
             if (key) payload[key] = value;
           };
 
-          if (exist) {
-            // Durante la re-importación total, actualizamos el número de registro y el proveedor/NIF para asegurar coherencia
-            const updatePayload: any = {};
-            setIfFound(['proveedor_id', 'id_proveedor'], prov.id, updatePayload);
-            setIfFound(['num_interno', 'registro_interno', 'numero'], internalNum, updatePayload);
-            
-            const { error: uErr } = await supabase.from('costes').update(updatePayload).eq('id', exist.id);
-            if (uErr) throw new Error(`Error actualizando: ${uErr.message}`);
-            
-            nextSequential++;
-            successCount += rows.length;
+
+          setIfFound(['num_interno', 'registro_interno', 'numero'], internalNum);
+          setIfFound(['base_imponible', 'base', 'subtotal'], fact.base);
+          setIfFound(['iva_importe', 'cuota_iva', 'iva_total'], fact.iva);
+          setIfFound(['num_factura_proveedor', 'numero_factura', 'num_factura'], fact.numFactura);
+          setIfFound(['serie_costes', 'serie'], serieCostes || 'A');
+
+          // 3. Insertar coste
+          const { data: newCoste, error: cErr } = await supabase.from('costes').insert(payload).select('id').single();
+          if (cErr) {
+            console.error("Error insertando coste:", cErr.message);
             continue;
           }
 
-          // 4. Inserción Nueva
-          setIfFound(['num_interno', 'registro_interno', 'numero'], internalNum);
-          setIfFound(['nif_proveedor', 'proveedor_nif', 'nif'], cleanNif); // Asegurar que el NIF se guarda directamente
-          setIfFound(['serie_costes', 'serie'], perf?.serie_costes || 'A');
-          setIfFound(['num_factura_proveedor', 'numero_factura', 'num_factura', 'factura_prov', 'referencia'], num_factura.toString());
-          setIfFound(['proveedor_id', 'id_proveedor'], prov.id);
-          setIfFound(['base_imponible', 'base', 'subtotal'], totalBI);
-          setIfFound(['iva_importe', 'cuota_iva', 'iva_total', 'iva'], totalIVA);
-          setIfFound(['retencion_pct', 'irpf_pct'], parseFloat(firstRow.retencion_pct) || 0);
-          setIfFound(['retencion_importe', 'irpf_importe', 'retencion', 'irpf'], totalRet);
-
-          // 4.1 Fallback Crítico para bases de datos vacías (Solo campos esenciales garantizados)
-          if (cols.length === 0) {
-            payload.num_interno = internalNum;
-            payload.proveedor_id = prov.id;
-            // Intentar asignar el número de factura al campo más probable si no se detectó
-            if (!payload.num_factura_proveedor && !payload.numero_factura) {
-              payload.num_factura_proveedor = num_factura.toString();
-            }
-          }
-
-          const { data: newCoste, error: cErr } = await supabase.from('costes').insert(payload).select('id').single();
-
-          if (cErr) throw new Error(cErr.message);
-          
           if (newCoste) {
-            // 3. Insertar Líneas
             const lineasToInsert = fact.lineas.map((l: any) => ({
               coste_id: newCoste.id,
               user_id: user.id,
@@ -483,21 +454,21 @@ export default function AjustesClient() {
             await supabase.from('coste_lineas').insert(lineasToInsert);
             importedCount++;
             nextSequential++;
-          } else {
-            console.error("Error importando factura:", cErr);
           }
         }
 
-      // 6. Sincronizar el contador oficial en Ajustes
-      await supabase.from('perfil_negocio').update({ contador_costes: nextSequential }).eq('user_id', user.id);
-
-
-      setImportResults({ total: jsonData.length, success: successCount, errors });
-    } catch (err: any) {
-      alert("Error crítico en importación: " + err.message);
-    } finally {
-      setIsImporting(false);
-    }
+        // 4. Sincronizar contador
+        await supabase.from('perfil_negocio').update({ contador_costes: nextSequential }).eq('user_id', user.id);
+        setContadorCostes(nextSequential);
+        setImportResults({ total: finalFacturas.length, success: importedCount, errors: finalFacturas.length - importedCount });
+        alert(`✅ Importación completada: ${importedCount} de ${finalFacturas.length} facturas importadas.`);
+      } catch (err: any) {
+        alert("Error crítico en importación: " + err.message);
+      } finally {
+        setSaving(false);
+      }
+    };
+    reader.readAsBinaryString(file);
   };
 
   const handleResetEmitidas = async () => {
@@ -587,7 +558,6 @@ export default function AjustesClient() {
     XLSX.writeFile(wb, "Plantilla_Importacion_Gastos.xlsx");
   };
 
-  const [activeTab, setActiveTab] = useState<'perfil' | 'ai' | 'legales' | 'seguridad' | 'fiscalidad' | 'backup' | 'email' | 'import' | 'mantenimiento'>('perfil');
 
   if (loading) return null;
 
