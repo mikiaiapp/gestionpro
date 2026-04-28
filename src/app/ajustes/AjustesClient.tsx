@@ -21,8 +21,7 @@ import {
   Scale,
   FileText,
   Table,
-  LayoutGrid,
-  AlertTriangle,
+  LayoutGrid
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Sidebar } from '@/components/Sidebar';
@@ -111,9 +110,6 @@ export default function AjustesClient() {
   // Excel Import State
   const [isImporting, setIsImporting] = useState(false);
   const [importResults, setImportResults] = useState<{ total: number, success: number, errors: string[] } | null>(null);
-
-  // Mantenimiento
-  const [isResetting, setIsResetting] = useState(false);
 
   const initialLoadDone = useRef(false);
   const latestValuesRef = useRef<any>(null);
@@ -226,7 +222,6 @@ export default function AjustesClient() {
         setVerifactuCert(data.verifactu_certificado || '');
         const rawVfPass = data.verifactu_pass || '';
         const decVfPass = rawVfPass.includes(':') ? decrypt(rawVfPass) : rawVfPass;
-        setVerifactuCertPassword(decVfPass);
         setVerifactuCertPassword(decVfPass);
         setVerifactuEnv(data.verifactu_env || 'pruebas');
         setTelefono(data.telefono || '');
@@ -666,11 +661,7 @@ export default function AjustesClient() {
       // 0. Probar columnas reales para evitar errores de esquema (Smart Mapping)
       const { data: probe } = await supabase.from('costes').select('*').limit(1);
       const cols = (probe && probe.length > 0) ? Object.keys(probe[0]) : [];
-      
-      // Columnas que sabemos que existen por el esquema base
-      const guaranteedCols = ['id', 'user_id', 'fecha', 'proveedor_id', 'num_factura_proveedor', 'total', 'num_interno', 'base_imponible', 'iva_importe', 'iva_pct', 'retencion_pct', 'retencion_importe', 'estado_pago', 'tipo_gasto'];
-      const allKnownCols = [...new Set([...cols, ...guaranteedCols])];
-      const findKey = (options: string[]) => options.find(o => allKnownCols.includes(o));
+      const findKey = (options: string[]) => options.find(o => cols.includes(o));
 
       // 0.1 Obtener Perfil y Numeración Secuencial para el Libro de IVA
       const { data: perf } = await supabase.from('perfil_negocio').select('*').eq('user_id', user.id).maybeSingle();
@@ -826,69 +817,6 @@ export default function AjustesClient() {
     }
   };
 
-  const handleResetEmitidas = async () => {
-    if (!user) return;
-    
-    const confirm1 = confirm("⚠️ ATENCIÓN: Vas a borrar TODAS las facturas EMITIDAS (Ventas), sus líneas y registros de COBROS. Esta acción es IRREVERSIBLE. ¿Estás seguro?");
-    if (!confirm1) return;
-
-    const confirmText = prompt("Para confirmar el borrado de VENTAS, escribe la palabra: BORRAR");
-    if (confirmText !== "BORRAR") {
-      alert("Operación cancelada. El texto de confirmación no coincide.");
-      return;
-    }
-
-    setIsResetting(true);
-    try {
-      await supabase.from('venta_lineas').delete().eq('user_id', user.id);
-      await supabase.from('cobros').delete().eq('user_id', user.id);
-      await supabase.from('ventas').delete().eq('user_id', user.id);
-      
-      await supabase.from('perfil_negocio').update({
-        contador_ventas: 1
-      }).eq('user_id', user.id);
-
-      alert("✅ Datos de VENTAS eliminados correctamente. El contador ha sido reseteado a 1.");
-      window.location.reload();
-    } catch (err: any) {
-      alert("Error al resetear ventas: " + err.message);
-    } finally {
-      setIsResetting(false);
-    }
-  };
-
-  const handleResetRecibidas = async () => {
-    if (!user) return;
-    
-    const confirm1 = confirm("⚠️ ATENCIÓN: Vas a borrar TODAS las facturas RECIBIDAS (Costes), PROVEEDORES y registros de PAGOS. Esta acción es IRREVERSIBLE. ¿Estás seguro?");
-    if (!confirm1) return;
-
-    const confirmText = prompt("Para confirmar el borrado de COSTES y PROVEEDORES, escribe la palabra: BORRAR");
-    if (confirmText !== "BORRAR") {
-      alert("Operación cancelada. El texto de confirmación no coincide.");
-      return;
-    }
-
-    setIsResetting(true);
-    try {
-      await supabase.from('coste_lineas').delete().eq('user_id', user.id);
-      await supabase.from('pagos').delete().eq('user_id', user.id);
-      await supabase.from('costes').delete().eq('user_id', user.id);
-      await supabase.from('proveedores').delete().eq('user_id', user.id);
-
-      await supabase.from('perfil_negocio').update({
-        contador_costes: 1
-      }).eq('user_id', user.id);
-
-      alert("✅ Datos de COSTES y PROVEEDORES eliminados correctamente. El contador ha sido reseteado a 1.");
-      window.location.reload();
-    } catch (err: any) {
-      alert("Error al resetear costes: " + err.message);
-    } finally {
-      setIsResetting(false);
-    }
-  };
-
   const downloadExcelTemplate = async () => {
     const XLSX = await import('xlsx');
     const ws = XLSX.utils.json_to_sheet([
@@ -913,7 +841,7 @@ export default function AjustesClient() {
     XLSX.writeFile(wb, "Plantilla_Importacion_Gastos.xlsx");
   };
 
-  const [activeTab, setActiveTab] = useState<'perfil' | 'ai' | 'legales' | 'seguridad' | 'fiscalidad' | 'backup' | 'email' | 'import' | 'mantenimiento'>('perfil');
+  const [activeTab, setActiveTab] = useState<'perfil' | 'ai' | 'legales' | 'seguridad' | 'fiscalidad' | 'backup' | 'email' | 'import'>('perfil');
 
   if (loading) return null;
 
@@ -936,7 +864,6 @@ export default function AjustesClient() {
     { id: 'fiscalidad', label: 'Fiscalidad', icon: Percent, color: 'text-emerald-600' },
     { id: 'backup', label: 'Backup', icon: Database, color: 'text-indigo-600' },
     { id: 'import', label: 'Importar', icon: Table, color: 'text-pink-600' },
-    { id: 'mantenimiento', label: 'Mantenimiento', icon: AlertOctagon, color: 'text-red-600' },
   ];
 
   const lastBackup = autoBackups[0];
@@ -1662,83 +1589,6 @@ export default function AjustesClient() {
                       </div>
                     )}
                   </div>
-               </div>
-            </div>
-          )}
-          {activeTab === 'mantenimiento' && (
-            <div className="bg-white rounded-[2rem] border border-red-100 p-10 shadow-sm space-y-10 animate-in slide-in-from-bottom-4 duration-500">
-               <div className="flex items-start justify-between border-b border-red-50 pb-8">
-                  <div className="space-y-1">
-                    <h2 className="text-2xl font-black font-head text-red-900 tracking-tighter">Mantenimiento de Datos</h2>
-                    <p className="text-sm text-gray-400 font-sans">Herramientas de limpieza y reset para fase de pruebas.</p>
-                  </div>
-                  <AlertTriangle className="text-red-100" size={48} />
-               </div>
-
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  {/* Bloque Emitidas */}
-                  <div className="p-8 bg-blue-50 rounded-[2rem] border border-blue-100 space-y-6">
-                    <div className="space-y-2">
-                       <h3 className="font-black text-blue-900 flex items-center gap-2">
-                         <FileText size={20} /> Borrado de Ventas (Emitidas)
-                       </h3>
-                       <p className="text-xs text-blue-800/70 font-medium leading-relaxed">
-                         Elimina todas las facturas emitidas, sus líneas y registros de cobros.
-                       </p>
-                    </div>
-
-                    <div className="bg-white/50 p-4 rounded-xl border border-blue-200">
-                       <ul className="text-[10px] text-blue-900 space-y-1 list-disc list-inside font-bold">
-                          <li>Elimina todas las VENTAS.</li>
-                          <li>Elimina todos los COBROS vinculados.</li>
-                          <li>Reset contador VENTAS a 1.</li>
-                       </ul>
-                    </div>
-
-                    <button 
-                      onClick={handleResetEmitidas}
-                      disabled={isResetting}
-                      className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-xl shadow-blue-200 hover:bg-blue-700 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
-                    >
-                      {isResetting ? <Loader2 className="animate-spin" size={16} /> : <Trash2 size={16} />}
-                      Limpiar Emitidas
-                    </button>
-                  </div>
-
-                  {/* Bloque Recibidas */}
-                  <div className="p-8 bg-red-50 rounded-[2rem] border border-red-100 space-y-6">
-                    <div className="space-y-2">
-                       <h3 className="font-black text-red-900 flex items-center gap-2">
-                         <ShieldCheck size={20} /> Borrado de Gastos (Recibidas)
-                       </h3>
-                       <p className="text-xs text-red-800/70 font-medium leading-relaxed">
-                         Elimina facturas recibidas (costes), proveedores y registros de pagos.
-                       </p>
-                    </div>
-
-                    <div className="bg-white/50 p-4 rounded-xl border border-red-200">
-                       <ul className="text-[10px] text-red-900 space-y-1 list-disc list-inside font-bold">
-                          <li>Elimina todos los PROVEEDORES.</li>
-                          <li>Elimina todos los COSTES y PAGOS.</li>
-                          <li>Reset contador COSTES a 1.</li>
-                       </ul>
-                    </div>
-
-                    <button 
-                      onClick={handleResetRecibidas}
-                      disabled={isResetting}
-                      className="w-full py-4 bg-red-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-xl shadow-red-200 hover:bg-red-700 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
-                    >
-                      {isResetting ? <Loader2 className="animate-spin" size={16} /> : <Trash2 size={16} />}
-                      Limpiar Recibidas
-                    </button>
-                  </div>
-               </div>
-
-               <div className="p-6 bg-gray-50 rounded-2xl border border-gray-100">
-                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest text-center">
-                     ⚠️ Acciones irreversibles. Úsalas solo durante la puesta a punto de tu base de datos.
-                  </p>
                </div>
             </div>
           )}
