@@ -394,6 +394,22 @@ export default function CostesPage() {
     }
   };
 
+  const handleNext = () => {
+    if (!editingId) return;
+    const currentIndex = costes.findIndex(c => c.id === editingId);
+    if (currentIndex < costes.length - 1) {
+      openEditModal(costes[currentIndex + 1]);
+    }
+  };
+
+  const handlePrev = () => {
+    if (!editingId) return;
+    const currentIndex = costes.findIndex(c => c.id === editingId);
+    if (currentIndex > 0) {
+      openEditModal(costes[currentIndex - 1]);
+    }
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!numFactProv || !proveedorId) {
@@ -781,11 +797,35 @@ export default function CostesPage() {
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4 overflow-y-auto">
              <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-4xl border border-[var(--border)] my-auto">
                 <div className="flex justify-between items-center mb-6 pb-4 border-b">
-                   <h2 className="text-2xl font-bold font-head flex items-center gap-2 tracking-tight text-gray-800">
-                     <Receipt className="text-purple-600" /> 
-                     {editingId ? "Editar Factura" : "Factura Registrada"}
-                   </h2>
-                   <button onClick={() => setIsModalOpen(false)}><X size={24} className="text-gray-400"/></button>
+                   <div className="flex items-center gap-4">
+                     <h2 className="text-2xl font-bold font-head flex items-center gap-2 tracking-tight text-gray-800">
+                       <Receipt className="text-purple-600" /> 
+                       {editingId ? "Editar Factura" : "Factura Registrada"}
+                     </h2>
+                     {editingId && (
+                       <div className="flex bg-gray-100 rounded-xl p-1 gap-1">
+                         <button 
+                           type="button"
+                           onClick={handlePrev}
+                           disabled={costes.findIndex(c => c.id === editingId) === 0}
+                           title="Anterior"
+                           className="p-1.5 hover:bg-white rounded-lg disabled:opacity-20 transition-all text-gray-600 shadow-sm disabled:shadow-none"
+                         >
+                           <ChevronUp size={18} />
+                         </button>
+                         <button 
+                           type="button"
+                           onClick={handleNext}
+                           disabled={costes.findIndex(c => c.id === editingId) === costes.length - 1}
+                           title="Siguiente"
+                           className="p-1.5 hover:bg-white rounded-lg disabled:opacity-20 transition-all text-gray-600 shadow-sm disabled:shadow-none"
+                         >
+                           <ChevronDown size={18} />
+                         </button>
+                       </div>
+                     )}
+                   </div>
+                   <button onClick={() => setIsModalOpen(false)} className="hover:rotate-90 transition-transform"><X size={24} className="text-gray-400"/></button>
                 </div>
 
                 {detectedProvider && (

@@ -685,15 +685,16 @@ export default function AjustesClient() {
         const [key, rows] = entries[i];
         const firstRow = rows[0];
         try {
-          const { fecha, num_factura, proveedor_nombre, proveedor_nif } = firstRow;
+          const rawNif = firstRow.proveedor_nif || firstRow.nif_proveedor || firstRow.nif || firstRow.nif_emisor || firstRow.CIF || firstRow.cif;
+          const { fecha, num_factura, proveedor_nombre } = firstRow;
           
-          if (!fecha || !num_factura || !proveedor_nombre || !proveedor_nif) {
-            errors.push(`Grupo ${key}: Faltan campos obligatorios.`);
+          if (!fecha || !num_factura || !proveedor_nombre || !rawNif) {
+            errors.push(`Grupo ${key}: Faltan campos obligatorios (fecha, num_factura, nombre o NIF).`);
             continue;
           }
 
           // 1. Buscar o Crear Proveedor
-          const cleanNif = proveedor_nif.toString().replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+          const cleanNif = rawNif.toString().replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
           let { data: prov } = await supabase.from('proveedores').select('id').eq('user_id', user.id).eq('nif', cleanNif).maybeSingle();
 
           if (!prov) {
@@ -711,15 +712,16 @@ export default function AjustesClient() {
             prov = newProv;
           }
 
-          // 2. Comprobar duplicado
+          // 2. Comprobar duplicado o registro existente para actualizar
           const colNum = findKey(['num_factura_proveedor', 'numero_factura', 'num_factura', 'factura_prov', 'referencia']) || 'num_factura_proveedor';
-          const { data: exist } = await supabase.from('costes').select('id').eq('user_id', user.id).eq('proveedor_id', prov.id).eq(colNum, num_factura.toString()).maybeSingle();
-          if (exist) {
-            errors.push(`Factura ${num_factura} de ${proveedor_nombre} ya existe.`);
-            continue;
-          }
+          const { data: exist } = await supabase.from('costes')
+            .select('id, num_interno, registro_interno, numero')
+            .eq('user_id', user.id)
+            .eq('proveedor_id', prov.id)
+            .eq(colNum, num_factura.toString())
+            .maybeSingle();
 
-          // 3. Totales
+          // 3. Totales del Grupo
           let totalBI = 0;
           let totalIVA = 0;
           let totalRet = 0;
@@ -741,7 +743,6 @@ export default function AjustesClient() {
             finalFecha = `${a}-${m}-${d}`;
           }
 
-          // 4. Cabecera con Smart Mapping
           const internalNum = `${prefix}${nextSequential}`;
           const payload: any = {
             user_id: user.id,
@@ -751,11 +752,31 @@ export default function AjustesClient() {
             tipo_gasto: 'general'
           };
 
-          const setIfFound = (options: string[], value: any) => {
+          const setIfFound = (options: string[], value: any, target: any = payload) => {
             const k = findKey(options);
-            if (k) payload[k] = value;
+            if (k) target[k] = value;
           };
 
+          if (exist) {
+            // Si ya existe, solo actualizamos campos que podrían faltar (NIF/Proveedor y Contador)
+            const updatePayload: any = {};
+            setIfFound(['proveedor_id', 'id_proveedor'], prov.id, updatePayload);
+            
+            // Solo asignar número interno si no tiene uno ya
+            const hasInternal = exist.num_interno || exist.registro_interno || exist.numero;
+            if (!hasInternal) {
+               setIfFound(['num_interno', 'registro_interno', 'numero'], internalNum, updatePayload);
+               nextSequential++;
+            }
+            
+            const { error: uErr } = await supabase.from('costes').update(updatePayload).eq('id', exist.id);
+            if (uErr) throw new Error(`Error actualizando: ${uErr.message}`);
+            
+            successCount += rows.length;
+            continue;
+          }
+
+          // 4. Inserción Nueva
           setIfFound(['num_interno', 'registro_interno', 'numero'], internalNum);
           setIfFound(['serie_costes', 'serie'], perf?.serie_costes || 'A');
           setIfFound(['num_factura_proveedor', 'numero_factura', 'num_factura', 'factura_prov', 'referencia'], num_factura.toString());
