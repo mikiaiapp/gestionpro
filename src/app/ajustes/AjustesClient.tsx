@@ -649,13 +649,24 @@ export default function AjustesClient() {
       const worksheet = workbook.Sheets[workbook.SheetNames[0]];
       const jsonData = XLSX.utils.sheet_to_json(worksheet) as any[];
 
-      for (let i = 0; i < jsonData.length; i++) {
-        const row = jsonData[i];
+      // Agrupar filas por factura (NIF + Número) para soportar múltiples bases de IVA
+      const groupedData: Record<string, any[]> = {};
+      for (const row of jsonData) {
+        if (!row.proveedor_nif || !row.num_factura) continue;
+        const key = `${row.proveedor_nif.toString().trim()}_${row.num_factura.toString().trim()}`;
+        if (!groupedData[key]) groupedData[key] = [];
+        groupedData[key].push(row);
+      }
+
+      const entries = Object.entries(groupedData);
+      for (let i = 0; i < entries.length; i++) {
+        const [key, rows] = entries[i];
+        const firstRow = rows[0];
         try {
-          const { fecha, num_factura, proveedor_nombre, proveedor_nif } = row;
+          const { fecha, num_factura, proveedor_nombre, proveedor_nif } = firstRow;
           
           if (!fecha || !num_factura || !proveedor_nombre || !proveedor_nif) {
-            errors.push(`Fila ${i + 2}: Faltan campos obligatorios (fecha, num_factura, proveedor_nombre, proveedor_nif).`);
+            errors.push(`Grupo ${key}: Faltan campos obligatorios.`);
             continue;
           }
 
@@ -668,70 +679,76 @@ export default function AjustesClient() {
               user_id: user.id,
               nombre: proveedor_nombre,
               nif: cleanNif,
-              direccion: row.proveedor_direccion || '',
-              codigo_postal: row.proveedor_cp || '',
-              poblacion: row.proveedor_poblacion || '',
-              provincia: row.proveedor_provincia || ''
+              direccion: firstRow.proveedor_direccion || '',
+              codigo_postal: firstRow.proveedor_cp || '',
+              poblacion: firstRow.proveedor_poblacion || '',
+              provincia: firstRow.proveedor_provincia || ''
             }).select('id').single();
             
             if (pErr) throw new Error(`Error creando proveedor: ${pErr.message}`);
             prov = newProv;
           }
 
-          // 2. Comprobar duplicado de factura
+          // 2. Comprobar duplicado
           const { data: exist } = await supabase.from('costes').select('id').eq('user_id', user.id).eq('proveedor_id', prov.id).eq('num_factura_proveedor', num_factura.toString()).maybeSingle();
           if (exist) {
-            errors.push(`Fila ${i + 2}: La factura ${num_factura} de ${proveedor_nombre} ya existe.`);
+            errors.push(`Factura ${num_factura} de ${proveedor_nombre} ya existe.`);
             continue;
           }
 
-          // 3. Insertar Coste
-          const bi = parseFloat(row.base_imponible) || 0;
-          const ipct = parseFloat(row.iva_pct) || 0;
-          const rpct = parseFloat(row.retencion_pct) || 0;
-          const ivaImporte = bi * (ipct / 100);
-          const retImporte = bi * (rpct / 100);
-          const total = bi + ivaImporte - retImporte;
+          // 3. Totales
+          let totalBI = 0;
+          let totalIVA = 0;
+          let totalRet = 0;
+          for (const r of rows) {
+            const bi = parseFloat(r.base_imponible) || 0;
+            const ipct = parseFloat(r.iva_pct) || 0;
+            const rpct = parseFloat(r.retencion_pct) || 0;
+            totalBI += bi;
+            totalIVA += bi * (ipct / 100);
+            totalRet += bi * (rpct / 100);
+          }
 
-          // Convertir fecha de Excel a ISO
+          // Fecha
           let finalFecha = fecha;
           if (typeof fecha === 'number') {
-            const excelDate = new Date((fecha - (25567 + 1)) * 86400 * 1000);
-            finalFecha = excelDate.toISOString().split('T')[0];
-          } else if (fecha.includes('/')) {
+            finalFecha = new Date((fecha - (25567 + 1)) * 86400 * 1000).toISOString().split('T')[0];
+          } else if (typeof fecha === 'string' && fecha.includes('/')) {
             const [d, m, a] = fecha.split('/');
             finalFecha = `${a}-${m}-${d}`;
           }
 
+          // 4. Cabecera
           const { data: newCoste, error: cErr } = await supabase.from('costes').insert({
             user_id: user.id,
             fecha: finalFecha,
             num_factura_proveedor: num_factura.toString(),
             proveedor_id: prov.id,
-            base_imponible: bi,
-            iva_importe: ivaImporte,
-            retencion_pct: rpct,
-            retencion_importe: retImporte,
-            total: total,
-            estado_pago: row.estado_pago || 'Pendiente',
+            base_imponible: totalBI,
+            iva_importe: totalIVA,
+            retencion_pct: parseFloat(firstRow.retencion_pct) || 0,
+            retencion_importe: totalRet,
+            total: totalBI + totalIVA - totalRet,
+            estado_pago: firstRow.estado_pago || 'Pendiente',
             tipo_gasto: 'general'
           }).select('id').single();
 
-          if (cErr) throw new Error(`Error creando factura: ${cErr.message}`);
+          if (cErr) throw new Error(cErr.message);
 
-          // 4. Insertar Línea
-          await supabase.from('coste_lineas').insert({
-            coste_id: newCoste.id,
-            user_id: user.id,
-            descripcion: row.concepto || 'Importación Excel',
-            unidades: 1,
-            precio_unitario: bi,
-            iva_pct: ipct
-          });
-
-          successCount++;
+          // 5. Líneas
+          for (const r of rows) {
+             await supabase.from('coste_lineas').insert({
+                coste_id: newCoste.id,
+                user_id: user.id,
+                descripcion: r.concepto || 'Importación Excel',
+                unidades: 1,
+                precio_unitario: parseFloat(r.base_imponible) || 0,
+                iva_pct: parseFloat(r.iva_pct) || 0
+             });
+          }
+          successCount += rows.length;
         } catch (err: any) {
-          errors.push(`Fila ${i + 2}: ${err.message}`);
+          errors.push(`Error en ${key}: ${err.message}`);
         }
       }
 
