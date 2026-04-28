@@ -478,6 +478,10 @@ export const generatePDF = async (data: PDFData) => {
  * Renderiza texto que puede contener etiquetas HTML básicas (<b>, <strong>, <i>, <em>, <u>)
  * Soporta saltos de línea y justificación simple.
  */
+/**
+ * Renderiza texto que puede contener etiquetas HTML básicas (<b>, <strong>, <i>, <em>, <u>)
+ * Soporta saltos de línea, justificación por palabras y limpieza de entidades HTML.
+ */
 const renderRichText = (
   doc: jsPDF, 
   html: string, 
@@ -493,85 +497,147 @@ const renderRichText = (
   doc.setFontSize(fontSize);
   const PAGE_HEIGHT = doc.internal.pageSize.getHeight();
   
-  // Procesar marcadores y limpiar HTML
-  let cleanHtml = html || "";
+  // 1. Limpieza y pre-procesamiento de HTML
+  let cleanHtml = (html || "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, "&")
+    .replace(/<br\s*\/?>/gi, "\n");
   
-  // Separar en párrafos (por etiquetas p o saltos de línea)
-  const paragraphs = cleanHtml.split(/<p>|<\/p>|\r?\n|<br\s*\/?>/).filter(p => p.trim().length > 0);
+  // 2. Separar en párrafos por etiquetas <p> o saltos de línea
+  const paragraphs = cleanHtml.split(/<p>|<\/p>|\r?\n/i).filter(p => p.trim().length > 0);
   
   let currentY = y;
 
   for (const p of paragraphs) {
-    // Detectar etiquetas de negrita
-    const parts = p.split(/(<b>|<strong>|<\/b>|<\/strong>)/gi);
+    // 3. Tokenización del párrafo preservando formato
+    // Dividimos por etiquetas <b>, <strong>, <i>, <em>, <u>
+    const parts = p.split(/(<b>|<strong>|<i>|<em>|<u>|<\/b>|<\/strong>|<\/i>|<\/em>|<\/u>)/gi);
+    
     let isBold = false;
+    let isItalic = false;
+    let isUnderline = false;
     
-    let wordsInLine: Array<{ text: string, bold: boolean }> = [];
-    let currentLineWidth = 0;
+    const allTokens: Array<{ text: string, bold: boolean, italic: boolean, underline: boolean }> = [];
     
-    const renderLine = (lineWords: typeof wordsInLine, isLast: boolean) => {
-      if (lineWords.length === 0) return;
+    for (const part of parts) {
+      const lower = part.toLowerCase();
+      if (lower === '<b>' || lower === '<strong>') { isBold = true; continue; }
+      if (lower === '</b>' || lower === '</strong>') { isBold = false; continue; }
+      if (lower === '<i>' || lower === '<em>') { isItalic = true; continue; }
+      if (lower === '</i>' || lower === '</em>') { isItalic = false; continue; }
+      if (lower === '<u>') { isUnderline = true; continue; }
+      if (lower === '</u>') { isUnderline = false; continue; }
       
-      // Verificar salto de página
-      if (currentY > PAGE_HEIGHT - pageMargin - 15) {
+      // Dividimos el texto en palabras y espacios
+      const words = part.split(/(\s+)/);
+      for (const word of words) {
+        if (word) {
+          allTokens.push({ text: word, bold: isBold, italic: isItalic, underline: isUnderline });
+        }
+      }
+    }
+
+    // 4. Procesamiento de líneas (Word Wrapping)
+    let lineTokens: typeof allTokens = [];
+    let currentLineWidth = 0;
+    const safetyBuffer = 0.5; // Margen de seguridad de 0.5mm
+
+    const renderLine = (tokens: typeof allTokens, isLastLine: boolean) => {
+      if (tokens.length === 0) return;
+      
+      // Trim de espacios al inicio y final de la línea para el cálculo de justificación
+      let startIdx = 0;
+      while (startIdx < tokens.length && tokens[startIdx].text.trim() === '') startIdx++;
+      let endIdx = tokens.length - 1;
+      while (endIdx >= startIdx && tokens[endIdx].text.trim() === '') endIdx--;
+      
+      const lineWords = tokens.slice(startIdx, endIdx + 1);
+      if (lineWords.length === 0) return;
+
+      // Salto de página si es necesario
+      if (currentY > PAGE_HEIGHT - pageMargin - 10) {
         doc.addPage();
         currentY = 20;
       }
 
-      let cursorX = x;
-      const totalWordsWidth = lineWords.reduce((acc, w) => {
-        doc.setFont(fontFamily, w.bold ? 'bold' : 'normal');
-        return acc + doc.getTextWidth(w.text);
-      }, 0);
-
-      const spaceLeft = width - totalWordsWidth;
-      const spaceWidth = (justify && !isLast && lineWords.length > 1) 
-        ? spaceLeft / (lineWords.length - 1) 
-        : doc.getTextWidth(' ');
-
-      lineWords.forEach((w, idx) => {
-        doc.setFont(fontFamily, w.bold ? 'bold' : 'normal');
-        doc.text(w.text, cursorX, currentY);
-        cursorX += doc.getTextWidth(w.text) + (idx < lineWords.length - 1 ? spaceWidth : 0);
+      // Cálculo de anchos de palabras individuales
+      const wordWidths = lineWords.map(t => {
+        const style = (t.bold && t.italic) ? 'bolditalic' : t.bold ? 'bold' : t.italic ? 'italic' : 'normal';
+        try {
+          doc.setFont(fontFamily, style);
+        } catch (e) {
+          doc.setFont(fontFamily, t.bold ? 'bold' : 'normal');
+        }
+        return doc.getTextWidth(t.text);
       });
+
+      const totalWordsWidth = wordWidths.reduce((a, b) => a + b, 0);
+      const spaceLeft = width - totalWordsWidth;
+      const numGaps = lineWords.length - 1;
+      
+      // Solo justificamos si NO es la última línea del párrafo y hay más de una palabra
+      const isJustified = justify && !isLastLine && numGaps > 0;
+      const gapWidth = isJustified ? (spaceLeft / numGaps) : doc.getTextWidth(' ');
+
+      let cursorX = x;
+      lineWords.forEach((t, idx) => {
+        const style = (t.bold && t.italic) ? 'bolditalic' : t.bold ? 'bold' : t.italic ? 'italic' : 'normal';
+        try {
+          doc.setFont(fontFamily, style);
+        } catch (e) {
+          doc.setFont(fontFamily, t.bold ? 'bold' : 'normal');
+        }
+        
+        doc.text(t.text, cursorX, currentY);
+        
+        // Dibujar subrayado si aplica
+        if (t.underline) {
+          const w = wordWidths[idx];
+          doc.setLineWidth(0.2);
+          doc.line(cursorX, currentY + 0.5, cursorX + w, currentY + 0.5);
+        }
+        
+        cursorX += wordWidths[idx] + (idx < numGaps ? gapWidth : 0);
+      });
+
       currentY += lineHeight;
     };
 
-    for (const part of parts) {
-      const lower = part.toLowerCase();
-      if (lower === '<b>' || lower === '<strong>') {
-        isBold = true;
-        continue;
-      }
-      if (lower === '</b>' || lower === '</strong>') {
-        isBold = false;
-        continue;
+    for (let i = 0; i < allTokens.length; i++) {
+      const token = allTokens[i];
+      const style = (token.bold && token.italic) ? 'bolditalic' : token.bold ? 'bold' : token.italic ? 'italic' : 'normal';
+      try {
+        doc.setFont(fontFamily, style);
+      } catch (e) {
+        doc.setFont(fontFamily, token.bold ? 'bold' : 'normal');
       }
       
-      // Dividir por espacios manteniendo los espacios
-      const words = part.split(/(\s+)/);
-      for (const word of words) {
-        if (!word) continue;
+      const tokenWidth = doc.getTextWidth(token.text);
+
+      // Si es un espacio y la línea está vacía, lo ignoramos
+      if (token.text.trim() === '' && lineTokens.length === 0) continue;
+
+      if (currentLineWidth + tokenWidth > width - safetyBuffer && lineTokens.length > 0) {
+        // La palabra actual no cabe, renderizamos la línea actual
+        renderLine(lineTokens, false);
+        lineTokens = [];
+        currentLineWidth = 0;
         
-        doc.setFont(fontFamily, isBold ? 'bold' : 'normal');
-        const wordWidth = doc.getTextWidth(word);
-        
-        if (currentLineWidth + wordWidth > width && currentLineWidth > 0) {
-          renderLine(wordsInLine, false);
-          wordsInLine = [];
-          currentLineWidth = 0;
-          if (word.trim() === '') continue;
-        }
-        
-        wordsInLine.push({ text: word, bold: isBold });
-        currentLineWidth += wordWidth;
+        // Si el token que disparó el wrap era un espacio, lo ignoramos al inicio de la nueva línea
+        if (token.text.trim() === '') continue;
       }
+      
+      lineTokens.push(token);
+      currentLineWidth += tokenWidth;
     }
-    
-    renderLine(wordsInLine, true);
-    wordsInLine = [];
-    currentLineWidth = 0;
-    currentY += 1.5; // Espacio entre párrafos
+
+    // Renderizar la última línea del párrafo
+    renderLine(lineTokens, true);
+    currentY += 1.5; // Espacio extra entre párrafos
   }
   
   return currentY;
