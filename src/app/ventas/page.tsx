@@ -1204,6 +1204,6 @@ function VentasContent() {
           </div>
         )}
       </div>
-    </div>
+    </main>
   );
 }

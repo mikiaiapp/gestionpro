@@ -8,6 +8,13 @@ import { generatePDF } from "@/lib/pdfGenerator";
 import { formatCurrency } from "@/lib/format";
 import { exportProjectSummaryPDF } from "@/lib/reportingService";
 
+type ResumenDetails = {
+  ventas: any[];
+  costes: any[];
+  cobros: any[];
+  pagos: any[];
+};
+
 export default function ResumenPage() {
   const [proyectos, setProyectos] = useState<any[]>([]);
   const [perfil, setPerfil] = useState<any>(null);
@@ -15,7 +22,7 @@ export default function ResumenPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<'todos' | 'abierto' | 'cerrado'>('abierto');
   const [selectedProject, setSelectedProject] = useState<any>(null);
-  const [details, setDetails] = useState<{ventas: any[], costes: any[], cobros: any[], pagos: any[]}>({ventas: [], costes: [], cobros: [], pagos: []});
+  const [details, setDetails] = useState<ResumenDetails>({ventas: [], costes: [], cobros: [], pagos: []});
   const [loadingDetails, setLoadingDetails] = useState(false);
 
   useEffect(() => {

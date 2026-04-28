@@ -28,6 +28,13 @@ import { supabase } from "@/lib/supabase";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { generatePDF } from "@/lib/pdfGenerator";
 
+type ProjectDocuments = {
+  presupuesto?: any;
+  emitidas: any[];
+  recibidas: any[];
+  otros: any[];
+};
+
 export default function DocumentosPage() {
   const [viewMode, setViewMode] = useState<'explorador' | 'proyecto'>('explorador');
   const [currentPath, setCurrentPath] = useState<string>("");
@@ -38,12 +45,7 @@ export default function DocumentosPage() {
   // Vista Proyecto
   const [proyectos, setProyectos] = useState<any[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
-  const [projectDocs, setProjectDocs] = useState<{
-    presupuesto?: any,
-    emitidas: any[],
-    recibidas: any[],
-    otros: any[]
-  }>({ emitidas: [], recibidas: [], otros: [] });
+  const [projectDocs, setProjectDocs] = useState<ProjectDocuments>({ emitidas: [], recibidas: [], otros: [] });
   const [perfil, setPerfil] = useState<any>(null);
 
   // Modal Subida Otros

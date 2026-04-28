@@ -593,303 +593,302 @@ export default function ProyectosPage() {
     );
   }
 
-  return (
-    <div className="flex min-h-screen text-left" style={{ backgroundColor: 'var(--background)' }}>
-      <Sidebar />
-      <div className="flex-1 p-8 overflow-y-auto">
-        {!isEditorOpen ? (
-          <>
-            <header className="flex justify-between items-center mb-10">
-              <div>
-                <h1 className="text-3xl font-bold font-head tracking-tight mb-1 text-[var(--foreground)]">Presupuestos</h1>
-                <p className="text-[var(--muted)] font-medium">Planificación y gestión de presupuestos financieros.</p>
-              </div>
-              <button 
-                onClick={() => { setEditingId(null); setNombre(""); setClienteId(""); setNumReferencia(""); setLineas([{ unidades: 1, descripcion: "", precio_unitario: 0, coste: 0 }]); setIsEditorOpen(true); }}
-                className="flex items-center gap-2 px-6 py-3 rounded-xl bg-[var(--accent)] text-white font-bold hover:shadow-lg transition-all active:scale-[0.98]"
-              >
-                <Plus size={18} /> Nuevo Presupuesto
-              </button>
-            </header>
+  const mainContent = !isEditorOpen ? (
+    <>
+      <header className="flex justify-between items-center mb-10">
+        <div>
+          <h1 className="text-3xl font-bold font-head tracking-tight mb-1 text-[var(--foreground)]">Presupuestos</h1>
+          <p className="text-[var(--muted)] font-medium">Planificación y gestión de presupuestos financieros.</p>
+        </div>
+        <button 
+          onClick={() => { setEditingId(null); setNombre(""); setClienteId(""); setNumReferencia(""); setLineas([{ unidades: 1, descripcion: "", precio_unitario: 0, coste: 0 }]); setIsEditorOpen(true); }}
+          className="flex items-center gap-2 px-6 py-3 rounded-xl bg-[var(--accent)] text-white font-bold hover:shadow-lg transition-all active:scale-[0.98]"
+        >
+          <Plus size={18} /> Nuevo Presupuesto
+        </button>
+      </header>
 
-            <div className="glass-card bg-white shadow-sm border-[var(--border)] overflow-visible min-h-[400px] mb-20">
-
-               <table className="w-full border-collapse">
-                 <thead>
-                   <tr className="bg-gray-50/50 border-b border-[var(--border)]">
-                     <DataTableHeader label="Ref / Nombre" field="nombre" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.nombre || ''} onFilter={handleFilter} />
-                     <DataTableHeader label="Cliente" field="cliente" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.cliente || ''} onFilter={handleFilter} />
-                     <DataTableHeader label="Total" field="total" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.total || ''} onFilter={handleFilter} />
-                     <DataTableHeader label="Facturado" field="facturado" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.facturado || ''} onFilter={handleFilter} />
-                     <DataTableHeader label="Cobrado" field="cobrado" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.cobrado || ''} onFilter={handleFilter} />
-                      <DataTableHeader 
-                        label="Estado" 
-                        field="estado" 
-                        sortConfig={sortConfig} 
-                        onSort={handleSort} 
-                        filterValue={columnFilters.estado || ''} 
-                        onFilter={handleFilter} 
-                        filterOptions={[
-                          { label: 'Abierto', value: 'Abierto' },
-                          { label: 'Cerrado', value: 'Cerrado' }
-                        ]}
-                      />
-                     <th className="px-6 py-4 text-[12px] font-black text-gray-500 uppercase tracking-wider text-right">Acciones</th>
-                   </tr>
-                 </thead>
-                  <tbody className="divide-y divide-[var(--border)]">
-                    {paginatedProyectos.map(p => (
-                      <tr key={p.id} className="hover:bg-gray-50 transition-colors">
-                       <td className="px-6 py-4">
-                         <div className="text-[10px] font-bold text-orange-600 uppercase mb-0.5">{p.serie}-{p[columnKey]}</div>
-                         <div className="font-bold">{p.nombre}</div>
-                       </td>
-                       <td className="px-6 py-4 text-sm font-medium text-gray-600">{p.clientes?.nombre}</td>
-                       <td className="px-6 py-4 text-right font-mono font-bold text-gray-700">{formatCurrency(p.total || 0)}</td>
-                       <td className="px-6 py-4 text-right font-mono font-bold text-blue-600">{formatCurrency(p.facturado || 0)}</td>
-                       <td className="px-6 py-4 text-right font-mono font-bold text-green-600">{formatCurrency(p.cobrado || 0)}</td>
-                        <td className="px-6 py-4">
-                           <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${p.estado === 'Cerrado' ? 'bg-gray-100 text-gray-400' : 'bg-green-100 text-green-600'}`}>
-                             {p.estado || 'Abierto'}
-                           </span>
-                        </td>
-                       <td className="px-6 py-4 text-right relative">
+      <div className="glass-card bg-white shadow-sm border-[var(--border)] overflow-visible min-h-[400px] mb-20">
+         <table className="w-full border-collapse">
+           <thead>
+             <tr className="bg-gray-50/50 border-b border-[var(--border)]">
+               <DataTableHeader label="Ref / Nombre" field="nombre" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.nombre || ''} onFilter={handleFilter} />
+               <DataTableHeader label="Cliente" field="cliente" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.cliente || ''} onFilter={handleFilter} />
+               <DataTableHeader label="Total" field="total" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.total || ''} onFilter={handleFilter} />
+               <DataTableHeader label="Facturado" field="facturado" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.facturado || ''} onFilter={handleFilter} />
+               <DataTableHeader label="Cobrado" field="cobrado" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.cobrado || ''} onFilter={handleFilter} />
+                <DataTableHeader 
+                  label="Estado" 
+                  field="estado" 
+                  sortConfig={sortConfig} 
+                  onSort={handleSort} 
+                  filterValue={columnFilters.estado || ''} 
+                  onFilter={handleFilter} 
+                  filterOptions={[
+                    { label: 'Abierto', value: 'Abierto' },
+                    { label: 'Cerrado', value: 'Cerrado' }
+                  ]}
+                />
+               <th className="px-6 py-4 text-[12px] font-black text-gray-500 uppercase tracking-wider text-right">Acciones</th>
+             </tr>
+           </thead>
+            <tbody className="divide-y divide-[var(--border)]">
+              {paginatedProyectos.map(p => (
+                <tr key={p.id} className="hover:bg-gray-50 transition-colors">
+                 <td className="px-6 py-4">
+                   <div className="text-[10px] font-bold text-orange-600 uppercase mb-0.5">{p.serie}-{p[columnKey]}</div>
+                   <div className="font-bold">{p.nombre}</div>
+                 </td>
+                 <td className="px-6 py-4 text-sm font-medium text-gray-600">{p.clientes?.nombre}</td>
+                 <td className="px-6 py-4 text-right font-mono font-bold text-gray-700">{formatCurrency(p.total || 0)}</td>
+                 <td className="px-6 py-4 text-right font-mono font-bold text-blue-600">{formatCurrency(p.facturado || 0)}</td>
+                 <td className="px-6 py-4 text-right font-mono font-bold text-green-600">{formatCurrency(p.cobrado || 0)}</td>
+                  <td className="px-6 py-4">
+                     <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${p.estado === 'Cerrado' ? 'bg-gray-100 text-gray-400' : 'bg-green-100 text-green-600'}`}>
+                       {p.estado || 'Abierto'}
+                     </span>
+                  </td>
+                 <td className="px-6 py-4 text-right relative">
+                   <button 
+                      onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === p.id ? null : p.id); }}
+                      className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-gray-600 transition-colors"
+                    >
+                      <MoreHorizontal size={20} />
+                    </button>
+                    {openMenuId === p.id && (
+                      <div className="absolute right-6 top-12 w-48 bg-white rounded-xl shadow-xl border border-[var(--border)] z-50 py-2 animate-in fade-in slide-in-from-top-2 duration-200 text-left">
+                        <button onClick={() => downloadBudget(p)} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-700 transition-colors"><Printer size={16}/> Imprimir PDF</button>
+                        
+                        <button onClick={() => handleSendBudgetByEmail(p)} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-blue-600 hover:bg-blue-50 transition-colors">
+                          <Mail size={16}/> Enviar por Email
+                        </button>
+                        <button onClick={() => openEditProyecto(p)} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-700 transition-colors"><Pencil size={16}/> Editar Presupuesto</button>
+                        <button 
+                           onClick={() => router.push(`/ventas?proyectoId=${p.id}&mode=avance`)} 
+                           className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-600 hover:bg-orange-50 hover:text-orange-700 transition-colors"
+                         >
+                           <Receipt size={16}/> Facturar
+                         </button>
+                         <div className="h-px bg-gray-100 my-1 mx-2"></div>
                          <button 
-                            onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === p.id ? null : p.id); }}
-                            className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-gray-600 transition-colors"
-                          >
-                            <MoreHorizontal size={20} />
-                          </button>
-                          {openMenuId === p.id && (
-                            <div className="absolute right-6 top-12 w-48 bg-white rounded-xl shadow-xl border border-[var(--border)] z-50 py-2 animate-in fade-in slide-in-from-top-2 duration-200 text-left">
-                              <button onClick={() => downloadBudget(p)} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-700 transition-colors"><Printer size={16}/> Imprimir PDF</button>
-                              
-                              <button onClick={() => handleSendBudgetByEmail(p)} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-blue-600 hover:bg-blue-50 transition-colors">
-                                <Mail size={16}/> Enviar por Email
-                              </button>
-                              <button onClick={() => openEditProyecto(p)} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-700 transition-colors"><Pencil size={16}/> Editar Presupuesto</button>
-                              <button 
-                                 onClick={() => router.push(`/ventas?proyectoId=${p.id}&mode=avance`)} 
-                                 className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-600 hover:bg-orange-50 hover:text-orange-700 transition-colors"
-                               >
-                                 <Receipt size={16}/> Facturar
-                               </button>
-                               <div className="h-px bg-gray-100 my-1 mx-2"></div>
-                               <button 
-                                 onClick={() => handleDeleteProyecto(p)} 
-                                 className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                               >
-                                 <Trash2 size={16}/> Eliminar
-                               </button>
-                            </div>
-                          )}
-                       </td>
-                     </tr>
-                   ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <Pagination 
-                currentPage={currentPage}
-                totalPages={totalPages}
-                pageSize={pageSize}
-                totalResults={filtered.length}
-                onPageChange={setCurrentPage}
-                onPageSizeChange={(size) => {
-                  setPageSize(size);
-                  setCurrentPage(1);
-                }}
-              />
-             </div>
-          </>
-        ) : (
-          <div className="max-w-5xl mx-auto pb-20 animate-in slide-in-from-bottom-4 duration-300 text-left">
-            <div className="flex items-center justify-between mb-8">
-              <h2 className="text-2xl font-bold font-head flex items-center gap-2">
-                <FolderKanban className="text-[var(--accent)]" /> Editor de Presupuesto
-              </h2>
-              <div className="flex gap-3">
-                <button onClick={() => setIsEditorOpen(false)} className="px-5 py-2.5 text-sm font-bold text-gray-500 hover:bg-gray-100 rounded-xl">Cancelar</button>
-                <button 
-                  onClick={handleSaveProyecto} 
-                  disabled={saving}
-                  className="flex items-center gap-2 px-6 py-2.5 bg-[var(--accent)] text-white rounded-xl font-bold shadow-md hover:shadow-lg disabled:opacity-50"
-                >
-                  {saving ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
-                  Guardar Presupuesto
-                </button>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-2xl shadow-xl border border-[var(--border)] p-8">
-               <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 pb-8 border-b border-dashed border-gray-200">
-                 <div className="md:col-span-2">
-                   <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Nombre del Presupuesto</label>
-                   <input type="text" value={nombre} onChange={(e) => setNombre(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200 bg-gray-50 focus:bg-white font-bold" placeholder="Ej: Obra Reforma Local Centro" />
-                 </div>
-                 <div>
-                   <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Nº Referencia</label>
-                   <input type="text" value={numReferencia} onChange={(e) => setNumReferencia(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200 bg-gray-50 font-mono focus:bg-white" />
-                 </div>
-                 <div>
-                   <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Fecha</label>
-                   <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200 bg-gray-50" />
-                 </div>
-                 <div className="md:col-span-4">
-                    <SearchableSelect 
-                      label="Cliente"
-                      options={clientes}
-                      value={clienteId}
-                      onChange={(id) => setClienteId(id)}
-                      placeholder="Seleccionar cliente..."
-                    />
-                 </div>
-               </div>
-
-               <div className="mb-8 overflow-x-auto">
-                 <table className="w-full text-left min-w-[600px]">
-                   <thead>
-                     <tr>
-                       <th className="pb-3 text-[10px] font-bold text-gray-400 uppercase">Descripción / Partida</th>
-                       <th className="w-32 pb-3 text-[10px] font-bold text-gray-400 uppercase text-right">Coste Prev.</th>
-                       <th className="w-32 pb-3 text-[10px] font-bold text-gray-400 uppercase text-right">Venta Prev.</th>
-                       <th className="w-10"></th>
-                     </tr>
-                   </thead>
-                   <tbody>
-                     {lineas.map((linea, idx) => (
-                       <tr key={idx}>
-                         <td className="py-2 pr-4">
-                            <RichTextEditor 
-                              value={linea.descripcion} 
-                              onChange={(val) => updateLinea(idx, { descripcion: val })} 
-                              placeholder="Descripción..."
-                            />
-                          </td>
-                         <td className="py-2 pr-4">
-                           <input
-                             type="text"
-                             inputMode="decimal"
-                             value={linea.coste === 0 ? '' : (linea.coste || '')}
-                             onChange={(e) => {
-                                const raw = e.target.value.replace(',', '.');
-                                if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
-                                  const val = raw === '' ? 0 : parseFloat(raw);
-                                  updateLinea(idx, { coste: isNaN(val) ? 0 : val });
-                                }
-                             }}
-                             onFocus={(e) => e.target.select()}
-                             className="w-full p-2 rounded-lg border border-gray-100 text-right font-mono text-red-600 focus:ring-2 focus:ring-red-100 outline-none"
-                             placeholder="0.00"
-                           />
-                         </td>
-                         <td className="py-2 pr-4">
-                           <input
-                             type="text"
-                             inputMode="decimal"
-                             value={linea.precio_unitario === 0 ? '' : (linea.precio_unitario || '')}
-                             onChange={(e) => {
-                                const raw = e.target.value.replace(',', '.');
-                                if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
-                                  const val = raw === '' ? 0 : parseFloat(raw);
-                                  updateLinea(idx, { precio_unitario: isNaN(val) ? 0 : val });
-                                }
-                             }}
-                             onFocus={(e) => e.target.select()}
-                             className="w-full p-2 rounded-lg border border-gray-100 text-right font-mono text-green-600 font-bold focus:ring-2 focus:ring-green-100 outline-none"
-                             placeholder="0.00"
-                           />
-                         </td>
-                         <td className="py-2 text-center">{lineas.length > 1 && <button onClick={() => removeLinea(idx)} className="text-red-300 hover:text-red-500"><Trash2 size={16}/></button>}</td>
-                       </tr>
-                     ))}
-                   </tbody>
-                 </table>
-                 <button onClick={addLinea} className="mt-4 flex items-center gap-2 text-sm font-bold text-orange-600 hover:underline"><Plus size={16}/> Añadir partida</button>
-               </div>
-
-               <div className="flex flex-col md:flex-row justify-between items-start pt-8 border-t border-gray-100 gap-8">
-                  <div className="w-full md:w-80 space-y-4">
-                    {perfil?.tiene_retencion && (
-                      <div>
-                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Retención IRPF (%)</label>
-                        <select
-                          value={retencionPct}
-                          onChange={(e) => setRetencionPct(parseFloat(e.target.value) || 0)}
-                          className="w-full p-2.5 rounded-lg border border-gray-200 bg-gray-50 font-bold outline-none focus:bg-white transition-all"
-                        >
-                          <option value="0">Sin Retención (0%)</option>
-                          {tiposIrpf.map(t => (
-                            <option key={t.id} value={t.valor}>{t.nombre} ({t.valor}%)</option>
-                          ))}
-                        </select>
+                           onClick={() => handleDeleteProyecto(p)} 
+                           className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                         >
+                           <Trash2 size={16}/> Eliminar
+                         </button>
                       </div>
                     )}
-                    <div className="p-4 rounded-xl border border-red-50 bg-red-50/50">
-                      <label className="block text-[10px] font-bold text-red-400 uppercase mb-1">TOTAL COSTE PREVISTO</label>
-                      <div className="text-xl font-mono font-bold text-red-600">
-                        {formatCurrency(costePrevisto)}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="w-full md:w-80 space-y-3">
-                    <div className="flex justify-between text-sm"><span>Base Imponible (Venta):</span><span className="font-mono font-bold">{formatCurrency(baseImponible)}</span></div>
-                    <div className="flex justify-between text-sm"><span>IVA (21%):</span><span className="font-mono font-bold">{formatCurrency(cuotaIva)}</span></div>
-                    {perfil?.tiene_retencion && retencionPct > 0 && <div className="flex justify-between text-sm text-red-600"><span>Retención ({retencionPct}%):</span><span className="font-mono font-bold">-{formatCurrency(retencionImporte)}</span></div>}
-                    <div className="flex justify-between text-xl font-bold pt-3 border-t-2 border-gray-200 text-gray-800"><span>TOTAL VENTA:</span><span className="text-orange-600">{formatCurrency(totalProyecto)}</span></div>
-               </div>
-               </div>
+                 </td>
+               </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
+        <Pagination 
+          currentPage={currentPage}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          totalResults={filtered.length}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setCurrentPage(1);
+          }}
+        />
+    </>
+  ) : (
+    <div className="max-w-5xl mx-auto pb-20 animate-in slide-in-from-bottom-4 duration-300 text-left">
+      <div className="flex items-center justify-between mb-8">
+        <h2 className="text-2xl font-bold font-head flex items-center gap-2">
+          <FolderKanban className="text-[var(--accent)]" /> Editor de Presupuesto
+        </h2>
+        <div className="flex gap-3">
+          <button onClick={() => setIsEditorOpen(false)} className="px-5 py-2.5 text-sm font-bold text-gray-500 hover:bg-gray-100 rounded-xl">Cancelar</button>
+          <button 
+            onClick={handleSaveProyecto} 
+            disabled={saving}
+            className="flex items-center gap-2 px-6 py-2.5 bg-[var(--accent)] text-white rounded-xl font-bold shadow-md hover:shadow-lg disabled:opacity-50"
+          >
+            {saving ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
+            Guardar Presupuesto
+          </button>
+        </div>
+      </div>
 
-               <div className="mt-8 pt-8 border-t border-dashed border-gray-200 space-y-6">
-                  {/* Condiciones Particulares: específicas de este presupuesto */}
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <div className="h-2 w-2 rounded-full bg-orange-400" />
-                      <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest">Condiciones Particulares</label>
-                      <span className="text-[9px] text-gray-400 italic">(específicas de este presupuesto — se imprimirán primero)</span>
-                    </div>
-                    <RichTextEditor 
-                      value={condiciones} 
-                      onChange={setCondiciones} 
-                      placeholder="Ej: Precio válido por 30 días. Incluye materiales de primera calidad. Plazo de ejecución estimado: 2 semanas..."
-                    />
-                  </div>
+      <div className="bg-white rounded-2xl shadow-xl border border-[var(--border)] p-8">
+         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 pb-8 border-b border-dashed border-gray-200">
+           <div className="md:col-span-2">
+             <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Nombre del Presupuesto</label>
+             <input type="text" value={nombre} onChange={(e) => setNombre(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200 bg-gray-50 focus:bg-white font-bold" placeholder="Ej: Obra Reforma Local Centro" />
+           </div>
+           <div>
+             <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Nº Referencia</label>
+             <input type="text" value={numReferencia} onChange={(e) => setNumReferencia(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200 bg-gray-50 font-mono focus:bg-white" />
+           </div>
+           <div>
+             <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Fecha</label>
+             <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className="w-full p-2.5 rounded-lg border border-gray-200 bg-gray-50" />
+           </div>
+           <div className="md:col-span-4">
+              <SearchableSelect 
+                label="Cliente"
+                options={clientes}
+                value={clienteId}
+                onChange={(id) => setClienteId(id)}
+                placeholder="Seleccionar cliente..."
+              />
+           </div>
+         </div>
 
-                  {/* Forma de Pago Personalizada */}
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <div className="h-2 w-2 rounded-full bg-blue-400" />
-                      <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest">Forma de Pago</label>
-                      <span className="text-[9px] text-gray-400 italic">(personalizada para este presupuesto)</span>
-                    </div>
-                    <RichTextEditor 
-                      value={formaPago} 
-                      onChange={setFormaPago} 
-                      placeholder="Ej: Transferencia bancaria a la cuenta indicada en la cabecera..."
-                    />
-                  </div>
+         <div className="mb-8 overflow-x-auto">
+           <table className="w-full text-left min-w-[600px]">
+             <thead>
+               <tr>
+                 <th className="pb-3 text-[10px] font-bold text-gray-400 uppercase">Descripción / Partida</th>
+                 <th className="w-32 pb-3 text-[10px] font-bold text-gray-400 uppercase text-right">Coste Prev.</th>
+                 <th className="w-32 pb-3 text-[10px] font-bold text-gray-400 uppercase text-right">Venta Prev.</th>
+                 <th className="w-10"></th>
+               </tr>
+             </thead>
+             <tbody>
+               {lineas.map((linea, idx) => (
+                 <tr key={idx}>
+                   <td className="py-2 pr-4">
+                      <RichTextEditor 
+                        value={linea.descripcion} 
+                        onChange={(val) => updateLinea(idx, { descripcion: val })} 
+                        placeholder="Descripción..."
+                      />
+                    </td>
+                   <td className="py-2 pr-4">
+                     <input
+                       type="text"
+                       inputMode="decimal"
+                       value={linea.coste === 0 ? '' : (linea.coste || '')}
+                       onChange={(e) => {
+                          const raw = e.target.value.replace(',', '.');
+                          if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
+                            const val = raw === '' ? 0 : parseFloat(raw);
+                            updateLinea(idx, { coste: isNaN(val) ? 0 : val });
+                          }
+                       }}
+                       onFocus={(e) => e.target.select()}
+                       className="w-full p-2 rounded-lg border border-gray-100 text-right font-mono text-red-600 focus:ring-2 focus:ring-red-100 outline-none"
+                       placeholder="0.00"
+                     />
+                   </td>
+                   <td className="py-2 pr-4">
+                     <input
+                       type="text"
+                       inputMode="decimal"
+                       value={linea.precio_unitario === 0 ? '' : (linea.precio_unitario || '')}
+                       onChange={(e) => {
+                          const raw = e.target.value.replace(',', '.');
+                          if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
+                            const val = raw === '' ? 0 : parseFloat(raw);
+                            updateLinea(idx, { precio_unitario: isNaN(val) ? 0 : val });
+                          }
+                       }}
+                       onFocus={(e) => e.target.select()}
+                       className="w-full p-2 rounded-lg border border-gray-100 text-right font-mono text-green-600 font-bold focus:ring-2 focus:ring-green-100 outline-none"
+                       placeholder="0.00"
+                     />
+                   </td>
+                   <td className="py-2 text-center">{lineas.length > 1 && <button onClick={() => removeLinea(idx)} className="text-red-300 hover:text-red-500"><Trash2 size={16}/></button>}</td>
+                 </tr>
+               ))}
+             </tbody>
+           </table>
+           <button onClick={addLinea} className="mt-4 flex items-center gap-2 text-sm font-bold text-orange-600 hover:underline"><Plus size={16}/> Añadir partida</button>
+         </div>
 
-                  {/* Preview Condiciones Generales (solo lectura, vienen de Ajustes) */}
-                  {perfil?.condiciones_legales && (
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <div className="h-2 w-2 rounded-full bg-gray-300" />
-                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Condiciones Generales</label>
-                        <span className="text-[9px] text-gray-400 italic">(definidas en Ajustes — se imprimirán después de las particulares)</span>
-                      </div>
-                      <div className="w-full p-4 rounded-xl border border-gray-100 bg-gray-50 text-xs text-gray-400 italic leading-relaxed line-clamp-3">
-                        {perfil.condiciones_legales}
-                      </div>
-                    </div>
-                  )}
-               </div>
+         <div className="flex flex-col md:flex-row justify-between items-start pt-8 border-t border-gray-100 gap-8">
+            <div className="w-full md:w-80 space-y-4">
+              {perfil?.tiene_retencion && (
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Retención IRPF (%)</label>
+                  <select
+                    value={retencionPct}
+                    onChange={(e) => setRetencionPct(parseFloat(e.target.value) || 0)}
+                    className="w-full p-2.5 rounded-lg border border-gray-200 bg-gray-50 font-bold outline-none focus:bg-white transition-all"
+                  >
+                    <option value="0">Sin Retención (0%)</option>
+                    {tiposIrpf.map(t => (
+                      <option key={t.id} value={t.valor}>{t.nombre} ({t.valor}%)</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <div className="p-4 rounded-xl border border-red-50 bg-red-50/50">
+                <label className="block text-[10px] font-bold text-red-400 uppercase mb-1">TOTAL COSTE PREVISTO</label>
+                <div className="text-xl font-mono font-bold text-red-600">
+                  {formatCurrency(costePrevisto)}
+                </div>
+              </div>
             </div>
-          </div>
-        )}
+            <div className="w-full md:w-80 space-y-3">
+              <div className="flex justify-between text-sm"><span>Base Imponible (Venta):</span><span className="font-mono font-bold">{formatCurrency(baseImponible)}</span></div>
+              <div className="flex justify-between text-sm"><span>IVA (21%):</span><span className="font-mono font-bold">{formatCurrency(cuotaIva)}</span></div>
+              {perfil?.tiene_retencion && retencionPct > 0 && <div className="flex justify-between text-sm text-red-600"><span>Retención ({retencionPct}%):</span><span className="font-mono font-bold">-{formatCurrency(retencionImporte)}</span></div>}
+              <div className="flex justify-between text-xl font-bold pt-3 border-t-2 border-gray-200 text-gray-800"><span>TOTAL VENTA:</span><span className="text-orange-600">{formatCurrency(totalProyecto)}</span></div>
+         </div>
+         </div>
+
+
+         <div className="mt-8 pt-8 border-t border-dashed border-gray-200 space-y-6">
+            {/* Condiciones Particulares: específicas de este presupuesto */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-orange-400" />
+                <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest">Condiciones Particulares</label>
+                <span className="text-[9px] text-gray-400 italic">(específicas de este presupuesto — se imprimirán primero)</span>
+              </div>
+              <RichTextEditor 
+                value={condiciones} 
+                onChange={setCondiciones} 
+                placeholder="Ej: Precio válido por 30 días. Incluye materiales de primera calidad. Plazo de ejecución estimado: 2 semanas..."
+              />
+            </div>
+
+            {/* Forma de Pago Personalizada */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-blue-400" />
+                <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest">Forma de Pago</label>
+                <span className="text-[9px] text-gray-400 italic">(personalizada para este presupuesto)</span>
+              </div>
+              <RichTextEditor 
+                value={formaPago} 
+                onChange={setFormaPago} 
+                placeholder="Ej: Transferencia bancaria a la cuenta indicada en la cabecera..."
+              />
+            </div>
+
+            {/* Preview Condiciones Generales (solo lectura, vienen de Ajustes) */}
+            {perfil?.condiciones_legales && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="h-2 w-2 rounded-full bg-gray-300" />
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Condiciones Generales</label>
+                  <span className="text-[9px] text-gray-400 italic">(definidas en Ajustes — se imprimirán después de las particulares)</span>
+                </div>
+                <div className="w-full p-4 rounded-xl border border-gray-100 bg-gray-50 text-xs text-gray-400 italic leading-relaxed line-clamp-3">
+                  {perfil.condiciones_legales}
+                </div>
+              </div>
+            )}
+         </div>
       </div>
     </div>
   );
-}
 
+  return (
+    <main className="flex min-h-screen text-left">
+      <Sidebar />
+      <div className="flex-1 p-8 overflow-y-auto">
+        {mainContent}
+      </div>
+    </main>
+  );
+}
