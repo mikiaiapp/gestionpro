@@ -282,7 +282,7 @@ export default function ProyectosPage() {
         
         const pdfDoc = await generatePDF({
           tipo: 'PRESUPUESTO',
-          numero: refFinal,
+          numero: (`${pFull.serie || 'P'}-${refFinal}`).replace('P-P-', 'P-'),
           fecha: pFull.fecha,
           cliente: {
             nombre: pFull.clientes?.nombre || 'Particular',
@@ -310,7 +310,7 @@ export default function ProyectosPage() {
 
         const blob = pdfDoc.output('blob');
         const publicUrl = await uploadInvoiceFile(blob, 'presupuestos', { 
-          number: `${pFull.serie}-${refFinal}`, 
+          number: `${pFull.serie || 'P'}-${refFinal}`.replace('P-P-', 'P-'), 
           entity: pFull.clientes?.nombre || 'Cliente' 
         });
 
@@ -357,11 +357,12 @@ export default function ProyectosPage() {
       const total = p.total || (base + iva_importe - retencion_importe);
 
       // Búsqueda robusta para el PDF
-      const refFinal = p.num_proyecto || p.numero || p.num_referencia || p.referencia || "S/N";
+      const refRaw = p.num_proyecto || p.numero || p.num_referencia || p.referencia || "S/N";
+      const refFinal = (`${p.serie || 'P'}-${refRaw}`).replace('P-P-', 'P-');
       
       await generatePDF({
         tipo: 'PRESUPUESTO',
-        numero: `${p.serie || 'P'}-${refFinal} - ${p.nombre}`,
+        numero: `${refFinal} - ${p.nombre}`,
         fecha: p.fecha,
         cliente: {
           nombre: p.clientes?.nombre || 'Cliente Final',
@@ -414,9 +415,10 @@ export default function ProyectosPage() {
 
     setLoading(true);
     try {
+      const refFinal = (`${p.serie || 'P'}-${p[columnKey]}`).replace('P-P-', 'P-');
       const pdfData: any = {
         tipo: 'PRESUPUESTO',
-        numero: `${p.serie}-${p[columnKey]}`,
+        numero: refFinal,
         fecha: p.fecha,
         cliente: {
           nombre: p.clientes?.nombre || 'Cliente',
@@ -540,7 +542,7 @@ export default function ProyectosPage() {
       if (!columnFilters[key]) return true;
       let val = '';
       if (key === 'cliente') val = p.clientes?.nombre || '';
-      else if (key === 'ref') val = `${p.serie}-${p[columnKey]}` || '';
+      else if (key === 'ref') val = `${p.serie || 'P'}-${p[columnKey]}`.replace('P-P-', 'P-') || '';
       else if (key === 'total' || key === 'facturado' || key === 'cobrado') val = (p[key] || 0).toString();
       else val = p[key] || '';
       return val.toString().toLowerCase().includes(columnFilters[key].toLowerCase());
@@ -555,8 +557,8 @@ export default function ProyectosPage() {
       aVal = a.clientes?.nombre || '';
       bVal = b.clientes?.nombre || '';
     } else if (sortConfig.key === 'ref') {
-      aVal = `${a.serie}-${a[columnKey]}` || '';
-      bVal = `${b.serie}-${b[columnKey]}` || '';
+      aVal = `${a.serie || 'P'}-${a[columnKey]}`.replace('P-P-', 'P-') || '';
+      bVal = `${b.serie || 'P'}-${b[columnKey]}`.replace('P-P-', 'P-') || '';
     } else if (sortConfig.key === 'total' || sortConfig.key === 'facturado' || sortConfig.key === 'cobrado') {
       aVal = Number(a[sortConfig.key] || 0);
       bVal = Number(b[sortConfig.key] || 0);
@@ -612,7 +614,8 @@ export default function ProyectosPage() {
          <table className="w-full border-collapse">
            <thead>
              <tr className="bg-gray-50/50 border-b border-[var(--border)]">
-               <DataTableHeader label="Ref / Nombre" field="nombre" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.nombre || ''} onFilter={handleFilter} />
+               <DataTableHeader label="Referencia" field="ref" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.ref || ''} onFilter={handleFilter} />
+               <DataTableHeader label="Nombre del Proyecto" field="nombre" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.nombre || ''} onFilter={handleFilter} />
                <DataTableHeader label="Cliente" field="cliente" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.cliente || ''} onFilter={handleFilter} />
                <DataTableHeader label="Total" field="total" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.total || ''} onFilter={handleFilter} />
                <DataTableHeader label="Facturado" field="facturado" sortConfig={sortConfig} onSort={handleSort} filterValue={columnFilters.facturado || ''} onFilter={handleFilter} />
@@ -636,9 +639,11 @@ export default function ProyectosPage() {
               {paginatedProyectos.map(p => (
                 <tr key={p.id} className="hover:bg-gray-50 transition-colors">
                  <td className="px-6 py-4">
-                   <div className="text-[10px] font-bold text-orange-600 uppercase mb-0.5">{p.serie}-{p[columnKey]}</div>
-                   <div className="font-bold">{p.nombre}</div>
-                 </td>
+                    <div className="text-[10px] font-bold text-orange-600 uppercase font-mono">{(`${p.serie || 'P'}-${p[columnKey]}`).replace('P-P-', 'P-')}</div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="font-bold text-gray-800">{p.nombre}</div>
+                  </td>
                  <td className="px-6 py-4 text-sm font-medium text-gray-600">{p.clientes?.nombre}</td>
                  <td className="px-6 py-4 text-right font-mono font-bold text-gray-700">{formatCurrency(p.total || 0)}</td>
                  <td className="px-6 py-4 text-right font-mono font-bold text-blue-600">{formatCurrency(p.facturado || 0)}</td>

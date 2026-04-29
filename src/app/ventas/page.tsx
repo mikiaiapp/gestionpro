@@ -73,6 +73,7 @@ function VentasContent() {
     const mode = searchParams.get("mode");
     if (pId && mode === "avance" && !hasAutoInvoiced) {
       setSelectedProjId(pId);
+      setInvoicingMode('avance');
       setIsWizardOpen(true);
       setHasAutoInvoiced(true);
     }
@@ -1086,27 +1087,29 @@ function VentasContent() {
               </div>
 
               <div className="space-y-6">
-                <div className="grid grid-cols-2 gap-4">
-                   <button 
-                     onClick={() => { setInvoicingMode('manual'); setIsWizardOpen(false); setIsEditorOpen(true); }}
-                     className="flex flex-col items-center gap-4 p-8 rounded-[2rem] border-2 border-gray-100 hover:border-[var(--accent)] hover:bg-blue-50/30 transition-all group"
-                   >
-                     <div className="p-4 bg-gray-50 rounded-2xl text-gray-400 group-hover:bg-white group-hover:text-[var(--accent)] group-hover:shadow-md transition-all">
-                       <Plus size={32} />
-                     </div>
-                     <span className="font-black text-gray-800 uppercase text-[10px] tracking-widest">Manual</span>
-                   </button>
+                {!searchParams.get("mode") && (
+                  <div className="grid grid-cols-2 gap-4">
+                     <button 
+                       onClick={() => { setInvoicingMode('manual'); setIsWizardOpen(false); setIsEditorOpen(true); }}
+                       className="flex flex-col items-center gap-4 p-8 rounded-[2rem] border-2 border-gray-100 hover:border-[var(--accent)] hover:bg-blue-50/30 transition-all group"
+                     >
+                       <div className="p-4 bg-gray-50 rounded-2xl text-gray-400 group-hover:bg-white group-hover:text-[var(--accent)] group-hover:shadow-md transition-all">
+                         <Plus size={32} />
+                       </div>
+                       <span className="font-black text-gray-800 uppercase text-[10px] tracking-widest">Manual</span>
+                     </button>
 
-                   <button 
-                     onClick={() => setInvoicingMode('avance')}
-                     className={`flex flex-col items-center gap-4 p-8 rounded-[2rem] border-2 transition-all group ${invoicingMode === 'avance' ? 'border-[var(--accent)] bg-blue-50/30' : 'border-gray-100 hover:border-[var(--accent)] hover:bg-blue-50/30'}`}
-                   >
-                     <div className={`p-4 rounded-2xl transition-all ${invoicingMode === 'avance' ? 'bg-white text-[var(--accent)] shadow-md' : 'bg-gray-50 text-gray-400 group-hover:bg-white group-hover:text-[var(--accent)] group-hover:shadow-md'}`}>
-                       <FolderKanban size={32} />
-                     </div>
-                     <span className="font-black text-gray-800 uppercase text-[10px] tracking-widest">De Avance</span>
-                   </button>
-                </div>
+                     <button 
+                       onClick={() => setInvoicingMode('avance')}
+                       className={`flex flex-col items-center gap-4 p-8 rounded-[2rem] border-2 transition-all group ${invoicingMode === 'avance' ? 'border-[var(--accent)] bg-blue-50/30' : 'border-gray-100 hover:border-[var(--accent)] hover:bg-blue-50/30'}`}
+                     >
+                       <div className={`p-4 rounded-2xl transition-all ${invoicingMode === 'avance' ? 'bg-white text-[var(--accent)] shadow-md' : 'bg-gray-50 text-gray-400 group-hover:bg-white group-hover:text-[var(--accent)] group-hover:shadow-md'}`}>
+                         <FolderKanban size={32} />
+                       </div>
+                       <span className="font-black text-gray-800 uppercase text-[10px] tracking-widest">De Avance</span>
+                     </button>
+                  </div>
+                )}
 
                 {invoicingMode === 'avance' && (
                   <div className="space-y-6 animate-in slide-in-from-top-4 duration-300">
@@ -1121,7 +1124,7 @@ function VentasContent() {
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">% de Facturación (Avance)</label>
                       <div className="flex gap-3">
-                         {['25', '50', '75', '100'].map(v => (
+                         {['50', '40', '10'].map(v => (
                            <button 
                              key={v} 
                              onClick={() => setPct(v)}

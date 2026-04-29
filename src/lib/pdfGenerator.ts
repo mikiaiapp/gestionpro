@@ -124,8 +124,8 @@ export const generatePDF = async (data: PDFData) => {
   drawPageBackground();
   await drawPageBranding();
 
-  // Limpiar número (quitar título si viene incluido con " - ")
-  const displayNumero = data.numero.split(' - ')[0];
+  // Limpiar número (quitar título si viene incluido con " - ") y corregir posible duplicidad de prefijo P-P-
+  const displayNumero = data.numero.split(' - ')[0].replace('P-P-', 'P-');
 
   // Datos Emisor
   doc.setFont(FONT_FAMILY, 'bold');

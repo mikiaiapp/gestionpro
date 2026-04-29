@@ -300,7 +300,7 @@ const fetchProjectDocs = async () => {
       
       await generatePDF({
         tipo: 'PRESUPUESTO',
-        numero: `${p.serie || 'P'}-${refFinal}`,
+        numero: `${p.serie || 'P'}-${refFinal}`.replace('P-P-', 'P-'),
         fecha: p.fecha,
         cliente: {
           nombre: p.clientes?.nombre || 'Cliente Final',
