@@ -323,7 +323,8 @@ export default function CostesPage() {
               direccion: result.proveedor_direccion || "",
               cp: cpDetected,
               poblacion: geoData.poblacion,
-              provincia: geoData.provincia
+              provincia: geoData.provincia,
+              telefono: result.proveedor_telefono || ""
             });
             
             setIsModalOpen(false); // Asegurar que el principal está cerrado
@@ -381,6 +382,7 @@ export default function CostesPage() {
           codigo_postal: detectedProvider.cp,
           poblacion: detectedProvider.poblacion,
           provincia: detectedProvider.provincia,
+          telefono: detectedProvider.telefono,
           user_id: user.id
         }])
         .select().single();
@@ -796,6 +798,11 @@ export default function CostesPage() {
                       }
                     }} className="w-full p-4 rounded-xl border bg-gray-50 font-mono font-bold focus:ring-4 focus:ring-orange-500/10 outline-none transition-all" />
                   </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Teléfono</label>
+                  <input type="text" value={detectedProvider.telefono} onChange={(e) => setDetectedProvider({...detectedProvider, telefono: e.target.value})} className="w-full p-4 rounded-xl border bg-gray-50 focus:ring-4 focus:ring-orange-500/10 outline-none transition-all" />
                 </div>
 
                 <div className="space-y-1">

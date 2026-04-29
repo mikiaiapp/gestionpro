@@ -23,6 +23,8 @@ import { DataTableHeader } from '@/components/DataTableHeader';
 import { getFullLocationByCP } from '@/lib/geoData';
 import { cleanNIF } from '@/lib/format';
 import { Pagination } from "@/components/Pagination";
+import { exportEntitiesPDF, exportEntitiesExcel } from '@/lib/reportingService';
+import { Download } from 'lucide-react';
 
 export default function ClientesPage() {
   const [clientes, setClientes] = useState<any[]>([]);
@@ -30,6 +32,7 @@ export default function ClientesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [perfil, setPerfil] = useState<any>(null);
 
   // Sorting and Filtering State
   const [sortConfig, setSortConfig] = useState<SortConfig | null>({ key: 'nombre', direction: 'asc' });
@@ -51,7 +54,15 @@ export default function ClientesPage() {
 
   useEffect(() => {
     fetchClientes();
+    fetchPerfil();
   }, []);
+
+  const fetchPerfil = async () => {
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData.user) return;
+    const { data } = await supabase.from('perfil_negocio').select('*').eq('user_id', userData.user.id).maybeSingle();
+    setPerfil(data);
+  };
 
   // Lógica de Geolocalización Inteligente
   useEffect(() => {
@@ -292,12 +303,26 @@ export default function ClientesPage() {
             <h1 className="text-4xl font-black font-head tracking-tight text-[var(--foreground)]">Clientes</h1>
             <p className="text-[var(--muted)] font-medium">Gestión integral de tu cartera de clientes.</p>
           </div>
-          <button 
-            onClick={() => { clearForm(); setEditingId(null); setIsModalOpen(true); }}
-            className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 transition-all active:scale-[0.98] shadow-lg shadow-blue-600/20"
-          >
-            <Plus size={18} /> Nuevo Cliente
-          </button>
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => exportEntitiesPDF('clientes', filteredClientes, perfil)}
+              className="flex items-center gap-2 px-5 py-3 bg-white text-gray-700 border border-gray-200 font-bold rounded-2xl hover:bg-gray-50 transition-all active:scale-95 shadow-sm"
+            >
+              <Download size={18} /> PDF
+            </button>
+            <button 
+              onClick={() => exportEntitiesExcel('clientes', filteredClientes)}
+              className="flex items-center gap-2 px-5 py-3 bg-white text-green-700 border border-gray-200 font-bold rounded-2xl hover:bg-gray-50 transition-all active:scale-95 shadow-sm"
+            >
+              <Download size={18} /> Excel
+            </button>
+            <button 
+              onClick={() => { clearForm(); setEditingId(null); setIsModalOpen(true); }}
+              className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 transition-all active:scale-[0.98] shadow-lg shadow-blue-600/20"
+            >
+              <Plus size={18} /> Nuevo Cliente
+            </button>
+          </div>
         </header>
 
         {isModalOpen && (

@@ -410,3 +410,77 @@ export const generateProjectSummaryPDF = async (projects: any[], perfil: any) =>
 
     doc.save(`resumen_global_proyectos.pdf`);
 };
+
+export const exportEntitiesPDF = (type: 'clientes' | 'proveedores', data: any[], perfil: any) => {
+  const doc = new jsPDF('p', 'mm', 'a4');
+  applyCorporateStyle(doc);
+
+  const title = type === 'clientes' ? 'LISTADO DE CLIENTES' : 'LISTADO DE PROVEEDORES';
+  const PAGE_WIDTH = doc.internal.pageSize.getWidth();
+
+  if (perfil?.logo_url) {
+    try {
+      doc.addImage(perfil.logo_url, 'PNG', 14, 10, 30, 0);
+    } catch (e) {}
+  }
+
+  doc.setFontSize(16);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(31, 41, 55);
+  doc.text(title, perfil?.logo_url ? 50 : 14, 18);
+  
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(107, 114, 128);
+  doc.text(`Empresa: ${perfil?.nombre || ''}`, perfil?.logo_url ? 50 : 14, 25);
+  doc.text(`NIF: ${perfil?.nif || ''}`, perfil?.logo_url ? 50 : 14, 30);
+  doc.text(`Fecha Generación: ${new Date().toLocaleDateString()}`, PAGE_WIDTH - 14, 25, { align: 'right' });
+
+  doc.setDrawColor(229, 231, 235);
+  doc.line(14, 35, PAGE_WIDTH - 14, 35);
+
+  const tableData = data.map(item => [
+    item.nombre,
+    item.nif || '-',
+    item.email || '-',
+    item.telefono || '-',
+    `${item.poblacion || ''}${item.provincia ? `, ${item.provincia}` : ''}`
+  ]);
+
+  (doc as any).autoTable({
+    startY: 40,
+    head: [['Nombre / Razón Social', 'NIF', 'Email', 'Teléfono', 'Ubicación']],
+    body: tableData,
+    theme: 'grid',
+    headStyles: { fillColor: [17, 24, 39], textColor: 255, fontSize: 9 },
+    styles: { fontSize: 8, cellPadding: 3 },
+  });
+
+  doc.save(`Listado_${type}_${new Date().toISOString().split('T')[0]}.pdf`);
+};
+
+export const exportEntitiesExcel = (type: 'clientes' | 'proveedores', data: any[]) => {
+  const preparedData = data.map(item => ({
+    'Nombre / Razón Social': item.nombre,
+    'NIF': item.nif || '',
+    'Email': item.email || '',
+    'Teléfono': item.telefono || '',
+    'Dirección': item.direccion || '',
+    'CP': item.codigo_postal || '',
+    'Población': item.poblacion || '',
+    'Provincia': item.provincia || '',
+    'Fecha Alta': item.created_at ? new Date(item.created_at).toLocaleDateString() : ''
+  }));
+
+  const worksheet = XLSX.utils.json_to_sheet(preparedData);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, type.toUpperCase());
+  
+  const wscols = [
+    { wch: 35 }, { wch: 15 }, { wch: 25 }, { wch: 15 }, { wch: 30 },
+    { wch: 8 },  { wch: 20 }, { wch: 20 }, { wch: 12 }
+  ];
+  worksheet['!cols'] = wscols;
+
+  XLSX.writeFile(workbook, `Listado_${type}_${new Date().toISOString().split('T')[0]}.xlsx`);
+};

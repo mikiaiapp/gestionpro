@@ -48,6 +48,7 @@ export async function POST(req: Request) {
       "proveedor_nif": "NIF",
       "proveedor_direccion": "Dirección",
       "proveedor_cp": "CP",
+      "proveedor_telefono": "Teléfono si aparece",
       "num_factura": "Número",
       "fecha": "YYYY-MM-DD",
       "lineas": [

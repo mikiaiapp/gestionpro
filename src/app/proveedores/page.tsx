@@ -24,6 +24,8 @@ import { DataTableHeader } from '@/components/DataTableHeader';
 import { getFullLocationByCP } from '@/lib/geoData';
 import { cleanNIF } from '@/lib/format';
 import { Pagination } from "@/components/Pagination";
+import { exportEntitiesPDF, exportEntitiesExcel } from '@/lib/reportingService';
+import { Download } from 'lucide-react';
 
 export default function ProveedoresPage() {
   const [proveedores, setProveedores] = useState<any[]>([]);
@@ -32,6 +34,7 @@ export default function ProveedoresPage() {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [perfil, setPerfil] = useState<any>(null);
 
   // Sorting and Filtering State
   const [sortConfig, setSortConfig] = useState<SortConfig | null>({ key: 'nombre', direction: 'asc' });
@@ -47,12 +50,21 @@ export default function ProveedoresPage() {
   const [cp, setCp] = useState('');
   const [poblacion, setPoblacion] = useState('');
   const [provincia, setProvincia] = useState('');
+  const [telefono, setTelefono] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [nifError, setNifError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchProveedores();
+    fetchPerfil();
   }, []);
+
+  const fetchPerfil = async () => {
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData.user) return;
+    const { data } = await supabase.from('perfil_negocio').select('*').eq('user_id', userData.user.id).maybeSingle();
+    setPerfil(data);
+  };
 
   // Lógica de Geolocalización Inteligente Mejorada
   useEffect(() => {
@@ -158,6 +170,7 @@ export default function ProveedoresPage() {
         codigo_postal: cp, 
         poblacion,
         provincia,
+        telefono,
         user_id: user.id
       };
 
@@ -197,6 +210,7 @@ export default function ProveedoresPage() {
     setCp(p.codigo_postal || ''); // Mapeado desde codigo_postal
     setPoblacion(p.poblacion || '');
     setProvincia(p.provincia || '');
+    setTelefono(p.telefono || '');
     setIsModalOpen(true);
     setOpenMenuId(null);
   };
@@ -209,6 +223,7 @@ export default function ProveedoresPage() {
     setCp('');
     setPoblacion('');
     setProvincia('');
+    setTelefono('');
     setNifError(null);
   };
 
@@ -298,12 +313,26 @@ export default function ProveedoresPage() {
             <h1 className="text-4xl font-black font-head tracking-tight text-[var(--foreground)]">Proveedores</h1>
             <p className="text-[var(--muted)] font-medium">Gestión de suministros y subcontratas.</p>
           </div>
-          <button 
-            onClick={() => { clearForm(); setEditingId(null); setIsModalOpen(true); }}
-            className="flex items-center gap-2 px-6 py-3 bg-orange-600 text-white font-bold rounded-2xl hover:bg-orange-700 transition-all active:scale-[0.98] shadow-lg shadow-orange-600/20"
-          >
-            <Plus size={18} /> Nuevo Proveedor
-          </button>
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => exportEntitiesPDF('proveedores', filteredProveedores, perfil)}
+              className="flex items-center gap-2 px-5 py-3 bg-white text-gray-700 border border-gray-200 font-bold rounded-2xl hover:bg-gray-50 transition-all active:scale-95 shadow-sm"
+            >
+              <Download size={18} /> PDF
+            </button>
+            <button 
+              onClick={() => exportEntitiesExcel('proveedores', filteredProveedores)}
+              className="flex items-center gap-2 px-5 py-3 bg-white text-green-700 border border-gray-200 font-bold rounded-2xl hover:bg-gray-50 transition-all active:scale-95 shadow-sm"
+            >
+              <Download size={18} /> Excel
+            </button>
+            <button 
+              onClick={() => { clearForm(); setEditingId(null); setIsModalOpen(true); }}
+              className="flex items-center gap-2 px-6 py-3 bg-orange-600 text-white font-bold rounded-2xl hover:bg-orange-700 transition-all active:scale-[0.98] shadow-lg shadow-orange-600/20"
+            >
+              <Plus size={18} /> Nuevo Proveedor
+            </button>
+          </div>
         </header>
 
         {isModalOpen && (
@@ -345,6 +374,11 @@ export default function ProveedoresPage() {
                     <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Email</label>
                     <input type="email" placeholder="email@ejemplo.com" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full p-4 rounded-2xl border bg-gray-50 outline-none" />
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Teléfono de Contacto</label>
+                  <input type="text" placeholder="+34 000 000 000" value={telefono} onChange={(e) => setTelefono(e.target.value)} className="w-full p-4 rounded-2xl border bg-gray-50 outline-none" />
                 </div>
 
                 <div className="space-y-5 pt-4 border-t border-dashed">
@@ -419,7 +453,13 @@ export default function ProveedoresPage() {
                         <div className="font-black text-gray-800 text-lg tracking-tight mb-1 group-hover:text-orange-600 transition-colors">{p.nombre}</div>
                         <div className="text-xs text-gray-400 font-medium flex items-center gap-2">
                            <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
-                           {p.email || 'Sin correo electrónico asignado'}
+                           {p.email || 'Sin correo electrónico'}
+                           {p.telefono && (
+                             <>
+                               <span className="w-1 h-1 rounded-full bg-gray-300"></span>
+                               <span className="text-gray-500">{p.telefono}</span>
+                             </>
+                           )}
                         </div>
                       </td>
                       <td className="px-10 py-6">

@@ -709,7 +709,8 @@ export default function AjustesClient() {
               direccion: firstRow.proveedor_direccion || '',
               codigo_postal: firstRow.proveedor_cp || '',
               poblacion: firstRow.proveedor_poblacion || '',
-              provincia: firstRow.proveedor_provincia || ''
+              provincia: firstRow.proveedor_provincia || '',
+              telefono: firstRow.proveedor_telefono || firstRow.telefono || ''
             }).select('id').single();
             
             if (pErr) throw new Error(`Error creando proveedor: ${pErr.message}`);
@@ -896,6 +897,10 @@ export default function AjustesClient() {
         proveedor_cp: '28001',
         proveedor_poblacion: 'Madrid',
         proveedor_provincia: 'Madrid',
+<<<<<<< HEAD
+=======
+        proveedor_telefono: '600000000',
+>>>>>>> f17a877 (Enhancement: Added telephone field to providers and export to PDF/Excel for clients and providers)
         concepto: 'Compra de materiales oficina',
         base_imponible: 100.50,
         iva_pct: 21,
