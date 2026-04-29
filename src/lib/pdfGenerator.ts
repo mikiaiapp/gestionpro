@@ -192,8 +192,20 @@ export const generatePDF = async (data: PDFData) => {
 
   // Tabla Simplificada (Descripción e Importe)
   const tableHead = [['DESCRIPCIÓN / CONCEPTO', 'IMPORTE']];
+  
+  // Limpiamos el texto para que autotable calcule bien la altura, 
+  // pero mantendremos las líneas nuevas para que el espacio sea correcto.
+  const cleanForHeight = (html: string) => {
+    return (html || "")
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/p>/gi, '\n')
+      .replace(/<p>/gi, '')
+      .replace(/<[^>]*>?/gm, '')
+      .trim();
+  };
+
   const tableBody = data.lineas.map(l => [
-    l.descripcion,
+    cleanForHeight(l.descripcion),
     formatCurrency(l.precio_unitario || 0)
   ]);
 
@@ -220,25 +232,29 @@ export const generatePDF = async (data: PDFData) => {
       0: { cellWidth: 'auto' },
       1: { halign: 'right', cellWidth: 40, fontStyle: 'bold' }
     },
-    didDrawCell: (data: any) => {
-      // Si es la columna de descripción y tiene HTML
-      if (data.section === 'body' && data.column.index === 0 && data.cell.raw.includes('<')) {
-        // Limpiamos el texto que puso autotable por defecto
-        doc.setFillColor(BG_COLOR[0], BG_COLOR[1], BG_COLOR[2]);
-        doc.rect(data.cell.x + 0.5, data.cell.y + 0.5, data.cell.width - 1, data.cell.height - 1, 'F');
+    didDrawCell: (cellData: any) => {
+      // Si es la columna de descripción (index 0)
+      if (cellData.section === 'body' && cellData.column.index === 0) {
+        // Obtenemos el texto original (con HTML)
+        const rawHtml = data.lineas[cellData.row.index].descripcion;
         
-        // Renderizamos con formato
+        // Limpiamos el fondo del texto que puso autotable por defecto
+        doc.setFillColor(BG_COLOR[0], BG_COLOR[1], BG_COLOR[2]);
+        doc.rect(cellData.cell.x + 0.5, cellData.cell.y + 0.5, cellData.cell.width - 1, cellData.cell.height - 1, 'F');
+        
+        // Renderizamos con formato enriquecido y JUSTIFICADO
         renderRichText(
           doc, 
-          data.cell.raw, 
-          data.cell.x + 4, 
-          data.cell.y + 7, 
-          data.cell.width - 8, 
+          rawHtml, 
+          cellData.cell.x + 4, 
+          cellData.cell.y + 6.5, // Un poco más arriba para mejor centrado visual
+          cellData.cell.width - 8, 
           9.5, 
           FONT_FAMILY, 
-          4.5, 
-          false, 
-          MARGIN
+          4.2, // Line height ligeramente más ajustado para tablas
+          true, // JUSTIFICACIÓN ACTIVADA
+          MARGIN,
+          0.5 // Menor espacio entre párrafos en tablas
         );
       }
     }
@@ -492,7 +508,8 @@ const renderRichText = (
   fontFamily: string,
   lineHeight: number = 4.8,
   justify: boolean = true,
-  pageMargin: number = 14
+  pageMargin: number = 14,
+  paragraphGap: number = 1.5
 ): number => {
   doc.setFontSize(fontSize);
   const PAGE_HEIGHT = doc.internal.pageSize.getHeight();
@@ -637,7 +654,7 @@ const renderRichText = (
 
     // Renderizar la última línea del párrafo
     renderLine(lineTokens, true);
-    currentY += 1.5; // Espacio extra entre párrafos
+    currentY += paragraphGap; // Espacio extra entre párrafos configurable
   }
   
   return currentY;
