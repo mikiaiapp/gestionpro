@@ -897,10 +897,7 @@ export default function AjustesClient() {
         proveedor_cp: '28001',
         proveedor_poblacion: 'Madrid',
         proveedor_provincia: 'Madrid',
-<<<<<<< HEAD
-=======
         proveedor_telefono: '600000000',
->>>>>>> f17a877 (Enhancement: Added telephone field to providers and export to PDF/Excel for clients and providers)
         concepto: 'Compra de materiales oficina',
         base_imponible: 100.50,
         iva_pct: 21,
