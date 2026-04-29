@@ -2,8 +2,9 @@
 
 import React, { useEffect, useState } from "react";
 import { Sidebar } from "@/components/Sidebar";
-import { Activity, Search, Loader2, TrendingUp, TrendingDown, Target, Building2, FileText, X, Receipt } from "lucide-react";
+import { Activity, Search, Loader2, TrendingUp, TrendingDown, Target, Building2, FileText, X, Receipt, ChevronDown } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
 import { generatePDF } from "@/lib/pdfGenerator";
 import { formatCurrency } from "@/lib/format";
 import { exportProjectSummaryPDF } from "@/lib/reportingService";
@@ -24,6 +25,7 @@ export default function ResumenPage() {
   const [selectedProject, setSelectedProject] = useState<any>(null);
   const [details, setDetails] = useState<ResumenDetails>({ventas: [], costes: [], cobros: [], pagos: []});
   const [loadingDetails, setLoadingDetails] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     fetchResumen();
@@ -190,20 +192,35 @@ export default function ResumenPage() {
     <div className="flex bg-[var(--background)] min-h-screen text-left">
       <Sidebar />
       <div className="flex-1 p-8 overflow-y-auto">
-        <header className="flex justify-between items-center mb-10">
+        <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-10">
           <div>
-            <h1 className="text-3xl font-bold font-head tracking-tight mb-1 text-[var(--foreground)]">Resumen de Presupuestos</h1>
-            <p className="text-[var(--muted)] font-medium">Análisis de rentabilidad y márgenes de beneficio por obra.</p>
+            <div className="flex items-center gap-2 mb-1">
+               <h1 className="text-2xl md:text-3xl font-bold font-head tracking-tight text-[var(--foreground)]">Resumen de Presupuestos</h1>
+               <div className="md:hidden relative">
+                  <select 
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                    value="/resumen"
+                    onChange={(e) => router.push(e.target.value)}
+                  >
+                    <option value="/resumen">Resumen</option>
+                    <option value="/kpi">KPIs</option>
+                  </select>
+                  <div className="p-1.5 bg-gray-100 rounded-lg text-gray-500">
+                    <ChevronDown size={16} />
+                  </div>
+               </div>
+            </div>
+            <p className="text-[var(--muted)] font-medium text-sm">Análisis de rentabilidad y márgenes de beneficio por obra.</p>
           </div>
-          <div className="flex items-center gap-4">
-             <button onClick={exportPDF} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white border border-[var(--border)] text-gray-700 font-bold hover:shadow-md transition-all active:scale-95">
-               <FileText size={18} className="text-red-500" /> Informe PDF
+          <div className="flex items-center gap-3 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
+             <button onClick={exportPDF} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-[var(--border)] text-gray-700 font-bold hover:shadow-md transition-all active:scale-95 whitespace-nowrap">
+               <FileText size={18} className="text-red-500" /> <span className="hidden sm:inline">Informe PDF</span>
              </button>
-             <div className="h-10 w-px bg-gray-200"></div>
-             <Target className="text-[var(--accent)]" size={24} />
-             <div className="text-right">
-                <div className="text-[10px] font-bold text-[var(--muted)] uppercase">Global Margen Medio</div>
-                <div className="text-xl font-bold text-[var(--foreground)]">
+             <div className="h-8 w-px bg-gray-200 hidden sm:block"></div>
+             <Target className="text-[var(--accent)] shrink-0" size={24} />
+             <div className="text-right whitespace-nowrap">
+                <div className="text-[9px] font-bold text-[var(--muted)] uppercase">Global Margen</div>
+                <div className="text-lg font-bold text-[var(--foreground)]">
                    {globalMargenMedio}%
                 </div>
              </div>

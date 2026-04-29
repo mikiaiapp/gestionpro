@@ -10,8 +10,9 @@ import {
 } from "recharts";
 import {
   TrendingUp, TrendingDown, Wallet, AlertCircle, Users, Loader2,
-  CheckCircle2, Clock, BarChart3, ArrowUpRight, ArrowDownRight
+  CheckCircle2, Clock, BarChart3, ArrowUpRight, ArrowDownRight, ChevronDown
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 const MONTHS_ES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
 const COLORS = ["#3b82f6","#f97316","#10b981","#8b5cf6","#ec4899"];
@@ -60,6 +61,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export default function KPIPage() {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [ventas, setVentas] = useState<any[]>([]);
   const [costes, setCostes] = useState<any[]>([]);
@@ -172,16 +174,31 @@ export default function KPIPage() {
       <div className="flex-1 p-4 md:p-8 space-y-6 animate-in fade-in duration-500 overflow-y-auto pb-24 lg:pb-8">
 
         {/* Header */}
-        <header className="flex items-center justify-between p-6 bg-white border shadow-sm rounded-2xl">
-          <div>
-            <h1 className="text-3xl md:text-4xl font-black font-head tracking-tight text-[var(--foreground)]">
-              Dashboard KPIs
-            </h1>
-            <p className="text-[var(--muted)] font-medium text-sm mt-1">
+        <header className="flex flex-col md:flex-row items-start md:items-center justify-between p-6 bg-white border shadow-sm rounded-2xl gap-4">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-1">
+               <h1 className="text-2xl md:text-3xl font-black font-head tracking-tight text-[var(--foreground)]">
+                 Dashboard KPIs
+               </h1>
+               <div className="md:hidden relative">
+                  <select 
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                    value="/kpi"
+                    onChange={(e) => router.push(e.target.value)}
+                  >
+                    <option value="/resumen">Resumen</option>
+                    <option value="/kpi">KPIs</option>
+                  </select>
+                  <div className="p-1.5 bg-gray-100 rounded-lg text-gray-500">
+                    <ChevronDown size={16} />
+                  </div>
+               </div>
+            </div>
+            <p className="text-[var(--muted)] font-medium text-sm">
               Análisis financiero de tu negocio en tiempo real
             </p>
           </div>
-          <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center">
+          <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center shrink-0">
             <BarChart3 className="text-blue-600" size={24} />
           </div>
         </header>
